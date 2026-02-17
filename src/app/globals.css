@@ -95,6 +95,34 @@
   animation: meter-spin 0.6s linear infinite;
 }
 
+/* Thinking shimmer — sweeping shine across text */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.thinking-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.3) 0%,
+    rgba(255,255,255,0.7) 50%,
+    rgba(255,255,255,0.3) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Meter ticking — subtle pulse on cost digits */
+@keyframes meter-tick {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.meter-ticking {
+  animation: meter-tick 0.15s ease-out;
+}
+
 /* Hide Next.js error overlay portal */
 nextjs-portal {
   display: none !important;

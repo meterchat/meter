@@ -9,44 +9,52 @@ export interface ModelConfig {
 
 export const MODELS: ModelConfig[] = [
   {
-    id: "anthropic/claude-opus-4.6",
-    name: "Claude Opus",
+    id: "auto",
+    name: "Auto",
+    provider: "Meter",
+    color: "#A1A1AA",
+    inputPrice: 3.0 / 1_000_000,
+    outputPrice: 15.0 / 1_000_000,
+  },
+  {
+    id: "anthropic/claude-sonnet-4",
+    name: "Sonnet 4",
     provider: "Anthropic",
     color: "#D97757",
-    inputPrice: 5.5 / 1_000_000,
-    outputPrice: 27.5 / 1_000_000,
+    inputPrice: 3.0 / 1_000_000,
+    outputPrice: 15.0 / 1_000_000,
   },
   {
-    id: "openai/gpt-5.2",
-    name: "GPT-5.2",
+    id: "anthropic/claude-opus-4",
+    name: "Opus 4",
+    provider: "Anthropic",
+    color: "#D97757",
+    inputPrice: 15.0 / 1_000_000,
+    outputPrice: 75.0 / 1_000_000,
+  },
+  {
+    id: "openai/gpt-4.1",
+    name: "GPT-4.1",
     provider: "OpenAI",
     color: "#10A37F",
-    inputPrice: 1.925 / 1_000_000,
-    outputPrice: 15.4 / 1_000_000,
+    inputPrice: 2.0 / 1_000_000,
+    outputPrice: 8.0 / 1_000_000,
   },
   {
-    id: "google/gemini-3-pro-preview",
-    name: "Gemini 3 Pro",
+    id: "google/gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
     provider: "Google",
     color: "#4285F4",
-    inputPrice: 2.2 / 1_000_000,
-    outputPrice: 13.2 / 1_000_000,
+    inputPrice: 1.25 / 1_000_000,
+    outputPrice: 10.0 / 1_000_000,
   },
   {
     id: "deepseek/deepseek-chat-v3-0324",
     name: "DeepSeek V3",
     provider: "DeepSeek",
     color: "#4D6BFE",
-    inputPrice: 0.33 / 1_000_000,
-    outputPrice: 0.968 / 1_000_000,
-  },
-  {
-    id: "moonshotai/kimi-k2",
-    name: "Kimi K2",
-    provider: "Moonshot",
-    color: "#6C5CE7",
-    inputPrice: 0.66 / 1_000_000,
-    outputPrice: 2.64 / 1_000_000,
+    inputPrice: 0.27 / 1_000_000,
+    outputPrice: 1.10 / 1_000_000,
   },
 ];
 
@@ -54,4 +62,8 @@ export const DEFAULT_MODEL = MODELS[0];
 
 export function getModel(id: string): ModelConfig {
   return MODELS.find((m) => m.id === id) ?? DEFAULT_MODEL;
+}
+
+export function shortModelName(id: string): string {
+  return getModel(id).name;
 }

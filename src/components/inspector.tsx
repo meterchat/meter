@@ -1,11 +1,6 @@
 "use client";
 
-import { useMeterStore } from "@/lib/store";
-import { txExplorerUrl, tempoModerato } from "@/lib/tempo";
-import { useState, useEffect, useCallback } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { createPublicClient, http, formatUnits } from "viem";
-import { PATHUSD_ADDRESS, PATHUSD_DECIMALS, TIP20_ABI } from "@/lib/tempo";
+import { useMeterStore, ChatMessage } from "@/lib/store";
 
 export function Inspector() {
   const {
@@ -13,48 +8,30 @@ export function Inspector() {
     setInspectorOpen,
     inspectorTab,
     setInspectorTab,
-    sessionId,
-    sessionStart,
-    totalTokensIn,
-    totalTokensOut,
-    totalCost,
-    burnRate,
-    maxSpend,
-    setMaxSpend,
-    settlements,
-    events,
-    sessionKeyAddress,
-    revoke,
+    projects,
+    activeProjectId,
+    spendingCap,
+    setSpendingCap,
+    spendingCapEnabled,
+    setSpendingCapEnabled,
+    email,
+    logout,
   } = useMeterStore();
 
-  const [elapsed, setElapsed] = useState(0);
-  const { logout } = usePrivy();
-
-  useEffect(() => {
-    if (!inspectorOpen) return;
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - sessionStart) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [inspectorOpen, sessionStart]);
-
-  const capRemaining = Math.max(0, maxSpend - totalCost);
-  const settlementInterval = 30;
-  const nextSettlement = settlementInterval - (elapsed % settlementInterval);
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
 
   if (!inspectorOpen) return null;
 
-  const tabs = ["wallet", "telemetry", "ledger", "permissions", "hooks"] as const;
+  const tabs = ["usage", "purchases", "settings"] as const;
 
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-40" onClick={() => setInspectorOpen(false)} />
       <div className="fixed right-0 top-0 h-screen w-[380px] border-l border-border bg-card flex flex-col z-50">
         {/* Header */}
         <div className="flex h-12 items-center justify-between border-b border-border px-4">
           <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-            Session Meter Console
+            Meter
           </span>
           <button
             onClick={() => setInspectorOpen(false)}
@@ -73,7 +50,7 @@ export function Inspector() {
             <button
               key={tab}
               onClick={() => setInspectorTab(tab)}
-              className={`flex-1 py-2 font-mono text-[10px] uppercase tracking-wider transition-colors ${
+              className={`flex-1 py-2.5 font-mono text-[10px] uppercase tracking-wider transition-colors ${
                 inspectorTab === tab
                   ? "text-foreground border-b border-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -86,32 +63,29 @@ export function Inspector() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {inspectorTab === "wallet" && <WalletTab />}
-          {inspectorTab === "telemetry" && (
-            <TelemetryTab
-              sessionId={sessionId}
-              elapsed={elapsed}
-              totalTokensIn={totalTokensIn}
-              totalTokensOut={totalTokensOut}
-              totalCost={totalCost}
-              burnRate={burnRate}
-              capRemaining={capRemaining}
-              maxSpend={maxSpend}
-              nextSettlement={nextSettlement}
+          {inspectorTab === "usage" && (
+            <UsageTab
+              todayCost={activeProject?.todayCost ?? 0}
+              todayTokensIn={activeProject?.todayTokensIn ?? 0}
+              todayTokensOut={activeProject?.todayTokensOut ?? 0}
+              todayMessageCount={activeProject?.todayMessageCount ?? 0}
+              todayByModel={activeProject?.todayByModel ?? {}}
+              spendingCap={spendingCap}
+              spendingCapEnabled={spendingCapEnabled}
+              messages={activeProject?.messages ?? []}
+              email={email}
             />
           )}
-          {inspectorTab === "ledger" && <LedgerTab settlements={settlements} />}
-          {inspectorTab === "permissions" && (
-            <PermissionsTab
-              sessionId={sessionId}
-              maxSpend={maxSpend}
-              setMaxSpend={setMaxSpend}
-              capRemaining={capRemaining}
-              sessionKeyAddress={sessionKeyAddress}
-              onRevoke={revoke}
+          {inspectorTab === "purchases" && <PurchasesTab />}
+          {inspectorTab === "settings" && (
+            <SettingsTab
+              email={email}
+              spendingCap={spendingCap}
+              spendingCapEnabled={spendingCapEnabled}
+              setSpendingCapEnabled={setSpendingCapEnabled}
+              setSpendingCap={setSpendingCap}
             />
           )}
-          {inspectorTab === "hooks" && <HooksTab events={events} />}
         </div>
 
         {/* Sign out */}
@@ -128,405 +102,260 @@ export function Inspector() {
   );
 }
 
-function StatRow({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-1.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={`text-xs text-foreground ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className="text-xs text-foreground font-mono">{value}</span>
     </div>
   );
 }
 
-/* ─── WALLET TAB ─── */
-function WalletTab() {
-  const { wallets } = useWallets();
-  const connectedWallet = wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0];
-  const address = connectedWallet?.address;
-  const [balance, setBalance] = useState<string | null>(null);
-  const [gasBalance, setGasBalance] = useState<string | null>(null);
-  const [faucetLoading, setFaucetLoading] = useState(false);
-  const [faucetMsg, setFaucetMsg] = useState<string | null>(null);
-  const addEvent = useMeterStore((s) => s.addEvent);
-
-  const fetchBalances = useCallback(async () => {
-    if (!address) return;
-      try {
-        const client = createPublicClient({ chain: tempoModerato, transport: http() });
-        const raw = await client.readContract({
-          address: PATHUSD_ADDRESS,
-          abi: TIP20_ABI,
-          functionName: "balanceOf",
-          args: [address as `0x${string}`],
-        });
-        const num = Number(formatUnits(raw as bigint, PATHUSD_DECIMALS));
-        setBalance(num.toFixed(2));
-        setGasBalance(num.toFixed(2)); // On Tempo, pathUSD pays for gas too
-      } catch {
-        setBalance("0.00");
-        setGasBalance("0.00");
-      }
-  }, [address]);
-
-  useEffect(() => {
-    fetchBalances();
-    const interval = setInterval(fetchBalances, 10000);
-    return () => clearInterval(interval);
-  }, [fetchBalances]);
-
-  const handleFaucet = async () => {
-    if (!address) return;
-    setFaucetLoading(true);
-    setFaucetMsg(null);
-    try {
-      const res = await fetch("/api/faucet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setFaucetMsg("Tokens sent!");
-        addEvent("tick", "Faucet: testnet tokens received");
-        setTimeout(fetchBalances, 2000);
-      } else {
-        setFaucetMsg(data.error || "Faucet failed");
-      }
-    } catch {
-      setFaucetMsg("Faucet request failed");
-    } finally {
-      setFaucetLoading(false);
-    }
-  };
-
-  const handleAddToWallet = async () => {
-    if (!connectedWallet) return;
-    try {
-      const provider = await connectedWallet.getEthereumProvider();
-      await provider.request({
-        method: "wallet_addEthereumChain",
-        params: [
-          {
-            chainId: `0x${tempoModerato.id.toString(16)}`,
-            chainName: tempoModerato.name,
-            nativeCurrency: tempoModerato.nativeCurrency,
-            rpcUrls: [tempoModerato.rpcUrls.default.http[0]],
-            blockExplorerUrls: [tempoModerato.blockExplorers.default.url],
-          },
-        ],
-      });
-    } catch {
-      // user rejected or already added
-    }
-  };
-
-    return (
-      <div className="flex flex-col gap-4">
-        {/* Connected wallet address with green dot */}
-        <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2.5">
-          <span className="h-2 w-2 rounded-full bg-green-400 shrink-0" />
-          <span className="font-mono text-xs text-foreground truncate">{address || "—"}</span>
-        </div>
-
-        {/* Tempo Balances */}
-        <div>
-          <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-            Tempo Balances
-          </div>
-          <StatRow label="pathUSD" value={balance !== null ? `$${balance}` : "..."} />
-          <StatRow label="Gas (pathUSD)" value={gasBalance !== null ? `$${gasBalance}` : "..."} />
-        </div>
-
-        <div className="h-px bg-border" />
-
-        {/* Actions */}
-        <div>
-          <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-            Actions
-          </div>
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={handleAddToWallet}
-              className="w-full rounded-lg border border-border py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5"
-            >
-              Add Tempo to Wallet
-            </button>
-            <button
-              onClick={handleFaucet}
-              disabled={faucetLoading}
-              className="w-full rounded-lg border border-border py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5 disabled:opacity-40"
-            >
-              {faucetLoading ? "Requesting..." : "Get Testnet Tokens"}
-            </button>
-            {faucetMsg && (
-              <span className="font-mono text-[10px] text-muted-foreground/60 text-center">{faucetMsg}</span>
-            )}
-          </div>
-        </div>
-
-        <div className="h-px bg-border" />
-
-        {/* Network */}
-        <div>
-          <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-            Network
-          </div>
-          <StatRow label="Chain" value={tempoModerato.name} />
-          <StatRow label="Chain ID" value={tempoModerato.id.toString()} />
-          <StatRow label="RPC" value={tempoModerato.rpcUrls.default.http[0].replace("https://", "")} />
-        </div>
-      </div>
-    );
-}
-
-/* ─── TELEMETRY TAB ─── */
-function TelemetryTab({
-  sessionId,
-  elapsed,
-  totalTokensIn,
-  totalTokensOut,
-  totalCost,
-  burnRate,
-  capRemaining,
-  maxSpend,
-  nextSettlement,
+/* ─── USAGE TAB ─── */
+function UsageTab({
+  todayCost,
+  todayTokensIn,
+  todayTokensOut,
+  todayMessageCount,
+  todayByModel,
+  spendingCap,
+  spendingCapEnabled,
+  messages,
+  email,
 }: {
-  sessionId: string;
-  elapsed: number;
-  totalTokensIn: number;
-  totalTokensOut: number;
-  totalCost: number;
-  burnRate: number;
-  capRemaining: number;
-  maxSpend: number;
-  nextSettlement: number;
+  todayCost: number;
+  todayTokensIn: number;
+  todayTokensOut: number;
+  todayMessageCount: number;
+  todayByModel: Record<string, { cost: number; count: number }>;
+  spendingCap: number;
+  spendingCapEnabled: boolean;
+  messages: ChatMessage[];
+  email: string | null;
 }) {
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
+  const settledCount = messages.filter((m) => m.role === "assistant" && m.settled).length;
+  const pendingCount = messages.filter((m) => m.role === "assistant" && m.cost !== undefined && !m.settled).length;
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Today's spend */}
       <div>
         <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Session
+          Today
         </div>
-        <StatRow label="ID" value={sessionId} />
-        <StatRow label="Elapsed" value={formatTime(elapsed)} />
-      </div>
-
-      <div className="h-px bg-border" />
-
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Token Flow
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="font-mono text-2xl text-foreground">${todayCost.toFixed(2)}</span>
+          {spendingCapEnabled && (
+            <span className="font-mono text-[10px] text-muted-foreground/40">
+              of ${spendingCap.toFixed(0)} cap
+            </span>
+          )}
         </div>
-        <StatRow label="Tokens In" value={totalTokensIn.toLocaleString()} />
-        <StatRow label="Tokens Out" value={totalTokensOut.toLocaleString()} />
-        <StatRow label="Total" value={(totalTokensIn + totalTokensOut).toLocaleString()} />
-      </div>
-
-      <div className="h-px bg-border" />
-
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Billing
-        </div>
-        <StatRow label="Spent" value={`$${totalCost.toFixed(6)}`} />
-        <StatRow label="Burn Rate" value={`$${burnRate.toFixed(6)}/s`} />
-        <StatRow label="Cap" value={`$${maxSpend.toFixed(2)}`} />
-        <StatRow label="Remaining" value={`$${capRemaining.toFixed(6)}`} />
-      </div>
-
-      <div className="h-px bg-border" />
-
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Settlement
-        </div>
-        <StatRow label="Next Settlement" value={`${nextSettlement}s`} />
-      </div>
-
-      {/* Spend bar */}
-      <div className="mt-2">
         <div className="h-1 w-full rounded-full bg-border overflow-hidden">
           <div
             className="h-full rounded-full bg-foreground/40 transition-all duration-300"
-            style={{ width: `${Math.min(100, (totalCost / maxSpend) * 100)}%` }}
+            style={{ width: `${Math.min(100, (todayCost / Math.max(spendingCap, 1)) * 100)}%` }}
           />
         </div>
-        <div className="flex justify-between mt-1">
-          <span className="font-mono text-[9px] text-muted-foreground/40">$0</span>
-          <span className="font-mono text-[9px] text-muted-foreground/40">${maxSpend.toFixed(2)}</span>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      {/* Stats */}
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Activity
         </div>
+        <StatRow label="Messages" value={todayMessageCount.toString()} />
+        <StatRow label="Tokens In" value={todayTokensIn.toLocaleString()} />
+        <StatRow label="Tokens Out" value={todayTokensOut.toLocaleString()} />
+        <StatRow label="Settled" value={settledCount.toString()} />
+        <StatRow label="Pending" value={pendingCount.toString()} />
       </div>
-    </div>
-  );
-}
 
-/* ─── LEDGER TAB ─── */
-function LedgerTab({ settlements }: { settlements: ReturnType<typeof useMeterStore.getState>["settlements"] }) {
-  if (settlements.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 gap-2">
-        <span className="font-mono text-xs text-muted-foreground/60">No settlements yet</span>
-        <span className="font-mono text-[10px] text-muted-foreground/40">
-          Settlements appear here after each response
-        </span>
-      </div>
-    );
-  }
+      <div className="h-px bg-border" />
 
-  return (
-    <div className="flex flex-col gap-3">
-      {settlements.map((s) => (
-        <div key={s.id} className="rounded-lg border border-border p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span
-              className={`font-mono text-[10px] uppercase ${
-                s.status === "settled"
-                  ? "text-green-400"
-                  : s.status === "failed"
-                  ? "text-red-400"
-                  : "text-yellow-400"
-              }`}
-            >
-              {s.status}
-            </span>
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {new Date(s.timestamp).toLocaleTimeString()}
-            </span>
+      {/* By model */}
+      {Object.keys(todayByModel).length > 0 && (
+        <div>
+          <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+            By Model
           </div>
-          <StatRow label="Amount" value={`$${s.amount.toFixed(6)}`} />
-          <StatRow label="Tokens" value={`${s.tokensIn} in / ${s.tokensOut} out`} />
-          <div className="mt-1">
-            {s.txHash ? (
-              <a
-                href={txExplorerUrl(s.txHash)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[9px] text-blue-400/70 hover:text-blue-400 font-mono break-all transition-colors"
-              >
-                tx: {s.txHash}
-              </a>
-            ) : (
-              <span className="text-[9px] text-muted-foreground/40 font-mono">
-                tx: awaiting...
+          {Object.entries(todayByModel).map(([model, data]) => (
+            <div key={model} className="flex items-center justify-between py-1.5">
+              <span className="text-xs text-muted-foreground">{model}</span>
+              <span className="text-xs text-foreground font-mono">
+                ${data.cost.toFixed(2)} &middot; {data.count} msgs
               </span>
-            )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="h-px bg-border" />
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Payment Method
+        </div>
+        <div className="rounded-lg border border-border p-3 flex items-center gap-3">
+          <div className="h-8 w-12 rounded bg-foreground/10 flex items-center justify-center">
+            <svg width="20" height="14" viewBox="0 0 24 16" fill="none" className="text-muted-foreground">
+              <rect x="1" y="1" width="22" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+              <line x1="1" y1="5" x2="23" y2="5" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
           </div>
-          <div className="mt-0.5">
-            <span className="text-[9px] text-muted-foreground/40 font-mono">
-              memo: meter:{s.sessionId}
-            </span>
+          <div>
+            <span className="text-xs text-foreground font-mono">&bull;&bull;&bull;&bull; 4242</span>
+            <span className="block text-[10px] text-muted-foreground/50">{email ?? "account"}</span>
           </div>
         </div>
-      ))}
+      </div>
     </div>
   );
 }
 
-/* ─── PERMISSIONS TAB ─── */
-function PermissionsTab({
-  sessionId,
-  maxSpend,
-  setMaxSpend,
-  capRemaining,
-  sessionKeyAddress,
-  onRevoke,
+/* ─── SETTINGS TAB ─── */
+function SettingsTab({
+  email,
+  spendingCap,
+  setSpendingCap,
+  spendingCapEnabled,
+  setSpendingCapEnabled,
 }: {
-  sessionId: string;
-  maxSpend: number;
-  setMaxSpend: (v: number) => void;
-  capRemaining: number;
-  sessionKeyAddress: string | null;
-  onRevoke: () => void;
+  email: string | null;
+  spendingCap: number;
+  spendingCapEnabled: boolean;
+  setSpendingCapEnabled: (v: boolean) => void;
+  setSpendingCap: (v: number) => void;
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
         <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Session Key
+          Account
         </div>
-        <StatRow label="Address" value={sessionKeyAddress ? `${sessionKeyAddress.slice(0, 6)}...${sessionKeyAddress.slice(-4)}` : "—"} />
-        <StatRow label="Session" value={sessionId} />
-        <StatRow label="Scope" value="chat:read, chat:write" />
+        <StatRow label="Email" value={email ?? "—"} />
       </div>
 
       <div className="h-px bg-border" />
 
       <div>
         <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Spend Cap
+          Daily Spending Cap
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Max:</span>
-          <div className="flex items-center gap-1">
-            <span className="font-mono text-xs text-foreground">$</span>
+        <label className="mb-2 flex items-center gap-2 font-mono text-[10px] text-muted-foreground/80">
+          <input
+            type="checkbox"
+            checked={spendingCapEnabled}
+            onChange={(e) => setSpendingCapEnabled(e.target.checked)}
+          />
+          Enable daily cap
+        </label>
+        {spendingCapEnabled && (
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm text-foreground">$</span>
             <input
               type="number"
-              value={maxSpend}
-              onChange={(e) => setMaxSpend(Number(e.target.value))}
-              step={0.1}
-              min={0.1}
-              className="w-20 bg-transparent font-mono text-xs text-foreground border-b border-border focus:border-foreground focus:outline-none py-0.5"
+              value={spendingCap}
+              onChange={(e) => setSpendingCap(Number(e.target.value))}
+              step={1}
+              min={1}
+              max={100}
+              className="w-20 border-b border-border bg-transparent py-0.5 font-mono text-sm text-foreground focus:border-foreground focus:outline-none"
             />
+            <span className="font-mono text-[10px] text-muted-foreground/40">per day</span>
           </div>
+        )}
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Model Preferences
         </div>
-        <div className="mt-2">
-          <StatRow label="Remaining" value={`$${capRemaining.toFixed(6)}`} />
+        <p className="font-mono text-[10px] text-muted-foreground/40">
+          Auto-routing picks the best model per message. You can override per-message in the composer.
+        </p>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Data
+        </div>
+        <p className="font-mono text-[10px] text-muted-foreground/40 mb-2">
+          Your conversation persists as one eternal session.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── PURCHASES TAB ─── */
+function PurchasesTab() {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Virtual Cards */}
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Virtual Cards
+        </div>
+        <div className="rounded-lg border border-dashed border-border p-6 text-center">
+          <p className="font-mono text-[11px] text-muted-foreground/40 mb-3">No virtual cards yet</p>
+          <button className="rounded-lg border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5">
+            + New Card
+          </button>
         </div>
       </div>
 
       <div className="h-px bg-border" />
 
-      <button
-        onClick={onRevoke}
-        className="w-full rounded-lg border border-red-400/20 py-2 font-mono text-[11px] text-red-400 transition-colors hover:bg-red-400/10"
-      >
-        Revoke Session
-      </button>
-    </div>
-  );
-}
-
-/* ─── HOOKS TAB ─── */
-function HooksTab({ events }: { events: ReturnType<typeof useMeterStore.getState>["events"] }) {
-  if (events.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 gap-2">
-        <span className="font-mono text-xs text-muted-foreground/60">No events yet</span>
-        <span className="font-mono text-[10px] text-muted-foreground/40">
-          Events stream here in real-time
-        </span>
-      </div>
-    );
-  }
-
-  const typeColors: Record<string, string> = {
-    tick: "text-blue-400",
-    settlement_success: "text-green-400",
-    settlement_fail: "text-red-400",
-    cap_hit: "text-yellow-400",
-    revoke: "text-red-400",
-  };
-
-  return (
-    <div className="flex flex-col gap-1">
-      {events.map((e) => (
-        <div key={e.id} className="flex items-start gap-2 py-1.5 border-b border-border/50">
-          <span className={`font-mono text-[9px] uppercase shrink-0 ${typeColors[e.type] || "text-muted-foreground"}`}>
-            {e.type}
-          </span>
-          <span className="font-mono text-[10px] text-muted-foreground leading-tight">
-            {e.message}
-          </span>
-          <span className="font-mono text-[9px] text-muted-foreground/40 shrink-0 ml-auto">
-            {new Date(e.timestamp).toLocaleTimeString()}
-          </span>
+      {/* Purchase History */}
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Purchase History
         </div>
-      ))}
+        <div className="rounded-lg border border-dashed border-border p-6 text-center">
+          <p className="font-mono text-[11px] text-muted-foreground/40">No purchases yet</p>
+          <p className="font-mono text-[10px] text-muted-foreground/20 mt-1">
+            Agent purchases will appear here
+          </p>
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      {/* Agent Spend Controls */}
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Agent Spend Controls
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div>
+              <span className="text-xs text-foreground font-mono">Daily Limit</span>
+              <span className="block text-[10px] text-muted-foreground/50">Max spend per day</span>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground/40">Not set</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div>
+              <span className="text-xs text-foreground font-mono">Monthly Limit</span>
+              <span className="block text-[10px] text-muted-foreground/50">Max spend per month</span>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground/40">Not set</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div>
+              <span className="text-xs text-foreground font-mono">Per-Transaction</span>
+              <span className="block text-[10px] text-muted-foreground/50">Require approval above</span>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground/40">Not set</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

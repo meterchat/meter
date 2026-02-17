@@ -18,9 +18,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const { messages, model } = await req.json();
+    const resolvedModel = !model || model === "auto" ? "anthropic/claude-sonnet-4" : model;
 
     const response = await getOpenRouterClient().chat.completions.create({
-      model: model || "anthropic/claude-opus-4.6",
+      model: resolvedModel,
       messages: messages.map((m: { role: string; content: string }) => ({
         role: m.role,
         content: m.content,
@@ -47,14 +48,17 @@ export async function POST(req: NextRequest) {
               );
             }
 
-            // Final usage stats
             if (chunk.usage) {
+              const selfConfidence = typeof (chunk as unknown as { confidence?: unknown }).confidence === "number"
+                ? ((chunk as unknown as { confidence: number }).confidence)
+                : undefined;
               controller.enqueue(
                 encoder.encode(
                   `data: ${JSON.stringify({
                     type: "usage",
                     tokensIn: chunk.usage.prompt_tokens,
                     tokensOut: chunk.usage.completion_tokens,
+                    confidence: selfConfidence,
                   })}\n\n`
                 )
               );
@@ -89,7 +93,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Rough token estimate for streaming (before final usage comes back)
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }

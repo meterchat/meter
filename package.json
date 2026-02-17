@@ -1,27 +1,25 @@
 {
   "name": "meter",
-  "version": "0.1.0",
-  "description": "Pay-per-thought AI — real-time metered, on-chain settled via Tempo",
-  "author": "Meter <hello@getmeter.xyz>",
+  "version": "0.2.0",
+  "description": "Use first, pay after — every AI model, one bill, no subscription",
+  "author": "Meter <hello@meterchat.com>",
   "license": "MIT",
-  "homepage": "https://getmeter.xyz",
+  "homepage": "https://meterchat.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/meterxyz/meter.git"
+    "url": "https://github.com/meterchat/meter.git"
   },
   "bugs": {
-    "url": "https://github.com/meterxyz/meter/issues"
+    "url": "https://github.com/meterchat/meter/issues"
   },
   "keywords": [
     "ai",
-    "pay-per-token",
+    "pay-per-use",
     "metered-ai",
-    "tempo",
-    "blockchain",
-    "on-chain-settlement",
+    "postpaid",
     "openrouter",
-    "crypto",
-    "web3"
+    "multi-model",
+    "stripe"
   ],
   "private": true,
   "scripts": {
@@ -32,7 +30,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@privy-io/react-auth": "^3.13.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",
@@ -59,6 +56,7 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@stripe/stripe-js": "^8.7.0",
     "@supabase/supabase-js": "^2.95.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -71,7 +69,6 @@
     "next": "^15.5.7",
     "next-themes": "^0.4.6",
     "openai": "^6.21.0",
-    "orchids-visual-edits": "^1.0.12",
     "react": "19.2.0",
     "react-day-picker": "^9.11.2",
     "react-dom": "19.2.0",
@@ -79,9 +76,9 @@
     "react-resizable-panels": "^3.0.6",
     "recharts": "^2.15.4",
     "sonner": "^2.0.7",
+    "stripe": "^20.3.1",
     "tailwind-merge": "^3.4.0",
     "vaul": "^1.1.2",
-    "viem": "^2.45.3",
     "zod": "^4.1.12",
     "zustand": "^5.0.11"
   },

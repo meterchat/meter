@@ -5,107 +5,106 @@
 <h3 align="center">Pay Per Thought</h3>
 
 <p align="center">
-  Real-time metered AI. Every token counted, every cent settled on-chain.
+  Real-time metered AI. Use first, pay after. Every token counted, every cent billed to your card.
 </p>
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT" /></a>
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-15-black?logo=next.js" alt="Next.js 15" /></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white" alt="TypeScript" /></a>
-  <a href="https://tempo.xyz"><img src="https://img.shields.io/badge/Tempo-Testnet-purple" alt="Tempo" /></a>
-  <a href="https://canteenapp-tempo.notion.site"><img src="https://img.shields.io/badge/Tempo%20Hackathon-2026-orange" alt="Tempo Hackathon" /></a>
+  <a href="https://stripe.com"><img src="https://img.shields.io/badge/Stripe-Billing-purple?logo=stripe&logoColor=white" alt="Stripe" /></a>
 </p>
 
 <p align="center">
-  <a href="https://getmeter.xyz">Live Demo</a> &nbsp;&middot;&nbsp;
-  <a href="https://getmeter.xyz/docs">Documentation</a> &nbsp;&middot;&nbsp;
-  <a href="https://x.com/meterxyz">Twitter</a>
+  <a href="https://meterchat.com">Live App</a> &nbsp;&middot;&nbsp;
+  <a href="https://meterchat.com/docs">Documentation</a> &nbsp;&middot;&nbsp;
+  <a href="https://x.com/meterchat">Twitter</a>
 </p>
 
 ---
 
 ## What is Meter?
 
-Meter is a **pay-per-thought AI interface** that meters every token in real time and settles payments on-chain via the [Tempo network](https://tempo.xyz). No subscriptions, no credits, no invoices — you pay only for what you use, streamed in real time.
+Meter is a **pay-per-use AI interface** that meters every token in real time and bills your card postpaid. No subscriptions, no credits, no prepayment — you use first and pay after.
 
-A live cost ticker runs as the AI responds. Each message is settled as a blockchain transaction you can verify on-chain. One wallet signature authorizes the entire session — zero popups after that.
+A live cost ticker runs as the AI responds. Each message shows the model used, dollar cost, confidence score, and settlement status. Sign up with email, add a card, and start chatting. Billing happens at $10 or monthly, whichever comes first.
 
 ## How It Works
 
 ```
-┌────────────-─┐     ┌─────────────┐     ┌───────────-──┐
-│   Browser    │     │   Server    │     │   Tempo      │
-│              │     │             │     │   Network    │
-│  Connect     │────▶│             │     │              │
-│  Wallet      │     │             │     │              │
+┌──────────────┐     ┌─────────────┐     ┌──────────────┐
+│   Browser    │     │   Server    │     │   Stripe     │
 │              │     │             │     │              │
-│  Authorize   │─tx─▶│             │     │  transfer()  │
-│  Session     │     │             │     │  pathUSD     │
+│  Sign up     │────▶│  Create     │     │              │
+│  (email)     │     │  account    │     │              │
+│              │     │             │     │              │
+│  Add card    │────▶│             │────▶│  Auth hold   │
+│  ($0.00)     │     │             │     │  (verify)    │
 │              │     │             │     │              │
 │  Send        │────▶│  Stream AI  │     │              │
-│  Message     │◀─sse│ (OpenRouter)│     │              │
+│  message     │◀─sse│ (OpenRouter)│     │              │
 │              │     │             │     │              │
 │  Meter       │     │  Report     │     │              │
 │  ticks...    │◀────│  usage      │     │              │
 │              │     │             │     │              │
-│  Session key │─tx─▶│             │────▶│  Settle      │
-│  settles     │     │             │     │  on-chain    │
-└─────────-────┘     └─────────────┘     └────────-─────┘
+│  $10 or      │     │  Charge     │────▶│  Bill card   │
+│  month end   │     │  customer   │     │              │
+└──────────────┘     └─────────────┘     └──────────────┘
 ```
 
-1. **Connect** — User connects wallet via Privy (MetaMask, WalletConnect, etc.)
-2. **Authorize** — One wallet signature transfers pathUSD to an ephemeral session key
-3. **Chat** — Messages stream via SSE; the meter ticks in real time
-4. **Settle** — Session key calls `transfer()` on pathUSD — no popup, no confirmation
-5. **Verify** — Every settlement has a tx hash linked to the Tempo block explorer
+1. **Sign up** — Enter your email to create an account
+2. **Add card** — Card is verified with a no-charge authorization hold
+3. **Chat** — Messages stream in chat, and the daily meter ticks in real time
+4. **Settle** — Each message is marked settled with model, cost, and confidence score
+5. **Bill** — Your saved card is charged on a recurring basis for only what you consumed
 
 ## Features
 
-- **Real-time cost metering** — Watch your spend tick up token by token as the AI streams
-- **On-chain settlement** — Every response settled as a pathUSD transfer on Tempo with a verifiable tx hash
-- **Session keys** — One wallet signature authorizes the session. Zero popups after that
-- **Multi-model** — Claude, GPT-5.2, Gemini, DeepSeek, Kimi and more via OpenRouter
+- **Real-time cost metering** — Watch your daily spend tick up token by token as the AI streams
+- **Postpaid billing** — Use first, pay after. Card charged at $10 threshold or monthly
+- **Per-message transparency** — Every response shows model, cost, confidence %, and settlement status
+- **Daily meter** — Header shows today's spend with per-model breakdown, resets at midnight
+- **Multi-model** — Claude Sonnet 4, Opus 4, GPT-4.1, Gemini 2.5 Pro, DeepSeek V3 via OpenRouter
 - **Developer Console** — Generate API keys, monitor usage, manage billing
 - **Developer API** — Integrate metered AI into your own apps with a single API key
-- **Non-custodial** — Your wallet, your keys. Meter never has access to your funds
-- **Privacy-first** — No email, no account, no KYC. Connect wallet and chat
+- **Confidence scoring** — Each response includes an AI confidence estimate
+- **Spending cap** — Set a daily spending limit ($1–$100) for cost control
 
 ## Design Decisions
 
-- Tempo for settlement. Sub-second finality, ~$0.001 gas, native USD denomination. The only chain where per-message AI billing is economically viable.
-- pathUSD as currency. 6-decimal stablecoin (same as USDC). Users think in dollars, settle in dollars. No price feeds, no volatility, no conversion.
-- Ephemeral session keys. One wallet signature authorizes the session. Every payment after that is signed locally in browser memory. Zero popups. Key destroyed on tab close.
-- Per-message settlement. Every response is settled individually with a verifiable tx hash. No batching, no reconciliation. Transparency is the product.
+- Stripe for billing. Industry-standard card processing. Auth hold on signup verifies the card without charging. Postpaid billing at $10 threshold or monthly sweep.
+- Postpaid model. No prepayment, no credits, no wallet funding. Use first, pay after. Removes all friction from getting started.
+- Per-message metering. Every response tracked individually with model, token counts, dollar cost, and confidence score. Full transparency on every interaction.
+- Daily meter with midnight reset. Users see exactly what they're spending today. Per-model breakdown in the header dropdown. Spending cap for cost control.
 - OpenRouter for models. One integration, every frontier model. Published per-token pricing with a small Meter markup.
-- Private by default. No email, no account, no KYC. Connect wallet, chat fully encrypted. Your address is your identity.
-- Fully open source (MIT). Non-custodial system requires auditable code. Users can verify, fork, or self-host.
+- Email-first auth. Simple email signup. No wallets, no browser extensions, no seed phrases. Card on file is the only requirement.
+- Fully open source (MIT). Auditable code. Users can verify, fork, or self-host.
 
 ## Architecture
 
 ```
 src/
 ├── app/
-│   ├── page.tsx                  # Main chat interface
+│   ├── page.tsx                  # Main app (auth gating → chat)
 │   ├── console/page.tsx          # Developer console (API keys, usage)
 │   ├── docs/page.tsx             # Documentation
 │   └── api/
-│       ├── chat/route.ts         # SSE streaming via OpenRouter
-│       ├── faucet/route.ts       # Testnet pathUSD faucet
+│       ├── chat/route.ts         # SSE streaming via OpenRouter + confidence
 │       └── v1/
+│           ├── chat/route.ts     # Public API: metered chat
 │           ├── keys/route.ts     # API key management
 │           └── usage/route.ts    # Usage tracking
 ├── components/
-│   ├── authorize-screen.tsx      # Session authorization flow
-│   ├── chat-view.tsx             # Chat UI with settlement receipts
-│   ├── inspector.tsx             # Dev inspector (wallet, telemetry, ledger)
-│   ├── meter-pill.tsx            # Live cost ticker component
+│   ├── login-screen.tsx          # Email signup screen
+│   ├── authorize-screen.tsx      # Stripe card auth hold
+│   ├── chat-view.tsx             # Chat UI with message footer + daily meter
+│   ├── inspector.tsx             # Right drawer (Usage / Billing / Settings)
+│   ├── meter-pill.tsx            # Daily $ counter in header
 │   ├── meter-icon.tsx            # Animated meter icon (sprite sheet)
-│   └── login-screen.tsx          # Wallet connection screen
-├── hooks/
-│   └── use-settlement.ts         # On-chain settlement via session key
+│   └── model-picker.tsx          # Model selection dropdown
 └── lib/
-    ├── store.ts                  # Zustand state (session, messages, ledger)
-    └── tempo.ts                  # Tempo chain config, pathUSD ABI, helpers
+    ├── store.ts                  # Zustand state (auth, messages, daily metering)
+    └── models.ts                 # Model definitions and pricing
 ```
 
 ### Stack
@@ -116,9 +115,9 @@ src/
 | Language | [TypeScript 5](https://typescriptlang.org) |
 | Styling | [Tailwind CSS 4](https://tailwindcss.com) |
 | State | [Zustand](https://zustand-demo.pmnd.rs) |
-| Wallet Auth | [Privy](https://privy.io) |
-| Blockchain | [Tempo Network](https://tempo.xyz) via [viem](https://viem.sh) |
-| AI Models | [OpenRouter](https://openrouter.ai) (Claude, GPT-5.2, Gemini, DeepSeek, Kimi) |
+| Auth | Email signup |
+| Billing | [Stripe](https://stripe.com) (card auth hold + postpaid) |
+| AI Models | [OpenRouter](https://openrouter.ai) (Claude, GPT-4.1, Gemini, DeepSeek) |
 | Database | [Supabase](https://supabase.com) (PostgreSQL) |
 | UI | [Radix UI](https://radix-ui.com) + [shadcn/ui](https://ui.shadcn.com) |
 
@@ -127,15 +126,14 @@ src/
 ### Prerequisites
 
 - Node.js 18+ or [Bun](https://bun.sh)
-- MetaMask or any EVM wallet
 - [OpenRouter API key](https://openrouter.ai/keys)
-- [Privy app ID](https://dashboard.privy.io)
+- [Stripe API keys](https://dashboard.stripe.com/apikeys)
 - [Supabase project](https://supabase.com)
 
 ### Install
 
 ```bash
-git clone https://github.com/meterxyz/meter.git
+git clone https://github.com/meterchat/meter.git
 cd meter
 cp .env.example .env.local
 bun install
@@ -146,15 +144,15 @@ bun dev
 
 ```bash
 # .env.local
-OPENROUTER_API_KEY=sk-or-...             # OpenRouter API key
-NEXT_PUBLIC_PRIVY_APP_ID=cm...          # Privy app ID (chat)
-NEXT_PUBLIC_PRIVY_CONSOLE_APP_ID=cm...  # Privy app ID (dev console)
-NEXT_PUBLIC_SUPABASE_URL=https://...    # Supabase project URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=ey...     # Supabase anon key
-SUPABASE_SERVICE_ROLE_KEY=ey...         # Supabase service role key
+OPENROUTER_API_KEY=sk-or-...                    # OpenRouter API key
+STRIPE_SECRET_KEY=sk_...                        # Stripe secret key
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_...       # Stripe publishable key
+NEXT_PUBLIC_SUPABASE_URL=https://...            # Supabase project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=ey...             # Supabase anon key
+SUPABASE_SERVICE_ROLE_KEY=ey...                 # Supabase service role key
 ```
 
-Open [http://localhost:3000](http://localhost:3000), connect your wallet, authorize a session, and start chatting. Testnet pathUSD is fauceted automatically.
+Open [http://localhost:3000](http://localhost:3000), sign up with your email, add a card, and start chatting.
 
 ## API
 
@@ -162,15 +160,15 @@ Meter exposes a developer API for integrating metered AI into any application.
 
 ### `POST /api/v1/chat`
 
-Stream an AI response with real-time token metering.
+Stream an AI response with real-time token metering and confidence scoring.
 
 ```bash
-curl -N https://getmeter.xyz/api/v1/chat \
+curl -N https://meterchat.com/api/v1/chat \
   -H "Authorization: Bearer mk_..." \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [{"role": "user", "content": "Hello"}],
-    "model": "anthropic/claude-opus-4.6"
+    "model": "anthropic/claude-sonnet-4"
   }'
 ```
 
@@ -178,43 +176,21 @@ curl -N https://getmeter.xyz/api/v1/chat \
 
 ```
 data: {"type":"delta","content":"Hello","tokensOut":1}
-data: {"type":"usage","tokensIn":15,"tokensOut":42}
+data: {"type":"usage","tokensIn":15,"tokensOut":42,"confidence":0.92}
 data: {"type":"done"}
 ```
 
-### `POST /api/faucet`
-
-Fund a wallet with testnet pathUSD.
-
-```bash
-curl https://getmeter.xyz/api/faucet \
-  -H "Content-Type: application/json" \
-  -d '{"address": "0x..."}'
-```
-
-## Tempo Network
-
-Meter settles on [Tempo](https://tempo.xyz), a high-throughput EVM chain with sub-second finality.
-
-| Property | Value |
-|----------|-------|
-| Chain Name | Tempo Testnet (Moderato) |
-| Chain ID | `42431` |
-| RPC | `https://rpc.moderato.tempo.xyz` |
-| Explorer | [explore.tempo.xyz](https://explore.tempo.xyz) |
-| Settlement Token | pathUSD (`0x20c0...0000`, 6 decimals) |
-
 ## Pricing
 
-Pay-per-token with a small markup on OpenRouter base rates. A typical message costs fractions of a cent.
+Pay-per-token with a small markup on OpenRouter base rates. Billed postpaid to your card at $10 or monthly.
 
 | Model | Input (per 1M) | Output (per 1M) | ~Per Message |
 |-------|----------------|-----------------|-------------|
-| Claude Opus | $5.50 | $27.50 | ~$0.015 |
-| GPT-5.2 | $1.93 | $15.40 | ~$0.008 |
-| Kimi K2 | $0.66 | $2.64 | ~$0.002 |
-| DeepSeek V3 | $0.33 | $0.97 | ~$0.0006 |
-| Gemini 3 Pro | $2.20 | $13.20 | ~$0.007 |
+| Claude Sonnet 4 | $3.00 | $15.00 | ~$0.008 |
+| Claude Opus 4 | $15.00 | $75.00 | ~$0.04 |
+| GPT-4.1 | $2.00 | $8.00 | ~$0.005 |
+| Gemini 2.5 Pro | $1.25 | $10.00 | ~$0.005 |
+| DeepSeek V3 | $0.30 | $0.88 | ~$0.0005 |
 
 ## Contributing
 
@@ -231,5 +207,5 @@ MIT. See [LICENSE](LICENSE) for details.
 ---
 
 <p align="center">
-  Built for the <a href="https://canteenapp-tempo.notion.site">Tempo Hackathon</a>
+  <a href="https://meterchat.com">meterchat.com</a>
 </p>
