@@ -6,6 +6,9 @@ import { MeterPill } from "@/components/meter-pill";
 import { ModelPickerTrigger, ModelPickerPanel } from "@/components/model-picker";
 import { Inspector } from "@/components/inspector";
 import { ActionCard } from "@/components/action-card";
+import { DecisionsBar } from "@/components/decisions-bar";
+import { DecisionsPanel } from "@/components/decisions-panel";
+import { Decision } from "@/lib/decisions-store";
 import { getModel, shortModelName } from "@/lib/models";
 
 function statusLabel(msg: ChatMessage) {
@@ -267,6 +270,17 @@ export function ChatView() {
     }
   };
 
+  const handleRevisit = useCallback((decision: Decision) => {
+    if (!inputRef.current) return;
+    const context = decision.choice
+      ? `I want to revisit the decision "${decision.title}" (chose: ${decision.choice}). ${decision.reasoning ? `Original reasoning: ${decision.reasoning}. ` : ""}Has anything changed?`
+      : `I want to revisit the open decision "${decision.title}". What should we consider?`;
+    inputRef.current.value = context;
+    inputRef.current.focus();
+    inputRef.current.style.height = "auto";
+    inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px";
+  }, []);
+
   const lastMsg = messages[messages.length - 1];
   const showThinking = isStreaming && lastMsg?.role === "assistant" && lastMsg.content === "";
 
@@ -412,8 +426,15 @@ export function ChatView() {
                 )}
               </div>
 
+              {/* Decisions panel (drop-up, above composer) */}
+              <DecisionsPanel onRevisit={handleRevisit} />
+
               {/* Composer box */}
               <div className="relative z-10 rounded-xl border border-border bg-card">
+                {/* Decisions bar */}
+                <DecisionsBar />
+                <div className="h-px bg-border/50" />
+
                 {/* Model picker panel (expands inline above input) */}
                 {modelPickerOpen && (
                   <>

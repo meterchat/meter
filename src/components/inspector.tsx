@@ -22,7 +22,7 @@ export function Inspector() {
 
   if (!inspectorOpen) return null;
 
-  const tabs = ["usage", "settings"] as const;
+  const tabs = ["usage", "purchases", "settings"] as const;
 
   return (
     <>
@@ -76,6 +76,7 @@ export function Inspector() {
               email={email}
             />
           )}
+          {inspectorTab === "purchases" && <PurchasesTab />}
           {inspectorTab === "settings" && (
             <SettingsTab
               email={email}
@@ -287,6 +288,73 @@ function SettingsTab({
         <p className="font-mono text-[10px] text-muted-foreground/40 mb-2">
           Your conversation persists as one eternal session.
         </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── PURCHASES TAB ─── */
+function PurchasesTab() {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Virtual Cards */}
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Virtual Cards
+        </div>
+        <div className="rounded-lg border border-dashed border-border p-6 text-center">
+          <p className="font-mono text-[11px] text-muted-foreground/40 mb-3">No virtual cards yet</p>
+          <button className="rounded-lg border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5">
+            + New Card
+          </button>
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      {/* Purchase History */}
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Purchase History
+        </div>
+        <div className="rounded-lg border border-dashed border-border p-6 text-center">
+          <p className="font-mono text-[11px] text-muted-foreground/40">No purchases yet</p>
+          <p className="font-mono text-[10px] text-muted-foreground/20 mt-1">
+            Agent purchases will appear here
+          </p>
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      {/* Agent Spend Controls */}
+      <div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Agent Spend Controls
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div>
+              <span className="text-xs text-foreground font-mono">Daily Limit</span>
+              <span className="block text-[10px] text-muted-foreground/50">Max spend per day</span>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground/40">Not set</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div>
+              <span className="text-xs text-foreground font-mono">Monthly Limit</span>
+              <span className="block text-[10px] text-muted-foreground/50">Max spend per month</span>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground/40">Not set</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div>
+              <span className="text-xs text-foreground font-mono">Per-Transaction</span>
+              <span className="block text-[10px] text-muted-foreground/50">Require approval above</span>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground/40">Not set</span>
+          </div>
+        </div>
       </div>
     </div>
   );
