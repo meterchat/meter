@@ -334,6 +334,7 @@ export function ChatView() {
   const scrollAwayAtRef = useRef(0);
   const isProgrammaticScrollRef = useRef(false);
   const hasInitialScrolled = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     hasInitialScrolled.current = false;
@@ -488,6 +489,11 @@ export function ChatView() {
 
     // Track debate trace locally during streaming
     const localTrace: DebateTurn[] = [];
+    let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number } | null = null;
+    let actualModelUsed: string | null = null;
+
+    const abort = new AbortController();
+    abortRef.current = abort;
 
     try {
       const allMessages = [
@@ -498,6 +504,7 @@ export function ChatView() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: abort.signal,
         body: JSON.stringify({
           messages: allMessages,
           model: effectiveModel,
@@ -519,8 +526,6 @@ export function ChatView() {
 
       const decoder = new TextDecoder();
       let fullContent = "";
-      let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number } | null = null;
-      let actualModelUsed: string | null = null;
       let buffer = "";
       let currentTurn: { model: string; phase: string; content: string } | null = null;
 
@@ -628,8 +633,24 @@ export function ChatView() {
         );
       }
     } catch {
-      // keep silent for now
+      // Abort or network error — persist whatever we have so far.
+      // Partial responses are still billed upstream (industry standard).
+      if (isDebateMode && localTrace.length > 0) {
+        useMeterStore.getState().setDebateTrace(localTrace);
+      }
+      if (finalUsage) {
+        finalizeResponse(
+          finalUsage.tokensIn,
+          finalUsage.tokensOut,
+          finalUsage.confidence,
+          actualModelUsed ?? undefined,
+          finalUsage.cacheCreationTokens,
+          finalUsage.cacheReadTokens,
+          finalUsage.cacheReadRate,
+        );
+      }
     } finally {
+      abortRef.current = null;
       setStreaming(false);
       setActiveTool(null);
       setRerouting(null);
@@ -672,6 +693,11 @@ export function ChatView() {
     localStorage.removeItem(DRAFT_KEY(activeProjectId));
 
     await streamResponse(userContent);
+  };
+
+  /** Stop the current streaming response */
+  const handleStop = () => {
+    abortRef.current?.abort();
   };
 
   /** Triggered by the "Debate" button on a decision-point message */
@@ -1070,16 +1096,28 @@ export function ChatView() {
                   }}
                 />
                 <MeterPill />
-                <button
-                  onClick={handleSend}
-                  disabled={isStreaming || !workspaceCardReady}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="19" x2="12" y2="5" />
-                    <polyline points="5 12 12 5 19 12" />
-                  </svg>
-                </button>
+                {isStreaming ? (
+                  <button
+                    onClick={handleStop}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600 text-white transition-colors hover:bg-red-500"
+                    title="Stop generating"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="4" y="4" width="16" height="16" rx="2" />
+                    </svg>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSend}
+                    disabled={!workspaceCardReady}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="19" x2="12" y2="5" />
+                      <polyline points="5 12 12 5 19 12" />
+                    </svg>
+                  </button>
+                )}
                 </div>
               </div>
             </div>
