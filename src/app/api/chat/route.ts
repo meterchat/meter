@@ -71,14 +71,14 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         };
 
-        // ── Parameter 1.0 Debate Mode ─────────────────────────────
-        if (resolvedModel === "parameter-1.0") {
+        // ── Meter 1.0 Debate Mode ──────────────────────────────────
+        if (resolvedModel === "meter-1.0") {
           try {
             await runDebate(conversation, send);
           } catch (err) {
             console.error("[chat] debate failed:", (err as Error).message);
-            send({ type: "error", code: "debate_failed", model: "parameter-1.0" });
-            send({ type: "done", actualModel: "parameter-1.0" });
+            send({ type: "error", code: "debate_failed", model: "meter-1.0" });
+            send({ type: "done", actualModel: "meter-1.0" });
           }
           controller.close();
           return;

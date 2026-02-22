@@ -87,7 +87,7 @@ export default function DocsPage() {
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Gemini 3 Pro</td><td className="py-1.5 pr-4">$4.00</td><td className="py-1.5 pr-4">$24.00</td><td className="py-1.5">~$0.01</td></tr>
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Grok 4.1 Fast</td><td className="py-1.5 pr-4">$0.40</td><td className="py-1.5 pr-4">$1.00</td><td className="py-1.5">~$0.001</td></tr>
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">DeepSeek V3</td><td className="py-1.5 pr-4">$0.54</td><td className="py-1.5 pr-4">$2.20</td><td className="py-1.5">~$0.001</td></tr>
-                  <tr><td className="py-1.5 pr-4">Parameter 1.0 (Debate)</td><td className="py-1.5 pr-4">$13.90</td><td className="py-1.5 pr-4">$79.00</td><td className="py-1.5">~$1.00</td></tr>
+                  <tr><td className="py-1.5 pr-4">Meter 1.0 (Debate)</td><td className="py-1.5 pr-4">$13.90</td><td className="py-1.5 pr-4">$79.00</td><td className="py-1.5">~$1.00</td></tr>
                 </tbody>
               </table>
             </div>
@@ -130,12 +130,12 @@ export default function DocsPage() {
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Gemini 3 Pro</td><td className="py-1.5 pr-4">Google</td><td className="py-1.5 pr-4">92%</td><td className="py-1.5">138 tok/s</td></tr>
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Grok 4.1 Fast</td><td className="py-1.5 pr-4">xAI</td><td className="py-1.5 pr-4">86%</td><td className="py-1.5">129 tok/s</td></tr>
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">DeepSeek V3</td><td className="py-1.5 pr-4">DeepSeek</td><td className="py-1.5 pr-4">59%</td><td className="py-1.5">50 tok/s</td></tr>
-                  <tr><td className="py-1.5 pr-4">Parameter 1.0 (Debate)</td><td className="py-1.5 pr-4">Meter</td><td className="py-1.5 pr-4">93%</td><td className="py-1.5">30 tok/s</td></tr>
+                  <tr><td className="py-1.5 pr-4">Meter 1.0 (Debate)</td><td className="py-1.5 pr-4">Meter</td><td className="py-1.5 pr-4">93%</td><td className="py-1.5">30 tok/s</td></tr>
                 </tbody>
               </table>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Parameter 1.0 runs Opus + GPT-5.2 + Grok in a multi-model debate, then synthesizes
+              Meter 1.0 runs Opus + GPT-5.2 + Grok in a multi-model debate, then synthesizes
               the best answer. Slower but highest quality.
             </p>
           </section>

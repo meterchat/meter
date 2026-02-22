@@ -150,7 +150,7 @@ function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string
     <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground/70">
       <span className="inline-flex items-center" style={{ color: msg.model ? getModel(msg.model).color : undefined }}>
         {modelName}
-        {msg.model === "parameter-1.0" && <DebateModelDots />}
+        {msg.model === "meter-1.0" && <DebateModelDots />}
       </span>
       <span className="text-muted-foreground/30">&middot;</span>
       <span>{totalTokens.toLocaleString()} tokens</span>
@@ -488,7 +488,7 @@ export function ChatView() {
     setStreaming(true);
 
     const effectiveModel = modelOverride ?? selectedModelId;
-    const isDebateMode = effectiveModel === "parameter-1.0";
+    const isDebateMode = effectiveModel === "meter-1.0";
 
     // Reset debate state
     if (isDebateMode) {
@@ -714,7 +714,7 @@ export function ChatView() {
   /** Triggered by the "Debate" button on a decision-point message */
   const handleDebate = async () => {
     if (isStreaming || !workspaceCardReady) return;
-    await streamResponse("Debate this.", "parameter-1.0");
+    await streamResponse("Debate this.", "meter-1.0");
   };
 
   /** Triggered by the "Decide" button on a decision-point message */

@@ -1,5 +1,5 @@
 /**
- * Parameter 1.0 Debate Mode — multi-model deliberation engine.
+ * Meter 1.0 Debate Mode — multi-model deliberation engine.
  *
  * Runs three frontier models through a tight, human-style debate:
  *   1. Opening — each model states their position (2-3 sentences)
@@ -35,7 +35,7 @@ const DEBATE_TRIGGER = "Debate this.";
  * Extract a compact context from the conversation for debate models.
  * Strips system messages. If the last user message is the hardcoded debate
  * trigger ("Debate this."), it skips it and uses the prior user message as
- * the topic. Otherwise (user selected Parameter 1.0 and typed their own message),
+ * the topic. Otherwise (user selected Meter 1.0 and typed their own message),
  * the last user message IS the topic.
  */
 function extractDebateContext(conversation: Message[]): {
@@ -222,7 +222,7 @@ export async function runDebate(conversation: Message[], send: Send) {
     .map((id) => `${shortModelName(id)} voted for: ${voteResults[id] ? shortModelName(voteResults[id]) : "unclear"}`)
     .join("\n");
 
-  const verdictPrompt = `You are Parameter 1.0, delivering the final answer from a 3-model debate.
+  const verdictPrompt = `You are Meter 1.0, delivering the final answer from a 3-model debate.
 
 Topic: "${topic}"
 
@@ -270,5 +270,5 @@ Write the definitive answer. Lead with the conclusion, then briefly note why the
   usage.tokensOut += synthRoundOut;
 
   send({ type: "usage", tokensIn: usage.tokensIn, tokensOut: usage.tokensOut });
-  send({ type: "done", actualModel: "parameter-1.0" });
+  send({ type: "done", actualModel: "meter-1.0" });
 }
