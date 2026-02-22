@@ -158,40 +158,23 @@ export async function POST(req: NextRequest) {
 
     // Upsert messages in batches
     if (clientHasMessages) {
-      // Check for messages the server completed in the background —
-      // don't let a stale client sync overwrite them with partial content.
-      const messageIds = messages.map((m: Record<string, unknown>) => m.id as string).filter(Boolean);
-      let serverCompletedIds = new Set<string>();
-      if (messageIds.length > 0) {
-        const { data: completed } = await supabase
-          .from("chat_messages")
-          .select("id")
-          .in("id", messageIds)
-          .eq("receipt_status", "server_completed");
-        if (completed) {
-          serverCompletedIds = new Set(completed.map((r) => r.id as string));
-        }
-      }
-
-      const rows = messages
-        .filter((m: Record<string, unknown>) => !serverCompletedIds.has(m.id as string))
-        .map((m: Record<string, unknown>) => ({
-          id: m.id,
-          session_id: dbSessionId,
-          role: m.role,
-          content: m.content ?? "",
-          model: m.model ?? null,
-          tokens_in: m.tokensIn ?? null,
-          tokens_out: m.tokensOut ?? null,
-          cost: m.cost ?? null,
-          confidence: m.confidence ?? null,
-          settled: m.settled ?? false,
-          receipt_status: m.receiptStatus ?? null,
-          signature: m.signature ?? null,
-          tx_hash: m.txHash ?? null,
-          cards: m.cards ?? null,
-          timestamp: m.timestamp,
-        }));
+      const rows = messages.map((m: Record<string, unknown>) => ({
+        id: m.id,
+        session_id: dbSessionId,
+        role: m.role,
+        content: m.content ?? "",
+        model: m.model ?? null,
+        tokens_in: m.tokensIn ?? null,
+        tokens_out: m.tokensOut ?? null,
+        cost: m.cost ?? null,
+        confidence: m.confidence ?? null,
+        settled: m.settled ?? false,
+        receipt_status: m.receiptStatus ?? null,
+        signature: m.signature ?? null,
+        tx_hash: m.txHash ?? null,
+        cards: m.cards ?? null,
+        timestamp: m.timestamp,
+      }));
 
       // Batch upsert in chunks of 100
       for (let i = 0; i < rows.length; i += 100) {
