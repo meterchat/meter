@@ -1110,7 +1110,7 @@ export function ChatView() {
                 {isStreaming ? (
                   <button
                     onClick={handleStop}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600 text-white transition-colors hover:bg-red-500"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/80"
                     title="Stop generating"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
