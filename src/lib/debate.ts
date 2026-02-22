@@ -28,20 +28,33 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+/** Hardcoded trigger sent by the Debate button in the UI */
+const DEBATE_TRIGGER = "Debate this.";
+
 /**
  * Extract a compact context from the conversation for debate models.
- * Strips system messages and the debate trigger (last user message),
- * keeps only the last few exchanges so models have topic context.
+ * Strips system messages. If the last user message is the hardcoded debate
+ * trigger ("Debate this."), it skips it and uses the prior user message as
+ * the topic. Otherwise (user selected Meter 1.0 and typed their own message),
+ * the last user message IS the topic.
  */
 function extractDebateContext(conversation: Message[]): {
   topic: string;
   context: Message[];
 } {
   const nonSystem = conversation.filter((m) => m.role !== "system");
-
-  // The last user message is the debate trigger — skip it for topic extraction
   const userMessages = nonSystem.filter((m) => m.role === "user");
-  const realQuestion = userMessages.length >= 2
+
+  const lastUserContent =
+    typeof userMessages[userMessages.length - 1]?.content === "string"
+      ? (userMessages[userMessages.length - 1].content as string).trim()
+      : "";
+
+  const isDebateTrigger = lastUserContent === DEBATE_TRIGGER;
+
+  // If the last message is the "Debate this." trigger, use the prior user
+  // message as the real topic; otherwise the last user message IS the topic.
+  const realQuestion = isDebateTrigger && userMessages.length >= 2
     ? userMessages[userMessages.length - 2]
     : userMessages[userMessages.length - 1];
   const topic =
@@ -49,8 +62,8 @@ function extractDebateContext(conversation: Message[]): {
       ? realQuestion.content
       : "the topic under discussion";
 
-  // Drop the debate trigger, keep only recent context
-  const withoutTrigger = nonSystem.slice(0, -1);
+  // Drop the trigger from context if present; keep recent messages
+  const withoutTrigger = isDebateTrigger ? nonSystem.slice(0, -1) : nonSystem;
   const trimmed = withoutTrigger.slice(-MAX_CONTEXT_MESSAGES);
 
   return { topic, context: trimmed };
