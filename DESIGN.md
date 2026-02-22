@@ -12,7 +12,7 @@ Meter bills per token, in real time. No subscriptions, no seat licenses, no cred
 
 Subscriptions create misaligned incentives. Users either overpay (low usage months) or hit invisible ceilings (rate limits on "unlimited" plans). Per-token billing is the only model where the user's cost is proportional to the value they extract. It also means Meter never has to throttle power users or subsidize light ones — every message is self-funding.
 
-The 2x markup on provider base rates is uniform across all models. No volume discounts, no tiered pricing, no promotional rates. This keeps the pricing model dead simple: pick any model, multiply the provider rate by two, that's what you pay.
+Our markup on provider base rates is uniform across all models. No volume discounts, no tiered pricing, no promotional rates. This keeps the pricing model dead simple: pick any model, multiply the provider rate by two, that's what you pay.
 
 ### Alternatives considered
 
