@@ -104,13 +104,13 @@ Workspaces are the unit of isolation in Meter. Each workspace has its own conver
 
 Different projects have different contexts, different connected services, and different budgets. A startup workspace might connect Stripe and Mercury for financial queries; a personal workspace might connect Gmail and GitHub. Workspace isolation means connecting Stripe to your startup project doesn't expose that data when you're chatting in your personal workspace.
 
-Billing is tracked per-workspace (`todayCost`, `totalCost`, daily/monthly limits) but settled per-user (a single Stripe charge covers all workspaces). This gives granular visibility without fragmenting payment methods.
+Billing is tracked and settled per-workspace (`todayCost`, `totalCost`, daily/monthly limits). Each workspace can have its own card — costs are completely walled off. If a user assigns the same card to multiple workspaces, the charges are still separate settlements. No cross-workspace cost bleed.
 
 ### Alternatives considered
 
 - **Single global workspace.** One conversation, one set of connectors. Rejected because professional and personal contexts shouldn't bleed into each other, and different projects need different tool access.
 - **Team workspaces with shared billing.** Multiple users share a workspace and split costs. Rejected for v1 — adds invitation flows, permission models, and split billing complexity. Single-user workspaces are the right starting point.
-- **Per-workspace payment methods.** Each workspace has its own card. Rejected because most users have one card and don't want to manage multiple payment methods. The workspace is an organizational boundary, not a financial one.
+- **Shared card across all workspaces.** One card, one combined settlement. Rejected because workspace isolation should extend to billing — a freelancer using one workspace for client A and another for client B needs separate charges on separate cards.
 
 ### Counterpoints
 
