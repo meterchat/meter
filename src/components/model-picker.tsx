@@ -109,7 +109,10 @@ export function ModelPickerTrigger({
       className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-40 shrink-0"
     >
       <ModelLogo model={model} size={12} />
-      <span className="truncate max-w-[80px]">{model.name}</span>
+      <span className="truncate max-w-[120px]">
+        {model.name}
+        {displayId === "meter-1.0" && <span className="text-muted-foreground/50 ml-1">(Debate)</span>}
+      </span>
       <svg
         width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
@@ -146,7 +149,10 @@ export function ModelPickerPanel({
           >
             <ModelLogo model={m} size={16} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-foreground truncate">{m.name}</div>
+              <div className="text-xs font-medium text-foreground truncate">
+                {m.name}
+                {m.id === "meter-1.0" && <span className="text-muted-foreground/50 font-normal ml-1">(Debate Mode)</span>}
+              </div>
               <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 flex-wrap">
                 {m.id === "meter-1.0" ? (
                   <span className="inline-flex items-center gap-1">

@@ -54,11 +54,9 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
 };
 
-/** Models where direct API should be preferred over OpenRouter (e.g. for caching) */
-const PREFER_DIRECT: Set<string> = new Set([
-  "anthropic/claude-sonnet-4.6",
-  "anthropic/claude-opus-4.6",
-]);
+/** Models where direct API should be preferred over OpenRouter.
+ *  Empty — OpenRouter is now primary for all models (supports caching natively). */
+const PREFER_DIRECT: Set<string> = new Set([]);
 
 /** Models that support cache_control breakpoints on OpenRouter */
 function supportsCacheControl(model: string): boolean {
