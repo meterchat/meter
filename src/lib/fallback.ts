@@ -31,6 +31,14 @@ function isRetryable(err: unknown): boolean {
   return false;
 }
 
+/** Extract a short reason string from an error for client-visible diagnostics */
+function errorReason(err: unknown): string {
+  const e = err as { status?: number; code?: string; message?: string };
+  const status = e.status ? `${e.status} ` : "";
+  const msg = (e.message ?? "unknown error").slice(0, 120);
+  return `${status}${msg}`;
+}
+
 /* ─── Provider mapping ──────────────────────────────────────────── */
 
 /** Maps OpenRouter model prefixes to direct API env var + native model ID */
@@ -627,18 +635,16 @@ export async function streamWithFallback(
   }
 
   // ── Tier 1: OpenRouter ──────────────────────────────────────────
+  let lastReason = "";
   if (process.env.OPENROUTER_API_KEY) {
     try {
       const result = await streamOpenRouter(requestedModel, conversation, tools, send, estimateTokens, totalTokensOut);
       return { ...result, actualModel: requestedModel, tier: 1 };
     } catch (err) {
       const e = err as Error;
+      lastReason = errorReason(err);
       console.error("[fallback] tier 1 (openrouter) failed:", requestedModel, e.message);
       errors.push({ tier: 1, model: requestedModel, error: e.message });
-
-      if (!isRetryable(err)) {
-        // Non-retryable (auth, bad request) — still try direct key for same model
-      }
     }
   }
 
@@ -651,54 +657,51 @@ export async function streamWithFallback(
       return { ...result, actualModel: requestedModel, tier: 2 };
     } catch (err) {
       const e = err as Error;
+      lastReason = errorReason(err);
       console.error("[fallback] tier 2 (direct) failed:", requestedModel, e.message);
       errors.push({ tier: 2, model: requestedModel, error: e.message });
     }
   }
 
   // ── Tier 3: Auto-route to a different model ─────────────────────
+  // For each candidate, try OpenRouter first, then direct key (mirrors Tier 1→2).
   const candidates = AUTO_ROUTE_ORDER.filter((m) => m !== requestedModel);
 
   for (const candidateModel of candidates) {
     const candidateProvider = DIRECT_PROVIDERS[candidateModel];
     const candidateKey = candidateProvider ? process.env[candidateProvider.envKey] : undefined;
-    if (!candidateProvider || !candidateKey) continue;
 
-    try {
-      console.log("[fallback] tier 3 (auto-route):", candidateModel);
+    // Notify client about the reroute (includes reason from previous failure)
+    const providerName = requestedModel.split("/")[0];
+    const providerLabel = providerName.charAt(0).toUpperCase() + providerName.slice(1);
 
-      // Notify client about the reroute
-      const providerName = requestedModel.split("/")[0];
-      const providerLabel = providerName.charAt(0).toUpperCase() + providerName.slice(1);
-      send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
-
-      const result = await streamDirect(candidateProvider, candidateKey, conversation, tools, send, estimateTokens, totalTokensOut);
-      return { ...result, actualModel: candidateModel, tier: 3 };
-    } catch (err) {
-      const e = err as Error;
-      console.error("[fallback] tier 3 failed:", candidateModel, e.message);
-      errors.push({ tier: 3, model: candidateModel, error: e.message });
-      continue;
-    }
-  }
-
-  // Also try OpenRouter for auto-route candidates as last resort
-  if (process.env.OPENROUTER_API_KEY) {
-    for (const candidateModel of candidates) {
+    // Try OpenRouter first for this candidate
+    if (process.env.OPENROUTER_API_KEY) {
       try {
-        console.log("[fallback] tier 3 openrouter fallback:", candidateModel);
-
-        const providerName = requestedModel.split("/")[0];
-        const providerLabel = providerName.charAt(0).toUpperCase() + providerName.slice(1);
-        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
-
+        console.log("[fallback] tier 3 (openrouter, auto-route):", candidateModel);
+        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel, reason: lastReason });
         const result = await streamOpenRouter(candidateModel, conversation, tools, send, estimateTokens, totalTokensOut);
         return { ...result, actualModel: candidateModel, tier: 3 };
       } catch (err) {
         const e = err as Error;
-        console.error("[fallback] tier 3 openrouter fallback failed:", candidateModel, e.message);
+        lastReason = errorReason(err);
+        console.error("[fallback] tier 3 openrouter failed:", candidateModel, e.message);
         errors.push({ tier: 3, model: candidateModel, error: e.message });
-        continue;
+      }
+    }
+
+    // Then try direct key for this candidate
+    if (candidateProvider && candidateKey) {
+      try {
+        console.log("[fallback] tier 3 (direct, auto-route):", candidateModel);
+        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel, reason: lastReason });
+        const result = await streamDirect(candidateProvider, candidateKey, conversation, tools, send, estimateTokens, totalTokensOut);
+        return { ...result, actualModel: candidateModel, tier: 3 };
+      } catch (err) {
+        const e = err as Error;
+        lastReason = errorReason(err);
+        console.error("[fallback] tier 3 direct failed:", candidateModel, e.message);
+        errors.push({ tier: 3, model: candidateModel, error: e.message });
       }
     }
   }

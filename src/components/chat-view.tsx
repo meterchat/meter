@@ -199,11 +199,13 @@ const TOOL_LABELS: Record<string, string> = {
   supabase_list_tables: "Listing tables",
 };
 
-function ThinkingIndicator({ toolName, rerouting }: { toolName?: string | null; rerouting?: { provider: string; toModel: string } | null }) {
+function ThinkingIndicator({ toolName, rerouting }: { toolName?: string | null; rerouting?: { provider: string; toModel: string; reason?: string } | null }) {
   let label: string;
+  let sublabel: string | null = null;
   if (rerouting) {
     const toLabel = shortModelName(rerouting.toModel);
     label = `Re-routing to ${toLabel}`;
+    if (rerouting.reason) sublabel = rerouting.reason;
   } else {
     label = toolName ? TOOL_LABELS[toolName] ?? toolName : "Thinking";
   }
@@ -219,9 +221,16 @@ function ThinkingIndicator({ toolName, rerouting }: { toolName?: string | null; 
       >
         <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="20 14" />
       </svg>
-      <span className="thinking-shimmer text-sm font-medium select-none">
-        {label}
-      </span>
+      <div className="flex flex-col">
+        <span className="thinking-shimmer text-sm font-medium select-none">
+          {label}
+        </span>
+        {sublabel && (
+          <span className="text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px]">
+            {sublabel}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -314,7 +323,7 @@ export function ChatView() {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [switchingProjectName, setSwitchingProjectName] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
-  const [rerouting, setRerouting] = useState<{ provider: string; toModel: string } | null>(null);
+  const [rerouting, setRerouting] = useState<{ provider: string; toModel: string; reason?: string } | null>(null);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
   const logoMenuRef = useRef<HTMLDivElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -457,6 +466,7 @@ export function ChatView() {
   const streamResponse = async (userContent: string, modelOverride?: string) => {
     isNearBottomRef.current = true;
     userScrolledAwayRef.current = false;
+    setRerouting(null); // Clear any previous reroute
 
     const userMsg: ChatMessage = {
       id: Math.random().toString(36).slice(2, 10),
@@ -593,7 +603,7 @@ export function ChatView() {
                 useMeterStore.getState().setMessageDecisionId(decId);
               }
             } else if (data.type === "rerouting") {
-              setRerouting({ provider: data.provider as string, toModel: data.to as string });
+              setRerouting({ provider: data.provider as string, toModel: data.to as string, reason: (data.reason as string) || undefined });
             } else if (data.type === "error") {
               const errorPayload = JSON.stringify({ code: data.code, model: data.model });
               fullContent = `__error__${errorPayload}`;
@@ -653,7 +663,8 @@ export function ChatView() {
       abortRef.current = null;
       setStreaming(false);
       setActiveTool(null);
-      setRerouting(null);
+      // Keep rerouting state — cleared on next send so the picker
+      // continues showing the actual model used for the last response.
       setDebatePhase(null);
       setActiveDebateTurn(null);
     }
