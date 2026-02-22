@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
         expectedChallenge: challengeRecord.challenge,
         expectedOrigin: EXPECTED_ORIGINS,
         expectedRPID: RP_ID,
+        requireUserVerification: false,
       });
 
       if (!verification.verified || !verification.registrationInfo) {

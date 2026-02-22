@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
         expectedChallenge: challengeRecord.challenge,
         expectedOrigin: EXPECTED_ORIGINS,
         expectedRPID: RP_ID,
+        requireUserVerification: false,
         credential: {
           id: storedCred.credential_id,
           publicKey: Buffer.from(storedCred.public_key, "base64url"),
