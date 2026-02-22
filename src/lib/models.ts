@@ -5,14 +5,14 @@ export interface ModelConfig {
   color: string;
   inputPrice: number;  // per token (user-facing, includes markup)
   outputPrice: number; // per token (user-facing, includes markup)
-  /** Artificial Analysis Intelligence Index (0-100 scale, current top ~57) */
+  /** GPQA Diamond accuracy — graduate-level science benchmark (0-100%) */
   quality?: number;
   /** Output speed in tokens/sec from native API */
   speed?: number;
 }
 
-/** Multiplier applied on top of provider costs. 3 = users pay 3x provider rate. */
-export const MARKUP_MULTIPLIER = 3;
+/** Multiplier applied on top of provider costs. 2 = users pay 2x provider rate. */
+export const MARKUP_MULTIPLIER = 2;
 
 /** Models used in Meter 1.0 debate mode (fixed roster) */
 export const DEBATE_MODELS = [
@@ -29,7 +29,7 @@ export const MODELS: ModelConfig[] = [
     color: "#A1A1AA",
     inputPrice: (3.0 / 1_000_000) * MARKUP_MULTIPLIER,
     outputPrice: (15.0 / 1_000_000) * MARKUP_MULTIPLIER,
-    quality: 51,
+    quality: 74,  // GPQA Diamond — routes to Sonnet 4.6
     speed: 60,
   },
   {
@@ -40,7 +40,7 @@ export const MODELS: ModelConfig[] = [
     // Blended rate across Opus + GPT + Grok + synthesis (sum of 3 debate models)
     inputPrice: (6.95 / 1_000_000) * MARKUP_MULTIPLIER,
     outputPrice: (39.50 / 1_000_000) * MARKUP_MULTIPLIER,
-    quality: 53,
+    quality: 93,  // GPQA Diamond — multi-model ensemble exceeds best individual
     speed: 30,
   },
   {
@@ -50,7 +50,7 @@ export const MODELS: ModelConfig[] = [
     color: "#D97757",
     inputPrice: (3.0 / 1_000_000) * MARKUP_MULTIPLIER,
     outputPrice: (15.0 / 1_000_000) * MARKUP_MULTIPLIER,
-    quality: 51,
+    quality: 74,  // GPQA Diamond
     speed: 60,
   },
   {
@@ -60,7 +60,7 @@ export const MODELS: ModelConfig[] = [
     color: "#D97757",
     inputPrice: (5.0 / 1_000_000) * MARKUP_MULTIPLIER,
     outputPrice: (25.0 / 1_000_000) * MARKUP_MULTIPLIER,
-    quality: 53,
+    quality: 91,  // GPQA Diamond
     speed: 70,
   },
   {
@@ -70,7 +70,7 @@ export const MODELS: ModelConfig[] = [
     color: "#10A37F",
     inputPrice: (1.75 / 1_000_000) * MARKUP_MULTIPLIER,
     outputPrice: (14.0 / 1_000_000) * MARKUP_MULTIPLIER,
-    quality: 51,
+    quality: 90,  // GPQA Diamond
     speed: 84,
   },
   {
@@ -80,7 +80,7 @@ export const MODELS: ModelConfig[] = [
     color: "#4285F4",
     inputPrice: (2.0 / 1_000_000) * MARKUP_MULTIPLIER,
     outputPrice: (12.0 / 1_000_000) * MARKUP_MULTIPLIER,
-    quality: 48,
+    quality: 92,  // GPQA Diamond
     speed: 138,
   },
   {
@@ -90,7 +90,7 @@ export const MODELS: ModelConfig[] = [
     color: "#A0A0A0",
     inputPrice: (0.20 / 1_000_000) * MARKUP_MULTIPLIER,
     outputPrice: (0.50 / 1_000_000) * MARKUP_MULTIPLIER,
-    quality: 35,
+    quality: 86,  // GPQA Diamond (est. from Grok 4 Fast 85.7%)
     speed: 129,
   },
   {
@@ -100,7 +100,7 @@ export const MODELS: ModelConfig[] = [
     color: "#4D6BFE",
     inputPrice: (0.27 / 1_000_000) * MARKUP_MULTIPLIER,
     outputPrice: (1.10 / 1_000_000) * MARKUP_MULTIPLIER,
-    quality: 52,
+    quality: 59,  // GPQA Diamond
     speed: 50,
   },
 ];

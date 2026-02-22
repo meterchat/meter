@@ -76,7 +76,7 @@ A live cost ticker runs as the AI responds. Each message shows the model used, d
 - Postpaid model. No prepayment, no credits, no wallet funding. Use first, pay after. Removes all friction from getting started.
 - Per-message metering. Every response tracked individually with model, token counts, dollar cost, and confidence score. Full transparency on every interaction.
 - Daily meter with midnight reset. Users see exactly what they're spending today. Per-model breakdown in the header dropdown. Spending cap for cost control.
-- OpenRouter for models. One integration, every frontier model. Published per-token pricing with a small Meter markup.
+- OpenRouter for models. One integration, every frontier model. Published per-token pricing with a 2x Meter markup.
 - Email-first auth. Simple email signup. No wallets, no browser extensions, no seed phrases. Card on file is the only requirement.
 - Fully open source (MIT). Auditable code. Users can verify, fork, or self-host.
 
@@ -182,15 +182,17 @@ data: {"type":"done"}
 
 ## Pricing
 
-Pay-per-token with a small markup on OpenRouter base rates. Billed postpaid to your card at $10 or monthly.
+Pay-per-token with a 2x markup on provider base rates. Billed postpaid to your card at $10 or monthly.
 
 | Model | Input (per 1M) | Output (per 1M) | ~Per Message |
 |-------|----------------|-----------------|-------------|
-| Claude Sonnet 4 | $3.00 | $15.00 | ~$0.008 |
-| Claude Opus 4 | $15.00 | $75.00 | ~$0.04 |
-| GPT-4.1 | $2.00 | $8.00 | ~$0.005 |
-| Gemini 2.5 Pro | $1.25 | $10.00 | ~$0.005 |
-| DeepSeek V3 | $0.30 | $0.88 | ~$0.0005 |
+| Claude Sonnet 4.6 | $6.00 | $30.00 | ~$0.02 |
+| Claude Opus 4.6 | $10.00 | $50.00 | ~$0.03 |
+| GPT-5.2 | $3.50 | $28.00 | ~$0.01 |
+| Gemini 3 Pro | $4.00 | $24.00 | ~$0.01 |
+| Grok 4.1 Fast | $0.40 | $1.00 | ~$0.001 |
+| DeepSeek V3 | $0.54 | $2.20 | ~$0.001 |
+| Meter 1.0 (Debate) | $13.90 | $79.00 | ~$1.00 |
 
 ## Contributing
 

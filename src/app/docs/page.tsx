@@ -31,7 +31,7 @@ export default function DocsPage() {
               Use first, pay after. The meter runs up in dollars like a taxi.
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Every model available — Claude, GPT, Gemini, DeepSeek. One bill. No complexity.
+              Every model available — Claude, GPT, Gemini, Grok, DeepSeek. One bill. No complexity.
             </p>
           </section>
 
@@ -68,9 +68,29 @@ export default function DocsPage() {
           <section className="mb-10">
             <h2 className="text-lg font-medium text-foreground mb-2" id="pricing">Pricing</h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-              Pricing depends on the model and message complexity. Most messages cost between $0.01 and $0.50.
-              There is no published rate card — you learn costs through usage.
+              Pay-per-token with a 2x markup on provider base rates. Most messages cost between $0.01 and $0.50.
             </p>
+            <div className="overflow-x-auto mb-3">
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground/60">
+                    <th className="py-1.5 pr-4">Model</th>
+                    <th className="py-1.5 pr-4">Input / 1M</th>
+                    <th className="py-1.5 pr-4">Output / 1M</th>
+                    <th className="py-1.5">~Per Msg</th>
+                  </tr>
+                </thead>
+                <tbody className="text-muted-foreground">
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Sonnet 4.6</td><td className="py-1.5 pr-4">$6.00</td><td className="py-1.5 pr-4">$30.00</td><td className="py-1.5">~$0.02</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Opus 4.6</td><td className="py-1.5 pr-4">$10.00</td><td className="py-1.5 pr-4">$50.00</td><td className="py-1.5">~$0.03</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.2</td><td className="py-1.5 pr-4">$3.50</td><td className="py-1.5 pr-4">$28.00</td><td className="py-1.5">~$0.01</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Gemini 3 Pro</td><td className="py-1.5 pr-4">$4.00</td><td className="py-1.5 pr-4">$24.00</td><td className="py-1.5">~$0.01</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Grok 4.1 Fast</td><td className="py-1.5 pr-4">$0.40</td><td className="py-1.5 pr-4">$1.00</td><td className="py-1.5">~$0.001</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">DeepSeek V3</td><td className="py-1.5 pr-4">$0.54</td><td className="py-1.5 pr-4">$2.20</td><td className="py-1.5">~$0.001</td></tr>
+                  <tr><td className="py-1.5 pr-4">Meter 1.0 (Debate)</td><td className="py-1.5 pr-4">$13.90</td><td className="py-1.5 pr-4">$79.00</td><td className="py-1.5">~$1.00</td></tr>
+                </tbody>
+              </table>
+            </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               The daily meter in the header shows your running total. Set a daily spending cap in settings.
             </p>
@@ -84,6 +104,39 @@ export default function DocsPage() {
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Most founders spend $20-40/month — less than a single AI subscription, with every model included.
+            </p>
+          </section>
+
+          <section className="mb-10">
+            <h2 className="text-lg font-medium text-foreground mb-2" id="models">Models</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+              Every frontier model available through one interface. Quality measured by GPQA Diamond
+              (graduate-level science accuracy). Speed is output tokens per second from native APIs.
+            </p>
+            <div className="overflow-x-auto mb-3">
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground/60">
+                    <th className="py-1.5 pr-4">Model</th>
+                    <th className="py-1.5 pr-4">Provider</th>
+                    <th className="py-1.5 pr-4">GPQA</th>
+                    <th className="py-1.5">Speed</th>
+                  </tr>
+                </thead>
+                <tbody className="text-muted-foreground">
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Sonnet 4.6</td><td className="py-1.5 pr-4">Anthropic</td><td className="py-1.5 pr-4">74%</td><td className="py-1.5">60 tok/s</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Opus 4.6</td><td className="py-1.5 pr-4">Anthropic</td><td className="py-1.5 pr-4">91%</td><td className="py-1.5">70 tok/s</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.2</td><td className="py-1.5 pr-4">OpenAI</td><td className="py-1.5 pr-4">90%</td><td className="py-1.5">84 tok/s</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Gemini 3 Pro</td><td className="py-1.5 pr-4">Google</td><td className="py-1.5 pr-4">92%</td><td className="py-1.5">138 tok/s</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Grok 4.1 Fast</td><td className="py-1.5 pr-4">xAI</td><td className="py-1.5 pr-4">86%</td><td className="py-1.5">129 tok/s</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">DeepSeek V3</td><td className="py-1.5 pr-4">DeepSeek</td><td className="py-1.5 pr-4">59%</td><td className="py-1.5">50 tok/s</td></tr>
+                  <tr><td className="py-1.5 pr-4">Meter 1.0 (Debate)</td><td className="py-1.5 pr-4">Meter</td><td className="py-1.5 pr-4">93%</td><td className="py-1.5">30 tok/s</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Meter 1.0 runs Opus + GPT-5.2 + Grok in a multi-model debate, then synthesizes
+              the best answer. Slower but highest quality.
             </p>
           </section>
 

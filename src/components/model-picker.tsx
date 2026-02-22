@@ -10,6 +10,25 @@ function fmtPrice(pricePerToken: number): string {
   return `$${Math.round(perM)}`;
 }
 
+/** Fastest model speed across all models — used to compute relative speed bars */
+const MAX_SPEED = Math.max(...MODELS.map((m) => m.speed ?? 0));
+
+/** Tiny inline speed bar — width proportional to model speed vs fastest */
+function SpeedBar({ speed }: { speed: number }) {
+  const pct = Math.round((speed / MAX_SPEED) * 100);
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="inline-block h-[3px] rounded-full bg-foreground/20" style={{ width: 32 }}>
+        <span
+          className="block h-full rounded-full bg-foreground/50"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span className="text-muted-foreground/50">{speed} t/s</span>
+    </span>
+  );
+}
+
 function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number }) {
   switch (provider) {
     case "Anthropic":
@@ -127,20 +146,8 @@ export function ModelPickerPanel({
           >
             <ModelLogo model={m} size={16} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-foreground truncate flex items-center gap-1.5">
-                <span>{m.name}</span>
-                {m.quality != null && (
-                  <span className="text-[9px] font-mono text-muted-foreground/70 font-normal">
-                    Q:{m.quality}
-                  </span>
-                )}
-                {m.speed != null && (
-                  <span className="text-[9px] font-mono text-muted-foreground/70 font-normal">
-                    {m.speed} tok/s
-                  </span>
-                )}
-              </div>
-              <div className="text-[10px] text-muted-foreground font-mono">
+              <div className="text-xs font-medium text-foreground truncate">{m.name}</div>
+              <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 flex-wrap">
                 {m.id === "meter-1.0" ? (
                   <span className="inline-flex items-center gap-1">
                     {DEBATE_MODELS.map((id) => {
@@ -152,14 +159,23 @@ export function ModelPickerPanel({
                         </span>
                       );
                     })}
-                    <span className="text-muted-foreground/50 ml-0.5">·</span>
-                    <span className="text-muted-foreground/50">{fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
                   </span>
                 ) : (
-                  <span>
-                    {m.provider}
-                    <span className="text-muted-foreground/50"> · {fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
-                  </span>
+                  <span>{m.provider}</span>
+                )}
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-muted-foreground/50">{fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
+                {m.quality != null && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span>{m.quality}% GPQA</span>
+                  </>
+                )}
+                {m.speed != null && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <SpeedBar speed={m.speed} />
+                  </>
                 )}
               </div>
             </div>

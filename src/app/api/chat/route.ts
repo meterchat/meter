@@ -10,7 +10,7 @@ type Message = OpenAI.Chat.ChatCompletionMessageParam;
 
 const MAX_TOOL_ROUNDS = 5;
 /** Max tokens of conversation history to send (excluding system prompt).
- *  Keeps costs predictable — a 30k token context costs ~$0.45 for Opus input (at 3x markup). */
+ *  Keeps costs predictable — a 30k token context costs ~$0.30 for Opus input (at 2x markup). */
 const MAX_CONTEXT_TOKENS = 30_000;
 
 export async function POST(req: NextRequest) {
