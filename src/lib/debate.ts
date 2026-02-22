@@ -115,7 +115,7 @@ export async function runDebate(conversation: Message[], send: Send) {
       ...context,
       {
         role: "user",
-        content: `State your position on this in 2-3 sentences. One clear answer with your key reasoning. No hedging, no alternatives.`,
+        content: `Answer in ONE sentence. A single clear, crisp statement — your position and why. Nothing else.`,
       },
     ];
 
