@@ -59,6 +59,11 @@ const PREFER_DIRECT: Set<string> = new Set([
   "anthropic/claude-opus-4.6",
 ]);
 
+/** Models that support cache_control breakpoints on OpenRouter */
+function supportsCacheControl(model: string): boolean {
+  return model.startsWith("anthropic/") || model.startsWith("google/");
+}
+
 /**
  * Auto-route fallback order: when all tiers for the original model fail,
  * try these models in order (skipping the original).
@@ -70,6 +75,49 @@ const AUTO_ROUTE_ORDER = [
 ];
 
 /* ─── Streaming adapters ────────────────────────────────────────── */
+
+/**
+ * Add cache_control breakpoints to conversation messages for OpenRouter.
+ * Converts system prompt and 2nd-to-last user message to multipart format
+ * with cache_control: { type: "ephemeral" } for Anthropic/Gemini caching.
+ */
+function addOpenRouterCacheBreakpoints(conversation: Message[]): Message[] {
+  const msgs = conversation.map((m) => ({ ...m }));
+
+  // 1. System prompt → multipart with cache_control
+  for (let i = 0; i < msgs.length; i++) {
+    if (msgs[i].role === "system" && typeof msgs[i].content === "string") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      msgs[i] = {
+        ...msgs[i],
+        content: [
+          { type: "text", text: msgs[i].content as string, cache_control: { type: "ephemeral" } },
+        ] as any,
+      };
+      break;
+    }
+  }
+
+  // 2. Second-to-last user message → cache breakpoint (caches all prior conversation)
+  let userCount = 0;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].role === "user") {
+      userCount++;
+      if (userCount === 2 && typeof msgs[i].content === "string") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        msgs[i] = {
+          ...msgs[i],
+          content: [
+            { type: "text", text: msgs[i].content as string, cache_control: { type: "ephemeral" } },
+          ] as any,
+        };
+        break;
+      }
+    }
+  }
+
+  return msgs;
+}
 
 /**
  * Stream via OpenRouter (Tier 1). Uses OpenAI SDK pointed at OpenRouter.
@@ -88,9 +136,20 @@ export async function streamOpenRouter(
     baseURL: "https://openrouter.ai/api/v1",
   });
 
+  // Add cache_control breakpoints for Anthropic/Gemini models on OpenRouter
+  const cachedConversation = supportsCacheControl(model)
+    ? addOpenRouterCacheBreakpoints(conversation)
+    : conversation;
+
+  // Determine cache read rate for this model's provider
+  const orCacheRate = model.startsWith("anthropic/") ? 0.1
+    : model.startsWith("google/") ? 0.1
+    : model.startsWith("openai/") ? 0.5
+    : undefined;
+
   const response = await client.chat.completions.create({
     model,
-    messages: conversation,
+    messages: cachedConversation,
     tools,
     stream: true,
     stream_options: { include_usage: true },
@@ -104,7 +163,17 @@ export async function streamOpenRouter(
     const choice = chunk.choices?.[0];
     if (!choice) {
       if (chunk.usage) {
-        send({ type: "usage", tokensIn: chunk.usage.prompt_tokens, tokensOut: chunk.usage.completion_tokens });
+        const totalIn = chunk.usage.prompt_tokens ?? 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const details = (chunk.usage as any).prompt_tokens_details;
+        const cachedTokens = details?.cached_tokens as number | undefined ?? 0;
+        send({
+          type: "usage",
+          tokensIn: totalIn,
+          tokensOut: chunk.usage.completion_tokens,
+          cacheReadTokens: cachedTokens || undefined,
+          cacheReadRate: cachedTokens && orCacheRate ? orCacheRate : undefined,
+        });
       }
       continue;
     }
@@ -128,7 +197,17 @@ export async function streamOpenRouter(
     }
 
     if (chunk.usage) {
-      send({ type: "usage", tokensIn: chunk.usage.prompt_tokens, tokensOut: chunk.usage.completion_tokens });
+      const totalIn = chunk.usage.prompt_tokens ?? 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const details = (chunk.usage as any).prompt_tokens_details;
+      const cachedTokens = details?.cached_tokens as number | undefined ?? 0;
+      send({
+        type: "usage",
+        tokensIn: totalIn,
+        tokensOut: chunk.usage.completion_tokens,
+        cacheReadTokens: cachedTokens || undefined,
+        cacheReadRate: cachedTokens && orCacheRate ? orCacheRate : undefined,
+      });
     }
   }
 
