@@ -78,7 +78,7 @@ Each workspace has one continuous conversation thread. There are no "new chat" b
 
 Multi-chat interfaces fragment context. Users create dozens of throwaway chats, lose track of where decisions were made, and repeat themselves across conversations. A single thread per workspace means the AI always knows what was discussed before — previous decisions, established preferences, ongoing projects. It turns the AI from a stateless Q&A tool into a persistent collaborator.
 
-Context management uses a 30,000-token sliding window. When the conversation exceeds this, older messages are trimmed from the front (most recent messages kept). The system prompt sits outside the token budget and is always included. This keeps costs predictable — a 30k context costs roughly $0.30 for Opus input at 2x markup.
+Context management uses a 30,000-token sliding window. When the conversation exceeds this, older messages are trimmed from the front (most recent messages kept). The system prompt sits outside the token budget and is always included. This keeps costs predictable — a 30k context costs roughly $0.30 for Opus input with markup.
 
 ### Alternatives considered
 
