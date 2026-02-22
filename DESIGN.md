@@ -22,7 +22,11 @@ Our markup on provider base rates is uniform across all models. No volume discou
 
 ### Counterpoints
 
-Per-token billing can feel unpredictable — users don't know what a conversation will cost before it starts. We mitigate this with the live cost ticker (so you see spend in real time), per-workspace spend limits (so you can cap yourself), and model choice (cheaper models like DeepSeek V3 at $0.54/$2.20 per 1M tokens vs. Opus at $10/$50).
+The live cost ticker is counterintuitive — watching dollars increment in real time could throttle usage. Users who'd happily pay $20/month on a subscription might flinch at watching $0.03 tick up per message. The psychological cost of visible spend is real: every message feels like a micro-purchase decision, which could suppress the exploratory, open-ended usage that makes AI most valuable.
+
+The bet is that transparency wins the long game. Every AI tool already charges per token — Cursor, Claude Code, Lovable — they just bury it behind subscriptions and opaque "fast request" quotas. Users discover the real cost eventually (rate limits, throttling, surprise overages) and feel deceived. Meter puts the number in your face from the start. Users who internalize their actual cost-per-thought stop second-guessing and start using the tool more freely, not less — the same way Uber's upfront pricing made people take more rides, not fewer, compared to the anxiety of watching a taxi meter with no estimate.
+
+Transparency also unlocks interaction modes that subscriptions can't support. A $20/month subscription can't offer a $4 multi-model debate (§7) without blowing the unit economics. Pay-per-thought can, because the user sees the cost, chooses to spend it, and the math works for both sides.
 
 ---
 
