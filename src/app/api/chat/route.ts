@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
     const systemPrompt = buildSystemPrompt(connectedIds);
 
     // Build conversation with context window management.
+    // Cap input context to avoid sending 100k+ tokens of history on every call.
     const allUserMessages: Message[] = messages.map((m: { role: string; content: string }) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
@@ -65,233 +66,218 @@ export async function POST(req: NextRequest) {
       ...trimConversation(allUserMessages, MAX_CONTEXT_TOKENS),
     ];
 
-    // ─── Producer-consumer pattern ──────────────────────────────────
-    // AI work (producer) runs independently of the client connection.
-    // The ReadableStream (consumer) drains an event queue.
-    // If the client disconnects, cancel() fires but the AI keeps going.
-    // after() ensures the serverless function stays alive.
+    // Promise that resolves when the AI stream is fully consumed —
+    // used with after() to keep the function alive even if the client disconnects.
+    let completionResolve: () => void;
+    const completionPromise = new Promise<void>((resolve) => {
+      completionResolve = resolve;
+    });
 
-    const eventQueue: Uint8Array[] = [];
-    let producerDone = false;
-    let clientDisconnected = false;
-    let consumerWaiting: (() => void) | null = null;
+    const stream = new ReadableStream({
+      async start(controller) {
+        let clientConnected = true;
 
-    // Wake the consumer when new events are available
-    const notify = () => {
-      if (consumerWaiting) {
-        consumerWaiting();
-        consumerWaiting = null;
-      }
-    };
+        // Resilient send: if the client disconnects mid-stream, catch the
+        // enqueue error and continue consuming the AI stream in the background.
+        const send: Send = (data) => {
+          if (!clientConnected) return;
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          } catch {
+            clientConnected = false;
+          }
+        };
 
-    // ─── AI Producer ──────────────────────────────────────────────
-    let serverFullContent = "";
-    let activeModel = resolvedModel;
-    let cumulativeTokensIn = 0;
-    let cumulativeTokensOut = 0;
-    let cumulativeCacheCreation = 0;
-    let cumulativeCacheRead = 0;
+        // Track full response content server-side for background completion
+        let serverFullContent = "";
 
-    const aiPromise = (async () => {
-      const pushEvent = (data: Record<string, unknown>) => {
-        eventQueue.push(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-        notify();
-      };
-
-      // ── Meter 1.0 Debate Mode ──────────────────────────────────
-      if (resolvedModel === "meter-1.0") {
-        try {
-          await runDebate(conversation, pushEvent);
-        } catch (err) {
-          console.error("[chat] debate failed:", (err as Error).message);
-          pushEvent({ type: "error", code: "debate_failed", model: "meter-1.0" });
-          pushEvent({ type: "done", actualModel: "meter-1.0" });
-        }
-        return;
-      }
-
-      // ── Standard single-model flow ─────────────────────────────
-      const totalTokensOut = { value: 0 };
-      let roundTokensIn = 0;
-      let roundTokensOut = 0;
-      let roundCacheCreation = 0;
-      let roundCacheRead = 0;
-      let roundCacheReadRate = 0;
-
-      const roundSend: Send = (data) => {
-        if (data.type === "usage") {
-          roundTokensIn = (data.tokensIn as number) || 0;
-          roundTokensOut = (data.tokensOut as number) || 0;
-          roundCacheCreation = (data.cacheCreationTokens as number) || 0;
-          roundCacheRead = (data.cacheReadTokens as number) || 0;
-          if (data.cacheReadRate) roundCacheReadRate = data.cacheReadRate as number;
+        // ── Meter 1.0 Debate Mode ──────────────────────────────────
+        if (resolvedModel === "meter-1.0") {
+          try {
+            await runDebate(conversation, send);
+          } catch (err) {
+            console.error("[chat] debate failed:", (err as Error).message);
+            send({ type: "error", code: "debate_failed", model: "meter-1.0" });
+            send({ type: "done", actualModel: "meter-1.0" });
+          }
+          if (clientConnected) {
+            try { controller.close(); } catch { /* already closed */ }
+          }
+          completionResolve!();
           return;
         }
-        if (data.type === "delta" && typeof data.content === "string") {
-          serverFullContent += data.content;
-        }
-        pushEvent(data);
-      };
 
-      try {
-        for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-          roundTokensIn = 0;
-          roundTokensOut = 0;
-          roundCacheCreation = 0;
-          roundCacheRead = 0;
-          roundCacheReadRate = 0;
+        // ── Standard single-model flow ─────────────────────────────
+        const totalTokensOut = { value: 0 };
+        let activeModel = resolvedModel;
 
-          const result = await streamWithFallback(
-            activeModel,
-            conversation,
-            tools,
-            roundSend,
-            estimateTokens,
-            totalTokensOut,
-          );
+        // Aggregate API-reported usage across tool rounds instead of
+        // only capturing the last round (which under-reports total cost).
+        let cumulativeTokensIn = 0;
+        let cumulativeTokensOut = 0;
+        let cumulativeCacheCreation = 0;
+        let cumulativeCacheRead = 0;
+        let roundTokensIn = 0;
+        let roundTokensOut = 0;
+        let roundCacheCreation = 0;
+        let roundCacheRead = 0;
+        let roundCacheReadRate = 0;
 
-          cumulativeTokensIn += roundTokensIn;
-          cumulativeTokensOut += roundTokensOut;
-          cumulativeCacheCreation += roundCacheCreation;
-          cumulativeCacheRead += roundCacheRead;
-
-          activeModel = result.actualModel;
-
-          if (!result.hasToolCalls || result.toolCalls.size === 0) break;
-
-          conversation.push({
-            role: "assistant",
-            content: result.textContent || null,
-            tool_calls: Array.from(result.toolCalls.values()).map((tc) => ({
-              id: tc.id,
-              type: "function" as const,
-              function: { name: tc.name, arguments: tc.arguments },
-            })),
-          });
-
-          for (const tc of result.toolCalls.values()) {
-            pushEvent({ type: "tool_call", name: tc.name });
-
-            let args: Record<string, unknown> = {};
-            try {
-              args = JSON.parse(tc.arguments);
-            } catch {
-              // malformed args — pass empty
-            }
-
-            const toolResult = await executeTool(tc.name, args, { userId, projectId, workspaceId: projectId });
-
-            const toolResultEvent: Record<string, unknown> = { type: "tool_result", name: tc.name };
-            if (tc.name === "save_decision") {
-              toolResultEvent.decision = {
-                title: args.title,
-                status: "decided",
-                choice: args.choice,
-                alternatives: args.alternatives || [],
-                reasoning: args.reasoning || null,
-              };
-            }
-            pushEvent(toolResultEvent);
-
-            conversation.push({
-              role: "tool",
-              tool_call_id: tc.id,
-              content: toolResult,
-            });
-          }
-        }
-      } catch (err) {
-        console.error("[chat] all providers failed:", (err as Error).message);
-        pushEvent({
-          type: "error",
-          code: "all_providers_failed",
-          model: resolvedModel,
-        });
-      }
-
-      // Send aggregated usage
-      if (cumulativeTokensIn > 0 || cumulativeTokensOut > 0) {
-        pushEvent({
-          type: "usage",
-          tokensIn: cumulativeTokensIn,
-          tokensOut: cumulativeTokensOut,
-          cacheCreationTokens: cumulativeCacheCreation || undefined,
-          cacheReadTokens: cumulativeCacheRead || undefined,
-          cacheReadRate: roundCacheReadRate || undefined,
-        });
-      }
-
-      pushEvent({ type: "done", actualModel: activeModel });
-    })();
-
-    // ─── Client Stream (consumer) ─────────────────────────────────
-    const stream = new ReadableStream({
-      async pull(controller) {
-        // Wait for events if queue is empty and producer isn't done
-        while (eventQueue.length === 0 && !producerDone) {
-          await new Promise<void>((resolve) => { consumerWaiting = resolve; });
-          // If cancelled while waiting, exit
-          if (clientDisconnected) return;
-        }
-
-        // Drain all available events
-        while (eventQueue.length > 0) {
-          try {
-            controller.enqueue(eventQueue.shift()!);
-          } catch {
-            // Stream cancelled mid-drain
-            clientDisconnected = true;
+        // Intercept usage events from streaming adapters — accumulate per-round,
+        // then sum across rounds. Forward everything else to the client.
+        // Also track full content for background completion.
+        const roundSend: Send = (data) => {
+          if (data.type === "usage") {
+            // Within a round, replace (last event wins for that round)
+            roundTokensIn = (data.tokensIn as number) || 0;
+            roundTokensOut = (data.tokensOut as number) || 0;
+            roundCacheCreation = (data.cacheCreationTokens as number) || 0;
+            roundCacheRead = (data.cacheReadTokens as number) || 0;
+            // Cache read rate is per-provider, not cumulative (last wins)
+            if (data.cacheReadRate) roundCacheReadRate = data.cacheReadRate as number;
             return;
           }
+          if (data.type === "delta" && typeof data.content === "string") {
+            serverFullContent += data.content;
+          }
+          send(data);
+        };
+
+        try {
+
+          for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+            roundTokensIn = 0;
+            roundTokensOut = 0;
+            roundCacheCreation = 0;
+            roundCacheRead = 0;
+            roundCacheReadRate = 0;
+
+            const result = await streamWithFallback(
+              activeModel,
+              conversation,
+              tools,
+              roundSend,
+              estimateTokens,
+              totalTokensOut,
+            );
+
+            // Accumulate this round's API-reported usage
+            cumulativeTokensIn += roundTokensIn;
+            cumulativeTokensOut += roundTokensOut;
+            cumulativeCacheCreation += roundCacheCreation;
+            cumulativeCacheRead += roundCacheRead;
+
+            // Track which model actually responded (for subsequent tool rounds)
+            activeModel = result.actualModel;
+
+            // No tool calls → done
+            if (!result.hasToolCalls || result.toolCalls.size === 0) break;
+
+            // Add assistant message with tool calls to conversation
+            conversation.push({
+              role: "assistant",
+              content: result.textContent || null,
+              tool_calls: Array.from(result.toolCalls.values()).map((tc) => ({
+                id: tc.id,
+                type: "function" as const,
+                function: { name: tc.name, arguments: tc.arguments },
+              })),
+            });
+
+            // Execute each tool call
+            for (const tc of result.toolCalls.values()) {
+              send({ type: "tool_call", name: tc.name });
+
+              let args: Record<string, unknown> = {};
+              try {
+                args = JSON.parse(tc.arguments);
+              } catch {
+                // malformed args — pass empty
+              }
+
+              const toolResult = await executeTool(tc.name, args, { userId, projectId, workspaceId: projectId });
+
+              const toolResultEvent: Record<string, unknown> = { type: "tool_result", name: tc.name };
+              if (tc.name === "save_decision") {
+                toolResultEvent.decision = {
+                  title: args.title,
+                  status: "decided",
+                  choice: args.choice,
+                  alternatives: args.alternatives || [],
+                  reasoning: args.reasoning || null,
+                };
+              }
+              send(toolResultEvent);
+
+              conversation.push({
+                role: "tool",
+                tool_call_id: tc.id,
+                content: toolResult,
+              });
+            }
+          }
+        } catch (err) {
+          // All fallback tiers exhausted — show error to client
+          console.error("[chat] all providers failed:", (err as Error).message);
+
+          send({
+            type: "error",
+            code: "all_providers_failed",
+            model: resolvedModel,
+          });
         }
 
-        if (producerDone && eventQueue.length === 0) {
+        // Send aggregated usage across all tool rounds as a single event
+        if (cumulativeTokensIn > 0 || cumulativeTokensOut > 0) {
+          send({
+            type: "usage",
+            tokensIn: cumulativeTokensIn,
+            tokensOut: cumulativeTokensOut,
+            cacheCreationTokens: cumulativeCacheCreation || undefined,
+            cacheReadTokens: cumulativeCacheRead || undefined,
+            // Forward the provider-specific cache read rate (last round's rate)
+            cacheReadRate: roundCacheReadRate || undefined,
+          });
+        }
+
+        send({ type: "done", actualModel: activeModel });
+
+        if (clientConnected) {
           try { controller.close(); } catch { /* already closed */ }
         }
-      },
-      cancel() {
-        clientDisconnected = true;
-        // Wake any pending pull() so it can exit
-        notify();
-      },
-    });
 
-    // ─── Background completion ────────────────────────────────────
-    // Keep the serverless function alive until the AI finishes.
-    // If the client disconnected, save the completed response to DB.
-    after(async () => {
-      try {
-        await aiPromise;
-      } catch (err) {
-        console.error("[chat/after] AI work failed:", err);
-      } finally {
-        producerDone = true;
-        notify();
-      }
+        // If client disconnected mid-stream, save the completed response to DB
+        // so the client can recover it on reload.
+        if (!clientConnected && serverFullContent && assistantMessageId && projectId) {
+          try {
+            const supabase = getSupabaseServer();
+            const dbSessionId = projectId.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
 
-      if (clientDisconnected && serverFullContent && assistantMessageId && projectId) {
-        try {
-          const supabase = getSupabaseServer();
-          const dbSessionId = projectId.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
+            await supabase.from("chat_messages").upsert({
+              id: assistantMessageId,
+              session_id: dbSessionId,
+              role: "assistant",
+              content: serverFullContent,
+              model: activeModel,
+              tokens_in: cumulativeTokensIn || null,
+              tokens_out: cumulativeTokensOut || null,
+              receipt_status: "server_completed",
+              timestamp: Date.now(),
+            }, { onConflict: "id" });
 
-          await supabase.from("chat_messages").upsert({
-            id: assistantMessageId,
-            session_id: dbSessionId,
-            role: "assistant",
-            content: serverFullContent,
-            model: activeModel,
-            tokens_in: cumulativeTokensIn || null,
-            tokens_out: cumulativeTokensOut || null,
-            receipt_status: "server_completed",
-            timestamp: Date.now(),
-          }, { onConflict: "id" });
-
-          console.log(`[chat/after] saved background-completed response (${serverFullContent.length} chars, model=${activeModel})`);
-        } catch (dbErr) {
-          console.error("[chat/after] failed to save:", dbErr);
+            console.log(`[chat] client disconnected — saved completed response to DB (${serverFullContent.length} chars, model=${activeModel})`);
+          } catch (dbErr) {
+            console.error("[chat] failed to save background-completed response:", dbErr);
+          }
         }
-      }
+
+        completionResolve!();
+      },
     });
+
+    // Keep the serverless function alive until the AI stream is fully consumed,
+    // even if the client disconnects mid-stream.
+    after(completionPromise);
 
     return new Response(stream, {
       headers: {
