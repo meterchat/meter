@@ -39,14 +39,30 @@ interface DirectProvider {
   /** The native model ID to use with the direct API */
   nativeModel: string;
   sdk: "anthropic" | "openai" | "gemini";
+  /** Custom base URL for OpenAI-compatible APIs (e.g. DeepSeek) */
+  baseURL?: string;
+  /** Cache read discount rate (fraction of input price). OpenAI=0.5, Anthropic/Gemini/DeepSeek=0.1 */
+  cacheReadRate?: number;
 }
 
 const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
-  "anthropic/claude-sonnet-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-sonnet-4-6", sdk: "anthropic" },
-  "anthropic/claude-opus-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-opus-4-6", sdk: "anthropic" },
-  "openai/gpt-5.2": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.2", sdk: "openai" },
-  "google/gemini-3-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3-pro-preview", sdk: "gemini" },
+  "anthropic/claude-sonnet-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-sonnet-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
+  "anthropic/claude-opus-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-opus-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
+  "openai/gpt-5.2": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.2", sdk: "openai", cacheReadRate: 0.5 },
+  "google/gemini-3-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
+  "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
 };
+
+/** Models where direct API should be preferred over OpenRouter (e.g. for caching) */
+const PREFER_DIRECT: Set<string> = new Set([
+  "anthropic/claude-sonnet-4.6",
+  "anthropic/claude-opus-4.6",
+]);
+
+/** Models that support cache_control breakpoints on OpenRouter */
+function supportsCacheControl(model: string): boolean {
+  return model.startsWith("anthropic/") || model.startsWith("google/");
+}
 
 /**
  * Auto-route fallback order: when all tiers for the original model fail,
@@ -59,6 +75,49 @@ const AUTO_ROUTE_ORDER = [
 ];
 
 /* ─── Streaming adapters ────────────────────────────────────────── */
+
+/**
+ * Add cache_control breakpoints to conversation messages for OpenRouter.
+ * Converts system prompt and 2nd-to-last user message to multipart format
+ * with cache_control: { type: "ephemeral" } for Anthropic/Gemini caching.
+ */
+function addOpenRouterCacheBreakpoints(conversation: Message[]): Message[] {
+  const msgs = conversation.map((m) => ({ ...m }));
+
+  // 1. System prompt → multipart with cache_control
+  for (let i = 0; i < msgs.length; i++) {
+    if (msgs[i].role === "system" && typeof msgs[i].content === "string") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      msgs[i] = {
+        ...msgs[i],
+        content: [
+          { type: "text", text: msgs[i].content as string, cache_control: { type: "ephemeral" } },
+        ] as any,
+      };
+      break;
+    }
+  }
+
+  // 2. Second-to-last user message → cache breakpoint (caches all prior conversation)
+  let userCount = 0;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].role === "user") {
+      userCount++;
+      if (userCount === 2 && typeof msgs[i].content === "string") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        msgs[i] = {
+          ...msgs[i],
+          content: [
+            { type: "text", text: msgs[i].content as string, cache_control: { type: "ephemeral" } },
+          ] as any,
+        };
+        break;
+      }
+    }
+  }
+
+  return msgs;
+}
 
 /**
  * Stream via OpenRouter (Tier 1). Uses OpenAI SDK pointed at OpenRouter.
@@ -77,9 +136,22 @@ export async function streamOpenRouter(
     baseURL: "https://openrouter.ai/api/v1",
   });
 
+  // Add cache_control breakpoints for Anthropic/Gemini models on OpenRouter
+  const cachedConversation = supportsCacheControl(model)
+    ? addOpenRouterCacheBreakpoints(conversation)
+    : conversation;
+
+  // Determine cache read rate for this model's provider.
+  // Anthropic=0.1x, Gemini=0.25x (implicit), DeepSeek=0.1x, OpenAI=0.5x
+  const orCacheRate = model.startsWith("anthropic/") ? 0.1
+    : model.startsWith("google/") ? 0.25
+    : model.startsWith("deepseek/") ? 0.1
+    : model.startsWith("openai/") ? 0.5
+    : undefined;
+
   const response = await client.chat.completions.create({
     model,
-    messages: conversation,
+    messages: cachedConversation,
     tools,
     stream: true,
     stream_options: { include_usage: true },
@@ -93,7 +165,19 @@ export async function streamOpenRouter(
     const choice = chunk.choices?.[0];
     if (!choice) {
       if (chunk.usage) {
-        send({ type: "usage", tokensIn: chunk.usage.prompt_tokens, tokensOut: chunk.usage.completion_tokens });
+        const totalIn = chunk.usage.prompt_tokens ?? 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const details = (chunk.usage as any).prompt_tokens_details;
+        const cachedTokens = details?.cached_tokens as number | undefined ?? 0;
+        const cacheWriteTokens = details?.cache_write_tokens as number | undefined ?? 0;
+        send({
+          type: "usage",
+          tokensIn: totalIn,
+          tokensOut: chunk.usage.completion_tokens,
+          cacheCreationTokens: cacheWriteTokens || undefined,
+          cacheReadTokens: cachedTokens || undefined,
+          cacheReadRate: (cachedTokens || cacheWriteTokens) && orCacheRate ? orCacheRate : undefined,
+        });
       }
       continue;
     }
@@ -117,7 +201,19 @@ export async function streamOpenRouter(
     }
 
     if (chunk.usage) {
-      send({ type: "usage", tokensIn: chunk.usage.prompt_tokens, tokensOut: chunk.usage.completion_tokens });
+      const totalIn = chunk.usage.prompt_tokens ?? 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const details = (chunk.usage as any).prompt_tokens_details;
+      const cachedTokens = details?.cached_tokens as number | undefined ?? 0;
+      const cacheWriteTokens = details?.cache_write_tokens as number | undefined ?? 0;
+      send({
+        type: "usage",
+        tokensIn: totalIn,
+        tokensOut: chunk.usage.completion_tokens,
+        cacheCreationTokens: cacheWriteTokens || undefined,
+        cacheReadTokens: cachedTokens || undefined,
+        cacheReadRate: (cachedTokens || cacheWriteTokens) && orCacheRate ? orCacheRate : undefined,
+      });
     }
   }
 
@@ -304,6 +400,7 @@ async function streamAnthropic(
       // Cache breakdown for accurate cost calculation
       cacheCreationTokens: cacheCreation,
       cacheReadTokens: cacheRead,
+      cacheReadRate: cacheRead ? 0.1 : undefined,
     });
   }
 
@@ -321,8 +418,10 @@ async function streamOpenAIDirect(
   send: Send,
   estimateTokens: (text: string) => number,
   totalTokensOut: { value: number },
+  baseURL?: string,
+  cacheReadRate?: number,
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
 
   const response = await client.chat.completions.create({
     model: nativeModel,
@@ -340,7 +439,18 @@ async function streamOpenAIDirect(
     const choice = chunk.choices?.[0];
     if (!choice) {
       if (chunk.usage) {
-        send({ type: "usage", tokensIn: chunk.usage.prompt_tokens, tokensOut: chunk.usage.completion_tokens });
+        // OpenAI/DeepSeek automatic prompt caching — report cache breakdown.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const details = (chunk.usage as any).prompt_tokens_details;
+        const cachedTokens = details?.cached_tokens as number | undefined ?? 0;
+        const totalIn = chunk.usage.prompt_tokens ?? 0;
+        send({
+          type: "usage",
+          tokensIn: totalIn,
+          tokensOut: chunk.usage.completion_tokens,
+          cacheReadTokens: cachedTokens || undefined,
+          cacheReadRate: cachedTokens ? (cacheReadRate ?? 0.5) : undefined,
+        });
       }
       continue;
     }
@@ -364,7 +474,17 @@ async function streamOpenAIDirect(
     }
 
     if (chunk.usage) {
-      send({ type: "usage", tokensIn: chunk.usage.prompt_tokens, tokensOut: chunk.usage.completion_tokens });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const details = (chunk.usage as any).prompt_tokens_details;
+      const cachedTokens = details?.cached_tokens as number | undefined ?? 0;
+      const totalIn = chunk.usage.prompt_tokens ?? 0;
+      send({
+        type: "usage",
+        tokensIn: totalIn,
+        tokensOut: chunk.usage.completion_tokens,
+        cacheReadTokens: cachedTokens || undefined,
+        cacheReadRate: cachedTokens ? (cacheReadRate ?? 0.5) : undefined,
+      });
     }
   }
 
@@ -421,10 +541,15 @@ async function streamGemini(
 
   const response = await result.response;
   if (response.usageMetadata) {
+    // Gemini has implicit caching (75% discount / 0.25x rate).
+    // cachedContentTokenCount is included in promptTokenCount.
+    const cachedTokens = response.usageMetadata.cachedContentTokenCount ?? 0;
     send({
       type: "usage",
       tokensIn: response.usageMetadata.promptTokenCount,
       tokensOut: response.usageMetadata.candidatesTokenCount,
+      cacheReadTokens: cachedTokens || undefined,
+      cacheReadRate: cachedTokens ? 0.25 : undefined,
     });
   }
 
@@ -447,7 +572,7 @@ function streamDirect(
     case "anthropic":
       return streamAnthropic(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut);
     case "openai":
-      return streamOpenAIDirect(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut);
+      return streamOpenAIDirect(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut, provider.baseURL, provider.cacheReadRate);
     case "gemini":
       return streamGemini(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut);
   }
@@ -484,6 +609,23 @@ export async function streamWithFallback(
 ): Promise<FallbackResult> {
   const errors: { tier: number; model: string; error: string }[] = [];
 
+  const directProvider = DIRECT_PROVIDERS[requestedModel];
+  const directKey = directProvider ? process.env[directProvider.envKey] : undefined;
+  const preferDirect = PREFER_DIRECT.has(requestedModel) && directProvider && directKey;
+
+  // ── For Anthropic models: try direct API FIRST (enables prompt caching) ──
+  if (preferDirect) {
+    try {
+      console.log("[fallback] tier 1 (direct, preferred for caching):", requestedModel);
+      const result = await streamDirect(directProvider, directKey!, conversation, tools, send, estimateTokens, totalTokensOut);
+      return { ...result, actualModel: requestedModel, tier: 2 };
+    } catch (err) {
+      const e = err as Error;
+      console.error("[fallback] tier 1 direct (preferred) failed:", requestedModel, e.message);
+      errors.push({ tier: 2, model: requestedModel, error: e.message });
+    }
+  }
+
   // ── Tier 1: OpenRouter ──────────────────────────────────────────
   if (process.env.OPENROUTER_API_KEY) {
     try {
@@ -501,10 +643,8 @@ export async function streamWithFallback(
   }
 
   // ── Tier 2: Same model via direct API key (silent) ──────────────
-  const directProvider = DIRECT_PROVIDERS[requestedModel];
-  const directKey = directProvider ? process.env[directProvider.envKey] : undefined;
-
-  if (directProvider && directKey) {
+  // Skip if already tried above as preferred direct
+  if (!preferDirect && directProvider && directKey) {
     try {
       console.log("[fallback] tier 2 (direct key, same model):", requestedModel);
       const result = await streamDirect(directProvider, directKey, conversation, tools, send, estimateTokens, totalTokensOut);
