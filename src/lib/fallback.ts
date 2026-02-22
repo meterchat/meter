@@ -49,7 +49,7 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "anthropic/claude-sonnet-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-sonnet-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
   "anthropic/claude-opus-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-opus-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
   "openai/gpt-5.2": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.2", sdk: "openai", cacheReadRate: 0.5 },
-  "google/gemini-3-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3-pro-preview", sdk: "gemini", cacheReadRate: 0.1 },
+  "google/gemini-3-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
 };
 
@@ -141,9 +141,11 @@ export async function streamOpenRouter(
     ? addOpenRouterCacheBreakpoints(conversation)
     : conversation;
 
-  // Determine cache read rate for this model's provider
+  // Determine cache read rate for this model's provider.
+  // Anthropic=0.1x, Gemini=0.25x (implicit), DeepSeek=0.1x, OpenAI=0.5x
   const orCacheRate = model.startsWith("anthropic/") ? 0.1
-    : model.startsWith("google/") ? 0.1
+    : model.startsWith("google/") ? 0.25
+    : model.startsWith("deepseek/") ? 0.1
     : model.startsWith("openai/") ? 0.5
     : undefined;
 
@@ -167,12 +169,14 @@ export async function streamOpenRouter(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const details = (chunk.usage as any).prompt_tokens_details;
         const cachedTokens = details?.cached_tokens as number | undefined ?? 0;
+        const cacheWriteTokens = details?.cache_write_tokens as number | undefined ?? 0;
         send({
           type: "usage",
           tokensIn: totalIn,
           tokensOut: chunk.usage.completion_tokens,
+          cacheCreationTokens: cacheWriteTokens || undefined,
           cacheReadTokens: cachedTokens || undefined,
-          cacheReadRate: cachedTokens && orCacheRate ? orCacheRate : undefined,
+          cacheReadRate: (cachedTokens || cacheWriteTokens) && orCacheRate ? orCacheRate : undefined,
         });
       }
       continue;
@@ -201,12 +205,14 @@ export async function streamOpenRouter(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const details = (chunk.usage as any).prompt_tokens_details;
       const cachedTokens = details?.cached_tokens as number | undefined ?? 0;
+      const cacheWriteTokens = details?.cache_write_tokens as number | undefined ?? 0;
       send({
         type: "usage",
         tokensIn: totalIn,
         tokensOut: chunk.usage.completion_tokens,
+        cacheCreationTokens: cacheWriteTokens || undefined,
         cacheReadTokens: cachedTokens || undefined,
-        cacheReadRate: cachedTokens && orCacheRate ? orCacheRate : undefined,
+        cacheReadRate: (cachedTokens || cacheWriteTokens) && orCacheRate ? orCacheRate : undefined,
       });
     }
   }
@@ -535,7 +541,7 @@ async function streamGemini(
 
   const response = await result.response;
   if (response.usageMetadata) {
-    // Gemini has implicit caching (90% discount for 2.5+ models).
+    // Gemini has implicit caching (75% discount / 0.25x rate).
     // cachedContentTokenCount is included in promptTokenCount.
     const cachedTokens = response.usageMetadata.cachedContentTokenCount ?? 0;
     send({
@@ -543,7 +549,7 @@ async function streamGemini(
       tokensIn: response.usageMetadata.promptTokenCount,
       tokensOut: response.usageMetadata.candidatesTokenCount,
       cacheReadTokens: cachedTokens || undefined,
-      cacheReadRate: cachedTokens ? 0.1 : undefined,
+      cacheReadRate: cachedTokens ? 0.25 : undefined,
     });
   }
 
