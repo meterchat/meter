@@ -265,3 +265,91 @@ The alternative — server-authoritative state with client cache — would requi
 ### Counterpoints
 
 Client-side primacy means data can be lost if the browser crashes before sync. The 10-second interval means up to 10 seconds of messages could be lost. There's also no cross-device sync in real time — if you open Meter on two devices, the last one to sync wins. For a v1 single-user product, these tradeoffs are acceptable.
+
+---
+
+## 13. Per-Message Receipt Lifecycle
+
+Every assistant message goes through a three-stage receipt lifecycle: `signing` (streaming in progress), `signed` (response complete, receipt generated with a hex signature), `settled` (Stripe charge succeeded, batch transaction hash attached). Each message carries its own cost, token counts, model attribution, and receipt status.
+
+### Rationale
+
+In a postpaid system, every dollar of unsettled balance is credit risk. Per-message receipts create an auditable trail from the moment tokens are generated to the moment they're paid for. The signature is generated at completion (not at settlement), so there's an immediate, tamper-evident record of what was consumed — even before the card is charged.
+
+This also enables granular usage attribution. Users can see exactly which messages cost what, which model generated them, and whether they've been settled. The `settled: boolean` flag on each message is the primitive that drives the settlement system — `settleAll()` collects all messages where `settled === false` and charges them in one batch.
+
+### Alternatives considered
+
+- **Session-level billing only.** Track total cost per session, settle the aggregate. Rejected because it loses per-message attribution — users can't see which specific messages drove their costs.
+- **Real cryptographic signatures (ECDSA/EdDSA).** Sign each receipt with a private key for non-repudiation. Currently the "signature" is a random hex string, not a real cryptographic signature. Real signing is a future consideration but adds key management complexity.
+- **Server-side receipt generation.** Have the server generate and store receipts. Rejected because the client-side-first architecture means receipts need to exist locally before the server sync happens.
+
+### Counterpoints
+
+The current signatures are pseudo-random hex strings, not cryptographically meaningful. They provide visual consistency (every message has a "receipt") but don't actually prove anything. Moving to real ECDSA signatures would require a signing key per user and verification infrastructure — overkill for v1 but on the roadmap.
+
+---
+
+## 14. No Rate Limits
+
+Meter imposes no request-per-minute or messages-per-hour rate limits. The only limits are cost-based: user-configured spend caps (daily/monthly per workspace) and the trust-tiered exposure cap after failed settlement. If you can pay for it, you can use it.
+
+### Rationale
+
+Rate limits exist in subscription products to prevent abuse of "unlimited" plans. In a per-token billing model, abuse is self-limiting — every message costs money. A user sending 1,000 messages per hour is paying for 1,000 messages per hour. There's no economic reason to throttle them.
+
+The three-tier fallback system (§8) also means that provider-level rate limits (429s from OpenRouter or direct APIs) are absorbed by failover rather than surfaced to the user. If one provider is rate-limiting, Meter silently routes to the next one. The user's experience is uninterrupted.
+
+### Alternatives considered
+
+- **Per-minute request caps.** Standard API practice. Rejected because it solves an abuse problem that doesn't exist in a paid-per-token model.
+- **Soft throttling (slow down responses).** Gradually increase response latency under heavy load. Rejected because it degrades experience without clear benefit — if the providers can handle the load, why slow down?
+- **Queue-based fair scheduling.** Queue requests during peak load, process in order. Rejected because it adds infrastructure complexity (job queue, workers) for a problem that provider-level load balancing already handles.
+
+### Counterpoints
+
+No rate limits means a single user could theoretically consume disproportionate provider capacity during peak times. In practice, per-user volume is small relative to provider capacity, and the fallback system distributes load across multiple providers. If this becomes a real problem at scale, per-user request budgets could be added without changing the billing model.
+
+---
+
+## 15. Connectors as Tool Calls
+
+External services (Gmail, GitHub, Stripe, Mercury, Ramp, Supabase, PostHog, Vercel) are wired as native LLM tool calls, not as standalone integrations with separate UI. The AI decides when to use them based on conversation context. Connection is per-workspace — different workspaces can have different services connected.
+
+### Rationale
+
+The AI should be the integration layer, not the UI. When a user says "check my latest Stripe payments," the AI calls `stripe_list_payments` as a tool — no separate Stripe dashboard, no tab switching. This keeps the interface unified: one conversation thread where the AI has access to everything the user has connected.
+
+OAuth tokens are encrypted at rest (AES-256-GCM), scoped per-workspace, and auto-refreshed when expiring within 60 seconds. API-key connectors (Mercury, Ramp, Supabase, PostHog) use stored keys rather than OAuth flows. Tool execution is sequential within a round, with up to 5 tool rounds per user message (6 total LLM calls maximum).
+
+### Alternatives considered
+
+- **Standalone integration panels.** Separate UI for each connected service (inbox view, repo browser, etc.). Rejected because it fragments the user's attention and duplicates UI that each service already provides. The AI as integration layer means zero additional UI surface.
+- **Zapier/Make-style automation.** Trigger-action workflows between services. Rejected because workflows are rigid and require upfront configuration. Natural language tool calling is more flexible — the user describes what they want, and the AI figures out which tools to chain.
+- **MCP (Model Context Protocol).** Standardized tool protocol for AI-service integration. Under consideration for future connectors but not adopted yet — current connectors are custom-built for tighter control over auth, error handling, and response formatting.
+
+### Counterpoints
+
+Sequential tool execution (not parallel) adds latency when multiple tools are needed. The 5-round limit means complex multi-step workflows can hit the ceiling. There's also no tool approval flow — tools execute automatically, which means a misinterpreted user request could trigger unintended actions (e.g., creating a GitHub repo when the user was just asking about it). For read-only tools this is low-risk; for write operations (create repo, deploy), it's worth monitoring.
+
+---
+
+## 16. Decision Tracking as a Native Capability
+
+Decision capture is a built-in AI tool (`save_decision`), not a separate feature. The AI detects decision points in conversation — when a user makes a choice, picks an approach, or commits to a direction — and prompts to log it. Decisions store the choice, alternatives considered, reasoning, and project context.
+
+### Rationale
+
+Decisions are the most valuable output of AI conversations, but they're the most likely to be lost. Users make a decision in chat, close the tab, and forget what was decided a week later. By making decision capture a tool the AI can invoke mid-conversation, the friction drops to zero — the user doesn't have to context-switch to a separate app or manually log anything.
+
+The `[decision-point]` tag in the AI's system prompt triggers UI affordances (buttons to save or debate) when the AI senses a decision has been reached. This makes capture proactive rather than reactive — the AI suggests logging before the user forgets to.
+
+### Alternatives considered
+
+- **Separate decision journal app.** A standalone tool for logging decisions. Rejected because it requires the user to manually transcribe decisions from chat to journal — high friction, low adoption.
+- **Automatic decision extraction.** AI retroactively scans conversation and extracts all decisions. Rejected because it's unreliable (false positives) and removes user agency over what counts as a "decision."
+- **Inline annotations.** User highlights text and marks it as a decision. Rejected because it requires manual selection and doesn't capture context (alternatives, reasoning) that the AI can surface from the conversation.
+
+### Counterpoints
+
+The AI's judgment about what constitutes a "decision point" is imperfect. It may prompt on trivial choices (naming a variable) or miss significant ones (choosing a vendor). The `[decision-point]` detection is prompt-driven, not trained — it relies on the system prompt instructions rather than fine-tuned classification. Over-prompting could become annoying; under-prompting defeats the purpose.
