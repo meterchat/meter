@@ -555,7 +555,7 @@ export function ChatView() {
               if (currentTurn) {
                 localTrace.push({
                   model: currentTurn.model,
-                  phase: currentTurn.phase as "opening" | "challenge" | "rebuttal",
+                  phase: currentTurn.phase as "opening" | "challenge" | "rebuttal" | "vote",
                   content: currentTurn.content,
                 });
                 setDebateTraceLocal([...localTrace]);
