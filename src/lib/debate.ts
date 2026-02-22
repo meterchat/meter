@@ -18,9 +18,43 @@ import type OpenAI from "openai";
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
 
 const MAX_DEBATE_ROUNDS = 4; // opening + challenge + up to 2 rebuttals
+/** Max recent conversation messages to include as context for debate models */
+const MAX_CONTEXT_MESSAGES = 6;
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
+}
+
+/**
+ * Extract a compact context from the conversation for debate models.
+ * Strips system messages and the debate trigger (last user message),
+ * keeps only the last few exchanges so models have topic context
+ * without ingesting the entire conversation history.
+ */
+function extractDebateContext(conversation: Message[]): {
+  topic: string;
+  context: Message[];
+} {
+  // Filter out system messages
+  const nonSystem = conversation.filter((m) => m.role !== "system");
+
+  // The last user message is the debate trigger — skip it for topic extraction
+  const userMessages = nonSystem.filter((m) => m.role === "user");
+  const realQuestion = userMessages.length >= 2
+    ? userMessages[userMessages.length - 2]
+    : userMessages[userMessages.length - 1];
+  const topic =
+    typeof realQuestion?.content === "string"
+      ? realQuestion.content
+      : "the topic under discussion";
+
+  // Drop the last user message (debate trigger) from context
+  const withoutTrigger = nonSystem.slice(0, -1);
+
+  // Keep only the last N messages for cost efficiency
+  const trimmed = withoutTrigger.slice(-MAX_CONTEXT_MESSAGES);
+
+  return { topic, context: trimmed };
 }
 
 /** Run a single model turn — stream to client, collect text + usage */
@@ -147,15 +181,8 @@ function formatDebateHistory(
 export async function runDebate(conversation: Message[], send: Send) {
   const usage = { tokensIn: 0, tokensOut: 0 };
 
-  // Extract the user's question
-  const userMessages = conversation.filter((m) => m.role === "user");
-  const lastUserMsg = userMessages[userMessages.length - 1];
-  const topic =
-    typeof lastUserMsg?.content === "string"
-      ? lastUserMsg.content
-      : "the topic under discussion";
-
-  const conversationContext = conversation.filter((m) => m.role !== "system");
+  // Extract topic (real question, not the debate trigger) and trimmed context
+  const { topic, context } = extractDebateContext(conversation);
 
   // Track all rounds for history
   const rounds: { phase: string; positions: Record<string, string> }[] = [];
@@ -166,12 +193,17 @@ export async function runDebate(conversation: Message[], send: Send) {
   const openingPositions: Record<string, string> = {};
 
   for (const modelId of DEBATE_MODELS) {
+    const modelName = shortModelName(modelId);
     const messages: Message[] = [
       {
         role: "system",
-        content: `You are participating in a structured multi-model debate. Give your honest, specific position on the user's question. Be direct, insightful, and concise — 2-3 short paragraphs max. Do not hedge or disclaim. Take a clear stance.`,
+        content: `You are ${modelName}, one of three AI models in a structured debate. The user's question is below.
+
+Give YOUR OWN position — a single, clear stance. Do NOT simulate other models or present multiple viewpoints. Just your honest take.
+
+Be direct, specific, and concise — 2-3 short paragraphs max. No hedging.`,
       },
-      ...conversationContext,
+      ...context,
     ];
 
     openingPositions[modelId] = await runModelTurn(
@@ -191,6 +223,7 @@ export async function runDebate(conversation: Message[], send: Send) {
     const prevRound = rounds[rounds.length - 1];
 
     for (const modelId of DEBATE_MODELS) {
+      const modelName = shortModelName(modelId);
       const otherPositions = DEBATE_MODELS
         .filter((id) => id !== modelId)
         .map(
@@ -205,7 +238,7 @@ export async function runDebate(conversation: Message[], send: Send) {
 
       const systemContent =
         roundNum === 1
-          ? `You are in the challenge round of a structured multi-model debate.
+          ? `You are ${modelName} in the CHALLENGE round of a structured debate.
 
 Your opening position was:
 ${openingPositions[modelId]}
@@ -213,8 +246,8 @@ ${openingPositions[modelId]}
 The other participants said:
 ${otherPositions}
 
-Push back hard. Challenge weak reasoning, identify blind spots, stress-test assumptions. Defend your view where it differs. If another model's position is genuinely stronger on a point, acknowledge it — but don't cave just to be agreeable. Hold your ground where you're right. 2-3 short paragraphs.`
-          : `You are in rebuttal round ${roundNum - 1} of a structured multi-model debate.
+Push back hard on weak reasoning. Defend your view where it differs. If another position is genuinely stronger on a point, acknowledge it — but don't cave just to be agreeable. 2-3 short paragraphs. Give ONLY your own response.`
+          : `You are ${modelName} in REBUTTAL round ${roundNum - 1} of a structured debate.
 
 Your positions so far:
 ${myHistory}
@@ -222,15 +255,11 @@ ${myHistory}
 The other participants' latest responses:
 ${otherPositions}
 
-This debate continues because genuine disagreement remains. Either:
-- Defend your position against the specific challenges raised, with stronger evidence or reasoning
-- OR concede to the position that has proven stronger — don't split the difference, pick a side
-
-Do NOT compromise or blend positions. Either your original stance holds up under pressure, or it doesn't. Be honest about which it is. 2-3 short paragraphs.`;
+Genuine disagreement remains. Either defend your position with stronger evidence, or concede to the stronger position — don't split the difference. 2-3 short paragraphs. Give ONLY your own response.`;
 
       const messages: Message[] = [
         { role: "system", content: systemContent },
-        ...conversationContext,
+        ...context,
       ];
 
       roundPositions[modelId] = await runModelTurn(
@@ -254,39 +283,32 @@ Do NOT compromise or blend positions. Either your original stance holds up under
   const winnerOpening = winnerModelId ? openingPositions[winnerModelId] : null;
 
   const verdictPrompt = winnerModelId
-    ? `You are Meter 1.0, a verdict engine that delivers clear, convicted answers from multi-model debates.
+    ? `You are Meter 1.0, a verdict engine delivering clear answers from multi-model debates.
 
-Three frontier AI models (${DEBATE_MODELS.map(shortModelName).join(", ")}) debated:
-"${topic}"
+Three AI models (${DEBATE_MODELS.map(shortModelName).join(", ")}) debated: "${topic}"
 
-Here is the full debate:
-
+Full debate:
 ${fullDebate}
 
-The debate converged on ${winnerName}'s position. Their original stance:
+The debate converged on ${winnerName}'s position:
 ${winnerOpening}
 
-Your job: Present this winning position as the definitive answer. Write with full conviction — this position survived rigorous cross-examination from frontier AI models. Explain briefly why the other positions were weaker (1-2 sentences each), then deliver the answer clearly and directly.
+Present this as the definitive answer with full conviction. Briefly note why others were weaker (1-2 sentences each). Be concise, direct, and actionable.`
+    : `You are Meter 1.0, a verdict engine delivering clear answers from multi-model debates.
 
-Do NOT hedge, blend, or water down the winning position. This is the answer that held up under pressure. Write in plain prose, be concise and actionable.`
-    : `You are Meter 1.0, a verdict engine that delivers clear, convicted answers from multi-model debates.
+Three AI models (${DEBATE_MODELS.map(shortModelName).join(", ")}) debated: "${topic}"
 
-Three frontier AI models (${DEBATE_MODELS.map(shortModelName).join(", ")}) debated:
-"${topic}"
-
-Here is the full debate:
-
+Full debate:
 ${fullDebate}
 
-No single position achieved clear consensus after ${rounds.length} rounds. Analyze which original position held up best under pressure — which one had the fewest successful challenges against it, and whose core argument remained intact?
+No clear consensus after ${rounds.length} rounds. Pick the position that held up best under pressure — fewest successful challenges, core argument intact.
 
-Pick that position and present it as the answer with conviction. You MUST choose one — do not synthesize a compromise or blend of positions. The whole point of this debate is to stress-test ideas and commit to the strongest one, not to produce a wishy-washy middle ground.
+You MUST choose one position. Do NOT synthesize a compromise. Briefly explain why (1-2 sentences per rejected position), then deliver the answer. Be concise, direct, and actionable.`;
 
-Briefly explain why you picked this position over the others (1-2 sentences each), then deliver the answer clearly and directly. Write in plain prose, be concise and actionable.`;
-
+  // Verdict only needs the system prompt with embedded debate — no conversation context
   const synthesisConvo: Message[] = [
     { role: "system", content: verdictPrompt },
-    ...conversationContext,
+    { role: "user", content: topic },
   ];
 
   send({ type: "debate_synthesis_start" });
