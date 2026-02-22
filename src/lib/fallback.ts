@@ -12,6 +12,7 @@ import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
 import type { ToolDef } from "./tools";
+import { shortModelName } from "./models";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -58,7 +59,7 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "anthropic/claude-opus-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-opus-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
   "openai/gpt-5.2": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.2", sdk: "openai", cacheReadRate: 0.5 },
   "google/gemini-3-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
-  "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4.1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
+  "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4-1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
 };
 
@@ -635,14 +636,14 @@ export async function streamWithFallback(
   }
 
   // ── Tier 1: OpenRouter ──────────────────────────────────────────
-  let lastReason = "";
+  const failReasons: string[] = [];
   if (process.env.OPENROUTER_API_KEY) {
     try {
       const result = await streamOpenRouter(requestedModel, conversation, tools, send, estimateTokens, totalTokensOut);
       return { ...result, actualModel: requestedModel, tier: 1 };
     } catch (err) {
       const e = err as Error;
-      lastReason = errorReason(err);
+      failReasons.push(`OpenRouter: ${errorReason(err)}`);
       console.error("[fallback] tier 1 (openrouter) failed:", requestedModel, e.message);
       errors.push({ tier: 1, model: requestedModel, error: e.message });
     }
@@ -657,7 +658,7 @@ export async function streamWithFallback(
       return { ...result, actualModel: requestedModel, tier: 2 };
     } catch (err) {
       const e = err as Error;
-      lastReason = errorReason(err);
+      failReasons.push(`Direct: ${errorReason(err)}`);
       console.error("[fallback] tier 2 (direct) failed:", requestedModel, e.message);
       errors.push({ tier: 2, model: requestedModel, error: e.message });
     }
@@ -675,16 +676,18 @@ export async function streamWithFallback(
     const providerName = requestedModel.split("/")[0];
     const providerLabel = providerName.charAt(0).toUpperCase() + providerName.slice(1);
 
+    const reason = failReasons.join(" → ");
+
     // Try OpenRouter first for this candidate
     if (process.env.OPENROUTER_API_KEY) {
       try {
         console.log("[fallback] tier 3 (openrouter, auto-route):", candidateModel);
-        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel, reason: lastReason });
+        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel, reason });
         const result = await streamOpenRouter(candidateModel, conversation, tools, send, estimateTokens, totalTokensOut);
         return { ...result, actualModel: candidateModel, tier: 3 };
       } catch (err) {
         const e = err as Error;
-        lastReason = errorReason(err);
+        failReasons.push(`OR(${shortModelName(candidateModel)}): ${errorReason(err)}`);
         console.error("[fallback] tier 3 openrouter failed:", candidateModel, e.message);
         errors.push({ tier: 3, model: candidateModel, error: e.message });
       }
@@ -694,12 +697,12 @@ export async function streamWithFallback(
     if (candidateProvider && candidateKey) {
       try {
         console.log("[fallback] tier 3 (direct, auto-route):", candidateModel);
-        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel, reason: lastReason });
+        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel, reason: failReasons.join(" → ") });
         const result = await streamDirect(candidateProvider, candidateKey, conversation, tools, send, estimateTokens, totalTokensOut);
         return { ...result, actualModel: candidateModel, tier: 3 };
       } catch (err) {
         const e = err as Error;
-        lastReason = errorReason(err);
+        failReasons.push(`Direct(${shortModelName(candidateModel)}): ${errorReason(err)}`);
         console.error("[fallback] tier 3 direct failed:", candidateModel, e.message);
         errors.push({ tier: 3, model: candidateModel, error: e.message });
       }
