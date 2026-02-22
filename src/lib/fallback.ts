@@ -161,7 +161,7 @@ export async function streamOpenRouter(
   const response = await client.chat.completions.create({
     model,
     messages: cachedConversation,
-    tools,
+    ...(tools.length > 0 ? { tools } : {}),
     stream: true,
     stream_options: { include_usage: true },
   });
@@ -435,7 +435,7 @@ async function streamOpenAIDirect(
   const response = await client.chat.completions.create({
     model: nativeModel,
     messages: conversation,
-    tools,
+    ...(tools.length > 0 ? { tools } : {}),
     stream: true,
     stream_options: { include_usage: true },
   });
