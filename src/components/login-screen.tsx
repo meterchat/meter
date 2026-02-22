@@ -50,6 +50,8 @@ export function LoginScreen() {
       // WebAuthn user cancellation — show friendly message
       if (msg.includes("timed out") || msg.includes("not allowed") || msg.includes("AbortError") || msg.includes("NotAllowedError")) {
         setError("Passkey prompt was cancelled. Try again.");
+      } else if (msg.includes("user could not be verified") || msg.includes("User verification")) {
+        setError("Device verification failed. Make sure Face ID, Touch ID, or a PIN is set up on your device.");
       } else {
         setError(msg);
       }

@@ -149,7 +149,6 @@ interface MeterState {
 
   addMessage: (msg: ChatMessage) => void;
   updateLastAssistantMessage: (content: string, tokensOut: number) => void;
-  recoverMessage: (messageId: string, content: string, meta: { model?: string; tokensIn?: number; tokensOut?: number }) => void;
   finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number) => void;
   setStreaming: (v: boolean) => void;
   markSettled: (messageId: string) => void;
@@ -534,30 +533,6 @@ export const useMeterStore = create<MeterState>()(
           };
 
           return { projects: replaceActiveProject(s, updated) };
-        }),
-
-      recoverMessage: (messageId, content, meta) =>
-        set((s) => {
-          const active = ensureDaily(getActiveProject(s));
-          const msgs = active.messages.map((m) => {
-            if (m.id !== messageId) return m;
-            const pricingId = meta.model ?? (s.selectedModelId === "auto" ? "anthropic/claude-sonnet-4.6" : s.selectedModelId);
-            const model = getModel(pricingId);
-            const tIn = meta.tokensIn ?? 0;
-            const tOut = meta.tokensOut ?? 0;
-            const cost = tIn * model.inputPrice + tOut * model.outputPrice;
-            return {
-              ...m,
-              content,
-              model: meta.model ?? m.model,
-              tokensIn: tIn || m.tokensIn,
-              tokensOut: tOut || m.tokensOut,
-              cost: cost || m.cost,
-              receiptStatus: "signed" as const,
-              signature: `0x${Math.random().toString(16).slice(2, 10)}…`,
-            };
-          });
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
       finalizeResponse: (tokensIn, tokensOut, confidence, actualModel, cacheCreationTokens, cacheReadTokens, cacheReadRate) => {
