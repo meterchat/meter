@@ -3,6 +3,13 @@
 import { useMeterStore } from "@/lib/store";
 import { MODELS, DEBATE_MODELS, getModel, shortModelName, ModelConfig } from "@/lib/models";
 
+/** Format a per-token price as a human-readable $/M string */
+function fmtPrice(pricePerToken: number): string {
+  const perM = pricePerToken * 1_000_000;
+  if (perM < 1) return `$${perM.toFixed(2)}`;
+  return `$${Math.round(perM)}`;
+}
+
 function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number }) {
   switch (provider) {
     case "Anthropic":
@@ -27,6 +34,12 @@ function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5c-2.49 0-4.5-2.01-4.5-4.5S8.51 7.5 11 7.5c1.25 0 2.38.51 3.19 1.33l-1.29 1.25A2.99 2.99 0 0 0 11 9.5c-1.38 0-2.5 1.12-2.5 2.5s1.12 2.5 2.5 2.5c1.19 0 2.19-.83 2.44-1.95H11v-1.55h4.44c.05.28.06.56.06.85 0 2.49-2.01 4.15-4.5 4.15z" />
+        </svg>
+      );
+    case "xAI":
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+          <path d="M2.3 4h4.3l5.4 8.1L17.4 4h4.3l-7.7 11.3L21.7 20h-4.3l-5.4-8.1L6.6 20H2.3l7.7-11.3L2.3 4z" />
         </svg>
       );
     case "Meter":
@@ -114,7 +127,19 @@ export function ModelPickerPanel({
           >
             <ModelLogo model={m} size={16} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-foreground truncate">{m.name}</div>
+              <div className="text-xs font-medium text-foreground truncate flex items-center gap-1.5">
+                <span>{m.name}</span>
+                {m.quality != null && (
+                  <span className="text-[9px] font-mono text-muted-foreground/70 font-normal">
+                    Q:{m.quality}
+                  </span>
+                )}
+                {m.speed != null && (
+                  <span className="text-[9px] font-mono text-muted-foreground/70 font-normal">
+                    {m.speed} tok/s
+                  </span>
+                )}
+              </div>
               <div className="text-[10px] text-muted-foreground font-mono">
                 {m.id === "meter-1.0" ? (
                   <span className="inline-flex items-center gap-1">
@@ -127,9 +152,14 @@ export function ModelPickerPanel({
                         </span>
                       );
                     })}
+                    <span className="text-muted-foreground/50 ml-0.5">·</span>
+                    <span className="text-muted-foreground/50">{fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
                   </span>
                 ) : (
-                  m.provider
+                  <span>
+                    {m.provider}
+                    <span className="text-muted-foreground/50"> · {fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
+                  </span>
                 )}
               </div>
             </div>

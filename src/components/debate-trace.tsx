@@ -8,6 +8,7 @@ const PHASE_LABELS: Record<string, string> = {
   opening: "Opening",
   challenge: "Challenge",
   rebuttal: "Rebuttal",
+  vote: "Vote",
 };
 
 interface DebateTraceProps {
