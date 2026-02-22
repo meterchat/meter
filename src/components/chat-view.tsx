@@ -677,7 +677,7 @@ export function ChatView() {
   /** Triggered by the "Debate" button on a decision-point message */
   const handleDebate = async () => {
     if (isStreaming || !workspaceCardReady) return;
-    await streamResponse("Give me a multi-model debate on this — I want to hear different perspectives before deciding.", "meter-1.0");
+    await streamResponse("Debate this.", "meter-1.0");
   };
 
   /** Triggered by the "Decide" button on a decision-point message */
