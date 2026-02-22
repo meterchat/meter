@@ -457,6 +457,7 @@ export function ChatView() {
   const streamResponse = async (userContent: string, modelOverride?: string) => {
     isNearBottomRef.current = true;
     userScrolledAwayRef.current = false;
+    setRerouting(null); // Clear any previous reroute
 
     const userMsg: ChatMessage = {
       id: Math.random().toString(36).slice(2, 10),
@@ -653,7 +654,8 @@ export function ChatView() {
       abortRef.current = null;
       setStreaming(false);
       setActiveTool(null);
-      setRerouting(null);
+      // Keep rerouting state — cleared on next send so the picker
+      // continues showing the actual model used for the last response.
       setDebatePhase(null);
       setActiveDebateTurn(null);
     }
