@@ -98,7 +98,7 @@ A single thread means older context is eventually lost (trimmed beyond the 30k w
 
 ## 5. Workspace Model
 
-Workspaces are the unit of isolation in Meter. Each workspace has its own conversation thread, cost tracking, connected services, spend limits, and settlement history. The default workspaces are "Meter" and "Keypass" — users can create additional ones.
+Workspaces are the unit of isolation in Meter. Each workspace has its own conversation thread, cost tracking, connected services, spend limits, and settlement history. New users create their first workspace during onboarding — there are no defaults. The onboarding flow is a single-page progression: enter email → sign passkey → name workspace → add card. Users can create additional workspaces after setup.
 
 ### Rationale
 
