@@ -519,7 +519,7 @@ export function ChatView() {
 
       const decoder = new TextDecoder();
       let fullContent = "";
-      let finalUsage: { tokensIn: number; tokensOut: number; confidence: number } | null = null;
+      let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number } | null = null;
       let actualModelUsed: string | null = null;
       let buffer = "";
       let currentTurn: { model: string; phase: string; content: string } | null = null;
@@ -600,6 +600,8 @@ export function ChatView() {
                 tokensIn: data.tokensIn,
                 tokensOut: data.tokensOut,
                 confidence: data.confidence ?? 0,
+                cacheCreationTokens: data.cacheCreationTokens ?? 0,
+                cacheReadTokens: data.cacheReadTokens ?? 0,
               };
             }
           } catch {
@@ -614,7 +616,14 @@ export function ChatView() {
       }
 
       if (finalUsage) {
-        finalizeResponse(finalUsage.tokensIn, finalUsage.tokensOut, finalUsage.confidence, actualModelUsed ?? undefined);
+        finalizeResponse(
+          finalUsage.tokensIn,
+          finalUsage.tokensOut,
+          finalUsage.confidence,
+          actualModelUsed ?? undefined,
+          finalUsage.cacheCreationTokens,
+          finalUsage.cacheReadTokens,
+        );
       }
     } catch {
       // keep silent for now

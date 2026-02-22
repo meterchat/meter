@@ -189,12 +189,63 @@ async function streamAnthropic(
     }
   }
 
+  // ── Prompt caching: add cache breakpoints to conversation history ──
+  // Anthropic allows up to 4 breakpoints. Everything up to and including
+  // the breakpoint is cached. Strategy:
+  //   - System prompt (already has cache_control)
+  //   - Tool definitions (if any)
+  //   - The second-to-last user turn (caches all prior conversation)
+  // This way, on each new user message in the same conversation,
+  // all prior turns are served from cache at 0.1x cost.
+  if (msgs.length >= 3) {
+    // Find the second-to-last user message to place a cache breakpoint
+    let cacheIdx = -1;
+    let userCount = 0;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === "user") {
+        userCount++;
+        if (userCount === 2) {
+          cacheIdx = i;
+          break;
+        }
+      }
+    }
+
+    if (cacheIdx >= 0) {
+      const msg = msgs[cacheIdx];
+      if (typeof msg.content === "string") {
+        // Convert string content to content block with cache_control
+        msgs[cacheIdx] = {
+          ...msg,
+          content: [
+            { type: "text", text: msg.content, cache_control: { type: "ephemeral" } } as Anthropic.TextBlockParam,
+          ],
+        };
+      } else if (Array.isArray(msg.content) && msg.content.length > 0) {
+        // Add cache_control to the last content block
+        const blocks = [...msg.content];
+        const lastBlock = { ...blocks[blocks.length - 1] };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (lastBlock as any).cache_control = { type: "ephemeral" };
+        blocks[blocks.length - 1] = lastBlock as Anthropic.ContentBlockParam;
+        msgs[cacheIdx] = { ...msg, content: blocks };
+      }
+    }
+  }
+
   // Convert tool defs to Anthropic format
   const anthropicTools = tools.map((t) => ({
     name: t.function.name,
     description: t.function.description,
     input_schema: t.function.parameters as Anthropic.Tool.InputSchema,
   }));
+
+  // Add cache_control to last tool definition (caches system + tools together)
+  if (anthropicTools.length > 0) {
+    const lastTool = anthropicTools[anthropicTools.length - 1];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (lastTool as any).cache_control = { type: "ephemeral" };
+  }
 
   const stream = await client.messages.stream({
     model: nativeModel,
@@ -229,11 +280,31 @@ async function streamAnthropic(
     }
   }
 
-  // Use finalMessage for complete usage data (input + output tokens).
-  // Avoid sending partial usage from message_delta which only has output tokens.
+  // Use finalMessage for complete usage data.
+  // Anthropic reports tokens in three buckets:
+  //   input_tokens: uncached input (standard rate)
+  //   cache_creation_input_tokens: written to cache (1.25x rate)
+  //   cache_read_input_tokens: read from cache (0.1x rate)
+  // We report total input tokens for display, but send the breakdown
+  // so the frontend can compute accurate cost.
   const finalMessage = await stream.finalMessage();
   if (finalMessage.usage) {
-    send({ type: "usage", tokensIn: finalMessage.usage.input_tokens, tokensOut: finalMessage.usage.output_tokens });
+    const u = finalMessage.usage;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cacheCreation = (u as any).cache_creation_input_tokens as number | undefined ?? 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cacheRead = (u as any).cache_read_input_tokens as number | undefined ?? 0;
+    const uncachedIn = u.input_tokens;
+    const totalIn = uncachedIn + cacheCreation + cacheRead;
+
+    send({
+      type: "usage",
+      tokensIn: totalIn,
+      tokensOut: u.output_tokens,
+      // Cache breakdown for accurate cost calculation
+      cacheCreationTokens: cacheCreation,
+      cacheReadTokens: cacheRead,
+    });
   }
 
   return { textContent, toolCalls, hasToolCalls };

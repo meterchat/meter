@@ -9,6 +9,9 @@ import type OpenAI from "openai";
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
 
 const MAX_TOOL_ROUNDS = 5;
+/** Max tokens of conversation history to send (excluding system prompt).
+ *  Keeps costs predictable — a 30k token context costs ~$0.45 for Opus input (at 3x markup). */
+const MAX_CONTEXT_TOKENS = 30_000;
 
 export async function POST(req: NextRequest) {
   // At least one provider must be configured
@@ -50,12 +53,16 @@ export async function POST(req: NextRequest) {
     const tools = getToolsForConnectors(connectedIds);
     const systemPrompt = buildSystemPrompt(connectedIds);
 
+    // Build conversation with context window management.
+    // Cap input context to avoid sending 100k+ tokens of history on every call.
+    const allUserMessages: Message[] = messages.map((m: { role: string; content: string }) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+
     const conversation: Message[] = [
       { role: "system", content: systemPrompt },
-      ...messages.map((m: { role: string; content: string }) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
+      ...trimConversation(allUserMessages, MAX_CONTEXT_TOKENS),
     ];
 
     const stream = new ReadableStream({
@@ -85,8 +92,12 @@ export async function POST(req: NextRequest) {
         // only capturing the last round (which under-reports total cost).
         let cumulativeTokensIn = 0;
         let cumulativeTokensOut = 0;
+        let cumulativeCacheCreation = 0;
+        let cumulativeCacheRead = 0;
         let roundTokensIn = 0;
         let roundTokensOut = 0;
+        let roundCacheCreation = 0;
+        let roundCacheRead = 0;
 
         // Intercept usage events from streaming adapters — accumulate per-round,
         // then sum across rounds. Forward everything else to the client.
@@ -95,6 +106,8 @@ export async function POST(req: NextRequest) {
             // Within a round, replace (last event wins for that round)
             roundTokensIn = (data.tokensIn as number) || 0;
             roundTokensOut = (data.tokensOut as number) || 0;
+            roundCacheCreation = (data.cacheCreationTokens as number) || 0;
+            roundCacheRead = (data.cacheReadTokens as number) || 0;
             return;
           }
           send(data);
@@ -105,6 +118,8 @@ export async function POST(req: NextRequest) {
           for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
             roundTokensIn = 0;
             roundTokensOut = 0;
+            roundCacheCreation = 0;
+            roundCacheRead = 0;
 
             const result = await streamWithFallback(
               activeModel,
@@ -118,6 +133,8 @@ export async function POST(req: NextRequest) {
             // Accumulate this round's API-reported usage
             cumulativeTokensIn += roundTokensIn;
             cumulativeTokensOut += roundTokensOut;
+            cumulativeCacheCreation += roundCacheCreation;
+            cumulativeCacheRead += roundCacheRead;
 
             // Track which model actually responded (for subsequent tool rounds)
             activeModel = result.actualModel;
@@ -181,7 +198,13 @@ export async function POST(req: NextRequest) {
 
         // Send aggregated usage across all tool rounds as a single event
         if (cumulativeTokensIn > 0 || cumulativeTokensOut > 0) {
-          send({ type: "usage", tokensIn: cumulativeTokensIn, tokensOut: cumulativeTokensOut });
+          send({
+            type: "usage",
+            tokensIn: cumulativeTokensIn,
+            tokensOut: cumulativeTokensOut,
+            cacheCreationTokens: cumulativeCacheCreation || undefined,
+            cacheReadTokens: cumulativeCacheRead || undefined,
+          });
         }
 
         send({ type: "done", actualModel: activeModel });
@@ -207,6 +230,36 @@ export async function POST(req: NextRequest) {
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
+}
+
+/**
+ * Trim conversation to fit within a token budget.
+ * Always keeps the last message (the current user turn) and as many recent
+ * messages as possible. Drops older messages from the front.
+ */
+function trimConversation(messages: Message[], maxTokens: number): Message[] {
+  if (messages.length === 0) return messages;
+
+  // Estimate tokens for each message
+  const tokenCounts = messages.map((m) => {
+    const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
+    return estimateTokens(content) + 4; // overhead for role/formatting
+  });
+
+  const totalTokens = tokenCounts.reduce((sum, t) => sum + t, 0);
+  if (totalTokens <= maxTokens) return messages;
+
+  // Keep messages from the end until we exceed the budget
+  let budget = maxTokens;
+  let startIdx = messages.length;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (budget - tokenCounts[i] < 0 && i < messages.length - 1) break;
+    budget -= tokenCounts[i];
+    startIdx = i;
+  }
+
+  return messages.slice(startIdx);
 }
 
 async function checkSpendLimits(userId: string, projectId: string): Promise<string | null> {

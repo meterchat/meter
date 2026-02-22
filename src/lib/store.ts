@@ -149,7 +149,7 @@ interface MeterState {
 
   addMessage: (msg: ChatMessage) => void;
   updateLastAssistantMessage: (content: string, tokensOut: number) => void;
-  finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string) => void;
+  finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number) => void;
   setStreaming: (v: boolean) => void;
   markSettled: (messageId: string) => void;
   settleAll: () => Promise<{ success: boolean; error?: string }>;
@@ -535,13 +535,28 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, updated) };
         }),
 
-      finalizeResponse: (tokensIn, tokensOut, confidence, actualModel) => {
+      finalizeResponse: (tokensIn, tokensOut, confidence, actualModel, cacheCreationTokens, cacheReadTokens) => {
         set((s) => {
           const active = ensureDaily(getActiveProject(s));
           const pricingModelId = actualModel
             ?? (s.selectedModelId === "auto" ? "anthropic/claude-sonnet-4.6" : s.selectedModelId);
           const model = getModel(pricingModelId);
-          const inputCost = tokensIn * model.inputPrice;
+
+          // Cache-aware input cost: Anthropic charges different rates for
+          // cached vs uncached input tokens.
+          //   - Uncached: standard inputPrice
+          //   - Cache creation: 1.25x inputPrice (one-time write)
+          //   - Cache read: 0.1x inputPrice (subsequent hits)
+          // When no cache breakdown is provided (OpenRouter, OpenAI, Gemini),
+          // fall back to flat inputPrice for all tokens.
+          const cacheWrite = cacheCreationTokens ?? 0;
+          const cacheHit = cacheReadTokens ?? 0;
+          const uncachedIn = tokensIn - cacheWrite - cacheHit;
+          const inputCost = cacheWrite > 0 || cacheHit > 0
+            ? (uncachedIn * model.inputPrice) +
+              (cacheWrite * model.inputPrice * 1.25) +
+              (cacheHit * model.inputPrice * 0.1)
+            : tokensIn * model.inputPrice;
           const totalMsgCost = inputCost + tokensOut * model.outputPrice;
 
           const msgs = [...active.messages];
