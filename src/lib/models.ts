@@ -14,7 +14,7 @@ export interface ModelConfig {
 /** Multiplier applied on top of provider costs. 2 = users pay 2x provider rate. */
 export const MARKUP_MULTIPLIER = 2;
 
-/** Models used in Meter 1.0 debate mode (fixed roster) */
+/** Models used in Parameter 1.0 debate mode (fixed roster) */
 export const DEBATE_MODELS = [
   "anthropic/claude-opus-4.6",
   "openai/gpt-5.2",
@@ -33,8 +33,8 @@ export const MODELS: ModelConfig[] = [
     speed: 60,
   },
   {
-    id: "meter-1.0",
-    name: "Meter 1.0",
+    id: "parameter-1.0",
+    name: "Parameter 1.0",
     provider: "Meter",
     color: "#F59E0B",
     // Blended rate across Opus + GPT + Grok + synthesis (sum of 3 debate models)

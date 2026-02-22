@@ -96,7 +96,7 @@ export function DebateTrace({ trace, activeTurn, phase }: DebateTraceProps) {
           {phase === "synthesizing" && (
             <div className="text-xs">
               <span className="font-mono text-[10px] text-amber-500/70 thinking-shimmer">
-                Meter 1.0 — Synthesizing consensus
+                Parameter 1.0 — Synthesizing consensus
               </span>
             </div>
           )}
