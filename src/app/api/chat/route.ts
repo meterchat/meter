@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
         let roundTokensOut = 0;
         let roundCacheCreation = 0;
         let roundCacheRead = 0;
+        let roundCacheReadRate = 0;
 
         // Intercept usage events from streaming adapters — accumulate per-round,
         // then sum across rounds. Forward everything else to the client.
@@ -108,6 +109,8 @@ export async function POST(req: NextRequest) {
             roundTokensOut = (data.tokensOut as number) || 0;
             roundCacheCreation = (data.cacheCreationTokens as number) || 0;
             roundCacheRead = (data.cacheReadTokens as number) || 0;
+            // Cache read rate is per-provider, not cumulative (last wins)
+            if (data.cacheReadRate) roundCacheReadRate = data.cacheReadRate as number;
             return;
           }
           send(data);
@@ -120,6 +123,7 @@ export async function POST(req: NextRequest) {
             roundTokensOut = 0;
             roundCacheCreation = 0;
             roundCacheRead = 0;
+            roundCacheReadRate = 0;
 
             const result = await streamWithFallback(
               activeModel,
@@ -204,6 +208,8 @@ export async function POST(req: NextRequest) {
             tokensOut: cumulativeTokensOut,
             cacheCreationTokens: cumulativeCacheCreation || undefined,
             cacheReadTokens: cumulativeCacheRead || undefined,
+            // Forward the provider-specific cache read rate (last round's rate)
+            cacheReadRate: roundCacheReadRate || undefined,
           });
         }
 
