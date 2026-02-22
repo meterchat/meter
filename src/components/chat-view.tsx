@@ -315,6 +315,59 @@ export function ChatView() {
     setOnboardingStep("card");
   };
 
+  // ── Recover incomplete responses after page refresh ──────────────
+  // If the last assistant message was mid-stream (receiptStatus: "signing"),
+  // the server may have continued generating in the background and saved the
+  // complete response to the DB. Poll for it.
+  const recoveryAttempted = useRef<string | null>(null);
+  useEffect(() => {
+    if (recoveryAttempted.current === activeProjectId) return;
+    if (isStreaming) return; // Currently streaming — no recovery needed
+
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "assistant") return;
+    if (lastMsg.receiptStatus !== "signing") return;
+    if (!lastMsg.content || lastMsg.content.startsWith("__error__")) return;
+
+    recoveryAttempted.current = activeProjectId;
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 15; // Poll for up to ~30 seconds
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/chat/recover?messageId=${lastMsg.id}`);
+        if (!res.ok || cancelled) return false;
+        const data = await res.json();
+        if (data.message?.receipt_status === "server_completed" && data.message.content) {
+          // Server finished the response — update local state
+          useMeterStore.getState().recoverMessage(lastMsg.id, data.message.content, {
+            model: data.message.model,
+            tokensIn: data.message.tokens_in,
+            tokensOut: data.message.tokens_out,
+          });
+          return true;
+        }
+      } catch { /* silent */ }
+      return false;
+    };
+
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts || cancelled) {
+        clearInterval(interval);
+        return;
+      }
+      if (await poll()) clearInterval(interval);
+    }, 2000);
+
+    // Also try immediately
+    poll().then((done) => { if (done) clearInterval(interval); });
+
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [messages, isStreaming, activeProjectId]);
+
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -519,6 +572,7 @@ export function ChatView() {
           messages: allMessages,
           model: effectiveModel,
           projectId: activeProjectId,
+          assistantMessageId: assistantMsg.id,
           connectedServices: Object.keys(connectedServices).filter(
             (k) => connectedServices[k]
           ),

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { getToolsForConnectors, buildSystemPrompt, executeTool } from "@/lib/tools";
 import { streamWithFallback, type Send } from "@/lib/fallback";
 import { runDebate } from "@/lib/debate";
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
   const { userId } = auth;
 
   try {
-    const { messages, model, projectId, connectedServices } = await req.json();
+    const { messages, model, projectId, connectedServices, assistantMessageId } = await req.json();
 
     // Server-side spend limit + exposure cap enforcement (skip for superadmin)
     if (projectId && !(await isSuperAdmin(userId))) {
@@ -65,11 +66,30 @@ export async function POST(req: NextRequest) {
       ...trimConversation(allUserMessages, MAX_CONTEXT_TOKENS),
     ];
 
+    // Promise that resolves when the AI stream is fully consumed —
+    // used with after() to keep the function alive even if the client disconnects.
+    let completionResolve: () => void;
+    const completionPromise = new Promise<void>((resolve) => {
+      completionResolve = resolve;
+    });
+
     const stream = new ReadableStream({
       async start(controller) {
+        let clientConnected = true;
+
+        // Resilient send: if the client disconnects mid-stream, catch the
+        // enqueue error and continue consuming the AI stream in the background.
         const send: Send = (data) => {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          if (!clientConnected) return;
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          } catch {
+            clientConnected = false;
+          }
         };
+
+        // Track full response content server-side for background completion
+        let serverFullContent = "";
 
         // ── Meter 1.0 Debate Mode ──────────────────────────────────
         if (resolvedModel === "meter-1.0") {
@@ -80,7 +100,10 @@ export async function POST(req: NextRequest) {
             send({ type: "error", code: "debate_failed", model: "meter-1.0" });
             send({ type: "done", actualModel: "meter-1.0" });
           }
-          controller.close();
+          if (clientConnected) {
+            try { controller.close(); } catch { /* already closed */ }
+          }
+          completionResolve!();
           return;
         }
 
@@ -102,6 +125,7 @@ export async function POST(req: NextRequest) {
 
         // Intercept usage events from streaming adapters — accumulate per-round,
         // then sum across rounds. Forward everything else to the client.
+        // Also track full content for background completion.
         const roundSend: Send = (data) => {
           if (data.type === "usage") {
             // Within a round, replace (last event wins for that round)
@@ -112,6 +136,9 @@ export async function POST(req: NextRequest) {
             // Cache read rate is per-provider, not cumulative (last wins)
             if (data.cacheReadRate) roundCacheReadRate = data.cacheReadRate as number;
             return;
+          }
+          if (data.type === "delta" && typeof data.content === "string") {
+            serverFullContent += data.content;
           }
           send(data);
         };
@@ -214,9 +241,43 @@ export async function POST(req: NextRequest) {
         }
 
         send({ type: "done", actualModel: activeModel });
-        controller.close();
+
+        if (clientConnected) {
+          try { controller.close(); } catch { /* already closed */ }
+        }
+
+        // If client disconnected mid-stream, save the completed response to DB
+        // so the client can recover it on reload.
+        if (!clientConnected && serverFullContent && assistantMessageId && projectId) {
+          try {
+            const supabase = getSupabaseServer();
+            const dbSessionId = projectId.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
+
+            await supabase.from("chat_messages").upsert({
+              id: assistantMessageId,
+              session_id: dbSessionId,
+              role: "assistant",
+              content: serverFullContent,
+              model: activeModel,
+              tokens_in: cumulativeTokensIn || null,
+              tokens_out: cumulativeTokensOut || null,
+              receipt_status: "server_completed",
+              timestamp: Date.now(),
+            }, { onConflict: "id" });
+
+            console.log(`[chat] client disconnected — saved completed response to DB (${serverFullContent.length} chars, model=${activeModel})`);
+          } catch (dbErr) {
+            console.error("[chat] failed to save background-completed response:", dbErr);
+          }
+        }
+
+        completionResolve!();
       },
     });
+
+    // Keep the serverless function alive until the AI stream is fully consumed,
+    // even if the client disconnects mid-stream.
+    after(completionPromise);
 
     return new Response(stream, {
       headers: {
