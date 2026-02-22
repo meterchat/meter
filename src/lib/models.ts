@@ -11,8 +11,8 @@ export interface ModelConfig {
   speed?: number;
 }
 
-/** Multiplier applied on top of provider costs. 3 = users pay 3x provider rate. */
-export const MARKUP_MULTIPLIER = 3;
+/** Multiplier applied on top of provider costs. 2 = users pay 2x provider rate. */
+export const MARKUP_MULTIPLIER = 2;
 
 /** Models used in Meter 1.0 debate mode (fixed roster) */
 export const DEBATE_MODELS = [
