@@ -885,7 +885,7 @@ export function ChatView() {
               <div className="mb-4">
                 <div className="flex gap-3 justify-start">
                   <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1">
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
                       <p>Hi, I&apos;m <strong>Meter</strong> — your AI assistant with access to every frontier model.</p>
                       <p>I can help you write code, analyze data, search the web, manage your databases, and more. Every response shows the exact cost in real time.</p>
                       <p>Name your first workspace to get started.</p>
@@ -918,7 +918,7 @@ export function ChatView() {
               <div className="mb-4">
                 <div className="flex gap-3 justify-start">
                   <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1">
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
                       <p>Great — <strong>{activeProject?.name ?? "your workspace"}</strong> is ready.</p>
                       <p>Add a payment method to start chatting. You won&apos;t be charged now — usage settles automatically once per day at midnight.</p>
                     </div>
@@ -933,7 +933,7 @@ export function ChatView() {
               <div className="mb-4">
                 <div className="flex gap-3 justify-start">
                   <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1">
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
                       <p>Welcome to <strong>{activeProject?.name ?? "this workspace"}</strong>. Add a payment method to get started, or use your existing card.</p>
                     </div>
                     <button
@@ -976,7 +976,7 @@ export function ChatView() {
               return (
                 <div key={msg.id} className="group/msg relative mb-4">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-foreground/10 text-foreground" : "text-foreground"}`}>
+                    <div className={`relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"}`}>
                       {msg.role === "assistant" && displayContent && !displayContent.startsWith("__error__") && (
                         <CopyButton text={displayContent} />
                       )}
@@ -996,7 +996,7 @@ export function ChatView() {
                       {msg.role === "assistant" && displayContent.startsWith("__error__") ? (
                         <ErrorCard payload={displayContent.slice("__error__".length)} />
                       ) : msg.role === "assistant" ? (
-                        <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-a:text-blue-400">
+                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-a:text-blue-400 dark:prose-a:text-blue-400 prose-a:text-blue-600">
                           <ReactMarkdown components={mdComponents}>{displayContent}</ReactMarkdown>
                         </div>
                       ) : (
