@@ -219,13 +219,12 @@ const TOOL_LABELS: Record<string, string> = {
   supabase_list_tables: "Listing tables",
 };
 
-function ThinkingIndicator({ toolName, rerouting }: { toolName?: string | null; rerouting?: { provider: string; toModel: string; reason?: string } | null }) {
+function ThinkingIndicator({ toolName, rerouting }: { toolName?: string | null; rerouting?: { provider: string; toModel: string } | null }) {
   let label: string;
-  let sublabel: string | null = null;
+  const sublabel: string | null = null;
   if (rerouting) {
     const toLabel = shortModelName(rerouting.toModel);
     label = `Re-routing to ${toLabel}`;
-    if (rerouting.reason) sublabel = rerouting.reason;
   } else {
     label = toolName ? TOOL_LABELS[toolName] ?? toolName : "Thinking";
   }
@@ -343,7 +342,7 @@ export function ChatView() {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [switchingProjectName, setSwitchingProjectName] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
-  const [rerouting, setRerouting] = useState<{ provider: string; toModel: string; reason?: string } | null>(null);
+  const [rerouting, setRerouting] = useState<{ provider: string; toModel: string } | null>(null);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
   const logoMenuRef = useRef<HTMLDivElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -638,7 +637,7 @@ export function ChatView() {
                 useMeterStore.getState().setMessageDecisionId(decId);
               }
             } else if (data.type === "rerouting") {
-              setRerouting({ provider: data.provider as string, toModel: data.to as string, reason: (data.reason as string) || undefined });
+              setRerouting({ provider: data.provider as string, toModel: data.to as string });
             } else if (data.type === "error") {
               const errorPayload = JSON.stringify({ code: data.code, model: data.model });
               fullContent = `__error__${errorPayload}`;
