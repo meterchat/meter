@@ -348,7 +348,7 @@ async function saveDecision(
       project_id: ctx.projectId || null,
     });
 
-    return `Decision saved: "${args.title}" — ${args.choice}`;
+    return JSON.stringify({ id, message: `Decision saved: "${args.title}" — ${args.choice}` });
   } catch (err) {
     return `Failed to save decision: ${(err as Error).message}`;
   }
