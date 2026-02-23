@@ -12,7 +12,7 @@ import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
 import type { ToolDef } from "./tools";
-import { shortModelName } from "./models";
+
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -32,13 +32,6 @@ function isRetryable(err: unknown): boolean {
   return false;
 }
 
-/** Extract a short reason string from an error for client-visible diagnostics */
-function errorReason(err: unknown): string {
-  const e = err as { status?: number; code?: string; message?: string };
-  const status = e.status ? `${e.status} ` : "";
-  const msg = (e.message ?? "unknown error").slice(0, 120);
-  return `${status}${msg}`;
-}
 
 /* ─── Provider mapping ──────────────────────────────────────────── */
 
@@ -80,6 +73,8 @@ const AUTO_ROUTE_ORDER = [
   "anthropic/claude-sonnet-4.6",
   "openai/gpt-5.2",
   "google/gemini-3.1-pro-preview",
+  "x-ai/grok-4.1-fast",
+  "deepseek/deepseek-chat-v3-0324",
 ];
 
 /* ─── Streaming adapters ────────────────────────────────────────── */
@@ -224,6 +219,11 @@ export async function streamOpenRouter(
         cacheReadRate: (cachedTokens || cacheWriteTokens) && orCacheRate ? orCacheRate : undefined,
       });
     }
+  }
+
+  // Empty response with no tool calls — treat as failure so fallback kicks in
+  if (!textContent && !hasToolCalls) {
+    throw new Error("Model returned empty response");
   }
 
   return { textContent, toolCalls, hasToolCalls };
@@ -413,6 +413,10 @@ async function streamAnthropic(
     });
   }
 
+  if (!textContent && !hasToolCalls) {
+    throw new Error("Model returned empty response");
+  }
+
   return { textContent, toolCalls, hasToolCalls };
 }
 
@@ -497,6 +501,10 @@ async function streamOpenAIDirect(
     }
   }
 
+  if (!textContent && !hasToolCalls) {
+    throw new Error("Model returned empty response");
+  }
+
   return { textContent, toolCalls, hasToolCalls };
 }
 
@@ -560,6 +568,11 @@ async function streamGemini(
       cacheReadTokens: cachedTokens || undefined,
       cacheReadRate: cachedTokens ? 0.25 : undefined,
     });
+  }
+
+  // Gemini returned usage but no content — treat as a failure so fallback kicks in
+  if (!textContent) {
+    throw new Error("Gemini returned empty response");
   }
 
   // Gemini fallback doesn't do tool calls
@@ -636,14 +649,12 @@ export async function streamWithFallback(
   }
 
   // ── Tier 1: OpenRouter ──────────────────────────────────────────
-  const failReasons: string[] = [];
   if (process.env.OPENROUTER_API_KEY) {
     try {
       const result = await streamOpenRouter(requestedModel, conversation, tools, send, estimateTokens, totalTokensOut);
       return { ...result, actualModel: requestedModel, tier: 1 };
     } catch (err) {
       const e = err as Error;
-      failReasons.push(`OpenRouter: ${errorReason(err)}`);
       console.error("[fallback] tier 1 (openrouter) failed:", requestedModel, e.message);
       errors.push({ tier: 1, model: requestedModel, error: e.message });
     }
@@ -658,7 +669,6 @@ export async function streamWithFallback(
       return { ...result, actualModel: requestedModel, tier: 2 };
     } catch (err) {
       const e = err as Error;
-      failReasons.push(`Direct: ${errorReason(err)}`);
       console.error("[fallback] tier 2 (direct) failed:", requestedModel, e.message);
       errors.push({ tier: 2, model: requestedModel, error: e.message });
     }
@@ -672,22 +682,18 @@ export async function streamWithFallback(
     const candidateProvider = DIRECT_PROVIDERS[candidateModel];
     const candidateKey = candidateProvider ? process.env[candidateProvider.envKey] : undefined;
 
-    // Notify client about the reroute (includes reason from previous failure)
     const providerName = requestedModel.split("/")[0];
     const providerLabel = providerName.charAt(0).toUpperCase() + providerName.slice(1);
-
-    const reason = failReasons.join(" → ");
 
     // Try OpenRouter first for this candidate
     if (process.env.OPENROUTER_API_KEY) {
       try {
         console.log("[fallback] tier 3 (openrouter, auto-route):", candidateModel);
-        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel, reason });
+        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
         const result = await streamOpenRouter(candidateModel, conversation, tools, send, estimateTokens, totalTokensOut);
         return { ...result, actualModel: candidateModel, tier: 3 };
       } catch (err) {
         const e = err as Error;
-        failReasons.push(`OR(${shortModelName(candidateModel)}): ${errorReason(err)}`);
         console.error("[fallback] tier 3 openrouter failed:", candidateModel, e.message);
         errors.push({ tier: 3, model: candidateModel, error: e.message });
       }
@@ -697,12 +703,11 @@ export async function streamWithFallback(
     if (candidateProvider && candidateKey) {
       try {
         console.log("[fallback] tier 3 (direct, auto-route):", candidateModel);
-        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel, reason: failReasons.join(" → ") });
+        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
         const result = await streamDirect(candidateProvider, candidateKey, conversation, tools, send, estimateTokens, totalTokensOut);
         return { ...result, actualModel: candidateModel, tier: 3 };
       } catch (err) {
         const e = err as Error;
-        failReasons.push(`Direct(${shortModelName(candidateModel)}): ${errorReason(err)}`);
         console.error("[fallback] tier 3 direct failed:", candidateModel, e.message);
         errors.push({ tier: 3, model: candidateModel, error: e.message });
       }

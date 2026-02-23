@@ -27,10 +27,10 @@ export const MODELS: ModelConfig[] = [
     name: "Auto",
     provider: "Meter",
     color: "#A1A1AA",
-    inputPrice: (3.0 / 1_000_000) * MARKUP_MULTIPLIER,
-    outputPrice: (15.0 / 1_000_000) * MARKUP_MULTIPLIER,
-    quality: 74,  // GPQA Diamond — routes to Sonnet 4.6
-    speed: 60,
+    inputPrice: (1.75 / 1_000_000) * MARKUP_MULTIPLIER,
+    outputPrice: (14.0 / 1_000_000) * MARKUP_MULTIPLIER,
+    quality: 90,  // GPQA Diamond — routes to GPT-5.2
+    speed: 84,
   },
   {
     id: "meter-1.0",
