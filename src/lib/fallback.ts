@@ -221,6 +221,11 @@ export async function streamOpenRouter(
     }
   }
 
+  // Empty response with no tool calls — treat as failure so fallback kicks in
+  if (!textContent && !hasToolCalls) {
+    throw new Error("Model returned empty response");
+  }
+
   return { textContent, toolCalls, hasToolCalls };
 }
 
@@ -408,6 +413,10 @@ async function streamAnthropic(
     });
   }
 
+  if (!textContent && !hasToolCalls) {
+    throw new Error("Model returned empty response");
+  }
+
   return { textContent, toolCalls, hasToolCalls };
 }
 
@@ -492,6 +501,10 @@ async function streamOpenAIDirect(
     }
   }
 
+  if (!textContent && !hasToolCalls) {
+    throw new Error("Model returned empty response");
+  }
+
   return { textContent, toolCalls, hasToolCalls };
 }
 
@@ -555,6 +568,11 @@ async function streamGemini(
       cacheReadTokens: cachedTokens || undefined,
       cacheReadRate: cachedTokens ? 0.25 : undefined,
     });
+  }
+
+  // Gemini returned usage but no content — treat as a failure so fallback kicks in
+  if (!textContent) {
+    throw new Error("Gemini returned empty response");
   }
 
   // Gemini fallback doesn't do tool calls
