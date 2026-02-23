@@ -134,6 +134,61 @@ export const CONNECTORS: ConnectorDef[] = [
         commandLabel: "Create issue",
         chatPrompt: "Create a GitHub issue",
       },
+      {
+        type: "function",
+        function: {
+          name: "github_push_file",
+          description:
+            "Push a file to a GitHub repository. Creates or updates the file with a commit.",
+          parameters: {
+            type: "object",
+            properties: {
+              repo: {
+                type: "string",
+                description: "Repository in owner/name format",
+              },
+              path: {
+                type: "string",
+                description: "File path in the repo (e.g. 'CLAUDE.md', 'docs/ARCHITECTURE.md')",
+              },
+              content: {
+                type: "string",
+                description: "Full file content to push",
+              },
+              message: {
+                type: "string",
+                description: "Git commit message",
+              },
+            },
+            required: ["repo", "path", "content", "message"],
+          },
+        },
+        commandLabel: "Push file",
+        chatPrompt: "Push a file to my GitHub repo",
+      },
+      {
+        type: "function",
+        function: {
+          name: "github_get_file",
+          description: "Read a file's content from a GitHub repository.",
+          parameters: {
+            type: "object",
+            properties: {
+              repo: {
+                type: "string",
+                description: "Repository in owner/name format",
+              },
+              path: {
+                type: "string",
+                description: "File path in the repo",
+              },
+            },
+            required: ["repo", "path"],
+          },
+        },
+        commandLabel: "Get file",
+        chatPrompt: "Read a file from my GitHub repo",
+      },
     ],
   },
   {

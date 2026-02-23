@@ -18,6 +18,7 @@ import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName } from "@/lib/models";
 import { useSessionSync } from "@/lib/use-session-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
+import { useArtifactsStore } from "@/lib/artifacts-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
 import ReactMarkdown from "react-markdown";
 
@@ -635,6 +636,15 @@ export function ChatView() {
                   projectId: activeProjectId,
                 });
                 useMeterStore.getState().setMessageDecisionId(decId);
+              }
+              if (data.name === "save_artifact" && data.artifact) {
+                const a = data.artifact as { id?: string; filePath: string; status: string };
+                useArtifactsStore.getState().upsertArtifact({
+                  id: a.id || `temp_${Date.now()}`,
+                  filePath: a.filePath,
+                  status: (a.status as "draft" | "synced") || "draft",
+                  lastGeneratedAt: Date.now(),
+                });
               }
             } else if (data.type === "rerouting") {
               setRerouting({ provider: data.provider as string, toModel: data.to as string });
