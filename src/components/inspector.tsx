@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useTheme } from "next-themes";
 import { useMeterStore, selectConnectedServices, ChatMessage, PaymentCard } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
@@ -26,13 +27,17 @@ export function Inspector() {
   const activeCompanyId = useWorkspaceStore((s) => s.activeCompanyId);
   const companies = useWorkspaceStore((s) => s.companies);
   const deleteCompany = useWorkspaceStore((s) => s.deleteCompany);
+  const renameCompany = useWorkspaceStore((s) => s.renameCompany);
   const setActiveCompany = useWorkspaceStore((s) => s.setActiveCompany);
 
   const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? null;
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [editingName, setEditingName] = useState("");
+  const [nameEdited, setNameEdited] = useState(false);
 
   useEffect(() => {
     if (!INSPECTOR_TABS.includes(inspectorTab as typeof INSPECTOR_TABS[number])) {
@@ -44,7 +49,7 @@ export function Inspector() {
     if (!activeCompany) return;
     setDeleting(true);
 
-    // Delete server-side session
+    // Soft-delete server-side session (sets deleted_at, retained 7 days)
     const sessionId = activeCompany.sessionId;
     if (sessionId) {
       try {
@@ -73,9 +78,25 @@ export function Inspector() {
       }
     }
 
-    setConfirmingDelete(false);
+    setManageOpen(false);
+    setDeleteConfirmText("");
     setDeleting(false);
     setInspectorOpen(false);
+  };
+
+  const openManageDialog = () => {
+    if (activeCompany) {
+      setEditingName(activeCompany.name);
+      setNameEdited(false);
+      setDeleteConfirmText("");
+    }
+    setManageOpen(true);
+  };
+
+  const handleSaveName = () => {
+    if (!activeCompany || !editingName.trim()) return;
+    renameCompany(activeCompany.id, editingName.trim());
+    setNameEdited(false);
   };
 
   if (!inspectorOpen) return null;
@@ -123,39 +144,99 @@ export function Inspector() {
         </div>
 
         {activeCompany && (
-          <div className="border-t border-border px-4 py-3">
-            {confirmingDelete ? (
-              <div className="flex flex-col gap-2">
-                <p className="font-mono text-[11px] text-red-400">
-                  Delete &ldquo;{activeCompany.name}&rdquo;? This removes all messages and data for this workspace.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleDeleteWorkspace}
-                    disabled={deleting}
-                    className="flex-1 rounded-md bg-red-500/10 border border-red-500/20 py-1.5 font-mono text-[11px] text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-40"
-                  >
-                    {deleting ? "Deleting..." : "Confirm Delete"}
-                  </button>
-                  <button
-                    onClick={() => setConfirmingDelete(false)}
-                    className="flex-1 rounded-md border border-border py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setConfirmingDelete(true)}
-                className="w-full rounded-md py-1.5 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-red-400 hover:bg-red-500/5"
-              >
-                Delete workspace
-              </button>
-            )}
+          <div className="border-t border-border px-4 py-3 flex items-center justify-between">
+            <button
+              onClick={openManageDialog}
+              className="rounded-md py-1.5 px-2 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground hover:bg-foreground/5"
+            >
+              Manage workspace
+            </button>
+            <ThemeToggle />
+          </div>
+        )}
+        {!activeCompany && (
+          <div className="border-t border-border px-4 py-3 flex items-center justify-end">
+            <ThemeToggle />
           </div>
         )}
       </div>
+
+      {/* ── Manage Workspace Dialog ─────────────────────────────────── */}
+      {manageOpen && activeCompany && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" onClick={() => setManageOpen(false)} />
+          <div className="fixed z-[70] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] rounded-xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <span className="font-mono text-xs uppercase tracking-wider text-foreground">
+                Manage Workspace
+              </span>
+              <button
+                onClick={() => setManageOpen(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-5 flex flex-col gap-5">
+              {/* Workspace Name */}
+              <div className="flex flex-col gap-2">
+                <label className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">
+                  Workspace Name
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => { setEditingName(e.target.value); setNameEdited(true); }}
+                    className="flex-1 h-9 rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-foreground/30 transition-colors"
+                  />
+                  {nameEdited && editingName.trim() && editingName.trim() !== activeCompany.name && (
+                    <button
+                      onClick={handleSaveName}
+                      className="h-9 rounded-lg bg-foreground px-3 font-mono text-[11px] text-background transition-colors hover:bg-foreground/90"
+                    >
+                      Save
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-border" />
+
+              {/* Danger Zone */}
+              <div className="flex flex-col gap-3">
+                <div className="font-mono text-[11px] text-red-400/70 uppercase tracking-wider">
+                  Danger Zone
+                </div>
+                <p className="font-mono text-[11px] text-muted-foreground/60 leading-relaxed">
+                  Type <span className="text-foreground/80">{activeCompany.name}</span> to confirm deletion. This removes all messages and data for this workspace.
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={activeCompany.name}
+                  className="h-9 rounded-lg border border-red-500/20 bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-red-500/40 transition-colors"
+                />
+                <button
+                  onClick={handleDeleteWorkspace}
+                  disabled={deleting || deleteConfirmText !== activeCompany.name}
+                  className="h-9 rounded-lg bg-red-500/10 border border-red-500/20 font-mono text-[11px] text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {deleting ? "Deleting..." : "Delete Workspace"}
+                </button>
+                <p className="font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
+                  Deleted workspaces are retained for 7 days. To recover, email support@meter.chat within 7 days of deletion.
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -749,6 +830,51 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
       </div>
       <AddCardModal open={addCardOpen} onClose={() => setAddCardOpen(false)} />
     </div>
+  );
+}
+
+/* ─── THEME TOGGLE ─── */
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) return <div className="w-[52px] h-[26px]" />;
+
+  const isDark = resolvedTheme === "dark";
+
+  return (
+    <button
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      className="relative h-[26px] w-[52px] rounded-full border border-border bg-background transition-colors hover:border-foreground/20"
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      <div
+        className={`absolute top-[2px] h-[20px] w-[20px] rounded-full transition-all duration-200 flex items-center justify-center ${
+          isDark
+            ? "left-[2px] bg-foreground/15"
+            : "left-[28px] bg-foreground/15"
+        }`}
+      >
+        {isDark ? (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+        )}
+      </div>
+    </button>
   );
 }
 

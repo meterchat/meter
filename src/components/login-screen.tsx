@@ -389,6 +389,14 @@ export function LoginScreen() {
             width={108}
             height={29}
             priority
+            className="hidden dark:block"
+          />
+          <Image
+            src="/logo-light.webp"
+            alt="Meter"
+            width={108}
+            height={29}
+            className="block dark:hidden"
           />
           {step === "email" && (
             <p className="font-mono text-xs text-muted-foreground tracking-wide uppercase">
