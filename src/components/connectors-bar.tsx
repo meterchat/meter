@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useMeterStore, selectConnectedServices } from "@/lib/store";
 import { CONNECTORS } from "@/lib/connectors";
+import { getConnectorIdsForMode } from "@/lib/modes";
+import type { AgentMode } from "@/lib/modes";
 import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
 
@@ -11,6 +13,13 @@ export function ConnectorsBar() {
   const userId = useMeterStore((s) => s.userId);
   const activeProjectId = useMeterStore((s) => s.activeProjectId);
   const disconnectServiceRemote = useMeterStore((s) => s.disconnectServiceRemote);
+  const activeMode = (activeProjectId ?? "planner") as AgentMode;
+  const allowedIds = useMemo(() => getConnectorIdsForMode(activeMode), [activeMode]);
+  const modeConnectors = useMemo(
+    () => CONNECTORS.filter((c) => allowedIds.includes(c.id)),
+    [allowedIds]
+  );
+
   const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -75,7 +84,7 @@ export function ConnectorsBar() {
       {/* Expanded connector list */}
       {open && (
         <div className="border-t border-border/50 bg-foreground/[0.03] py-0.5">
-          {CONNECTORS.map((connector) => {
+          {modeConnectors.map((connector) => {
             const connected = !!connectedServices[connector.id];
             return (
               <div

@@ -64,7 +64,7 @@ A live cost ticker runs as the AI responds. Each message shows the model used, d
 - **Postpaid billing** — Use first, pay after. Card charged at $10 threshold or monthly
 - **Per-message transparency** — Every response shows model, cost, confidence %, and settlement status
 - **Daily meter** — Header shows today's spend with per-model breakdown, resets at midnight
-- **Multi-model** — Claude Sonnet 4, Opus 4, GPT-4.1, Gemini 2.5 Pro, DeepSeek V3 via OpenRouter
+- **Multi-model** — Claude Sonnet 4, Opus 4, GPT-4.1, Gemini 3.1 Pro, DeepSeek V3 via OpenRouter
 - **Developer Console** — Generate API keys, monitor usage, manage billing
 - **Developer API** — Integrate metered AI into your own apps with a single API key
 - **Confidence scoring** — Each response includes an AI confidence estimate
@@ -189,7 +189,7 @@ Pay-per-token with a 2x markup on provider base rates. Billed postpaid to your c
 | Claude Sonnet 4.6 | $6.00 | $30.00 | ~$0.02 |
 | Claude Opus 4.6 | $10.00 | $50.00 | ~$0.03 |
 | GPT-5.2 | $3.50 | $28.00 | ~$0.01 |
-| Gemini 3 Pro | $4.00 | $24.00 | ~$0.01 |
+| Gemini 3.1 Pro | $4.00 | $24.00 | ~$0.01 |
 | Grok 4.1 Fast | $0.40 | $1.00 | ~$0.001 |
 | DeepSeek V3 | $0.54 | $2.20 | ~$0.001 |
 | Meter 1.0 (Debate) | $13.90 | $79.00 | ~$1.00 |

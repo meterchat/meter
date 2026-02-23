@@ -264,8 +264,9 @@ function buildConnectionMessage(providerId: string): ChatMessage | null {
 }
 
 const initialProjects = [
-  createProject("meter", "Meter"),
-  createProject("keypass", "Keypass"),
+  createProject("planner", "Planner"),
+  createProject("coder", "Coder"),
+  createProject("banker", "Banker"),
 ];
 
 export const useMeterStore = create<MeterState>()(
@@ -286,7 +287,7 @@ export const useMeterStore = create<MeterState>()(
       spendingCap: 10,
 
       projects: initialProjects,
-      activeProjectId: "meter",
+      activeProjectId: "planner",
 
       pendingCharges: [],
       autoSettleThreshold: 25,
@@ -434,7 +435,7 @@ export const useMeterStore = create<MeterState>()(
           cardBrand: null,
           stripeCustomerId: null,
           projects: initialProjects,
-          activeProjectId: "meter",
+          activeProjectId: "planner",
           inspectorOpen: false,
           pendingCharges: [],
           isSettling: false,
@@ -499,7 +500,7 @@ export const useMeterStore = create<MeterState>()(
           const remaining = s.projects.filter((p) => p.id !== id);
           const nextActiveId =
             s.activeProjectId === id
-              ? remaining[0]?.id ?? "meter"
+              ? remaining[0]?.id ?? "planner"
               : s.activeProjectId;
           return { projects: remaining, activeProjectId: nextActiveId };
         }),
