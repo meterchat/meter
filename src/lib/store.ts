@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { DEFAULT_MODEL, getModel } from "@/lib/models";
 import { CONNECTORS } from "@/lib/connectors";
+import { MODES } from "@/lib/modes";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore } from "@/lib/decisions-store";
 
@@ -507,8 +508,38 @@ export const useMeterStore = create<MeterState>()(
 
       setActiveProject: (id) => {
         set((s) => {
-          if (!s.projects.some((p) => p.id === id)) return s;
-          const projects = s.projects.map((p) => (p.id === id ? ensureDaily(p) : p));
+          const prev = s.activeProjectId;
+          let projects = [...s.projects];
+
+          // Auto-create mode project if it doesn't exist yet (handles
+          // persisted stores that pre-date the modes migration).
+          if (!projects.some((p) => p.id === id)) {
+            const modeDef = MODES.find((m) => m.id === id);
+            if (!modeDef) return s;            // unknown id, bail
+            projects = [...projects, createProject(id, modeDef.name)];
+          }
+
+          projects = projects.map((p) => (p.id === id ? ensureDaily(p) : p));
+
+          // Inject a mode-switch message so the user sees feedback in chat
+          if (prev !== id) {
+            const modeDef = MODES.find((m) => m.id === id);
+            if (modeDef) {
+              const target = projects.find((p) => p.id === id);
+              if (target) {
+                const switchMsg: ChatMessage = {
+                  id: Math.random().toString(36).slice(2, 10),
+                  role: "assistant",
+                  content: `**Switched to ${modeDef.name} mode.** ${modeDef.artifacts.join(", ")} — ask me anything.`,
+                  timestamp: Date.now(),
+                };
+                projects = projects.map((p) =>
+                  p.id === id ? { ...p, messages: [...p.messages, switchMsg] } : p
+                );
+              }
+            }
+          }
+
           return { projects, activeProjectId: id };
         });
         // Re-fetch connection status for the newly active workspace
@@ -1019,6 +1050,24 @@ export const useMeterStore = create<MeterState>()(
         projects: s.projects,
         activeProjectId: s.activeProjectId,
       }),
+      // Ensure mode projects exist after rehydrating from older localStorage
+      merge: (persisted, current) => {
+        const state = { ...current, ...(persisted as Partial<MeterState>) };
+        const modeIds: string[] = MODES.map((m) => m.id);
+        const projects = [...(state.projects ?? [])];
+        for (const mode of MODES) {
+          if (!projects.some((p) => p.id === mode.id)) {
+            projects.push(createProject(mode.id, mode.name));
+          }
+        }
+        return {
+          ...state,
+          projects,
+          activeProjectId: modeIds.includes(state.activeProjectId as string)
+            ? state.activeProjectId
+            : "planner",
+        } as MeterState;
+      },
     }
   )
 );
