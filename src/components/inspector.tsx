@@ -454,13 +454,30 @@ function DecisionRow({ decision }: { decision: Decision }) {
 }
 
 /* ─── PINS SECTION ─── */
+function formatPinTime(ts: number) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHrs = Math.floor(diffMins / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
   const projects = useMeterStore((s) => s.projects);
   const togglePinMessage = useMeterStore((s) => s.togglePinMessage);
+  const setScrollToMessageId = useMeterStore((s) => s.setScrollToMessageId);
   const project = projects.find((p) => p.id === activeProjectId);
   const pinned = project?.messages.filter((m) => m.pinned) ?? [];
 
   if (pinned.length === 0) return null;
+
+  const handleClick = (msgId: string) => {
+    setScrollToMessageId(msgId);
+  };
 
   return (
     <div>
@@ -472,9 +489,14 @@ function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
           const preview = msg.content.replace(/[#*`_~>\[\]]/g, "").slice(0, 100);
           const modelLabel = msg.model ?? "";
           const costLabel = msg.cost != null ? `$${msg.cost.toFixed(4)}` : "";
-          const meta = [modelLabel, costLabel].filter(Boolean).join(" · ");
+          const timeLabel = formatPinTime(msg.timestamp);
+          const meta = [modelLabel, costLabel, timeLabel].filter(Boolean).join(" · ");
           return (
-            <div key={msg.id} className="group relative rounded-md border border-border/50 px-3 py-2 hover:bg-foreground/[0.02] transition-colors">
+            <div
+              key={msg.id}
+              onClick={() => handleClick(msg.id)}
+              className="group relative rounded-md border border-border/50 px-3 py-2 hover:bg-foreground/[0.03] transition-colors cursor-pointer"
+            >
               <p className="font-mono text-[12px] text-foreground/70 leading-relaxed line-clamp-2">
                 {preview}{msg.content.length > 100 ? "..." : ""}
               </p>
@@ -484,7 +506,7 @@ function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
                 </span>
               )}
               <button
-                onClick={() => togglePinMessage(msg.id)}
+                onClick={(e) => { e.stopPropagation(); togglePinMessage(msg.id); }}
                 className="absolute right-1.5 top-1.5 hidden group-hover:block rounded p-0.5 text-muted-foreground/40 hover:text-amber-500 transition-colors"
                 title="Unpin"
               >

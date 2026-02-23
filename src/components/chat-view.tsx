@@ -482,6 +482,20 @@ export function ChatView() {
     });
   }, [messages]);
 
+  // Scroll-to-message triggered from inspector pin clicks
+  const scrollToMessageId = useMeterStore((s) => s.scrollToMessageId);
+  const setScrollToMessageId = useMeterStore((s) => s.setScrollToMessageId);
+  useEffect(() => {
+    if (!scrollToMessageId) return;
+    const el = document.getElementById(`msg-${scrollToMessageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-amber-500/40", "rounded-xl");
+      setTimeout(() => el.classList.remove("ring-2", "ring-amber-500/40", "rounded-xl"), 2000);
+    }
+    setScrollToMessageId(null);
+  }, [scrollToMessageId, setScrollToMessageId]);
+
   /** Core streaming function shared by handleSend and handleDebate */
   const streamResponse = async (userContent: string, modelOverride?: string) => {
     isNearBottomRef.current = true;
@@ -994,7 +1008,7 @@ export function ChatView() {
               const showPersistedDebate = msg.debateTrace && msg.debateTrace.length > 0 && !showLiveDebate;
 
               return (
-                <div key={msg.id} className="group/msg relative mb-4">
+                <div key={msg.id} id={`msg-${msg.id}`} className="group/msg relative mb-4 transition-all duration-300">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div className={`relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"} ${msg.pinned ? "border-l-2 border-amber-500/40" : ""}`}>
                       {displayContent && !displayContent.startsWith("__error__") && (
