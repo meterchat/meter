@@ -410,6 +410,218 @@ export const CONNECTORS: ConnectorDef[] = [
       },
     ],
   },
+  /* ─── Planner mode connectors ────────────────────────────────── */
+  {
+    id: "linear",
+    name: "Linear",
+    connectionType: "oauth",
+    description: "issues & project tracking",
+    iconPath:
+      "M3.357 3.357a1.64 1.64 0 0 0-.153 2.149l15.29 15.29a1.64 1.64 0 0 0 2.149-.153 12.015 12.015 0 0 0-17.286-17.286ZM1.597 7.857a1.006 1.006 0 0 0-.127 1.313l13.36 13.36a1.006 1.006 0 0 0 1.313-.127 12.07 12.07 0 0 0-14.546-14.546Zm-.98 4.122a.674.674 0 0 0-.108.895l10.617 10.617a.674.674 0 0 0 .895-.108 12.116 12.116 0 0 0-11.404-11.404Zm-.535 4.286a.29.29 0 0 0-.082.471l6.264 6.264a.29.29 0 0 0 .471-.082 12.196 12.196 0 0 0-6.653-6.653Z",
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "linear_list_issues",
+          description: "List issues from Linear, optionally filtered by team or status.",
+          parameters: {
+            type: "object",
+            properties: {
+              team: { type: "string", description: "Team key to filter by (e.g. 'ENG')" },
+              status: { type: "string", description: "Status filter: backlog, todo, in_progress, done" },
+              limit: { type: "number", description: "Max results to return (default 10)" },
+            },
+          },
+        },
+        commandLabel: "List issues",
+        chatPrompt: "Show me my Linear issues",
+      },
+      {
+        type: "function",
+        function: {
+          name: "linear_create_issue",
+          description: "Create a new issue in Linear.",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Issue title" },
+              description: { type: "string", description: "Issue description (markdown)" },
+              team: { type: "string", description: "Team key (e.g. 'ENG')" },
+              priority: { type: "number", description: "Priority: 0 (none), 1 (urgent), 2 (high), 3 (medium), 4 (low)" },
+            },
+            required: ["title", "team"],
+          },
+        },
+        commandLabel: "Create issue",
+        chatPrompt: "Create a Linear issue",
+      },
+    ],
+  },
+  {
+    id: "calendar",
+    name: "Google Calendar",
+    connectionType: "oauth",
+    description: "events & scheduling",
+    iconPath:
+      "M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z",
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "calendar_list_events",
+          description: "List upcoming calendar events. Use when the user asks about their schedule, meetings, or availability.",
+          parameters: {
+            type: "object",
+            properties: {
+              days: { type: "number", description: "Number of days ahead to look (default 7)" },
+              limit: { type: "number", description: "Max results to return (default 10)" },
+            },
+          },
+        },
+        commandLabel: "List events",
+        chatPrompt: "Show me my upcoming calendar events",
+      },
+      {
+        type: "function",
+        function: {
+          name: "calendar_create_event",
+          description: "Create a new calendar event.",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Event title" },
+              start: { type: "string", description: "Start time (ISO 8601)" },
+              end: { type: "string", description: "End time (ISO 8601)" },
+              description: { type: "string", description: "Event description" },
+              attendees: { type: "array", items: { type: "string" }, description: "Email addresses of attendees" },
+            },
+            required: ["title", "start", "end"],
+          },
+        },
+        commandLabel: "Create event",
+        chatPrompt: "Create a calendar event",
+      },
+    ],
+  },
+  /* ─── Coder mode connectors ─────────────────────────────────── */
+  {
+    id: "porkbun",
+    name: "Porkbun",
+    connectionType: "api_key",
+    description: "domains & DNS",
+    iconPath:
+      "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z",
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "porkbun_list_domains",
+          description: "List all domains in the user's Porkbun account.",
+          parameters: { type: "object", properties: {} },
+        },
+        commandLabel: "List domains",
+        chatPrompt: "Show me my Porkbun domains",
+      },
+      {
+        type: "function",
+        function: {
+          name: "porkbun_check_availability",
+          description: "Check if a domain name is available for registration.",
+          parameters: {
+            type: "object",
+            properties: {
+              domain: { type: "string", description: "Domain name to check (e.g. 'example.com')" },
+            },
+            required: ["domain"],
+          },
+        },
+        commandLabel: "Check domain",
+        chatPrompt: "Check if a domain is available",
+      },
+    ],
+  },
+  /* ─── Banker mode connectors ────────────────────────────────── */
+  {
+    id: "puzzle",
+    name: "Puzzle",
+    connectionType: "api_key",
+    description: "accounting & bookkeeping",
+    iconPath:
+      "M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-2 .9-2 2v3.8h1.5c1.38 0 2.5 1.12 2.5 2.5S4.88 15.8 3.5 15.8H2V19c0 1.1.9 2 2 2h3.8v-1.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5V21H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z",
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "puzzle_get_financials",
+          description: "Get financial summary including P&L, balance sheet, and cash flow from Puzzle.",
+          parameters: {
+            type: "object",
+            properties: {
+              period: { type: "string", description: "Time period: this_month, last_month, this_quarter, this_year" },
+            },
+          },
+        },
+        commandLabel: "Get financials",
+        chatPrompt: "Show me my financial summary",
+      },
+      {
+        type: "function",
+        function: {
+          name: "puzzle_list_transactions",
+          description: "List recent accounting transactions from Puzzle.",
+          parameters: {
+            type: "object",
+            properties: {
+              limit: { type: "number", description: "Max results to return (default 20)" },
+              category: { type: "string", description: "Filter by category" },
+            },
+          },
+        },
+        commandLabel: "List transactions",
+        chatPrompt: "Show me recent accounting transactions",
+      },
+    ],
+  },
+  {
+    id: "gusto",
+    name: "Gusto",
+    connectionType: "oauth",
+    description: "payroll & team costs",
+    iconPath:
+      "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z",
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "gusto_get_payroll_summary",
+          description: "Get payroll summary including total payroll cost, headcount, and recent pay runs from Gusto.",
+          parameters: {
+            type: "object",
+            properties: {
+              period: { type: "string", description: "Time period: this_month, last_month, this_quarter" },
+            },
+          },
+        },
+        commandLabel: "Payroll summary",
+        chatPrompt: "Show me my payroll summary",
+      },
+      {
+        type: "function",
+        function: {
+          name: "gusto_list_employees",
+          description: "List active employees and their compensation details from Gusto.",
+          parameters: {
+            type: "object",
+            properties: {
+              department: { type: "string", description: "Filter by department" },
+            },
+          },
+        },
+        commandLabel: "List employees",
+        chatPrompt: "Show me my team in Gusto",
+      },
+    ],
+  },
 ];
 
 /** Get a connector definition by id */
