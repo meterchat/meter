@@ -73,6 +73,26 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function PinButton({ messageId, pinned }: { messageId: string; pinned?: boolean }) {
+  const togglePinMessage = useMeterStore((s) => s.togglePinMessage);
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); togglePinMessage(messageId); }}
+      className={`absolute right-2 top-9 rounded-md p-1 transition-all ${
+        pinned
+          ? "text-amber-500/70 hover:text-amber-500"
+          : "text-muted-foreground/0 group-hover/msg:text-muted-foreground/40 hover:!text-muted-foreground hover:bg-foreground/5"
+      }`}
+      title={pinned ? "Unpin" : "Pin"}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="17" x2="12" y2="22" />
+        <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+      </svg>
+    </button>
+  );
+}
+
 function DecisionPill({ onOpen }: { onOpen: () => void }) {
   return (
     <button
@@ -976,9 +996,12 @@ export function ChatView() {
               return (
                 <div key={msg.id} className="group/msg relative mb-4">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"}`}>
+                    <div className={`relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"} ${msg.pinned ? "border-l-2 border-amber-500/40" : ""}`}>
                       {msg.role === "assistant" && displayContent && !displayContent.startsWith("__error__") && (
-                        <CopyButton text={displayContent} />
+                        <>
+                          <CopyButton text={displayContent} />
+                          <PinButton messageId={msg.id} pinned={msg.pinned} />
+                        </>
                       )}
 
                       {/* Debate trace — live or persisted */}
