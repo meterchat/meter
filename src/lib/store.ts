@@ -421,6 +421,34 @@ export const useMeterStore = create<MeterState>()(
       },
 
       logout: () => {
+        // Flush current messages to server BEFORE clearing state.
+        // sendBeacon is reliable (survives navigation) and the auth cookie
+        // is still valid at this point since the logout API hasn't been called yet.
+        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+          for (const project of get().projects) {
+            if (project.messages.length === 0) continue;
+            const blob = new Blob(
+              [
+                JSON.stringify({
+                  session: {
+                    id: project.id,
+                    name: project.name,
+                    totalCost: project.totalCost,
+                    todayCost: project.todayCost,
+                    todayTokensIn: project.todayTokensIn,
+                    todayTokensOut: project.todayTokensOut,
+                    todayMessageCount: project.todayMessageCount,
+                    todayDate: project.todayDate,
+                  },
+                  messages: project.messages,
+                }),
+              ],
+              { type: "application/json" }
+            );
+            navigator.sendBeacon("/api/sessions", blob);
+          }
+        }
+
         // Fire-and-forget server-side session cleanup
         fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
 

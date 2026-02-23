@@ -93,6 +93,8 @@ export function useSessionSync() {
     };
   };
 
+  const syncFailCountRef = useRef(0);
+
   const syncToServer = useCallback(async () => {
     if (!authenticated) return;
 
@@ -131,16 +133,25 @@ export function useSessionSync() {
           }),
         });
         if (!res.ok) {
+          console.warn(`[meter] Session sync failed for "${project.name}": ${res.status}`);
           allOk = false;
         }
-      } catch {
-        // Silent fail — will retry on next interval
+      } catch (err) {
+        console.warn("[meter] Session sync error:", err);
         allOk = false;
       }
     }
 
     if (allOk) {
       lastSyncRef.current = snapshot;
+      syncFailCountRef.current = 0;
+    } else {
+      syncFailCountRef.current += 1;
+      if (syncFailCountRef.current >= 3) {
+        console.error(
+          `[meter] Session sync has failed ${syncFailCountRef.current} consecutive times. Messages may not be saved to the server.`
+        );
+      }
     }
   }, [authenticated, projects]);
 
@@ -191,22 +202,28 @@ export function useSessionSync() {
     if (!authenticated) return;
 
     const handleBeforeUnload = () => {
-      // Use sendBeacon for reliable unload sync (cookies sent automatically on same-origin)
+      // Use sendBeacon with Blob for reliable unload sync
+      // (Blob ensures Content-Type: application/json; plain string sends as text/plain)
       for (const project of projects) {
-        const body = JSON.stringify({
-          session: {
-            id: project.id,
-            name: project.name,
-            totalCost: project.totalCost,
-            todayCost: project.todayCost,
-            todayTokensIn: project.todayTokensIn,
-            todayTokensOut: project.todayTokensOut,
-            todayMessageCount: project.todayMessageCount,
-            todayDate: project.todayDate,
-          },
-          messages: project.messages,
-        });
-        navigator.sendBeacon("/api/sessions", body);
+        const blob = new Blob(
+          [
+            JSON.stringify({
+              session: {
+                id: project.id,
+                name: project.name,
+                totalCost: project.totalCost,
+                todayCost: project.todayCost,
+                todayTokensIn: project.todayTokensIn,
+                todayTokensOut: project.todayTokensOut,
+                todayMessageCount: project.todayMessageCount,
+                todayDate: project.todayDate,
+              },
+              messages: project.messages,
+            }),
+          ],
+          { type: "application/json" }
+        );
+        navigator.sendBeacon("/api/sessions", blob);
       }
     };
 
