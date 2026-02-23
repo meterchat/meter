@@ -240,3 +240,26 @@ create index if not exists idx_auth_sessions_expires on auth_sessions(expires_at
 
 -- Set a@buxor.co as superadmin creator account (no settlement charges)
 -- update meter_users set account_type = 'superadmin' where email = 'a@buxor.co';
+
+-- =============================================
+-- ARTIFACTS (strategy spec files)
+-- =============================================
+
+create table if not exists artifacts (
+  id text primary key,
+  user_id text not null references meter_users(id) on delete cascade,
+  project_id text,
+  file_path text not null,
+  content text not null default '',
+  status text not null default 'draft',
+  github_repo text,
+  github_sha text,
+  last_generated_at timestamptz,
+  last_pushed_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_artifacts_user on artifacts(user_id);
+create index if not exists idx_artifacts_project on artifacts(project_id);
+create unique index if not exists idx_artifacts_user_project_path on artifacts(user_id, coalesce(project_id, ''), file_path);

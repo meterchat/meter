@@ -37,13 +37,17 @@ export async function GET(
 
     // Store state for CSRF validation (includes workspace context)
     const supabase = getSupabaseServer();
-    await supabase.from("oauth_state").insert({
+    const { error: stateError } = await supabase.from("oauth_state").insert({
       id: state,
       user_id: userId,
       provider: providerId,
       workspace_id: workspaceId,
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 min
     });
+    if (stateError) {
+      console.error("Failed to store OAuth state:", stateError.message);
+      return NextResponse.json({ error: "Failed to initiate OAuth" }, { status: 500 });
+    }
 
     const authorizeUrl = buildAuthorizeUrl(provider, state, redirectUri);
     return NextResponse.redirect(authorizeUrl);

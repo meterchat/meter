@@ -2,7 +2,7 @@ import { getSupabaseServer } from "@/lib/supabase";
 import { CONNECTORS, ConnectorToolDef } from "@/lib/connectors";
 import { getValidAccessToken } from "@/lib/oauth";
 import { searchEmails, readEmail } from "@/lib/connectors/gmail";
-import { listRepos, createRepo, createIssue } from "@/lib/connectors/github";
+import { listRepos, createRepo, createIssue, getFileContent, createOrUpdateFile } from "@/lib/connectors/github";
 import { listDeployments, triggerDeployment } from "@/lib/connectors/vercel";
 import { listPayments, getBalance, listSubscriptions } from "@/lib/connectors/stripe";
 import { getAccounts as mercuryGetAccounts, listTransactions as mercuryListTransactions } from "@/lib/connectors/mercury";
@@ -78,6 +78,28 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       parameters: { type: "object", properties: {} },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "save_artifact",
+      description:
+        "Save a strategy artifact (markdown spec file) for the project. Use when generating strategy documents like ARCHITECTURE.md, DECISIONS.md, CLAUDE.md, .cursorrules, README.md, or DESIGN.md from the conversation's decisions and context.",
+      parameters: {
+        type: "object",
+        properties: {
+          file_path: {
+            type: "string",
+            description: "File name (e.g. 'ARCHITECTURE.md', 'CLAUDE.md', '.cursorrules', 'DECISIONS.md', 'README.md', 'DESIGN.md')",
+          },
+          content: {
+            type: "string",
+            description: "Full markdown content of the artifact",
+          },
+        },
+        required: ["file_path", "content"],
+      },
+    },
+  },
 ];
 
 /** For backwards compat — all built-in tools */
@@ -121,11 +143,21 @@ You have tools. Use them:
 - web_search: Search the web for anything current — news, docs, prices, APIs, etc. Use this proactively when questions touch on recent events or data you're unsure about.
 - save_decision: Log important decisions when the user makes a choice or asks you to recommend something. This helps them track what was decided and why.
 - list_decisions: Recall past decisions when the user asks "what did we decide" or references earlier choices.
+- save_artifact: Save strategy/spec documents that coding agents will read. Use when the user asks to generate artifacts, export strategy, or prepare specs for their coding tools.
 - get_current_datetime: Know what day/time it is.${connectorSection}
 
 Be direct and concise. Write in plain prose — avoid bullet lists and bold text unless truly necessary. Use short paragraphs instead of lists. When citing search results, mention the source. Don't apologize for using tools — just use them when they'll help.
 
 When you sense the user has reached a decision point — they've picked an approach, chosen a tool, settled on a name, committed to a direction — end your response with a brief question like "Want me to lock this in, or would you like a second opinion?" followed by the tag [decision-point] on its own line. This tag gives the user buttons to either log the decision or trigger a multi-model debate. Only use this when a meaningful choice or recommendation is being discussed, not on routine messages.
+
+When the user asks to generate strategy artifacts or prepare specs for their coding agents, create these files using save_artifact:
+1. README.md — project overview, purpose, current phase, and how to run it
+2. ARCHITECTURE.md — synthesize all decisions into a technical architecture document (tech stack, schema, core flows)
+3. DESIGN.md — high-level design philosophy and product/protocol design decisions
+4. DECISIONS.md — format each locked decision as an ADR (title, context, decision, consequences)
+5. CLAUDE.md — agent instructions optimized for Claude Code / Codex (concise directives, file structure, key patterns)
+6. .cursorrules — agent instructions optimized for Cursor
+Base all content on the locked decisions and conversation context. Be specific and actionable — these files are read by coding agents, not just humans.
 
 Review items: When you identify actionable items from the conversation, emails, or connected services, tag them with markers so they appear in the user's Review panel:
 - Follow-ups from email or chat: wrap in [follow-up]...[/follow-up] tags. Example: [follow-up]Reply to Sarah about the contract by Friday[/follow-up]
@@ -158,6 +190,8 @@ export async function executeTool(
       return saveDecision(args, ctx);
     case "list_decisions":
       return listDecisions(ctx);
+    case "save_artifact":
+      return saveArtifact(args, ctx);
     // Connector tools
     case "search_emails":
       return withConnectorToken("gmail", ctx, async (token) =>
@@ -187,6 +221,28 @@ export async function executeTool(
           body: args.body as string | undefined,
         })
       );
+    case "github_push_file":
+      return withConnectorToken("github", ctx, async (token) => {
+        const [owner, name] = (args.repo as string).split("/");
+        if (!owner || !name) throw new Error("Repo must be in owner/name format.");
+        const existing = await getFileContent(token, owner, name, args.path as string);
+        return createOrUpdateFile(
+          token, owner, name,
+          args.path as string,
+          args.content as string,
+          args.message as string,
+          undefined,
+          existing?.sha,
+        );
+      });
+    case "github_get_file":
+      return withConnectorToken("github", ctx, async (token) => {
+        const [owner, name] = (args.repo as string).split("/");
+        if (!owner || !name) throw new Error("Repo must be in owner/name format.");
+        const result = await getFileContent(token, owner, name, args.path as string);
+        if (!result) return "File not found.";
+        return result.content;
+      });
     case "vercel_list_deployments":
       return withConnectorToken("vercel", ctx, async (token) =>
         listDeployments(token, args.project as string, args.limit as number | undefined)
@@ -351,6 +407,67 @@ async function saveDecision(
     return JSON.stringify({ id, message: `Decision saved: "${args.title}" — ${args.choice}` });
   } catch (err) {
     return `Failed to save decision: ${(err as Error).message}`;
+  }
+}
+
+/* ── save_artifact ─────────────────────────────────────────────── */
+
+async function saveArtifact(
+  args: Record<string, unknown>,
+  ctx: ToolContext
+): Promise<string> {
+  if (!ctx.userId) return "Cannot save artifact: not authenticated.";
+  try {
+    const supabase = getSupabaseServer();
+    const filePath = args.file_path as string;
+    const content = args.content as string;
+    const projectId = ctx.projectId || null;
+
+    // Upsert by user_id + project_id + file_path
+    let existingId: string | undefined;
+    if (projectId) {
+      const { data } = await supabase
+        .from("artifacts")
+        .select("id")
+        .eq("user_id", ctx.userId)
+        .eq("project_id", projectId)
+        .eq("file_path", filePath)
+        .maybeSingle();
+      existingId = data?.id;
+    } else {
+      const { data } = await supabase
+        .from("artifacts")
+        .select("id")
+        .eq("user_id", ctx.userId)
+        .is("project_id", null)
+        .eq("file_path", filePath)
+        .maybeSingle();
+      existingId = data?.id;
+    }
+
+    if (existingId) {
+      await supabase.from("artifacts").update({
+        content,
+        status: "draft",
+        last_generated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", existingId);
+      return JSON.stringify({ id: existingId, message: `Updated artifact: ${filePath}` });
+    } else {
+      const id = `art_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      await supabase.from("artifacts").insert({
+        id,
+        user_id: ctx.userId,
+        project_id: projectId,
+        file_path: filePath,
+        content,
+        status: "draft",
+        last_generated_at: new Date().toISOString(),
+      });
+      return JSON.stringify({ id, message: `Created artifact: ${filePath}` });
+    }
+  } catch (err) {
+    return `Failed to save artifact: ${(err as Error).message}`;
   }
 }
 

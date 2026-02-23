@@ -188,7 +188,20 @@ export async function exchangeCodeForToken(
     throw new Error(`Token exchange failed for ${provider.name}: ${res.status} ${text}`);
   }
 
-  return res.json();
+  const json = await res.json();
+
+  // GitHub returns HTTP 200 with {"error": "...", "error_description": "..."} on failure
+  if (json.error) {
+    throw new Error(
+      `Token exchange failed for ${provider.name}: ${json.error} – ${json.error_description ?? ""}`
+    );
+  }
+
+  if (!json.access_token) {
+    throw new Error(`Token exchange for ${provider.name} returned no access_token`);
+  }
+
+  return json;
 }
 
 /* ─── Token storage ───────────────────────────────────────────── */

@@ -20,17 +20,19 @@ export async function GET(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meter.chat";
 
     if (!code || !state) {
+      console.error(`OAuth callback for ${providerId}: missing code or state`);
       return NextResponse.redirect(`${appUrl}/?oauth=error&provider=${providerId}`);
     }
 
     const provider = OAUTH_PROVIDERS[providerId];
     if (!provider || provider.type !== "oauth") {
+      console.error(`OAuth callback: invalid provider "${providerId}"`);
       return NextResponse.redirect(`${appUrl}/?oauth=error&provider=${providerId}`);
     }
 
     // Validate state (CSRF protection)
     const supabase = getSupabaseServer();
-    const { data: stateRecord } = await supabase
+    const { data: stateRecord, error: stateError } = await supabase
       .from("oauth_state")
       .select("*")
       .eq("id", state)
@@ -38,11 +40,13 @@ export async function GET(
       .single();
 
     if (!stateRecord) {
+      console.error(`OAuth callback for ${providerId}: state not found`, stateError?.message);
       return NextResponse.redirect(`${appUrl}/?oauth=error&provider=${providerId}`);
     }
 
     // Check expiry
     if (new Date(stateRecord.expires_at) < new Date()) {
+      console.error(`OAuth callback for ${providerId}: state expired`);
       await supabase.from("oauth_state").delete().eq("id", state);
       return NextResponse.redirect(`${appUrl}/?oauth=error&provider=${providerId}`);
     }

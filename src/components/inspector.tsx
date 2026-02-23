@@ -7,6 +7,7 @@ import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
 import { CONNECTORS } from "@/lib/connectors";
 import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
+import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
 import { AddCardModal } from "@/components/add-card-modal";
 
@@ -573,6 +574,298 @@ function DecisionsTab({ activeProjectId }: { activeProjectId: string | null }) {
             </div>
           </div>
         </>
+      )}
+      <div className="h-px bg-border" />
+      <ArtifactsSection activeProjectId={activeProjectId} />
+    </div>
+  );
+}
+
+/* ─── ARTIFACTS SECTION ─── */
+function formatArtifactTime(ts?: number) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHrs = Math.floor(diffMins / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
+  artifact: Artifact;
+  onRegenerate: (filePath: string) => void;
+  onPush: (id: string) => void;
+  pushing: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isSynced = artifact.status === "synced";
+
+  return (
+    <div className="rounded-md transition-colors">
+      <div
+        className="group flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`shrink-0 text-muted-foreground/40 transition-transform ${expanded ? "rotate-90" : ""}`}
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+        <span className="flex-1 truncate font-mono text-[12px] text-foreground/80">
+          {artifact.filePath}
+        </span>
+        <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onRegenerate(artifact.filePath); }}
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+          >
+            regen
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onPush(artifact.id); }}
+            disabled={pushing}
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors disabled:opacity-30"
+          >
+            push
+          </button>
+        </div>
+        <span
+          className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+            isSynced
+              ? "bg-emerald-500/10 text-emerald-500"
+              : "bg-amber-500/10 text-amber-500"
+          }`}
+        >
+          {isSynced ? "synced" : "draft"}
+        </span>
+      </div>
+
+      {expanded && (
+        <div className="ml-6 mr-1 mb-2 mt-0.5 flex flex-col gap-1.5 border-l border-border/40 pl-3">
+          {artifact.lastGeneratedAt && (
+            <span className="font-mono text-[10px] text-muted-foreground/40">
+              Generated {formatArtifactTime(artifact.lastGeneratedAt)}
+              {artifact.lastPushedAt && ` · Pushed ${formatArtifactTime(artifact.lastPushedAt)}`}
+            </span>
+          )}
+          {artifact.githubRepo && (
+            <span className="font-mono text-[10px] text-muted-foreground/40">
+              {artifact.githubRepo}
+            </span>
+          )}
+          {artifact.content && (
+            <pre className="max-h-[200px] overflow-y-auto rounded bg-foreground/[0.03] p-2 font-mono text-[11px] text-foreground/60 leading-relaxed whitespace-pre-wrap break-words">
+              {artifact.content.slice(0, 2000)}{artifact.content.length > 2000 ? "\n..." : ""}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ArtifactsSection({ activeProjectId }: { activeProjectId: string | null }) {
+  const { artifacts, loading, pushing, targetRepo, fetchArtifacts, setTargetRepo, setPushing } = useArtifactsStore();
+  const setPendingInput = useMeterStore((s) => s.setPendingInput);
+  const connectedServices = useMeterStore(selectConnectedServices);
+  const activeProjectIdFromStore = useMeterStore((s) => s.activeProjectId);
+  const githubConnected = !!connectedServices["github"];
+
+  const [repos, setRepos] = useState<{ fullName: string; name: string; private: boolean }[]>([]);
+  const [reposLoading, setReposLoading] = useState(false);
+  const [showRepoSelector, setShowRepoSelector] = useState(false);
+
+  useEffect(() => {
+    if (activeProjectId) {
+      fetchArtifacts(activeProjectId);
+    }
+  }, [activeProjectId, fetchArtifacts]);
+
+  const fetchRepos = async () => {
+    if (!githubConnected || !activeProjectIdFromStore) return;
+    setReposLoading(true);
+    try {
+      const res = await fetch(`/api/github/repos?workspaceId=${encodeURIComponent(activeProjectIdFromStore)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRepos((data.repos ?? []).map((r: { fullName: string; name: string; private: boolean }) => ({
+          fullName: r.fullName,
+          name: r.name,
+          private: r.private,
+        })));
+      }
+    } catch { /* silent */ }
+    setReposLoading(false);
+  };
+
+  const handleGenerate = () => {
+    setPendingInput("Generate strategy artifacts for this project based on all our decisions and conversation so far. Create README.md, ARCHITECTURE.md, DESIGN.md, DECISIONS.md, CLAUDE.md, and .cursorrules files.");
+  };
+
+  const handleRegenerate = (filePath: string) => {
+    setPendingInput(`Regenerate the ${filePath} strategy artifact based on the latest decisions and conversation context.`);
+  };
+
+  const handlePush = async (artifactIds?: string[]) => {
+    if (!githubConnected) {
+      initiateOAuthFlow("github", activeProjectIdFromStore);
+      return;
+    }
+    if (!targetRepo) {
+      setShowRepoSelector(true);
+      await fetchRepos();
+      return;
+    }
+    setPushing(true);
+    try {
+      const body: Record<string, unknown> = {
+        repo: targetRepo,
+        workspaceId: activeProjectIdFromStore,
+      };
+      if (artifactIds) body.artifactIds = artifactIds;
+      const res = await fetch("/api/artifacts/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok && activeProjectId) {
+        await fetchArtifacts(activeProjectId);
+      }
+    } catch { /* silent */ }
+    setPushing(false);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">
+          Artifacts
+        </div>
+        <div className="flex items-center gap-1.5">
+          {artifacts.length > 0 && (
+            <button
+              onClick={() => handlePush()}
+              disabled={pushing || artifacts.length === 0}
+              className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-30"
+            >
+              {pushing ? "Pushing..." : "Push all"}
+            </button>
+          )}
+          <button
+            onClick={handleGenerate}
+            className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
+          >
+            Generate
+          </button>
+        </div>
+      </div>
+
+      {/* Repo selector */}
+      {showRepoSelector && (
+        <div className="mb-3 rounded-lg border border-border/50 p-2">
+          <div className="font-mono text-[10px] text-muted-foreground/50 mb-1.5">
+            Select target repo
+          </div>
+          {reposLoading ? (
+            <div className="py-2 text-center font-mono text-[11px] text-muted-foreground/40">
+              Loading repos...
+            </div>
+          ) : (
+            <div className="max-h-[160px] overflow-y-auto flex flex-col gap-0.5">
+              {repos.map((r) => (
+                <button
+                  key={r.fullName}
+                  onClick={() => {
+                    setTargetRepo(r.fullName);
+                    setShowRepoSelector(false);
+                  }}
+                  className={`text-left rounded px-2 py-1.5 font-mono text-[11px] transition-colors hover:bg-foreground/5 ${
+                    targetRepo === r.fullName ? "text-foreground bg-foreground/5" : "text-foreground/70"
+                  }`}
+                >
+                  {r.fullName}
+                  {r.private && <span className="ml-1.5 text-[9px] text-muted-foreground/40">private</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Target repo indicator */}
+      {targetRepo && !showRepoSelector && (
+        <div className="mb-2 flex items-center gap-1.5">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground/40 shrink-0">
+            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+          </svg>
+          <span className="font-mono text-[10px] text-muted-foreground/50">{targetRepo}</span>
+          <button
+            onClick={() => { setShowRepoSelector(true); fetchRepos(); }}
+            className="font-mono text-[10px] text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+          >
+            change
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">
+          Loading...
+        </div>
+      ) : artifacts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-6 gap-2">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/20">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+          <span className="font-mono text-[12px] text-muted-foreground/40">
+            No artifacts yet
+          </span>
+          <span className="font-mono text-[11px] text-muted-foreground/30">
+            Generate strategy docs for your coding agents
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-0.5">
+          {artifacts.map((a) => (
+            <ArtifactRow
+              key={a.id}
+              artifact={a}
+              onRegenerate={handleRegenerate}
+              onPush={(id) => handlePush([id])}
+              pushing={pushing}
+            />
+          ))}
+        </div>
+      )}
+
+      {!githubConnected && artifacts.length > 0 && (
+        <div className="mt-2 rounded-lg border border-border/50 bg-foreground/[0.02] px-3 py-2">
+          <button
+            onClick={() => initiateOAuthFlow("github", activeProjectIdFromStore)}
+            className="font-mono text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
+          >
+            Connect GitHub to push artifacts
+          </button>
+        </div>
       )}
     </div>
   );

@@ -183,6 +183,15 @@ export async function POST(req: NextRequest) {
                   reasoning: args.reasoning || null,
                 };
               }
+              if (tc.name === "save_artifact") {
+                let artifactData: { id?: string } | undefined;
+                try { artifactData = JSON.parse(toolResult); } catch { /* plain text fallback */ }
+                toolResultEvent.artifact = {
+                  id: artifactData?.id,
+                  filePath: args.file_path,
+                  status: "draft",
+                };
+              }
               send(toolResultEvent);
 
               conversation.push({
