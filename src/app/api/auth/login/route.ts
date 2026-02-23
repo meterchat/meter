@@ -128,12 +128,16 @@ export async function POST(req: NextRequest) {
       // Clean up challenge
       await supabase.from("auth_challenges").delete().eq("id", challengeId);
 
-      // Get user details
-      const { data: user } = await supabase
-        .from("meter_users")
-        .select("*")
-        .eq("id", uid)
-        .single();
+      // Get user details + check if they have existing workspaces (sessions)
+      const [{ data: user }, { count: sessionCount }] = await Promise.all([
+        supabase.from("meter_users").select("*").eq("id", uid).single(),
+        supabase
+          .from("chat_sessions")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", uid)
+          .is("deleted_at", null)
+          .limit(1),
+      ]);
 
       // Create server-side session and set cookie
       const sessionToken = await createSession(uid);
@@ -144,8 +148,10 @@ export async function POST(req: NextRequest) {
           email: user?.email,
           cardOnFile: !!user?.stripe_customer_id && !!user?.card_last4,
           cardLast4: user?.card_last4,
+          cardBrand: user?.card_brand,
           gmailConnected: user?.gmail_connected ?? false,
           accountType: user?.account_type ?? "standard",
+          hasWorkspaces: (sessionCount ?? 0) > 0,
         },
       });
       setSessionCookie(response, sessionToken);
