@@ -14,7 +14,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Meter — Use First, Pay After",
+  title: "Meter — Pay Per Thought",
   description: "Every AI model. One bill. No subscription. The meter runs in dollars.",
 };
 
