@@ -401,7 +401,7 @@ export function LoginScreen() {
           />
           {step === "email" && (
             <p className="font-mono text-xs text-muted-foreground tracking-wide uppercase">
-              use first, pay after
+              pay per thought
             </p>
           )}
           {showDots && <StepDots current={stepIndex} total={3} />}
