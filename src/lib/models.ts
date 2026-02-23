@@ -74,8 +74,8 @@ export const MODELS: ModelConfig[] = [
     speed: 84,
   },
   {
-    id: "google/gemini-3-pro-preview",
-    name: "Gemini 3 Pro",
+    id: "google/gemini-3.1-pro-preview",
+    name: "Gemini 3.1 Pro",
     provider: "Google",
     color: "#4285F4",
     inputPrice: (2.0 / 1_000_000) * MARKUP_MULTIPLIER,
