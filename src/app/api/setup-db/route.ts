@@ -144,6 +144,7 @@ const STATEMENTS: string[] = [
    where a.user_id = b.user_id and a.provider = b.provider and a.workspace_id = b.workspace_id
    and a.updated_at < b.updated_at`,
   `create unique index if not exists idx_oauth_tokens_unique on oauth_tokens(user_id, provider, workspace_id)`,
+  `alter table oauth_state add column if not exists workspace_id text`,
 
   // Soft-delete support for workspace deletion (7-day retention)
   `alter table chat_sessions add column if not exists deleted_at timestamptz default null`,
