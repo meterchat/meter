@@ -4,7 +4,6 @@ import { streamWithFallback, type Send } from "@/lib/fallback";
 import { runDebate } from "@/lib/debate";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
-import type { AgentMode } from "@/lib/modes";
 import type OpenAI from "openai";
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
@@ -49,11 +48,10 @@ export async function POST(req: NextRequest) {
     }
 
     const connectedIds: string[] = Array.isArray(connectedServices) ? connectedServices : [];
-    const modeId = (["planner", "coder", "banker"].includes(projectId) ? projectId : undefined) as AgentMode | undefined;
     const resolvedModel = !model || model === "auto" ? "anthropic/claude-sonnet-4.6" : model;
     const encoder = new TextEncoder();
-    const tools = getToolsForConnectors(connectedIds, modeId);
-    const systemPrompt = buildSystemPrompt(connectedIds, modeId);
+    const tools = getToolsForConnectors(connectedIds);
+    const systemPrompt = buildSystemPrompt(connectedIds);
 
     // Build conversation with context window management.
     // Cap input context to avoid sending 100k+ tokens of history on every call.
