@@ -1,7 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase";
 import { CONNECTORS, ConnectorToolDef } from "@/lib/connectors";
-import { getMode, getConnectorIdsForMode } from "@/lib/modes";
-import type { AgentMode } from "@/lib/modes";
 import { getValidAccessToken } from "@/lib/oauth";
 import { searchEmails, readEmail } from "@/lib/connectors/gmail";
 import { listRepos, createRepo, createIssue } from "@/lib/connectors/github";
@@ -86,14 +84,11 @@ export const BUILTIN_TOOLS: ToolDef[] = [
 export const TOOL_DEFINITIONS = BUILTIN_TOOLS;
 
 /**
- * Build the full tool list: built-in tools + tools from connected services,
- * filtered to only include connectors allowed by the active mode.
+ * Build the full tool list: built-in tools + tools from connected services.
  */
-export function getToolsForConnectors(connectedIds: string[], modeId?: AgentMode): ToolDef[] {
-  const allowedConnectors = modeId ? getConnectorIdsForMode(modeId) : null;
+export function getToolsForConnectors(connectedIds: string[]): ToolDef[] {
   const connectorTools: ToolDef[] = [];
   for (const id of connectedIds) {
-    if (allowedConnectors && !allowedConnectors.includes(id)) continue;
     const connector = CONNECTORS.find((c) => c.id === id);
     if (connector) {
       connectorTools.push(...(connector.tools as ToolDef[]));
@@ -104,31 +99,8 @@ export function getToolsForConnectors(connectedIds: string[], modeId?: AgentMode
 
 /* ─── System prompt ─────────────────────────────────────────────── */
 
-const MODE_PERSONAS: Record<AgentMode, { role: string; focus: string; artifacts: string }> = {
-  planner: {
-    role: "You are Meter in Planner mode — a strategic planning agent.",
-    focus: "Help the user think through decisions, plan work, and stay on top of communication. Pull from email, Linear issues, and calendar events to build context. Surface follow-ups, scheduling conflicts, and open threads proactively.",
-    artifacts: "Your outputs are strategy docs, decision logs, debate summaries, and follow-up lists. When the user commits to a plan, produce a concrete written artifact — not just a suggestion.",
-  },
-  coder: {
-    role: "You are Meter in Coder mode — a shipping-focused engineering agent.",
-    focus: "Help the user build, deploy, and ship. Create branches, open PRs, trigger deploys, and register domains. When the user describes what they want to build, turn it into concrete code actions.",
-    artifacts: "Your outputs are branches, pull requests, deployments, and live URLs. Bias toward action — when it's clear what to do, do it rather than describing it.",
-  },
-  banker: {
-    role: "You are Meter in Banker mode — a financial operations agent.",
-    focus: "Help the user understand their money. Pull from Stripe for revenue, Mercury for bank balances, Puzzle for accounting, and Gusto for payroll. Surface burn rate, runway, and anomalies.",
-    artifacts: "Your outputs are runway reports, burn analyses, revenue summaries, and spend reviews. When the user asks about finances, produce concrete numbers and tables, not vague commentary.",
-  },
-};
-
-export function buildSystemPrompt(connectedIds: string[], modeId?: AgentMode): string {
-  const mode: AgentMode = modeId ?? "planner";
-  const persona = MODE_PERSONAS[mode];
-  const allowedConnectors = getConnectorIdsForMode(mode);
-
+export function buildSystemPrompt(connectedIds: string[]): string {
   const connectorLines = connectedIds
-    .filter((id) => allowedConnectors.includes(id))
     .map((id) => {
       const c = CONNECTORS.find((conn) => conn.id === id);
       if (!c) return null;
@@ -143,11 +115,7 @@ export function buildSystemPrompt(connectedIds: string[], modeId?: AgentMode): s
     ? `\n\nConnected services:\n${connectorLines}`
     : "";
 
-  return `${persona.role}
-
-${persona.focus}
-
-${persona.artifacts}
+  return `You are Meter — an AI assistant that can search the web, track decisions, and help users build things.
 
 You have tools. Use them:
 - web_search: Search the web for anything current — news, docs, prices, APIs, etc. Use this proactively when questions touch on recent events or data you're unsure about.
