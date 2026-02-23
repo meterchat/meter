@@ -33,25 +33,18 @@ export async function GET() {
 
     if (sessErr) throw sessErr;
 
-    // Load messages for each session
-    const sessionIds = (sessions ?? []).map((s) => s.id);
-    const { data: messages, error: msgErr } = sessionIds.length
-      ? await supabase
-          .from("chat_messages")
-          .select("*")
-          .in("session_id", sessionIds)
-          .order("timestamp", { ascending: true })
-      : { data: [], error: null };
-
-    if (msgErr) throw msgErr;
-
-    // Group messages by session
-    const allMessages = (messages ?? []) as Record<string, unknown>[];
+    // Load messages per session to avoid Supabase's default 1000-row limit
+    // (a single bulk query silently truncates beyond 1000 rows)
     const messagesBySession: Record<string, Record<string, unknown>[]> = {};
-    for (const msg of allMessages) {
-      const sid = msg.session_id as string;
-      if (!messagesBySession[sid]) messagesBySession[sid] = [];
-      messagesBySession[sid].push(msg);
+    for (const session of sessions ?? []) {
+      const { data: msgs, error: msgErr } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("session_id", session.id)
+        .order("timestamp", { ascending: true })
+        .limit(10000);
+      if (msgErr) throw msgErr;
+      messagesBySession[session.id] = (msgs ?? []) as Record<string, unknown>[];
     }
 
     // Return sessions with unscoped IDs so the client sees its original local IDs
