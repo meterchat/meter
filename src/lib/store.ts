@@ -531,7 +531,7 @@ export const useMeterStore = create<MeterState>()(
       updateLastAssistantMessage: (content, tokensOut) =>
         set((s) => {
           const active = ensureDaily(getActiveProject(s));
-          const pricingModelId = s.selectedModelId === "auto" ? "anthropic/claude-sonnet-4.6" : s.selectedModelId;
+          const pricingModelId = s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId;
           const model = getModel(pricingModelId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
@@ -558,7 +558,7 @@ export const useMeterStore = create<MeterState>()(
         set((s) => {
           const active = ensureDaily(getActiveProject(s));
           const pricingModelId = actualModel
-            ?? (s.selectedModelId === "auto" ? "anthropic/claude-sonnet-4.6" : s.selectedModelId);
+            ?? (s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId);
           const model = getModel(pricingModelId);
 
           // Cache-aware input cost: providers charge different rates for
@@ -607,7 +607,7 @@ export const useMeterStore = create<MeterState>()(
           // updateLastAssistantMessage using the *selected* model's price.
           // When the actual model differs (rerouting), reconcile against what
           // was accumulated, not the final model's rate.
-          const selectedPricingId = s.selectedModelId === "auto" ? "anthropic/claude-sonnet-4.6" : s.selectedModelId;
+          const selectedPricingId = s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId;
           const streamingModel = getModel(selectedPricingId);
           const streamedEstimateOut = last?.tokensOut ?? 0;
           const streamedOutputCost = streamedEstimateOut * streamingModel.outputPrice;
