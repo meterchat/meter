@@ -7,7 +7,8 @@ import { MODELS, DEBATE_MODELS, getModel, shortModelName, ModelConfig } from "@/
 function fmtPrice(pricePerToken: number): string {
   const perM = pricePerToken * 1_000_000;
   if (perM < 1) return `$${perM.toFixed(2)}`;
-  return `$${Math.round(perM)}`;
+  if (perM % 1 === 0) return `$${perM}`;
+  return `$${perM.toFixed(2)}`;
 }
 
 /** Fastest model speed across all models — used to compute relative speed bars */
