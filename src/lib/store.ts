@@ -40,6 +40,7 @@ export interface ChatMessage {
   cards?: ActionCard[];
   decisionId?: string;
   debateTrace?: DebateTurn[];
+  pinned?: boolean;
 }
 
 export interface PaymentCard {
@@ -147,6 +148,7 @@ interface MeterState {
   setActiveProject: (id: string) => void;
   setCardAssigned: (projectId: string) => void;
 
+  togglePinMessage: (messageId: string) => void;
   addMessage: (msg: ChatMessage) => void;
   updateLastAssistantMessage: (content: string, tokensOut: number) => void;
   finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number) => void;
@@ -474,6 +476,20 @@ export const useMeterStore = create<MeterState>()(
           if (s.projects.some((p) => p.id === id)) return s;
           return { projects: [...s.projects, createProject(id, cleanName)] };
         }),
+
+      togglePinMessage: (messageId) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === s.activeProjectId
+              ? {
+                  ...p,
+                  messages: p.messages.map((m) =>
+                    m.id === messageId ? { ...m, pinned: !m.pinned } : m
+                  ),
+                }
+              : p
+          ),
+        })),
 
       removeProject: (id) =>
         set((s) => {

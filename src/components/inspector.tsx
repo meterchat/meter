@@ -10,7 +10,7 @@ import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
 import { AddCardModal } from "@/components/add-card-modal";
 
-const INSPECTOR_TABS = ["decisions", "payments", "controls", "connections"] as const;
+const INSPECTOR_TABS = ["decisions", "payments", "connections"] as const;
 
 export function Inspector() {
   const {
@@ -139,7 +139,6 @@ export function Inspector() {
         <div className="flex-1 overflow-y-auto p-4">
           {inspectorTab === "decisions" && <DecisionsTab activeProjectId={activeProject?.id ?? null} />}
           {inspectorTab === "payments" && <PaymentsTab activeProject={activeProject} />}
-          {inspectorTab === "controls" && <SettingsTab activeProjectId={activeProject?.id ?? null} />}
           {inspectorTab === "connections" && <ConnectionsTab />}
         </div>
 
@@ -253,77 +252,6 @@ interface ProjectLike {
   totalCost: number;
   settlementError?: string | null;
   chatBlocked?: boolean;
-}
-
-/* ─── SETTINGS TAB ─── */
-function SettingsTab({ activeProjectId }: { activeProjectId: string | null }) {
-  const spendLimits = useMeterStore((s) => s.spendLimits);
-  const fetchSpendLimits = useMeterStore((s) => s.fetchSpendLimits);
-  const updateSpendLimits = useMeterStore((s) => s.updateSpendLimits);
-
-  const [dailyInput, setDailyInput] = useState("");
-  const [monthlyInput, setMonthlyInput] = useState("");
-  const [perTxnInput, setPerTxnInput] = useState("");
-
-  useEffect(() => {
-    if (!activeProjectId) return;
-    fetchSpendLimits(activeProjectId);
-  }, [activeProjectId, fetchSpendLimits]);
-
-  useEffect(() => {
-    setDailyInput(spendLimits.dailyLimit != null ? String(spendLimits.dailyLimit) : "");
-    setMonthlyInput(spendLimits.monthlyLimit != null ? String(spendLimits.monthlyLimit) : "");
-    setPerTxnInput(spendLimits.perTxnLimit != null ? String(spendLimits.perTxnLimit) : "");
-  }, [spendLimits]);
-
-  const saveLimitOnBlur = (field: keyof typeof spendLimits, raw: string) => {
-    const val = raw.trim() === "" ? null : Number(raw);
-    if (val !== null && isNaN(val)) return;
-    updateSpendLimits({ [field]: val }, activeProjectId ?? undefined);
-  };
-
-  if (!activeProjectId) {
-    return (
-      <div className="flex flex-col items-center justify-center py-10">
-        <span className="font-mono text-xs text-muted-foreground/50">
-          Select a workspace to edit controls
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Spend Controls
-        </div>
-        <div className="space-y-2">
-          <LimitRow
-            label="Daily Limit"
-            value={dailyInput}
-            onChange={setDailyInput}
-            onBlur={() => saveLimitOnBlur("dailyLimit", dailyInput)}
-          />
-          <LimitRow
-            label="Monthly Limit"
-            value={monthlyInput}
-            onChange={setMonthlyInput}
-            onBlur={() => saveLimitOnBlur("monthlyLimit", monthlyInput)}
-          />
-          <LimitRow
-            label="Per-Txn Max"
-            value={perTxnInput}
-            onChange={setPerTxnInput}
-            onBlur={() => saveLimitOnBlur("perTxnLimit", perTxnInput)}
-          />
-        </div>
-        <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
-          Leave blank for no limit. Limits are enforced server-side.
-        </p>
-      </div>
-    </div>
-  );
 }
 
 /* ─── CONNECTIONS TAB ─── */
@@ -525,6 +453,54 @@ function DecisionRow({ decision }: { decision: Decision }) {
   );
 }
 
+/* ─── PINS SECTION ─── */
+function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
+  const projects = useMeterStore((s) => s.projects);
+  const togglePinMessage = useMeterStore((s) => s.togglePinMessage);
+  const project = projects.find((p) => p.id === activeProjectId);
+  const pinned = project?.messages.filter((m) => m.pinned && m.role === "assistant") ?? [];
+
+  if (pinned.length === 0) return null;
+
+  return (
+    <div>
+      <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+        Pinned
+      </div>
+      <div className="flex flex-col gap-1">
+        {pinned.map((msg) => {
+          const preview = msg.content.replace(/[#*`_~>\[\]]/g, "").slice(0, 100);
+          const modelLabel = msg.model ?? "";
+          const costLabel = msg.cost != null ? `$${msg.cost.toFixed(4)}` : "";
+          const meta = [modelLabel, costLabel].filter(Boolean).join(" · ");
+          return (
+            <div key={msg.id} className="group relative rounded-md border border-border/50 px-3 py-2 hover:bg-foreground/[0.02] transition-colors">
+              <p className="font-mono text-[12px] text-foreground/70 leading-relaxed line-clamp-2">
+                {preview}{msg.content.length > 100 ? "..." : ""}
+              </p>
+              {meta && (
+                <span className="mt-1 block font-mono text-[10px] text-muted-foreground/40">
+                  {meta}
+                </span>
+              )}
+              <button
+                onClick={() => togglePinMessage(msg.id)}
+                className="absolute right-1.5 top-1.5 hidden group-hover:block rounded p-0.5 text-muted-foreground/40 hover:text-amber-500 transition-colors"
+                title="Unpin"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function DecisionsTab({ activeProjectId }: { activeProjectId: string | null }) {
   const { decisions } = useDecisionsStore();
   const scoped = decisions
@@ -539,6 +515,7 @@ function DecisionsTab({ activeProjectId }: { activeProjectId: string | null }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <PinsSection activeProjectId={activeProjectId} />
       <div>
         <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
           Decisions
@@ -648,6 +625,32 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
   const cardLast4 = useMeterStore((s) => s.cardLast4);
   const cardBrand = useMeterStore((s) => s.cardBrand);
 
+  // Spend limits (moved from controls tab)
+  const spendLimits = useMeterStore((s) => s.spendLimits);
+  const fetchSpendLimits = useMeterStore((s) => s.fetchSpendLimits);
+  const updateSpendLimits = useMeterStore((s) => s.updateSpendLimits);
+  const [dailyInput, setDailyInput] = useState("");
+  const [monthlyInput, setMonthlyInput] = useState("");
+  const [perTxnInput, setPerTxnInput] = useState("");
+
+  const activeProjectId = activeProject?.id ?? null;
+  useEffect(() => {
+    if (!activeProjectId) return;
+    fetchSpendLimits(activeProjectId);
+  }, [activeProjectId, fetchSpendLimits]);
+
+  useEffect(() => {
+    setDailyInput(spendLimits.dailyLimit != null ? String(spendLimits.dailyLimit) : "");
+    setMonthlyInput(spendLimits.monthlyLimit != null ? String(spendLimits.monthlyLimit) : "");
+    setPerTxnInput(spendLimits.perTxnLimit != null ? String(spendLimits.perTxnLimit) : "");
+  }, [spendLimits]);
+
+  const saveLimitOnBlur = (field: keyof typeof spendLimits, raw: string) => {
+    const val = raw.trim() === "" ? null : Number(raw);
+    if (val !== null && isNaN(val)) return;
+    updateSpendLimits({ [field]: val }, activeProjectId ?? undefined);
+  };
+
   const settlementError = activeProject?.settlementError ?? null;
 
   const [addCardOpen, setAddCardOpen] = useState(false);
@@ -738,6 +741,40 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
           </p>
         )}
       </div>
+
+      <div className="h-px bg-border" />
+
+      {/* Spend Limits */}
+      {activeProjectId && (
+        <div>
+          <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+            Spend Limits
+          </div>
+          <div className="space-y-2">
+            <LimitRow
+              label="Daily Limit"
+              value={dailyInput}
+              onChange={setDailyInput}
+              onBlur={() => saveLimitOnBlur("dailyLimit", dailyInput)}
+            />
+            <LimitRow
+              label="Monthly Limit"
+              value={monthlyInput}
+              onChange={setMonthlyInput}
+              onBlur={() => saveLimitOnBlur("monthlyLimit", monthlyInput)}
+            />
+            <LimitRow
+              label="Per-Txn Max"
+              value={perTxnInput}
+              onChange={setPerTxnInput}
+              onBlur={() => saveLimitOnBlur("perTxnLimit", perTxnInput)}
+            />
+          </div>
+          <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
+            Leave blank for no limit. Limits are enforced server-side.
+          </p>
+        </div>
+      )}
 
       <div className="h-px bg-border" />
 
