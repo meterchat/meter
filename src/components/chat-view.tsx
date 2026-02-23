@@ -863,7 +863,7 @@ export function ChatView() {
               <img src="/logo-dark-copy.webp" alt="Meter" width={72} height={20} className="hidden dark:block" />
               <img src="/logo-light.webp" alt="Meter" width={72} height={20} className="block dark:hidden" />
               <svg
-                width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                 className="text-muted-foreground/40"
               >
