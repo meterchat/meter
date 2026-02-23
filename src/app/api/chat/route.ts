@@ -172,7 +172,10 @@ export async function POST(req: NextRequest) {
 
               const toolResultEvent: Record<string, unknown> = { type: "tool_result", name: tc.name };
               if (tc.name === "save_decision") {
+                let serverDecisionId: string | undefined;
+                try { serverDecisionId = JSON.parse(toolResult).id; } catch { /* plain text fallback */ }
                 toolResultEvent.decision = {
+                  id: serverDecisionId,
                   title: args.title,
                   status: "decided",
                   choice: args.choice,

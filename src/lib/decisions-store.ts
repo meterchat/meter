@@ -24,7 +24,7 @@ interface DecisionsState {
   setPanelOpen: (v: boolean) => void;
   setFilter: (f: "all" | "undecided" | "decided") => void;
 
-  addDecision: (d: Omit<Decision, "id" | "createdAt" | "updatedAt">) => string;
+  addDecision: (d: Omit<Decision, "id" | "createdAt" | "updatedAt"> & { id?: string }) => string;
   updateDecision: (id: string, updates: Partial<Decision>) => void;
   deleteDecision: (id: string) => void;
   resolveDecision: (id: string, choice: string, reasoning?: string) => void;
@@ -49,14 +49,18 @@ export const useDecisionsStore = create<DecisionsState>()(
       setFilter: (f) => set({ filter: f }),
 
       addDecision: (d) => {
-        const id = generateId();
+        const id = d.id || generateId();
         const now = Date.now();
-        set((s) => ({
-          decisions: [
-            { ...d, id, createdAt: now, updatedAt: now },
-            ...s.decisions,
-          ],
-        }));
+        set((s) => {
+          // Skip if a decision with this ID already exists (dedup)
+          if (s.decisions.some((existing) => existing.id === id)) return s;
+          return {
+            decisions: [
+              { ...d, id, createdAt: now, updatedAt: now },
+              ...s.decisions,
+            ],
+          };
+        });
         return id;
       },
 
@@ -109,9 +113,12 @@ export const useDecisionsStore = create<DecisionsState>()(
           const serverDecisions = data.decisions as Decision[];
 
           set((s) => {
-            // Merge: server decisions that aren't already in local store
+            // Merge server decisions into local, deduplicating by ID and by title+projectId
             const localIds = new Set(s.decisions.map((d) => d.id));
-            const newFromServer = serverDecisions.filter((d) => !localIds.has(d.id));
+            const localKeys = new Set(s.decisions.map((d) => `${d.title}::${d.projectId ?? ""}`));
+            const newFromServer = serverDecisions.filter(
+              (d) => !localIds.has(d.id) && !localKeys.has(`${d.title}::${d.projectId ?? ""}`)
+            );
             if (newFromServer.length === 0) return s;
             return { decisions: [...newFromServer, ...s.decisions] };
           });

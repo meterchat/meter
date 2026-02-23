@@ -591,8 +591,9 @@ export function ChatView() {
               setActiveTool(data.name as string);
             } else if (data.type === "tool_result") {
               if (data.name === "save_decision" && data.decision) {
-                const d = data.decision as { title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
+                const d = data.decision as { id?: string; title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
                 const decId = useDecisionsStore.getState().addDecision({
+                  id: d.id || undefined,
                   title: d.title,
                   status: d.status === "decided" ? "decided" : "undecided",
                   choice: d.choice,
