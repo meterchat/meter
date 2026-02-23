@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <link rel="preload" as="image" href="/logo-dark-copy.webp" />
         {[1, 2, 3, 4, 5, 6].map((n) => (

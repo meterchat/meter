@@ -75,7 +75,8 @@ create table if not exists chat_sessions (
   per_txn_limit numeric,
   settlement_failed boolean default false,
   created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  updated_at timestamptz default now(),
+  deleted_at timestamptz default null
 );
 
 -- Chat messages

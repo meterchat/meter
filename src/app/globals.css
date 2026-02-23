@@ -41,6 +41,10 @@
 
 :root {
   --radius: 0.625rem;
+}
+
+/* ── Dark mode (default) ─────────────────────────────────────── */
+.dark {
   --background: #1a1a1a;
   --foreground: #e5e5e5;
   --card: #222222;
@@ -67,6 +71,36 @@
   --sidebar-accent-foreground: #e5e5e5;
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Light mode ──────────────────────────────────────────────── */
+:root:not(.dark) {
+  --background: #fafaf9;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+  --primary: #1c1917;
+  --primary-foreground: #fafaf9;
+  --secondary: #f5f5f4;
+  --secondary-foreground: #1c1917;
+  --muted: #f5f5f4;
+  --muted-foreground: #78716c;
+  --accent: #f5f5f4;
+  --accent-foreground: #1c1917;
+  --destructive: #dc2626;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.06);
+  --ring: rgba(0, 0, 0, 0.12);
+  --sidebar: #f5f5f4;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: #1c1917;
+  --sidebar-primary-foreground: #fafaf9;
+  --sidebar-accent: #e7e5e4;
+  --sidebar-accent-foreground: #1c1917;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: rgba(0, 0, 0, 0.12);
 }
 
 @layer base {
@@ -104,9 +138,9 @@
 .thinking-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.3) 0%,
-    rgba(255,255,255,0.7) 50%,
-    rgba(255,255,255,0.3) 100%
+    var(--foreground) 0%,
+    var(--muted-foreground) 50%,
+    var(--foreground) 100%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;

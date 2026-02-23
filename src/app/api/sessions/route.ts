@@ -28,6 +28,7 @@ export async function GET() {
       .from("chat_sessions")
       .select("*")
       .eq("user_id", userId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (sessErr) throw sessErr;
@@ -70,7 +71,7 @@ export async function GET() {
   }
 }
 
-// DELETE /api/sessions?sessionId=xxx — delete a session and its messages
+// DELETE /api/sessions?sessionId=xxx — soft-delete a session (retained 7 days)
 export async function DELETE(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
@@ -98,16 +99,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    const actualId = session.id;
-
-    // Delete messages first (cascade should handle this, but be explicit)
-    await supabase.from("chat_messages").delete().eq("session_id", actualId);
-
-    // Delete the session
+    // Soft-delete: set deleted_at timestamp, data retained 7 days
     const { error: delErr } = await supabase
       .from("chat_sessions")
-      .delete()
-      .eq("id", actualId)
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", session.id)
       .eq("user_id", userId);
 
     if (delErr) throw delErr;
