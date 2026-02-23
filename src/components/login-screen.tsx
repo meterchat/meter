@@ -27,6 +27,7 @@ interface PendingUser {
   cardBrand?: string;
   gmailConnected: boolean;
   accountType?: string;
+  hasWorkspaces?: boolean;
 }
 
 // ── Inline card form (used during onboarding) ──────────────────────────
@@ -320,13 +321,13 @@ export function LoginScreen() {
       connectService("gmail");
     }
 
+    // Use server-side flag — local companies store may not be populated yet
+    const hasWorkspace = user.hasWorkspaces || companies.length > 0;
+
     // Returning user with workspace + card? Skip straight through.
-    const hasWorkspace = companies.length > 0;
     if (hasWorkspace && user.cardOnFile) {
-      if (user.cardOnFile) {
-        setCardOnFile(true, user.cardLast4 ?? undefined, user.cardBrand);
-      }
-      // Auth already set — page.tsx will render ChatView
+      setCardOnFile(true, user.cardLast4 ?? undefined, user.cardBrand);
+      // Auth already set — page.tsx will render ChatView once sessions load
       return;
     }
 
