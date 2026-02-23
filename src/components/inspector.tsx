@@ -458,7 +458,7 @@ function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
   const projects = useMeterStore((s) => s.projects);
   const togglePinMessage = useMeterStore((s) => s.togglePinMessage);
   const project = projects.find((p) => p.id === activeProjectId);
-  const pinned = project?.messages.filter((m) => m.pinned && m.role === "assistant") ?? [];
+  const pinned = project?.messages.filter((m) => m.pinned) ?? [];
 
   if (pinned.length === 0) return null;
 

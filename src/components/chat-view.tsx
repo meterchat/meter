@@ -997,9 +997,9 @@ export function ChatView() {
                 <div key={msg.id} className="group/msg relative mb-4">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div className={`relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"} ${msg.pinned ? "border-l-2 border-amber-500/40" : ""}`}>
-                      {msg.role === "assistant" && displayContent && !displayContent.startsWith("__error__") && (
+                      {displayContent && !displayContent.startsWith("__error__") && (
                         <>
-                          <CopyButton text={displayContent} />
+                          <CopyButton text={msg.role === "user" ? msg.content : displayContent} />
                           <PinButton messageId={msg.id} pinned={msg.pinned} />
                         </>
                       )}
