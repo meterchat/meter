@@ -132,6 +132,7 @@ interface MeterState {
 
   inspectorOpen: boolean;
   inspectorTab: string;
+  scrollToMessageId: string | null;
 
   setAuth: (userId: string, email: string, accountType?: "standard" | "superadmin") => void;
   setCardOnFile: (v: boolean, last4?: string, brand?: string) => void;
@@ -169,6 +170,7 @@ interface MeterState {
   toggleInspector: () => void;
   setInspectorOpen: (v: boolean) => void;
   setInspectorTab: (tab: string) => void;
+  setScrollToMessageId: (id: string | null) => void;
 
   setSelectedModelId: (id: string) => void;
   setSpendingCapEnabled: (v: boolean) => void;
@@ -303,6 +305,7 @@ export const useMeterStore = create<MeterState>()(
 
       inspectorOpen: false,
       inspectorTab: "decisions",
+      scrollToMessageId: null,
 
       setAuth: (userId, email, accountType) => set({ userId, email, accountType: accountType ?? "standard", authenticated: true }),
       setCardOnFile: (v, last4, brand) =>
@@ -974,6 +977,7 @@ export const useMeterStore = create<MeterState>()(
       toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
       setInspectorOpen: (v) => set({ inspectorOpen: v }),
       setInspectorTab: (tab) => set({ inspectorTab: tab }),
+      setScrollToMessageId: (id) => set({ scrollToMessageId: id }),
       setSelectedModelId: (id) => set({ selectedModelId: id }),
       setSpendingCapEnabled: (v) => set({ spendingCapEnabled: v }),
       setSpendingCap: (v) => set({ spendingCap: v }),
