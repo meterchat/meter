@@ -46,7 +46,10 @@ export async function GET(
     });
     if (stateError) {
       console.error("Failed to store OAuth state:", stateError.message);
-      return NextResponse.json({ error: "Failed to initiate OAuth" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to initiate OAuth", detail: stateError.message },
+        { status: 500 }
+      );
     }
 
     const authorizeUrl = buildAuthorizeUrl(provider, state, redirectUri);
