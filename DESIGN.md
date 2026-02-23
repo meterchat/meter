@@ -22,7 +22,11 @@ Our markup on provider base rates is uniform across all models. No volume discou
 
 ### Counterpoints
 
-Per-token billing can feel unpredictable — users don't know what a conversation will cost before it starts. We mitigate this with the live cost ticker (so you see spend in real time), per-workspace spend limits (so you can cap yourself), and model choice (cheaper models like DeepSeek V3 at $0.54/$2.20 per 1M tokens vs. Opus at $10/$50).
+The live cost ticker is counterintuitive — watching dollars increment in real time could throttle usage. Users who'd happily pay $20/month on a subscription might flinch at watching $0.03 tick up per message. The psychological cost of visible spend is real: every message feels like a micro-purchase decision, which could suppress the exploratory, open-ended usage that makes AI most valuable.
+
+The bet is that transparency wins the long game. Every AI tool already charges per token — Cursor, Claude Code, Lovable — they just bury it behind subscriptions and opaque "fast request" quotas. Users discover the real cost eventually (rate limits, throttling, surprise overages) and feel deceived. Meter puts the number in your face from the start. Counterintuitive business models that expose what incumbents hide have won before: Airbnb showed you exactly what you'd pay (no resort fees, no minibar surprises) when hotels buried costs in fine print. The initial reaction was "strangers' homes feel sketchy" — but price transparency and honest listings built more trust than any hotel loyalty program. Meter makes the same bet: show the real number, and users who see it will trust you more than the ones who never knew what they were paying.
+
+Transparency also unlocks interaction modes that subscriptions can't support. A $20/month subscription can't offer a $4 multi-model debate (§7) without blowing the unit economics. Pay-per-thought can, because the user sees the cost, chooses to spend it, and the math works for both sides.
 
 ---
 
@@ -94,19 +98,19 @@ A single thread means older context is eventually lost (trimmed beyond the 30k w
 
 ## 5. Workspace Model
 
-Workspaces are the unit of isolation in Meter. Each workspace has its own conversation thread, cost tracking, connected services, spend limits, and settlement history. The default workspaces are "Meter" and "Keypass" — users can create additional ones.
+Workspaces are the unit of isolation in Meter. Each workspace has its own conversation thread, cost tracking, connected services, spend limits, and settlement history. New users create their first workspace during onboarding — there are no defaults. The onboarding flow is a single-page progression: enter email → sign passkey → name workspace → add card. Users can create additional workspaces after setup.
 
 ### Rationale
 
 Different projects have different contexts, different connected services, and different budgets. A startup workspace might connect Stripe and Mercury for financial queries; a personal workspace might connect Gmail and GitHub. Workspace isolation means connecting Stripe to your startup project doesn't expose that data when you're chatting in your personal workspace.
 
-Billing is tracked per-workspace (`todayCost`, `totalCost`, daily/monthly limits) but settled per-user (a single Stripe charge covers all workspaces). This gives granular visibility without fragmenting payment methods.
+Billing is tracked and settled per-workspace (`todayCost`, `totalCost`, daily/monthly limits). Each workspace can have its own card — costs are completely walled off. If a user assigns the same card to multiple workspaces, the charges are still separate settlements. No cross-workspace cost bleed.
 
 ### Alternatives considered
 
 - **Single global workspace.** One conversation, one set of connectors. Rejected because professional and personal contexts shouldn't bleed into each other, and different projects need different tool access.
 - **Team workspaces with shared billing.** Multiple users share a workspace and split costs. Rejected for v1 — adds invitation flows, permission models, and split billing complexity. Single-user workspaces are the right starting point.
-- **Per-workspace payment methods.** Each workspace has its own card. Rejected because most users have one card and don't want to manage multiple payment methods. The workspace is an organizational boundary, not a financial one.
+- **Shared card across all workspaces.** One card, one combined settlement. Rejected because workspace isolation should extend to billing — a freelancer using one workspace for client A and another for client B needs separate charges on separate cards.
 
 ### Counterpoints
 
