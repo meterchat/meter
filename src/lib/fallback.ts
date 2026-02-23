@@ -10,7 +10,7 @@
 
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
+import { GoogleGenerativeAI, type Content, type Part, type FunctionDeclarationSchema } from "@google/generative-ai";
 import type { ToolDef } from "./tools";
 
 
@@ -510,34 +510,100 @@ async function streamOpenAIDirect(
 
 /**
  * Stream via Google Gemini API (Tier 2). Uses @google/generative-ai.
- * Note: Gemini doesn't support OpenAI-style tool calling in the same way,
- * so we stream text only for the fallback path.
+ * Supports function calling via Gemini's native tool API.
  */
 async function streamGemini(
   nativeModel: string,
   apiKey: string,
   conversation: Message[],
-  _tools: ToolDef[],
+  tools: ToolDef[],
   send: Send,
   estimateTokens: (text: string) => number,
   totalTokensOut: { value: number },
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: nativeModel });
 
-  // Convert messages to Gemini format
+  // Convert tools to Gemini function declarations
+  const geminiTools = tools.length > 0 ? [{
+    functionDeclarations: tools.map((t) => ({
+      name: t.function.name,
+      description: t.function.description,
+      parameters: t.function.parameters as unknown as FunctionDeclarationSchema,
+    })),
+  }] : [];
+
+  const model = genAI.getGenerativeModel({
+    model: nativeModel,
+    ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
+  });
+
+  // Build a map of tool_call_id → function name for converting tool results
+  const toolCallIdToName = new Map<string, string>();
+  for (const m of conversation) {
+    if (m.role === "assistant") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tcs = (m as any).tool_calls as
+        | { id: string; function: { name: string; arguments: string } }[]
+        | undefined;
+      if (tcs) {
+        for (const tc of tcs) {
+          toolCallIdToName.set(tc.id, tc.function.name);
+        }
+      }
+    }
+  }
+
+  // Convert messages to Gemini format (including tool calls & results)
   const systemMsg = conversation.find((m) => m.role === "system");
   const systemText = typeof systemMsg?.content === "string" ? systemMsg.content : "";
 
   const contents: Content[] = [];
   for (const m of conversation) {
     if (m.role === "system") continue;
-    const text = typeof m.content === "string" ? m.content : "";
-    if (!text) continue;
-    contents.push({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text }],
-    });
+
+    if (m.role === "assistant") {
+      const text = typeof m.content === "string" ? m.content : "";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tcs = (m as any).tool_calls as
+        | { id: string; function: { name: string; arguments: string } }[]
+        | undefined;
+
+      if (tcs && tcs.length > 0) {
+        const parts: Part[] = [];
+        if (text) parts.push({ text });
+        for (const tc of tcs) {
+          let args: object = {};
+          try { args = JSON.parse(tc.function.arguments); } catch { /* malformed */ }
+          parts.push({ functionCall: { name: tc.function.name, args } });
+        }
+        contents.push({ role: "model", parts });
+      } else if (text) {
+        contents.push({ role: "model", parts: [{ text }] });
+      }
+    } else if (m.role === "tool") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toolCallId = (m as any).tool_call_id as string;
+      const resultText = typeof m.content === "string" ? m.content : String(m.content ?? "");
+      const funcName = toolCallIdToName.get(toolCallId) ?? "unknown";
+
+      const responsePart: Part = {
+        functionResponse: { name: funcName, response: { result: resultText } },
+      };
+
+      // Merge consecutive tool results into one user turn (Gemini requires this)
+      const last = contents[contents.length - 1];
+      if (last?.role === "user" && last.parts.some((p) => "functionResponse" in p)) {
+        last.parts.push(responsePart);
+      } else {
+        contents.push({ role: "user", parts: [responsePart] });
+      }
+    } else {
+      // User message
+      const text = typeof m.content === "string" ? m.content : String(m.content ?? "");
+      if (text) {
+        contents.push({ role: "user", parts: [{ text }] });
+      }
+    }
   }
 
   const result = await model.generateContentStream({
@@ -546,13 +612,36 @@ async function streamGemini(
   });
 
   let textContent = "";
+  const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+  let hasToolCalls = false;
+  let toolIdx = 0;
 
   for await (const chunk of result.stream) {
-    const text = chunk.text();
-    if (text) {
-      textContent += text;
-      totalTokensOut.value += estimateTokens(text);
-      send({ type: "delta", content: text, tokensOut: totalTokensOut.value });
+    // Extract text (safe — returns "" if no text parts)
+    try {
+      const text = chunk.text();
+      if (text) {
+        textContent += text;
+        totalTokensOut.value += estimateTokens(text);
+        send({ type: "delta", content: text, tokensOut: totalTokensOut.value });
+      }
+    } catch {
+      // chunk.text() can throw if response was blocked; ignore
+    }
+
+    // Extract function calls
+    const funcCalls = chunk.functionCalls();
+    if (funcCalls && funcCalls.length > 0) {
+      hasToolCalls = true;
+      for (const fc of funcCalls) {
+        const id = `gemini_tc_${Date.now()}_${toolIdx}`;
+        toolCalls.set(toolIdx, {
+          id,
+          name: fc.name,
+          arguments: JSON.stringify(fc.args),
+        });
+        toolIdx++;
+      }
     }
   }
 
@@ -570,13 +659,11 @@ async function streamGemini(
     });
   }
 
-  // Gemini returned usage but no content — treat as a failure so fallback kicks in
-  if (!textContent) {
+  if (!textContent && !hasToolCalls) {
     throw new Error("Gemini returned empty response");
   }
 
-  // Gemini fallback doesn't do tool calls
-  return { textContent, toolCalls: new Map(), hasToolCalls: false };
+  return { textContent, toolCalls, hasToolCalls };
 }
 
 /* ─── Direct API dispatcher ─────────────────────────────────────── */
