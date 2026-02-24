@@ -275,6 +275,7 @@ function ThinkingIndicator({
   hasImageAttachment,
   hasPdfAttachment,
   modelId,
+  thinkingText,
 }: {
   toolName?: string | null;
   rerouting?: { provider: string; toModel: string } | null;
@@ -282,6 +283,7 @@ function ThinkingIndicator({
   hasImageAttachment?: boolean;
   hasPdfAttachment?: boolean;
   modelId?: string;
+  thinkingText?: string;
 }) {
   let label: string;
   if (rerouting) {
@@ -291,16 +293,19 @@ function ThinkingIndicator({
     label = toolName ? TOOL_LABELS[toolName] ?? toolName : "Thinking";
   }
 
-  // --- Cycling sublabel ---
+  const hasRealThinking = !!thinkingText && thinkingText.length > 0;
+
+  // --- Cycling sublabel (fallback when no real thinking) ---
   const [elapsedS, setElapsedS] = useState(0);
   const [hintIndex, setHintIndex] = useState(0);
   const [visible, setVisible] = useState(true);
   const prevToolRef = useRef(toolName);
 
   useEffect(() => {
+    if (hasRealThinking) return; // no need to tick when real thinking is streaming
     const t = setInterval(() => setElapsedS(Math.floor((Date.now() - thinkingStartedAt) / 1000)), 1000);
     return () => clearInterval(t);
-  }, [thinkingStartedAt]);
+  }, [thinkingStartedAt, hasRealThinking]);
 
   const hintPool = useMemo(
     () => getHintPool(elapsedS, hasImageAttachment ?? false, hasPdfAttachment ?? false, modelId, toolName),
@@ -308,6 +313,7 @@ function ThinkingIndicator({
   );
 
   useEffect(() => {
+    if (hasRealThinking) return; // no cycling when real thinking is streaming
     const cycler = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
@@ -316,7 +322,7 @@ function ThinkingIndicator({
       }, 200);
     }, HINT_CYCLE_MS);
     return () => clearInterval(cycler);
-  }, [hintPool.length]);
+  }, [hintPool.length, hasRealThinking]);
 
   useEffect(() => {
     if (toolName !== prevToolRef.current) {
@@ -326,7 +332,10 @@ function ThinkingIndicator({
     }
   }, [toolName]);
 
-  const sublabel = hintPool[hintIndex % hintPool.length] ?? null;
+  // Real thinking: show last ~80 chars. Fallback: cycling hints.
+  const displaySublabel = hasRealThinking
+    ? thinkingText.split("\n").filter(l => l.trim()).slice(-2).join(" ").slice(-80)
+    : hintPool[hintIndex % hintPool.length] ?? null;
 
   return (
     <div className="flex items-center gap-2 px-4 py-3 mb-4">
@@ -343,9 +352,9 @@ function ThinkingIndicator({
         <span className="thinking-shimmer text-sm font-medium select-none">
           {label}
         </span>
-        {sublabel && (
-          <span className={`text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px] sublabel-fade ${visible ? "" : "sublabel-fade-hidden"}`}>
-            {sublabel}
+        {displaySublabel && (
+          <span className={`text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px] sublabel-fade ${hasRealThinking || visible ? "" : "sublabel-fade-hidden"}`}>
+            {displaySublabel}
           </span>
         )}
       </div>
@@ -708,6 +717,7 @@ export function ChatView() {
 
       const decoder = new TextDecoder();
       let fullContent = "";
+      let thinkingContent = "";
       let buffer = "";
       let currentTurn: { model: string; phase: string; content: string } | null = null;
 
@@ -754,6 +764,9 @@ export function ChatView() {
               setActiveDebateTurn(null);
 
             // ── Standard events ───────────────────────────────
+            } else if (data.type === "thinking_delta") {
+              thinkingContent += data.content;
+              useMeterStore.getState().updateLastAssistantThinking(thinkingContent);
             } else if (data.type === "delta") {
               fullContent += data.content;
               setActiveTool(null);
@@ -1254,6 +1267,17 @@ export function ChatView() {
                         <div className="whitespace-pre-wrap">{msg.content}</div>
                       )}
 
+                      {msg.role === "assistant" && msg.thinking && !isStreaming && (
+                        <details className="mt-2 text-[11px] text-muted-foreground/60">
+                          <summary className="cursor-pointer font-mono hover:text-muted-foreground transition-colors">
+                            Show thinking
+                          </summary>
+                          <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
+                            {msg.thinking}
+                          </pre>
+                        </details>
+                      )}
+
                       {msg.cards && msg.cards.length > 0 && (
                         <div className="mt-2">
                           {msg.cards.map((card) => (
@@ -1294,6 +1318,7 @@ export function ChatView() {
                 hasImageAttachment={hasImageAttachment}
                 hasPdfAttachment={hasPdfAttachment}
                 modelId={selectedModelId}
+                thinkingText={lastMsg?.thinking}
               />
             )}
 
