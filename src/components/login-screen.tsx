@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useMeterStore } from "@/lib/store";
+import { posthog } from "@/lib/posthog";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import {
   startRegistration,
@@ -467,6 +468,9 @@ export function LoginScreen() {
 
     // Set auth immediately so session cookie is active for card setup-intent
     setAuth(user.id, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard");
+
+    posthog.identify(user.id, { email: user.email });
+    posthog.capture("user_authenticated");
     if (user.gmailConnected) {
       connectService("gmail");
     }

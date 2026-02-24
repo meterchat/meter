@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMeterStore } from "@/lib/store";
+import { posthog } from "@/lib/posthog";
 
 function StatRow({ label, value }: { label: string; value: string }) {
   return (

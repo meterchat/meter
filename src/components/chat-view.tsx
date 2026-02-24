@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type Attachment } from "@/lib/store";
+import { posthog } from "@/lib/posthog";
 import { MeterPill } from "@/components/meter-pill";
 import { HeaderMeter } from "@/components/header-meter";
 import { ModelPickerTrigger, ModelPickerPanel } from "@/components/model-picker";
@@ -938,6 +939,13 @@ export function ChatView() {
 
     const userContent = input.value.trim() || (pendingAttachments.length > 0 ? "What's in this file?" : "");
     const attachmentsToSend = pendingAttachments.length > 0 ? [...pendingAttachments] : undefined;
+
+    posthog.capture("message_sent", {
+      model: selectedModelId,
+      has_attachments: !!attachmentsToSend,
+      project_id: activeProjectId,
+    });
+
     input.value = "";
     input.style.height = "auto";
     localStorage.removeItem(DRAFT_KEY(activeProjectId));
@@ -954,6 +962,7 @@ export function ChatView() {
   /** Triggered by the "Debate" button on a decision-point message */
   const handleDebate = async () => {
     if (isStreaming || !workspaceCardReady) return;
+    posthog.capture("debate_started", { project_id: activeProjectId });
     await streamResponse("Debate this.", "meter-1.0");
   };
 
@@ -1019,6 +1028,7 @@ export function ChatView() {
 
   const handleSlashConnect = useCallback((providerId: string) => {
     if (!userId) return;
+    posthog.capture("connector_initiated", { provider: providerId });
     if (isApiKeyProvider(providerId)) {
       setApiKeyProvider(providerId);
     } else {
@@ -1123,7 +1133,7 @@ export function ChatView() {
                 </button>
                 <div className="mx-2 my-1 h-px bg-border" />
                 <button
-                  onClick={() => { setLogoMenuOpen(false); logout(); }}
+                  onClick={() => { setLogoMenuOpen(false); posthog.reset(); logout(); }}
                   className="flex w-full items-center gap-2.5 px-3 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

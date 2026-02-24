@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useMeterStore } from "@/lib/store";
+import { posthog } from "@/lib/posthog";
 
 export function SettlePill() {
   const [open, setOpen] = useState(false);
@@ -85,8 +86,10 @@ export function SettlePill() {
   }, [activeProject, pendingCharges]);
 
   const handleSettle = async () => {
+    posthog.capture("settlement_initiated", { amount: pendingBalance });
     const result = await settleAll();
     if (result.success) {
+      posthog.capture("settlement_completed", { amount: pendingBalance });
       setSettled(true);
       setTimeout(() => {
         setSettled(false);

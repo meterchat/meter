@@ -1,6 +1,7 @@
 "use client";
 
 import { useMeterStore } from "@/lib/store";
+import { posthog } from "@/lib/posthog";
 import { MODELS, DEBATE_MODELS, getModel, shortModelName, ModelConfig } from "@/lib/models";
 
 /** Format a per-token price as a human-readable $/M string */
@@ -141,6 +142,7 @@ export function ModelPickerPanel({
           <button
             key={m.id}
             onClick={() => {
+              posthog.capture("model_selected", { model: m.id });
               setSelectedModelId(m.id);
               onClose();
             }}
