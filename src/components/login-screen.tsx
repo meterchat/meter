@@ -308,11 +308,11 @@ export function LoginScreen() {
     afterPasskey(verifyData.user);
   };
 
-  const afterPasskey = (user: PendingUser) => {
+  const afterPasskey = async (user: PendingUser) => {
     // Defensive: clear stale data if a different user was previously logged in
     const currentUserId = useMeterStore.getState().userId;
     if (currentUserId && currentUserId !== user.id) {
-      useMeterStore.getState().logout();
+      await useMeterStore.getState().logout();
     }
 
     // Set auth immediately so session cookie is active for card setup-intent

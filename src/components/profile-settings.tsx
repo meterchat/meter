@@ -56,7 +56,7 @@ export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () 
         setDeleting(false);
         return;
       }
-      logout();
+      await logout();
     } catch {
       setDeleteError("Deletion failed");
       setDeleting(false);
