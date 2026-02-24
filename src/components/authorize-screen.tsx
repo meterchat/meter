@@ -18,13 +18,44 @@ const stripePromise = loadStripe(
 function CardForm() {
   const stripe = useStripe();
   const elements = useElements();
-  const { userId, email, setCardOnFile, logout } = useMeterStore();
+  const { userId, email, setCardOnFile, setEmail, logout } = useMeterStore();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [localEmail, setLocalEmail] = useState(email ?? "");
 
   const handleSubmit = async () => {
     if (!stripe || !elements) return;
+
+    // If no email on file, collect it first
+    if (!email) {
+      const trimmed = localEmail.trim().toLowerCase();
+      if (!trimmed || !trimmed.includes("@")) {
+        setError("Valid email required for receipts");
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      setStatus("Saving email...");
+
+      try {
+        const emailRes = await fetch("/api/auth/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: trimmed }),
+        });
+        const emailData = await emailRes.json();
+        if (!emailRes.ok) throw new Error(emailData.error || "Failed to save email");
+        setEmail(trimmed);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to save email";
+        setError(msg);
+        setStatus(null);
+        setLoading(false);
+        return;
+      }
+    }
 
     setLoading(true);
     setError(null);
@@ -74,6 +105,21 @@ function CardForm() {
         </h1>
       </div>
 
+      {!email && (
+        <div className="w-full">
+          <label className="block font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 px-1">
+            Email (for receipts)
+          </label>
+          <input
+            type="email"
+            value={localEmail}
+            onChange={(e) => setLocalEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="w-full rounded-xl border border-border bg-card px-4 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-foreground/30 transition-colors"
+          />
+        </div>
+      )}
+
       <div className="w-full rounded-xl border border-border bg-card p-5">
         <PaymentElement
           options={{
@@ -114,7 +160,7 @@ function CardForm() {
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full bg-emerald-500" />
         <span className="font-mono text-[10px] text-muted-foreground/40">
-          {email}
+          {email ?? "—"}
         </span>
         <button
           onClick={logout}

@@ -158,6 +158,15 @@ const STATEMENTS: string[] = [
   `alter table meter_users add column if not exists account_type text not null default 'standard'`,
   `update meter_users set account_type = 'superadmin' where email = 'a@buxor.co' and account_type = 'standard'`,
 
+  // Passkey-only auth: make email optional (collected at card setup, not signup)
+  `alter table meter_users alter column email drop not null`,
+  // Replace hard UNIQUE with partial unique (only enforce when email is present)
+  `do $$ begin alter table meter_users drop constraint meter_users_email_key; exception when undefined_object then null; end $$`,
+  `create unique index if not exists idx_meter_users_email_unique on meter_users(email) where email is not null`,
+  // auth_challenges: email becomes nullable, add user_id for passkey-only flow
+  `alter table auth_challenges alter column email drop not null`,
+  `alter table auth_challenges add column if not exists user_id text`,
+
   // Indexes
   `create index if not exists idx_oauth_tokens_user on oauth_tokens(user_id)`,
   `create index if not exists idx_oauth_tokens_workspace on oauth_tokens(workspace_id)`,

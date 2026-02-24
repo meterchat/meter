@@ -143,7 +143,8 @@ interface MeterState {
   inspectorTab: string;
   scrollToMessageId: string | null;
 
-  setAuth: (userId: string, email: string, accountType?: "standard" | "superadmin") => void;
+  setAuth: (userId: string, email: string | null, accountType?: "standard" | "superadmin") => void;
+  setEmail: (email: string) => void;
   setCardOnFile: (v: boolean, last4?: string, brand?: string) => void;
   setStripeCustomerId: (id: string) => void;
   connectService: (id: string) => void;
@@ -318,6 +319,7 @@ export const useMeterStore = create<MeterState>()(
       scrollToMessageId: null,
 
       setAuth: (userId, email, accountType) => set({ userId, email, accountType: accountType ?? "standard", authenticated: true }),
+      setEmail: (email) => set({ email }),
       setCardOnFile: (v, last4, brand) =>
         set((s) => ({
           cardOnFile: v,

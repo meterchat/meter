@@ -4,7 +4,11 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useMeterStore } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
-import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
+import {
+  startRegistration,
+  base64URLStringToBuffer,
+  bufferToBase64URLString,
+} from "@simplewebauthn/browser";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -17,17 +21,37 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
 
-type OnboardingStep = "email" | "workspace" | "card";
+type OnboardingStep = "passkey" | "no-account" | "workspace" | "card";
 
 interface PendingUser {
   id: string;
-  email: string;
+  email: string | null;
   cardOnFile: boolean;
   cardLast4: string | null;
   cardBrand?: string;
   gmailConnected: boolean;
   accountType?: string;
   hasWorkspaces?: boolean;
+}
+
+// ── Convert raw PublicKeyCredential to JSON format for server ─────────
+function credentialToJSON(cred: PublicKeyCredential) {
+  const response = cred.response as AuthenticatorAssertionResponse;
+  return {
+    id: cred.id,
+    rawId: bufferToBase64URLString(cred.rawId),
+    response: {
+      clientDataJSON: bufferToBase64URLString(response.clientDataJSON),
+      authenticatorData: bufferToBase64URLString(response.authenticatorData),
+      signature: bufferToBase64URLString(response.signature),
+      ...(response.userHandle
+        ? { userHandle: bufferToBase64URLString(response.userHandle) }
+        : {}),
+    },
+    authenticatorAttachment: cred.authenticatorAttachment ?? undefined,
+    clientExtensionResults: cred.getClientExtensionResults(),
+    type: cred.type,
+  };
 }
 
 // ── Inline card form (used during onboarding) ──────────────────────────
@@ -40,6 +64,9 @@ function OnboardingCardForm({
 }) {
   const stripe = useStripe();
   const elements = useElements();
+  const email = useMeterStore((s) => s.email);
+  const setEmail = useMeterStore((s) => s.setEmail);
+  const [localEmail, setLocalEmail] = useState(email ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,10 +75,30 @@ function OnboardingCardForm({
     const cardElement = elements.getElement(CardElement);
     if (!cardElement) return;
 
+    // Require email for new users
+    if (!email && !localEmail.trim()) {
+      setError("Email is required for receipts.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
+      // Save email first if user doesn't have one yet
+      if (!email && localEmail.trim()) {
+        const emailRes = await fetch("/api/auth/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: localEmail.trim() }),
+        });
+        const emailData = await emailRes.json();
+        if (!emailRes.ok) {
+          throw new Error(emailData.error || "Failed to save email");
+        }
+        setEmail(emailData.email);
+      }
+
       const result = await stripe.confirmCardSetup(clientSecret, {
         payment_method: { card: cardElement },
       });
@@ -76,6 +123,18 @@ function OnboardingCardForm({
 
   return (
     <>
+      {/* Email input — only shown for users who don't have email yet */}
+      {!email && (
+        <input
+          type="email"
+          value={localEmail}
+          onChange={(e) => setLocalEmail(e.target.value)}
+          placeholder="you@startup.com"
+          className="w-full h-10 rounded-lg border border-border bg-card px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-foreground/30 transition-colors"
+          autoFocus
+        />
+      )}
+
       <div className="w-full rounded-lg border border-border bg-card/50 px-3 py-2.5">
         <CardElement
           options={{
@@ -111,7 +170,9 @@ function OnboardingCardForm({
       </button>
 
       <p className="font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
-        No charge now. Usage settles daily at midnight.
+        {!email
+          ? "Email is used for receipts. No charge now — usage settles daily."
+          : "No charge now. Usage settles daily at midnight."}
       </p>
     </>
   );
@@ -203,42 +264,86 @@ export function LoginScreen() {
   const createCompany = useWorkspaceStore((s) => s.createCompany);
   const companies = useWorkspaceStore((s) => s.companies);
 
-  const [step, setStep] = useState<OnboardingStep>("email");
-  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<OnboardingStep>("passkey");
   const [workspaceName, setWorkspaceName] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingUser, setPendingUser] = useState<PendingUser | null>(null);
 
-  // ── Step 1: Email + Passkey ─────────────────────────────────────────
-  const handleEmailContinue = async () => {
-    const trimmed = email.trim();
-    if (!trimmed) return;
+  // ── Passkey: Try platform authenticator first ─────────────────────
+  const handleContinue = async () => {
     setLoading(true);
     setError(null);
-    setStatus(null);
+    setStatus("Checking for passkey...");
 
     try {
-      setStatus("Looking up account...");
-      const checkRes = await fetch("/api/auth/check", {
+      // 1. Get auth options from server (no email, no allowCredentials)
+      const optRes = await fetch("/api/auth/passkey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmed }),
+        body: JSON.stringify({ step: "auth-options" }),
       });
-      const checkData = await checkRes.json();
+      const optData = await optRes.json();
+      if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
 
-      if (checkData.exists && checkData.hasPasskey) {
-        await handleLogin(trimmed);
-      } else {
-        await handleRegister(trimmed);
+      // 2. Call navigator.credentials.get() DIRECTLY with platform-only hint
+      //    This prevents the browser from showing a QR code modal
+      setStatus("Authenticating...");
+      const credential = await navigator.credentials.get({
+        publicKey: {
+          challenge: base64URLStringToBuffer(optData.options.challenge),
+          rpId: optData.options.rpId,
+          timeout: optData.options.timeout ?? 60000,
+          userVerification: optData.options.userVerification ?? "preferred",
+          allowCredentials: [],
+        },
+        // @ts-expect-error -- hints is WebAuthn L3, not in TS DOM types yet
+        hints: ["client-device"],
+      });
+
+      if (!credential) {
+        // No credential available — show fallback UI
+        setStep("no-account");
+        setLoading(false);
+        setStatus(null);
+        return;
       }
+
+      // 3. Verify with server
+      setStatus("Verifying...");
+      const verifyRes = await fetch("/api/auth/passkey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: "auth-verify",
+          challengeId: optData.challengeId,
+          credential: credentialToJSON(credential as PublicKeyCredential),
+        }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(verifyData.error || "Login failed");
+
+      afterPasskey(verifyData.user);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
-      if (msg.includes("timed out") || msg.includes("not allowed") || msg.includes("AbortError") || msg.includes("NotAllowedError")) {
-        setError("Passkey prompt was cancelled. Try again.");
-      } else if (msg.includes("user could not be verified") || msg.includes("User verification")) {
-        setError("Device verification failed. Make sure Face ID, Touch ID, or a PIN is set up on your device.");
+
+      // NotAllowedError / AbortError = no passkey on this device, or user cancelled
+      if (
+        msg.includes("NotAllowedError") ||
+        msg.includes("not allowed") ||
+        msg.includes("AbortError") ||
+        msg.includes("timed out") ||
+        msg.includes("The operation either timed out")
+      ) {
+        setStep("no-account");
+        setLoading(false);
+        setStatus(null);
+        return;
+      }
+
+      if (msg.includes("user could not be verified") || msg.includes("User verification")) {
+        setError("Device verification failed. Make sure Face ID, Touch ID, or a PIN is set up.");
       } else {
         setError(msg);
       }
@@ -247,67 +352,112 @@ export function LoginScreen() {
     }
   };
 
-  const handleRegister = async (emailAddr: string) => {
+  // ── Create new account ────────────────────────────────────────────
+  const handleCreateAccount = async () => {
+    setLoading(true);
+    setError(null);
     setStatus("Setting up passkey...");
 
-    const optRes = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ step: "options", email: emailAddr }),
-    });
-    const optData = await optRes.json();
-    if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
+    try {
+      const optRes = await fetch("/api/auth/passkey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "register-options" }),
+      });
+      const optData = await optRes.json();
+      if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
 
-    const credential = await startRegistration({ optionsJSON: optData.options });
+      const credential = await startRegistration({ optionsJSON: optData.options });
 
-    setStatus("Verifying...");
-    const verifyRes = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        step: "verify",
-        challengeId: optData.challengeId,
-        credential,
-        userId: optData.userId,
-      }),
-    });
-    const verifyData = await verifyRes.json();
-    if (!verifyRes.ok) throw new Error(verifyData.error || "Registration failed");
+      setStatus("Verifying...");
+      const verifyRes = await fetch("/api/auth/passkey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: "register-verify",
+          challengeId: optData.challengeId,
+          credential,
+          userId: optData.userId,
+        }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(verifyData.error || "Registration failed");
 
-    // New user — advance to workspace step (don't finalize auth yet)
-    afterPasskey(verifyData.user);
+      afterPasskey(verifyData.user);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      if (msg.includes("timed out") || msg.includes("not allowed") || msg.includes("AbortError") || msg.includes("NotAllowedError")) {
+        setError("Passkey prompt was cancelled. Try again.");
+      } else if (msg.includes("user could not be verified") || msg.includes("User verification")) {
+        setError("Device verification failed. Make sure Face ID, Touch ID, or a PIN is set up.");
+      } else {
+        setError(msg);
+      }
+      setLoading(false);
+      setStatus(null);
+    }
   };
 
-  const handleLogin = async (emailAddr: string) => {
-    setStatus("Authenticating...");
+  // ── Sign in from another device (allows QR code) ──────────────────
+  const handleCrossDevice = async () => {
+    setLoading(true);
+    setError(null);
+    setStatus("Waiting for cross-device authentication...");
 
-    const optRes = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ step: "options", email: emailAddr }),
-    });
-    const optData = await optRes.json();
-    if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
+    try {
+      const optRes = await fetch("/api/auth/passkey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "auth-options" }),
+      });
+      const optData = await optRes.json();
+      if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
 
-    const credential = await startAuthentication({ optionsJSON: optData.options });
+      // Call WITHOUT hints restriction — allows cross-device (QR code)
+      const credential = await navigator.credentials.get({
+        publicKey: {
+          challenge: base64URLStringToBuffer(optData.options.challenge),
+          rpId: optData.options.rpId,
+          timeout: optData.options.timeout ?? 120000,
+          userVerification: optData.options.userVerification ?? "preferred",
+          allowCredentials: [],
+        },
+      });
 
-    setStatus("Verifying...");
-    const verifyRes = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        step: "verify",
-        challengeId: optData.challengeId,
-        credential,
-        userId: optData.userId,
-      }),
-    });
-    const verifyData = await verifyRes.json();
-    if (!verifyRes.ok) throw new Error(verifyData.error || "Login failed");
+      if (!credential) {
+        setError("No credential received. Try again.");
+        setLoading(false);
+        setStatus(null);
+        return;
+      }
 
-    afterPasskey(verifyData.user);
+      setStatus("Verifying...");
+      const verifyRes = await fetch("/api/auth/passkey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: "auth-verify",
+          challengeId: optData.challengeId,
+          credential: credentialToJSON(credential as PublicKeyCredential),
+        }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(verifyData.error || "Login failed");
+
+      afterPasskey(verifyData.user);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      if (msg.includes("timed out") || msg.includes("not allowed") || msg.includes("AbortError") || msg.includes("NotAllowedError")) {
+        setError("Authentication was cancelled. Try again.");
+      } else {
+        setError(msg);
+      }
+      setLoading(false);
+      setStatus(null);
+    }
   };
 
+  // ── After successful passkey ──────────────────────────────────────
   const afterPasskey = async (user: PendingUser) => {
     // Defensive: clear stale data if a different user was previously logged in
     const currentUserId = useMeterStore.getState().userId;
@@ -316,7 +466,7 @@ export function LoginScreen() {
     }
 
     // Set auth immediately so session cookie is active for card setup-intent
-    setAuth(user.id, user.email, (user.accountType as "standard" | "superadmin") ?? "standard");
+    setAuth(user.id, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard");
     if (user.gmailConnected) {
       connectService("gmail");
     }
@@ -370,14 +520,12 @@ export function LoginScreen() {
   // ── Key handlers ────────────────────────────────────────────────────
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return;
-    if (step === "email") handleEmailContinue();
     if (step === "workspace") handleWorkspaceContinue();
   };
 
   // ── Step index for dots ─────────────────────────────────────────────
-  const stepIndex = step === "email" ? 0 : step === "workspace" ? 1 : 2;
-  // Only show dots after email step
-  const showDots = step !== "email";
+  const stepIndex = step === "workspace" ? 0 : 1;
+  const showDots = step === "workspace" || step === "card";
 
   return (
     <div className="relative flex h-screen flex-col items-center bg-background px-4">
@@ -399,16 +547,16 @@ export function LoginScreen() {
             height={29}
             className="block dark:hidden"
           />
-          {step === "email" && (
+          {(step === "passkey" || step === "no-account") && (
             <p className="font-mono text-xs text-muted-foreground tracking-wide uppercase">
               pay per thought
             </p>
           )}
-          {showDots && <StepDots current={stepIndex} total={3} />}
+          {showDots && <StepDots current={stepIndex} total={2} />}
         </div>
 
-        {/* ── Email step ─────────────────────────────────────────── */}
-        {step === "email" && (
+        {/* ── Passkey step (initial) ─────────────────────────────── */}
+        {step === "passkey" && (
           <div className="flex flex-col items-center gap-3 w-full">
             <p className="text-sm text-muted-foreground leading-relaxed">
               Every model. One bill. No subscription.
@@ -416,17 +564,6 @@ export function LoginScreen() {
             <p className="text-xs text-muted-foreground/70 leading-relaxed">
               The meter runs in dollars. You pay what you use.
             </p>
-
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="you@startup.com"
-              className="w-full h-10 rounded-lg border border-border bg-card px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-foreground/30 transition-colors"
-              autoFocus
-              disabled={loading}
-            />
 
             {error && (
               <p className="font-mono text-[11px] text-red-400">{error}</p>
@@ -437,8 +574,8 @@ export function LoginScreen() {
             )}
 
             <button
-              onClick={handleEmailContinue}
-              disabled={loading || !email.trim()}
+              onClick={handleContinue}
+              disabled={loading}
               className="w-full h-10 rounded-lg bg-foreground text-background text-sm font-medium transition-colors hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading && (
@@ -447,12 +584,61 @@ export function LoginScreen() {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               )}
-              {loading ? "Authenticating..." : "Get Started"}
+              {loading ? "Authenticating..." : "Continue"}
             </button>
 
             <p className="font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
               Sign in with passkey. No passwords, ever.
             </p>
+          </div>
+        )}
+
+        {/* ── No account step (fallback after platform check) ────── */}
+        {step === "no-account" && (
+          <div className="flex flex-col items-center gap-3 w-full">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              No account found on this device
+            </p>
+            <p className="text-xs text-muted-foreground/70 leading-relaxed">
+              Create a new account or sign in from a device where you&apos;re already set up.
+            </p>
+
+            {error && (
+              <p className="font-mono text-[11px] text-red-400">{error}</p>
+            )}
+
+            {status && !error && (
+              <p className="font-mono text-[11px] text-muted-foreground/60">{status}</p>
+            )}
+
+            <button
+              onClick={handleCreateAccount}
+              disabled={loading}
+              className="w-full h-10 rounded-lg bg-foreground text-background text-sm font-medium transition-colors hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading && (
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              {loading ? "Setting up..." : "Create new account"}
+            </button>
+
+            <button
+              onClick={handleCrossDevice}
+              disabled={loading}
+              className="w-full h-10 rounded-lg border border-border text-foreground text-sm font-medium transition-colors hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-50"
+            >
+              Sign in from another device
+            </button>
+
+            <button
+              onClick={() => { setStep("passkey"); setError(null); setStatus(null); }}
+              className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+            >
+              Back
+            </button>
           </div>
         )}
 
