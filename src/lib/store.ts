@@ -433,47 +433,39 @@ export const useMeterStore = create<MeterState>()(
       },
 
       logout: async () => {
-        // Flush current messages to server BEFORE clearing state.
-        // Use awaited fetch (not fire-and-forget sendBeacon) so we
-        // guarantee the server has the data before we wipe localStorage.
+        // Flush current messages to server before clearing state.
+        // Use sendBeacon (reliable, survives navigation) so logout is instant.
         // The auth cookie is still valid since logout API hasn't been called yet.
         const currentProjects = get().projects;
-        for (const project of currentProjects) {
-          if (project.messages.length === 0) continue;
-          const payload = JSON.stringify({
-            session: {
-              id: project.id,
-              name: project.name,
-              totalCost: project.totalCost,
-              todayCost: project.todayCost,
-              todayTokensIn: project.todayTokensIn,
-              todayTokensOut: project.todayTokensOut,
-              todayMessageCount: project.todayMessageCount,
-              todayDate: project.todayDate,
-            },
-            messages: project.messages,
-          });
-          try {
-            await fetch("/api/sessions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: payload,
-            });
-          } catch {
-            // Fetch failed (e.g. offline) — try sendBeacon as last resort
-            if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-              navigator.sendBeacon(
-                "/api/sessions",
-                new Blob([payload], { type: "application/json" })
-              );
-            }
+        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+          for (const project of currentProjects) {
+            if (project.messages.length === 0) continue;
+            const blob = new Blob(
+              [
+                JSON.stringify({
+                  session: {
+                    id: project.id,
+                    name: project.name,
+                    totalCost: project.totalCost,
+                    todayCost: project.todayCost,
+                    todayTokensIn: project.todayTokensIn,
+                    todayTokensOut: project.todayTokensOut,
+                    todayMessageCount: project.todayMessageCount,
+                    todayDate: project.todayDate,
+                  },
+                  messages: project.messages,
+                }),
+              ],
+              { type: "application/json" }
+            );
+            navigator.sendBeacon("/api/sessions", blob);
           }
         }
 
         // Fire-and-forget server-side session cleanup
         fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
 
-        // Clear this store — safe now, server has the data
+        // Clear this store immediately — sendBeacon is queued and will complete
         set({
           userId: null,
           email: null,

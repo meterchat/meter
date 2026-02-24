@@ -33,18 +33,18 @@ export async function GET() {
 
     if (sessErr) throw sessErr;
 
-    // Load messages per session to avoid Supabase's default 1000-row limit
-    // (a single bulk query silently truncates beyond 1000 rows)
+    // Load messages per session to avoid Supabase's default 1000-row limit.
+    // Order descending to get the MOST RECENT 10k, then reverse to chronological.
     const messagesBySession: Record<string, Record<string, unknown>[]> = {};
     for (const session of sessions ?? []) {
       const { data: msgs, error: msgErr } = await supabase
         .from("chat_messages")
         .select("*")
         .eq("session_id", session.id)
-        .order("timestamp", { ascending: true })
+        .order("timestamp", { ascending: false })
         .limit(10000);
       if (msgErr) throw msgErr;
-      messagesBySession[session.id] = (msgs ?? []) as Record<string, unknown>[];
+      messagesBySession[session.id] = ((msgs ?? []) as Record<string, unknown>[]).reverse();
     }
 
     // Return sessions with unscoped IDs so the client sees its original local IDs
