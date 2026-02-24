@@ -3,7 +3,16 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useMeterStore } from "@/lib/store";
-import { posthog } from "@/lib/posthog";
+import {
+  identifyUser,
+  trackAccountCreated,
+  trackUserLoggedIn,
+  trackLoginFailed,
+  trackCrossDeviceAuthStarted,
+  trackWorkspaceCreated,
+  trackCardAdded,
+  trackOnboardingStepViewed,
+} from "@/lib/analytics";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import {
   startRegistration,
@@ -114,6 +123,7 @@ function OnboardingCardForm({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to confirm");
+        trackCardAdded({ brand: data.cardBrand, last4: data.cardLast4, source: "onboarding" });
         onComplete(data.cardLast4, data.cardBrand);
       }
     } catch (err) {
@@ -325,7 +335,7 @@ export function LoginScreen() {
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) throw new Error(verifyData.error || "Login failed");
 
-      afterPasskey(verifyData.user);
+      afterPasskey(verifyData.user, "login");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
 
@@ -338,6 +348,7 @@ export function LoginScreen() {
         msg.includes("The operation either timed out")
       ) {
         setStep("no-account");
+        trackOnboardingStepViewed({ step: "no-account" });
         setLoading(false);
         setStatus(null);
         return;
@@ -345,8 +356,10 @@ export function LoginScreen() {
 
       if (msg.includes("user could not be verified") || msg.includes("User verification")) {
         setError("Device verification failed. Make sure Face ID, Touch ID, or a PIN is set up.");
+        trackLoginFailed({ method: "passkey", error: "device_verification_failed" });
       } else {
         setError(msg);
+        trackLoginFailed({ method: "passkey", error: msg });
       }
       setLoading(false);
       setStatus(null);
@@ -384,15 +397,18 @@ export function LoginScreen() {
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) throw new Error(verifyData.error || "Registration failed");
 
-      afterPasskey(verifyData.user);
+      afterPasskey(verifyData.user, "register");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       if (msg.includes("timed out") || msg.includes("not allowed") || msg.includes("AbortError") || msg.includes("NotAllowedError")) {
         setError("Passkey prompt was cancelled. Try again.");
+        trackLoginFailed({ method: "passkey_register", error: "cancelled" });
       } else if (msg.includes("user could not be verified") || msg.includes("User verification")) {
         setError("Device verification failed. Make sure Face ID, Touch ID, or a PIN is set up.");
+        trackLoginFailed({ method: "passkey_register", error: "device_verification_failed" });
       } else {
         setError(msg);
+        trackLoginFailed({ method: "passkey_register", error: msg });
       }
       setLoading(false);
       setStatus(null);
@@ -404,6 +420,7 @@ export function LoginScreen() {
     setLoading(true);
     setError(null);
     setStatus("Waiting for cross-device authentication...");
+    trackCrossDeviceAuthStarted();
 
     try {
       const optRes = await fetch("/api/auth/passkey", {
@@ -445,13 +462,15 @@ export function LoginScreen() {
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) throw new Error(verifyData.error || "Login failed");
 
-      afterPasskey(verifyData.user);
+      afterPasskey(verifyData.user, "cross_device");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       if (msg.includes("timed out") || msg.includes("not allowed") || msg.includes("AbortError") || msg.includes("NotAllowedError")) {
         setError("Authentication was cancelled. Try again.");
+        trackLoginFailed({ method: "cross_device", error: "cancelled" });
       } else {
         setError(msg);
+        trackLoginFailed({ method: "cross_device", error: msg });
       }
       setLoading(false);
       setStatus(null);
@@ -459,7 +478,7 @@ export function LoginScreen() {
   };
 
   // ── After successful passkey ──────────────────────────────────────
-  const afterPasskey = async (user: PendingUser) => {
+  const afterPasskey = async (user: PendingUser, method?: string) => {
     // Defensive: clear stale data if a different user was previously logged in
     const currentUserId = useMeterStore.getState().userId;
     if (currentUserId && currentUserId !== user.id) {
@@ -469,8 +488,16 @@ export function LoginScreen() {
     // Set auth immediately so session cookie is active for card setup-intent
     setAuth(user.id, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard");
 
-    posthog.identify(user.id, { email: user.email });
-    posthog.capture("user_authenticated");
+    identifyUser(user.id, {
+      email: user.email,
+      accountType: user.accountType ?? "standard",
+      cardOnFile: user.cardOnFile,
+    });
+    if (method === "register") {
+      trackAccountCreated({ method: "passkey" });
+    } else {
+      trackUserLoggedIn({ method: method ?? "passkey" });
+    }
     if (user.gmailConnected) {
       connectService("gmail");
     }
@@ -493,8 +520,10 @@ export function LoginScreen() {
 
     if (!hasWorkspace) {
       setStep("workspace");
+      trackOnboardingStepViewed({ step: "workspace" });
     } else if (!user.cardOnFile) {
       setStep("card");
+      trackOnboardingStepViewed({ step: "card" });
     }
   };
 
@@ -504,6 +533,7 @@ export function LoginScreen() {
     if (!trimmed) return;
 
     createCompany(trimmed);
+    trackWorkspaceCreated({ name: trimmed, source: "onboarding" });
 
     if (pendingUser?.cardOnFile) {
       // Has card already (edge case) — finalize
@@ -513,6 +543,7 @@ export function LoginScreen() {
 
     setError(null);
     setStep("card");
+    trackOnboardingStepViewed({ step: "card" });
   };
 
   // ── Step 3: Add Card ────────────────────────────────────────────────

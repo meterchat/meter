@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useWorkspaceStore, Company } from "@/lib/workspace-store";
 import { useMeterStore } from "@/lib/store";
+import { trackWorkspaceCreated, trackWorkspaceSwitched } from "@/lib/analytics";
 
 interface CompanySwitcherProps {
   activeCompany: Company | null;
@@ -76,6 +77,7 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
     setActiveCompany(id);
     setOpen(false);
     if (company) {
+      trackWorkspaceSwitched({ workspaceId: company.id, workspaceName: company.name });
       const sessionId = company.sessionId ?? company.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
       switchToChatThread(sessionId, company.name);
     }
@@ -86,6 +88,7 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
     if (!name) return;
     const sessionId = `ws_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     createCompany(name, sessionId);
+    trackWorkspaceCreated({ name, source: "switcher" });
     switchToChatThread(sessionId, name);
     setNewName("");
     setCreating(false);

@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useMeterStore } from "@/lib/store";
-import { posthog } from "@/lib/posthog";
+import {
+  trackProfileOpened,
+  trackAccountDeleted,
+  trackUserLoggedOut,
+} from "@/lib/analytics";
 
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
@@ -26,6 +30,7 @@ export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () 
 
   useEffect(() => {
     if (!open || !userId) return;
+    trackProfileOpened();
     fetch("/api/auth/passkeys")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -57,6 +62,8 @@ export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () 
         setDeleting(false);
         return;
       }
+      trackAccountDeleted();
+      trackUserLoggedOut();
       await logout();
     } catch {
       setDeleteError("Deletion failed");

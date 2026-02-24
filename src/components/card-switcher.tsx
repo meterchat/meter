@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useMeterStore } from "@/lib/store";
+import { trackCardDefaultChanged } from "@/lib/analytics";
 
 export function CardSwitcher() {
   const [open, setOpen] = useState(false);
@@ -79,7 +80,7 @@ export function CardSwitcher() {
                 return (
                   <button
                     key={card.id}
-                    onClick={() => { if (!card.isDefault) setDefaultCard(card.id); }}
+                    onClick={() => { if (!card.isDefault) { trackCardDefaultChanged({ cardId: card.id }); setDefaultCard(card.id); } }}
                     className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${
                       card.isDefault ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
                     }`}

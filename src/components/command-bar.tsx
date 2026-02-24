@@ -5,6 +5,11 @@ import { useMeterStore, selectConnectedServices } from "@/lib/store";
 import { CONNECTORS, type ConnectorDef } from "@/lib/connectors";
 import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
+import {
+  trackCommandBarToggled,
+  trackConnectorInitiated,
+  trackConnectorDisconnected,
+} from "@/lib/analytics";
 
 interface CommandBarProps {
   open: boolean;
@@ -42,6 +47,7 @@ export function CommandBar({ open, onToggle, onSelectCommand }: CommandBarProps)
 
   function handleToggleClick() {
     const willOpen = !open;
+    trackCommandBarToggled({ open: willOpen });
     onToggle(willOpen);
     if (willOpen) {
       requestAnimationFrame(() => {
@@ -53,6 +59,7 @@ export function CommandBar({ open, onToggle, onSelectCommand }: CommandBarProps)
 
   function handleConnect(providerId: string) {
     if (!userId) return;
+    trackConnectorInitiated({ provider: providerId, method: isApiKeyProvider(providerId) ? "api_key" : "oauth" });
     if (isApiKeyProvider(providerId)) {
       setApiKeyProvider(providerId);
     } else {
@@ -125,7 +132,7 @@ export function CommandBar({ open, onToggle, onSelectCommand }: CommandBarProps)
                             role="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              disconnectServiceRemote(connector.id);
+                              trackConnectorDisconnected({ provider: connector.id }); disconnectServiceRemote(connector.id);
                             }}
                             className="text-muted-foreground/40 hover:text-red-400 transition-colors"
                             title="Disconnect"
