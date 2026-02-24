@@ -49,6 +49,7 @@ export interface ChatMessage {
   debateTrace?: DebateTurn[];
   pinned?: boolean;
   attachments?: Attachment[];
+  thinking?: string;
 }
 
 export interface PaymentCard {
@@ -160,6 +161,7 @@ interface MeterState {
   togglePinMessage: (messageId: string) => void;
   addMessage: (msg: ChatMessage) => void;
   updateLastAssistantMessage: (content: string, tokensOut: number) => void;
+  updateLastAssistantThinking: (thinking: string) => void;
   finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number) => void;
   setStreaming: (v: boolean) => void;
   markSettled: (messageId: string) => void;
@@ -588,6 +590,17 @@ export const useMeterStore = create<MeterState>()(
           };
 
           return { projects: replaceActiveProject(s, updated) };
+        }),
+
+      updateLastAssistantThinking: (thinking) =>
+        set((s) => {
+          const active = getActiveProject(s);
+          const msgs = [...active.messages];
+          const last = msgs[msgs.length - 1];
+          if (last?.role === "assistant") {
+            msgs[msgs.length - 1] = { ...last, thinking };
+          }
+          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
       finalizeResponse: (tokensIn, tokensOut, confidence, actualModel, cacheCreationTokens, cacheReadTokens, cacheReadRate) => {

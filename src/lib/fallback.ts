@@ -14,6 +14,19 @@ import { GoogleGenerativeAI, type Content, type Part, type FunctionDeclarationSc
 import type { ToolDef } from "./tools";
 
 
+/* ─── Idle timeout ─────────────────────────────────────────────── */
+
+const IDLE_TIMEOUT_MS = 60_000; // 60s with no chunks = abort
+
+function createIdleTimeout(ms = IDLE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout>;
+  const reset = () => { clearTimeout(timer); timer = setTimeout(() => controller.abort(), ms); };
+  const clear = () => clearTimeout(timer);
+  reset();
+  return { signal: controller.signal, reset, clear };
+}
+
 /* ─── Types ─────────────────────────────────────────────────────── */
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
@@ -57,8 +70,10 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
 };
 
 /** Models where direct API should be preferred over OpenRouter.
- *  Empty — OpenRouter is now primary for all models (supports caching natively). */
-const PREFER_DIRECT: Set<string> = new Set([]);
+ *  Gemini preview models are slow/unreliable on OpenRouter — go direct first. */
+const PREFER_DIRECT: Set<string> = new Set([
+  "google/gemini-3.1-pro-preview",
+]);
 
 /** Models that support cache_control breakpoints on OpenRouter */
 function supportsCacheControl(model: string): boolean {
@@ -153,19 +168,22 @@ export async function streamOpenRouter(
     : model.startsWith("x-ai/") ? 0.25
     : undefined;
 
+  const idle = createIdleTimeout();
   const response = await client.chat.completions.create({
     model,
     messages: cachedConversation,
     ...(tools.length > 0 ? { tools } : {}),
+    max_tokens: 16384,
     stream: true,
     stream_options: { include_usage: true },
-  });
+  }, { signal: idle.signal });
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
   let hasToolCalls = false;
 
   for await (const chunk of response) {
+    idle.reset();
     const choice = chunk.choices?.[0];
     if (!choice) {
       if (chunk.usage) {
@@ -192,6 +210,11 @@ export async function streamOpenRouter(
       totalTokensOut.value += estimateTokens(delta);
       send({ type: "delta", content: delta, tokensOut: totalTokensOut.value });
     }
+
+    // DeepSeek reasoning_content (passthrough via OpenRouter)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reasoning = (choice.delta as any)?.reasoning_content;
+    if (reasoning) send({ type: "thinking_delta", content: reasoning });
 
     if (choice.delta?.tool_calls) {
       hasToolCalls = true;
@@ -220,6 +243,7 @@ export async function streamOpenRouter(
       });
     }
   }
+  idle.clear();
 
   // Empty response with no tool calls — treat as failure so fallback kicks in
   if (!textContent && !hasToolCalls) {
@@ -386,13 +410,15 @@ async function streamAnthropic(
     (lastTool as any).cache_control = { type: "ephemeral" };
   }
 
+  const idle = createIdleTimeout();
   const stream = await client.messages.stream({
     model: nativeModel,
-    max_tokens: 8192,
+    max_tokens: 16384,
+    thinking: { type: "enabled", budget_tokens: 4096 },
     system: [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }],
     messages: msgs,
     tools: anthropicTools,
-  });
+  }, { signal: idle.signal });
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
@@ -400,12 +426,15 @@ async function streamAnthropic(
   let toolIdx = 0;
 
   for await (const event of stream) {
+    idle.reset();
     if (event.type === "content_block_delta") {
       if (event.delta.type === "text_delta") {
         const delta = event.delta.text;
         textContent += delta;
         totalTokensOut.value += estimateTokens(delta);
         send({ type: "delta", content: delta, tokensOut: totalTokensOut.value });
+      } else if (event.delta.type === "thinking_delta") {
+        send({ type: "thinking_delta", content: event.delta.thinking });
       } else if (event.delta.type === "input_json_delta") {
         const existing = toolCalls.get(toolIdx - 1);
         if (existing) existing.arguments += event.delta.partial_json;
@@ -418,6 +447,7 @@ async function streamAnthropic(
       }
     }
   }
+  idle.clear();
 
   // Use finalMessage for complete usage data.
   // Anthropic reports tokens in three buckets:
@@ -470,19 +500,22 @@ async function streamOpenAIDirect(
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
   const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
 
+  const idle = createIdleTimeout();
   const response = await client.chat.completions.create({
     model: nativeModel,
     messages: conversation,
     ...(tools.length > 0 ? { tools } : {}),
+    max_tokens: 16384,
     stream: true,
     stream_options: { include_usage: true },
-  });
+  }, { signal: idle.signal });
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
   let hasToolCalls = false;
 
   for await (const chunk of response) {
+    idle.reset();
     const choice = chunk.choices?.[0];
     if (!choice) {
       if (chunk.usage) {
@@ -509,6 +542,11 @@ async function streamOpenAIDirect(
       send({ type: "delta", content: delta, tokensOut: totalTokensOut.value });
     }
 
+    // DeepSeek reasoning_content
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reasoning = (choice.delta as any)?.reasoning_content;
+    if (reasoning) send({ type: "thinking_delta", content: reasoning });
+
     if (choice.delta?.tool_calls) {
       hasToolCalls = true;
       for (const tc of choice.delta.tool_calls) {
@@ -534,6 +572,7 @@ async function streamOpenAIDirect(
       });
     }
   }
+  idle.clear();
 
   if (!textContent && !hasToolCalls) {
     throw new Error("Model returned empty response");
@@ -568,6 +607,8 @@ async function streamGemini(
 
   const model = genAI.getGenerativeModel({
     model: nativeModel,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    generationConfig: { maxOutputTokens: 16384, thinkingConfig: { thinkingBudget: 4096 } } as any,
     ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
   });
 
@@ -658,6 +699,7 @@ async function streamGemini(
     }
   }
 
+  const idle = createIdleTimeout();
   const result = await model.generateContentStream({
     contents,
     systemInstruction: systemText ? { role: "user", parts: [{ text: systemText }] } : undefined,
@@ -669,6 +711,21 @@ async function streamGemini(
   let toolIdx = 0;
 
   for await (const chunk of result.stream) {
+    if (idle.signal.aborted) throw new Error("Gemini stream timed out after 60s of inactivity");
+    idle.reset();
+
+    // Extract thinking parts (thought: true flag)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const candidates = (chunk as any).candidates;
+    if (candidates?.[0]?.content?.parts) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const part of candidates[0].content.parts) {
+        if (part.thought === true && part.text) {
+          send({ type: "thinking_delta", content: part.text });
+        }
+      }
+    }
+
     // Extract text (safe — returns "" if no text parts)
     try {
       const text = chunk.text();
@@ -696,6 +753,7 @@ async function streamGemini(
       }
     }
   }
+  idle.clear();
 
   const response = await result.response;
   if (response.usageMetadata) {
