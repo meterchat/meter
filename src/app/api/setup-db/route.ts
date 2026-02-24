@@ -146,6 +146,11 @@ const STATEMENTS: string[] = [
   `create unique index if not exists idx_oauth_tokens_unique on oauth_tokens(user_id, provider, workspace_id)`,
   `alter table oauth_state add column if not exists workspace_id text`,
 
+  // File attachments support
+  `alter table chat_messages add column if not exists attachments jsonb`,
+  `insert into storage.buckets (id, name, public) values ('attachments', 'attachments', true) on conflict (id) do nothing`,
+  `create policy if not exists "Public read access" on storage.objects for select using (bucket_id = 'attachments')`,
+
   // Soft-delete support for workspace deletion (7-day retention)
   `alter table chat_sessions add column if not exists deleted_at timestamptz default null`,
 

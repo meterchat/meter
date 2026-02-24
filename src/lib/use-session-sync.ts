@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useMeterStore, type ReceiptStatus, type ActionCard } from "@/lib/store";
+import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore } from "@/lib/decisions-store";
 
@@ -60,6 +60,7 @@ export function useSessionSync() {
     signature: m.signature as string | undefined,
     txHash: m.tx_hash as string | undefined,
     cards: m.cards as ActionCard[] | undefined,
+    attachments: m.attachments as Attachment[] | undefined,
     timestamp: m.timestamp as number,
   });
 
