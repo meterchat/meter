@@ -70,10 +70,8 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
 };
 
 /** Models where direct API should be preferred over OpenRouter.
- *  Gemini preview models are slow/unreliable on OpenRouter — go direct first. */
-const PREFER_DIRECT: Set<string> = new Set([
-  "google/gemini-3.1-pro-preview",
-]);
+ *  Empty — OpenRouter is primary for all models (supports caching natively). */
+const PREFER_DIRECT: Set<string> = new Set([]);
 
 /** Models that support cache_control breakpoints on OpenRouter */
 function supportsCacheControl(model: string): boolean {
@@ -686,6 +684,14 @@ async function streamGemini(
             const dataMatch = url.match(/^data:([^;]+);base64,(.+)$/);
             if (dataMatch) {
               parts.push({ inlineData: { mimeType: dataMatch[1], data: dataMatch[2] } });
+            } else if (url.startsWith("http")) {
+              // Gemini SDK only accepts inlineData — fetch URL and convert to base64
+              try {
+                const imgRes = await fetch(url);
+                const buf = Buffer.from(await imgRes.arrayBuffer());
+                const mimeType = imgRes.headers.get("content-type") || "image/jpeg";
+                parts.push({ inlineData: { mimeType, data: buf.toString("base64") } });
+              } catch { /* skip failed image fetches */ }
             }
           }
         }
