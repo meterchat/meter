@@ -20,6 +20,7 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
   const addProject = useMeterStore((s) => s.addProject);
   const setActiveProjectChat = useMeterStore((s) => s.setActiveProject);
   const chatProjects = useMeterStore((s) => s.projects);
+  const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
 
   // Close on outside click
   useEffect(() => {
@@ -113,10 +114,11 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
     )}
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => { if (sessionsLoaded) setOpen(!open); }}
+        disabled={!sessionsLoaded}
+        className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-wait"
       >
-        <span>{activeCompany?.name ?? "No workspace"}</span>
+        <span>{!sessionsLoaded ? "Loading..." : activeCompany?.name ?? "No workspace"}</span>
         <svg
           width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"

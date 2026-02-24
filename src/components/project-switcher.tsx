@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useWorkspaceStore, Project } from "@/lib/workspace-store";
+import { useMeterStore } from "@/lib/store";
 
 interface ProjectSwitcherProps {
   activeProject: Project | null;
@@ -22,6 +23,7 @@ export function ProjectSwitcher({ activeProject, companyId }: ProjectSwitcherPro
   );
   const createProject = useWorkspaceStore((s) => s.createProject);
   const setActiveProject = useWorkspaceStore((s) => s.setActiveProject);
+  const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
 
   // Close on outside click
   useEffect(() => {
@@ -54,8 +56,9 @@ export function ProjectSwitcher({ activeProject, companyId }: ProjectSwitcherPro
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => { if (sessionsLoaded) setOpen(!open); }}
+        disabled={!sessionsLoaded}
+        className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-wait"
       >
         <span>{activeProject?.name ?? "All tracks"}</span>
         <svg

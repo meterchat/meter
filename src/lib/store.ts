@@ -139,11 +139,14 @@ interface MeterState {
 
   decisionMode: boolean;
 
+  sessionsLoaded: boolean;
+
   inspectorOpen: boolean;
   inspectorTab: string;
   scrollToMessageId: string | null;
 
   setAuth: (userId: string, email: string | null, accountType?: "standard" | "superadmin") => void;
+  setSessionsLoaded: (v: boolean) => void;
   setEmail: (email: string) => void;
   setCardOnFile: (v: boolean, last4?: string, brand?: string) => void;
   setStripeCustomerId: (id: string) => void;
@@ -314,11 +317,14 @@ export const useMeterStore = create<MeterState>()(
 
       decisionMode: false,
 
+      sessionsLoaded: false,
+
       inspectorOpen: false,
       inspectorTab: "decisions",
       scrollToMessageId: null,
 
       setAuth: (userId, email, accountType) => set({ userId, email, accountType: accountType ?? "standard", authenticated: true }),
+      setSessionsLoaded: (v) => set({ sessionsLoaded: v }),
       setEmail: (email) => set({ email }),
       setCardOnFile: (v, last4, brand) =>
         set((s) => ({
@@ -470,6 +476,7 @@ export const useMeterStore = create<MeterState>()(
           userId: null,
           email: null,
           authenticated: false,
+          sessionsLoaded: false,
           cardOnFile: false,
           cardLast4: null,
           cardBrand: null,

@@ -241,10 +241,18 @@ export function useSessionSync() {
     async function loadSessions() {
       try {
         const res = await fetch("/api/sessions");
-        if (!res.ok) return;
+        if (!res.ok) {
+          useMeterStore.getState().setSessionsLoaded(true);
+          return;
+        }
         const data = await res.json();
 
-        if (cancelled || !data.sessions?.length) return;
+        if (cancelled) return;
+
+        if (!data.sessions?.length) {
+          useMeterStore.getState().setSessionsLoaded(true);
+          return;
+        }
 
         const store = useMeterStore.getState();
         const serverSessions = data.sessions as ServerSession[];
@@ -274,6 +282,7 @@ export function useSessionSync() {
             useWorkspaceStore.getState().upsertCompaniesFromSessions(serverSessions, store.activeProjectId);
           }
           useMeterStore.getState().fetchConnectionStatus();
+          useMeterStore.getState().setSessionsLoaded(true);
           return;
         }
 
@@ -315,6 +324,8 @@ export function useSessionSync() {
         useMeterStore.getState().fetchConnectionStatus();
       } catch {
         // Silent fail — localStorage still works as fallback
+      } finally {
+        useMeterStore.getState().setSessionsLoaded(true);
       }
     }
 
