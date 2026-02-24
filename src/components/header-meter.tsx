@@ -131,10 +131,10 @@ export function HeaderMeter() {
     };
   }, [assistantMsgs, activeProject?.totalCost, activeProject?.todayCost]);
 
-  const animatedLifetime = useAnimatedNumber(usage.lifetime);
+  const animatedToday = useAnimatedNumber(usage.today);
   const costStr = isStreaming
-    ? `$${animatedLifetime.toFixed(4)}`
-    : `$${animatedLifetime.toFixed(2)}`;
+    ? `$${animatedToday.toFixed(4)}`
+    : `$${animatedToday.toFixed(2)}`;
 
   useEffect(() => {
     if (!open) return;
@@ -158,7 +158,7 @@ export function HeaderMeter() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex h-8 items-center gap-2 rounded-lg border border-border px-2.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
-        title="Total spend for this workspace"
+        title="Today's spend for this workspace"
       >
         <div className="flex items-center gap-1.5">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -173,7 +173,7 @@ export function HeaderMeter() {
         <MeterIcon active={isStreaming} size={14} />
         <span className="tabular-nums text-[12px] text-foreground">{costStr}</span>
         <span className="text-[11px] text-muted-foreground/50 uppercase tracking-wider">
-          TOTAL
+          TODAY
         </span>
         <svg
           width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
