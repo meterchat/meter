@@ -1,115 +1,119 @@
-# Meter Terms of Service
+# Terms of Service
 
-Last updated: 2026-02-23
+Last updated: 2026-02-24
 
-These Terms of Service (“Terms”) govern your access to and use of Meter’s products and services (the “Services”). By using the Services, you agree to these Terms.
+These Terms of Service ("Terms") govern access to and use of Meter’s websites, applications, APIs, integrations, and related services (collectively, the "Service"). The Service is operated by **Startup Works, Inc.**, a Delaware corporation, doing business as **Meter** ("Meter," "we," "us," or "our").
 
-This document is not legal advice.
+By accessing or using the Service, you agree to these Terms. If you are using the Service on behalf of an entity, you represent that you have authority to bind that entity, and "you" refers to that entity.
 
-## 1) Who we are
+## 1. The Service
 
-Meter (“Meter”, “we”, “us”) provides a pay‑per‑thought AI product for builders, including multi‑model routing, structured debates, and the ability to generate artifacts and commit them to GitHub at your direction.
+Meter provides a pay-per-use AI workspace and related tooling to help users route requests to third-party model providers, run structured debates, and generate artifacts (including documents that may be committed to a user’s GitHub repository) based on user inputs and connected data sources.
 
-## 2) Eligibility and accounts
+You acknowledge that the Service may integrate with third-party services (e.g., model providers, GitHub, Google) and that those services have their own terms.
 
-You must be able to form a binding contract to use the Services.
+## 2. Eligibility and Accounts
 
-You are responsible for maintaining the confidentiality of your account and credentials and for all activities under your account.
+You must be at least 18 years old (or the age of majority where you live) to use the Service.
 
-## 3) Your content
+You are responsible for all activity on your account and for maintaining the confidentiality of your credentials. You must provide accurate information and keep it updated.
 
-You retain ownership of content you submit to the Services (“User Content”).
+## 3. Billing, Credits, and Payments
 
-You grant Meter a worldwide, non‑exclusive license to host, store, reproduce, and process User Content only as necessary to provide, secure, and improve the Services.
+### 3.1 Pay-per-use billing
 
-You are responsible for ensuring you have the rights to provide User Content and that it does not violate law or third‑party rights.
+Meter may charge on a pay-per-use ("pay per thought") basis, including charges based on usage, token consumption, model/provider fees, or other metered units as described in the Service.
 
-## 4) AI outputs and decision records
+### 3.2 Postpaid billing; caps
 
-Meter generates outputs using AI systems and third‑party model providers. Outputs may be incorrect or incomplete.
+If the Service offers postpaid billing or spending limits, those limits are tools to help you manage spend, but you remain responsible for all charges incurred under your account up to and including any configured caps, subject to the Service’s described behavior.
 
-You are responsible for reviewing outputs before acting on them, including before committing code or documents to repositories.
+### 3.3 Taxes
 
-Decision records and artifacts are provided for convenience and documentation; they are not legal, financial, or professional advice.
+You are responsible for applicable taxes, except where Meter is required to collect them.
 
-## 5) Integrations (GitHub, Google, etc.)
+### 3.4 Refunds
 
-If you connect third‑party services, you authorize Meter to access and act on those services as configured by you.
+Fees are non-refundable unless required by law or expressly stated in writing by Meter.
 
-For example, if you connect GitHub, Meter may create commits that add or modify files in repositories you select. You are responsible for verifying repository selection, branch/PR workflow, and permissions.
+## 4. User Content; Inputs and Outputs
 
-You may revoke access at any time through the third‑party provider.
+### 4.1 Your content
 
-## 6) Acceptable use
+"Content" includes prompts, messages, uploaded files, connected data you authorize Meter to access, and any other information you provide to the Service ("Inputs"), as well as responses, analyses, generated documents, and other results ("Outputs").
+
+As between you and Meter, you retain ownership of your Inputs. Subject to these Terms, Meter assigns to you any rights it may have in Outputs, to the extent assignable.
+
+### 4.2 License to operate the Service
+
+You grant Meter a limited, worldwide, non-exclusive license to host, store, process, transmit, and display Inputs and Outputs solely to provide, maintain, and improve the Service, comply with law, enforce these Terms, and prevent abuse.
+
+### 4.3 Accuracy and responsibility
+
+Outputs may be inaccurate, incomplete, or inappropriate and are provided "as is." You are responsible for reviewing Outputs before relying on them, including before shipping code, making business decisions, or committing artifacts to repositories.
+
+You agree not to use the Service as a substitute for professional advice (legal, financial, medical, etc.).
+
+## 5. Acceptable Use
 
 You agree not to:
 
-Use the Services for unlawful, harmful, or abusive activities.
+- violate applicable laws or third-party rights;
+- attempt to reverse engineer or abuse the Service;
+- use the Service to generate or distribute malware or harmful code;
+- interfere with or disrupt the Service;
+- use the Service to collect or harvest personal data without authorization;
+- use the Service in a way that could create a risk of harm, fraud, or deception.
 
-Attempt to gain unauthorized access to systems or data.
+Meter may suspend or terminate accounts for violations.
 
-Interfere with or disrupt the Services.
+## 6. Third-Party Services and Integrations
 
-Use the Services to infringe intellectual property rights.
+The Service may allow you to connect third-party accounts (e.g., GitHub, Google/Gmail). By enabling an integration, you authorize Meter to access and process the data you choose to make available via that integration.
 
-Use the Services to generate or distribute malware.
+Third-party services are not controlled by Meter. Meter is not responsible for third-party services’ availability, security, or content.
 
-We may suspend or terminate access for violations.
+## 7. Intellectual Property
 
-## 7) Billing, metering, and usage caps
+Meter and its licensors retain all rights, title, and interest in the Service, including software, designs, and trademarks. These Terms do not grant you any rights to Meter’s trademarks or branding.
 
-Meter is billed on a pay‑per‑use basis (“pay per thought”) unless otherwise stated.
+## 8. Confidentiality
 
-Metering. Usage may be measured by tokens, compute time, model calls, or other units presented in the product.
+You are responsible for determining what information you provide to the Service. Do not provide secrets you are not authorized to disclose.
 
-Postpaid billing. Charges accrue during a billing period and are invoiced/charged after usage, unless stated otherwise.
+## 9. Termination
 
-Caps and budgets. You may set spending caps or budgets. You are responsible for configuring them appropriately.
+You may stop using the Service at any time. Meter may suspend or terminate access to the Service at any time for any reason, including for security or legal compliance, with or without notice as permitted by law.
 
-Taxes. Prices may exclude taxes, which you are responsible for paying where applicable.
+Upon termination, your right to use the Service stops. Sections that by their nature should survive termination will survive (including payment obligations, disclaimers, limitation of liability, and dispute resolution).
 
-Refunds. Unless required by law, charges are non‑refundable.
+## 10. Disclaimers
 
-## 8) Third‑party services and model providers
+THE SERVICE AND OUTPUTS ARE PROVIDED "AS IS" AND "AS AVAILABLE." METER DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. METER DOES NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED OR ERROR-FREE.
 
-Your use of third‑party services (e.g., GitHub, Google) is governed by their terms.
+## 11. Limitation of Liability
 
-Model providers may apply their own content policies and technical limits. Meter does not guarantee availability of any particular model.
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, METER WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, REVENUE, DATA, OR GOODWILL.
 
-## 9) Confidentiality and sensitive information
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, METER’S TOTAL LIABILITY FOR ANY CLAIM RELATING TO THE SERVICE WILL NOT EXCEED THE AMOUNTS YOU PAID TO METER FOR THE SERVICE IN THE 3 MONTHS BEFORE THE EVENT GIVING RISE TO THE CLAIM.
 
-Do not submit sensitive personal information (e.g., government IDs, medical data) unless you have a specific need and have enabled appropriate safeguards.
+## 12. Indemnification
 
-You understand that User Content may be processed by third‑party model providers to generate outputs.
+You agree to indemnify and hold harmless Meter and its officers, directors, employees, and agents from any claims, liabilities, damages, losses, and expenses (including reasonable attorneys’ fees) arising from your use of the Service, your Content, or your violation of these Terms.
 
-## 10) Disclaimers
+## 13. Dispute Resolution; Governing Law; Venue
 
-THE SERVICES ARE PROVIDED “AS IS” AND “AS AVAILABLE.”
+These Terms are governed by the laws of the State of Delaware, without regard to conflict of law principles.
 
-METER DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON‑INFRINGEMENT.
+You and Meter agree that any dispute, claim, or controversy arising out of or relating to these Terms or the Service will be brought exclusively in the state or federal courts located in **New Castle County, Delaware**, and you consent to personal jurisdiction and venue there.
 
-AI OUTPUTS MAY BE INACCURATE. YOU ARE RESPONSIBLE FOR VERIFYING OUTPUTS.
+## 14. Changes
 
-## 11) Limitation of liability
+We may update these Terms from time to time. If we make material changes, we will take reasonable steps to notify you (for example, by posting on the Service or emailing you). Your continued use of the Service after changes become effective constitutes acceptance.
 
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, METER WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS, REVENUES, DATA, OR GOODWILL.
+## 15. Contact
 
-IN ALL CASES, METER’S AGGREGATE LIABILITY UNDER THESE TERMS WILL NOT EXCEED THE AMOUNT PAID BY YOU TO METER IN THE 3 MONTHS BEFORE THE EVENT GIVING RISE TO LIABILITY.
+Support: support@meter.chat  
+Legal notices: legal@meter.chat
 
-## 12) Termination
-
-You may stop using the Services at any time.
-
-We may suspend or terminate access to the Services, with or without notice, for conduct that we believe violates these Terms or creates risk.
-
-## 13) Changes
-
-We may update these Terms from time to time. We will update the “Last updated” date. Material changes may be communicated through the Services or by email.
-
-## 14) Governing law
-
-These Terms are governed by the laws of the jurisdiction in which Meter is organized, without regard to conflict of laws principles.
-
-## 15) Contact
-
-Questions about these Terms: support@meter.chat
+Startup Works, Inc. d/b/a Meter (Delaware corporation)
