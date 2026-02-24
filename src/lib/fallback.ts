@@ -14,19 +14,6 @@ import { GoogleGenerativeAI, type Content, type Part, type FunctionDeclarationSc
 import type { ToolDef } from "./tools";
 
 
-/* ─── Idle timeout ─────────────────────────────────────────────── */
-
-const IDLE_TIMEOUT_MS = 60_000; // 60s with no chunks = abort
-
-function createIdleTimeout(ms = IDLE_TIMEOUT_MS) {
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout>;
-  const reset = () => { clearTimeout(timer); timer = setTimeout(() => controller.abort(), ms); };
-  const clear = () => clearTimeout(timer);
-  reset();
-  return { signal: controller.signal, reset, clear };
-}
-
 /* ─── Types ─────────────────────────────────────────────────────── */
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
@@ -166,7 +153,6 @@ export async function streamOpenRouter(
     : model.startsWith("x-ai/") ? 0.25
     : undefined;
 
-  const idle = createIdleTimeout();
   const response = await client.chat.completions.create({
     model,
     messages: cachedConversation,
@@ -174,14 +160,13 @@ export async function streamOpenRouter(
     max_tokens: 16384,
     stream: true,
     stream_options: { include_usage: true },
-  }, { signal: idle.signal });
+  });
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
   let hasToolCalls = false;
 
   for await (const chunk of response) {
-    idle.reset();
     const choice = chunk.choices?.[0];
     if (!choice) {
       if (chunk.usage) {
@@ -241,7 +226,6 @@ export async function streamOpenRouter(
       });
     }
   }
-  idle.clear();
 
   // Empty response with no tool calls — treat as failure so fallback kicks in
   if (!textContent && !hasToolCalls) {
@@ -408,7 +392,6 @@ async function streamAnthropic(
     (lastTool as any).cache_control = { type: "ephemeral" };
   }
 
-  const idle = createIdleTimeout();
   const stream = await client.messages.stream({
     model: nativeModel,
     max_tokens: 16384,
@@ -416,7 +399,7 @@ async function streamAnthropic(
     system: [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }],
     messages: msgs,
     tools: anthropicTools,
-  }, { signal: idle.signal });
+  });
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
@@ -424,7 +407,6 @@ async function streamAnthropic(
   let toolIdx = 0;
 
   for await (const event of stream) {
-    idle.reset();
     if (event.type === "content_block_delta") {
       if (event.delta.type === "text_delta") {
         const delta = event.delta.text;
@@ -445,7 +427,6 @@ async function streamAnthropic(
       }
     }
   }
-  idle.clear();
 
   // Use finalMessage for complete usage data.
   // Anthropic reports tokens in three buckets:
@@ -498,7 +479,6 @@ async function streamOpenAIDirect(
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
   const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
 
-  const idle = createIdleTimeout();
   const response = await client.chat.completions.create({
     model: nativeModel,
     messages: conversation,
@@ -506,14 +486,13 @@ async function streamOpenAIDirect(
     max_tokens: 16384,
     stream: true,
     stream_options: { include_usage: true },
-  }, { signal: idle.signal });
+  });
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
   let hasToolCalls = false;
 
   for await (const chunk of response) {
-    idle.reset();
     const choice = chunk.choices?.[0];
     if (!choice) {
       if (chunk.usage) {
@@ -570,7 +549,6 @@ async function streamOpenAIDirect(
       });
     }
   }
-  idle.clear();
 
   if (!textContent && !hasToolCalls) {
     throw new Error("Model returned empty response");
@@ -705,7 +683,6 @@ async function streamGemini(
     }
   }
 
-  const idle = createIdleTimeout();
   const result = await model.generateContentStream({
     contents,
     systemInstruction: systemText ? { role: "user", parts: [{ text: systemText }] } : undefined,
@@ -717,8 +694,6 @@ async function streamGemini(
   let toolIdx = 0;
 
   for await (const chunk of result.stream) {
-    if (idle.signal.aborted) throw new Error("Gemini stream timed out after 60s of inactivity");
-    idle.reset();
 
     // Extract thinking parts (thought: true flag)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -759,7 +734,6 @@ async function streamGemini(
       }
     }
   }
-  idle.clear();
 
   const response = await result.response;
   if (response.usageMetadata) {
