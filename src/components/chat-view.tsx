@@ -51,6 +51,45 @@ function ErrorCard({ payload }: { payload: string }) {
   );
 }
 
+function ChatSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-6 animate-pulse">
+      {/* Simulated user message */}
+      <div className="mb-4 flex justify-end">
+        <div className="max-w-[65%] rounded-xl bg-foreground/[0.04] dark:bg-foreground/10 px-4 py-3">
+          <div className="h-3 w-48 rounded bg-muted-foreground/10" />
+        </div>
+      </div>
+      {/* Simulated assistant response */}
+      <div className="mb-4 flex justify-start">
+        <div className="max-w-[75%] rounded-xl px-4 py-3 space-y-2">
+          <div className="h-3 w-full rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[90%] rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[70%] rounded bg-muted-foreground/10" />
+        </div>
+      </div>
+      {/* Simulated user message */}
+      <div className="mb-4 flex justify-end">
+        <div className="max-w-[55%] rounded-xl bg-foreground/[0.04] dark:bg-foreground/10 px-4 py-3">
+          <div className="h-3 w-32 rounded bg-muted-foreground/10" />
+        </div>
+      </div>
+      {/* Simulated assistant response */}
+      <div className="mb-4 flex justify-start">
+        <div className="max-w-[75%] rounded-xl px-4 py-3 space-y-2">
+          <div className="h-3 w-full rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[85%] rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[60%] rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[75%] rounded bg-muted-foreground/10" />
+        </div>
+      </div>
+      <div className="flex justify-center pt-4">
+        <span className="font-mono text-[10px] text-muted-foreground/30">Loading chat history...</span>
+      </div>
+    </div>
+  );
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = async (e: React.MouseEvent) => {
@@ -366,6 +405,8 @@ function ThinkingIndicator({
 export function ChatView() {
   // Sync sessions to Supabase for eternal persistence
   useSessionSync();
+
+  const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
 
   const {
     projects,
@@ -1110,6 +1151,10 @@ export function ChatView() {
 
         {/* Messages */}
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto min-h-0">
+          {/* Skeleton while sessions load from server */}
+          {!sessionsLoaded && messages.length === 0 ? (
+            <ChatSkeleton />
+          ) : (
           <div className="mx-auto max-w-2xl px-4 py-6">
             {/* First-time onboarding — workspace name then card */}
             {messages.length === 0 && !workspaceCardReady && !cardOnFile && onboardingStep === "workspace" && (
@@ -1324,6 +1369,7 @@ export function ChatView() {
 
             <div ref={bottomRef} data-scroll-anchor />
           </div>
+          )}
         </div>
 
         {/* Composer area */}
@@ -1434,8 +1480,8 @@ export function ChatView() {
                   onKeyDown={handleKeyDown}
                   onChange={handleInputChange}
                   onPaste={handlePaste}
-                  placeholder={workspaceCardReady ? "Say something... (type / for commands)" : "Add a card to start chatting..."}
-                  disabled={!workspaceCardReady}
+                  placeholder={!sessionsLoaded ? "Loading chat..." : workspaceCardReady ? "Say something... (type / for commands)" : "Add a card to start chatting..."}
+                  disabled={!workspaceCardReady || !sessionsLoaded}
                   rows={1}
                   className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ maxHeight: "120px" }}
@@ -1459,7 +1505,7 @@ export function ChatView() {
                 ) : (
                   <button
                     onClick={handleSend}
-                    disabled={!workspaceCardReady}
+                    disabled={!workspaceCardReady || !sessionsLoaded}
                     className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
