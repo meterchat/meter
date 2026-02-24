@@ -934,21 +934,7 @@ export function ChatView() {
 
       <div
         className={`relative flex flex-1 flex-col transition-all duration-300 ${inspectorOpen ? "mr-[420px]" : ""}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={(e) => { if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
       >
-        {/* Drop overlay */}
-        {dragOver && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-foreground/20 rounded-xl pointer-events-none">
-            <div className="flex flex-col items-center gap-2">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              <p className="font-mono text-xs text-muted-foreground">Drop images or PDFs</p>
-            </div>
-          </div>
-        )}
         <header className="flex h-12 items-center justify-between border-b border-border px-4">
           <div className="relative flex items-center gap-2" ref={logoMenuRef}>
             <button
@@ -1235,7 +1221,23 @@ export function ChatView() {
             />
 
             {/* Unified box */}
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div
+              className={`relative rounded-xl border bg-card overflow-hidden transition-colors ${dragOver ? "border-foreground/30 ring-1 ring-foreground/10" : "border-border"}`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
+            >
+              {/* Drop overlay */}
+              {dragOver && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-card/90 backdrop-blur-sm rounded-xl pointer-events-none">
+                  <div className="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <p className="font-mono text-xs text-muted-foreground">Drop images or PDFs</p>
+                  </div>
+                </div>
+              )}
               {/* Command bar — top section (connections + commands) */}
               <CommandBar open={commandBarOpen} onToggle={setCommandBarOpen} onSelectCommand={handleCommandSelect} />
 
