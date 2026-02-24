@@ -1,84 +1,100 @@
 # Privacy Policy
 
-Last updated: 2026-02-24
+Effective date: 2026-02-24
 
-This Privacy Policy explains how **Startup Works, Inc.**, a Delaware corporation doing business as **Meter** ("Meter," "we," "us," or "our"), collects, uses, and discloses information when you use our websites, applications, APIs, integrations, and related services (collectively, the "Service").
+This Privacy Policy explains how Startup Works, Inc. d/b/a Meter ("Meter," "we," "us," or "our") collects, uses, and shares information when you use Meter (the "Service").
 
-## 1. Information We Collect
+If you have questions, contact us at legal@meter.chat.
 
-### 1.1 Information you provide
+## 1. Who we are
 
-We collect information you provide directly, such as:
+Company: Startup Works, Inc. d/b/a Meter
+Address: 2261 Market St. Ste 86407, San Francisco, CA 94114
+Support: support@meter.chat
+Privacy: legal@meter.chat
 
-- Account information (name, email, organization);
-- Inputs you submit to the Service (prompts, messages, files, and other content);
-- Information you choose to connect via integrations (subject to your configuration and permissions);
-- Support communications.
+## 2. Information we collect
 
-### 1.2 Information collected automatically
+### 2.1 Account information
 
-We may collect:
+We collect information you provide when creating an account, such as name, email address, and authentication identifiers.
 
-- Device and usage information (e.g., logs, timestamps, approximate location derived from IP);
-- Cookies and similar technologies (depending on the Service configuration).
+### 2.2 Usage and device information
 
-### 1.3 Information from integrations
+We collect information about how you use the Service, including request metadata, timestamps, feature usage, and approximate location derived from IP address.
 
-If you connect third-party services (e.g., GitHub, Google/Gmail), we may receive and process data from those services in accordance with the permissions you grant.
+### 2.3 Customer content
 
-## 2. How We Use Information
+We collect and process content you submit to the Service, such as prompts, messages, decision records, debate transcripts, uploaded files, generated artifacts, and integration configuration ("Customer Content").
+
+### 2.4 Integration data
+
+If you connect third-party services (such as Google/Gmail, GitHub, calendars, or financial tools), we may access and process data from those services as authorized by you and limited to the scopes/permissions you grant.
+
+### 2.5 Payment information
+
+If you pay for the Service, our payment processors collect payment information. We receive limited billing information (such as the last four digits of a card, billing status, and invoices).
+
+## 3. How we use information
 
 We use information to:
 
-- Provide, operate, and maintain the Service;
-- Authenticate users and secure accounts;
-- Process usage-based billing and prevent fraud;
-- Provide outputs and generate artifacts you request;
-- Improve the Service (including reliability, safety, and performance);
-- Communicate with you about the Service;
-- Comply with legal obligations and enforce our terms.
+- provide, maintain, and improve the Service;
+- process usage-based billing and prevent fraud;
+- personalize the Service (for example, to organize decision records and artifacts);
+- provide customer support;
+- communicate with you about updates, security, and administrative messages;
+- comply with legal obligations.
 
-## 3. How We Share Information
+## 4. How we share information
 
-We may share information with:
+We share information with:
 
-- Service providers that help us operate the Service (hosting, analytics, billing, customer support);
-- Third-party integrations you enable (e.g., pushing artifacts to GitHub repositories);
-- Model providers and inference partners as needed to fulfill requests;
-- Authorities if required by law;
-- Successors in connection with a merger, acquisition, or sale of assets.
+- service providers (hosting, analytics, support, and payment processors) who process data on our behalf;
+- third-party integrations you enable (for example, GitHub APIs when committing artifacts, or Google APIs when accessing Gmail data);
+- law enforcement or regulators when required by law;
+- a successor entity in connection with a merger, acquisition, or sale of assets.
 
-We do not sell personal information.
+We do not sell your personal information.
 
-## 4. Data Retention
+## 5. AI models and providers
 
-We retain information for as long as necessary to provide the Service, comply with legal obligations, resolve disputes, and enforce our agreements. You may be able to delete certain data through the Service; some data may be retained as required by law or for legitimate business purposes.
+The Service may send your prompts and related context to third-party AI model providers to generate Output. These providers may process data according to their own terms and policies. We aim to minimize data shared and to use providers and settings consistent with the Service's configuration.
 
-## 5. Security
+## 6. Data retention
 
-We use reasonable administrative, technical, and organizational measures designed to protect information. No method of transmission or storage is completely secure.
+We retain personal information for as long as necessary to provide the Service and for legitimate business purposes, including compliance, dispute resolution, and enforcing agreements. You may request deletion subject to legal and operational constraints.
 
-## 6. Your Choices
+## 7. Security
 
-Depending on your location and applicable law, you may have rights to access, correct, delete, or export your personal information.
+We use reasonable administrative, technical, and physical safeguards designed to protect information. No method of transmission or storage is 100% secure.
 
-You can also disconnect integrations at any time through the third-party service or within the Service (when available).
+## 8. Your choices
 
-## 7. International Transfers
+You may be able to:
 
-Information may be processed in the United States and other locations where Meter or its service providers operate.
+- access or update account information;
+- disconnect integrations;
+- request deletion of account data by contacting legal@meter.chat.
 
-## 8. Children
+Depending on your location, you may have additional rights.
 
-The Service is not directed to children, and we do not knowingly collect personal information from children under 13.
+## 9. International users
 
-## 9. Changes
+If you access the Service from outside the United States, your information may be processed in the United States or other jurisdictions.
 
-We may update this Privacy Policy from time to time. We will post the updated policy and update the "Last updated" date.
+## 10. Children's privacy
 
-## 10. Contact
+The Service is not directed to children under 13, and we do not knowingly collect personal information from children under 13.
 
-Privacy questions: legal@meter.chat  
-Support: support@meter.chat
+## 11. Changes
 
-Startup Works, Inc. d/b/a Meter (Delaware corporation)
+We may update this Privacy Policy from time to time. If we make material changes, we will provide reasonable notice by updating the effective date and, where appropriate, by other means.
+
+## 12. Contact
+
+Startup Works, Inc. d/b/a Meter
+2261 Market St. Ste 86407
+San Francisco, CA 94114
+support@meter.chat
+legal@meter.chat
