@@ -23,6 +23,13 @@ export interface DebateTurn {
   content: string;
 }
 
+export interface Attachment {
+  url: string;
+  name: string;
+  mimeType: string;
+  size: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -41,6 +48,7 @@ export interface ChatMessage {
   decisionId?: string;
   debateTrace?: DebateTurn[];
   pinned?: boolean;
+  attachments?: Attachment[];
 }
 
 export interface PaymentCard {

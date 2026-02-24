@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const { userId } = auth;
 
   try {
-    const { messages, model, projectId, connectedServices } = await req.json();
+    const { messages, model, projectId, connectedServices, attachments } = await req.json();
 
     // Server-side spend limit + exposure cap enforcement (skip for superadmin)
     if (projectId && !(await isSuperAdmin(userId))) {
@@ -60,9 +60,47 @@ export async function POST(req: NextRequest) {
       content: m.content,
     }));
 
+    const trimmed = trimConversation(allUserMessages, MAX_CONTEXT_TOKENS);
+
+    // If attachments were provided, make the last user message multimodal
+    const parsedAttachments: { url: string; mimeType: string; name: string }[] =
+      Array.isArray(attachments) ? attachments : [];
+
+    if (parsedAttachments.length > 0 && trimmed.length > 0) {
+      const lastIdx = trimmed.length - 1;
+      const last = trimmed[lastIdx];
+      if (last.role === "user") {
+        const contentParts: OpenAI.Chat.ChatCompletionContentPart[] = [];
+        if (typeof last.content === "string" && last.content) {
+          contentParts.push({ type: "text", text: last.content });
+        }
+        for (const att of parsedAttachments) {
+          if (att.mimeType.startsWith("image/")) {
+            contentParts.push({ type: "image_url", image_url: { url: att.url } });
+          } else if (att.mimeType === "application/pdf") {
+            // For PDF: fetch and encode as base64 data URL for providers that support it.
+            // Include a text fallback description for providers that don't.
+            try {
+              const pdfRes = await fetch(att.url);
+              const pdfBuf = Buffer.from(await pdfRes.arrayBuffer());
+              const pdfB64 = pdfBuf.toString("base64");
+              contentParts.push({
+                type: "image_url",
+                image_url: { url: `data:application/pdf;base64,${pdfB64}` },
+              });
+            } catch {
+              contentParts.push({ type: "text", text: `[Attached PDF: ${att.name} — could not load]` });
+            }
+          }
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        trimmed[lastIdx] = { ...last, content: contentParts as any };
+      }
+    }
+
     const conversation: Message[] = [
       { role: "system", content: systemPrompt },
-      ...trimConversation(allUserMessages, MAX_CONTEXT_TOKENS),
+      ...trimmed,
     ];
 
     const stream = new ReadableStream({

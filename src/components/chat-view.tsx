@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn } from "@/lib/store";
+import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type Attachment } from "@/lib/store";
 import { MeterPill } from "@/components/meter-pill";
 import { HeaderMeter } from "@/components/header-meter";
 import { ModelPickerTrigger, ModelPickerPanel } from "@/components/model-picker";
@@ -364,6 +364,42 @@ export function ChatView() {
   const isProgrammaticScrollRef = useRef(false);
   const hasInitialScrolled = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  const uploadFile = useCallback(async (file: File): Promise<Attachment | null> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/attachments/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("Upload failed:", body.error);
+        return null;
+      }
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const handleFiles = useCallback(async (files: FileList | File[]) => {
+    const valid = Array.from(files).filter(
+      (f) => f.type.startsWith("image/") || f.type === "application/pdf"
+    );
+    if (valid.length === 0) return;
+    setUploading(true);
+    const results = await Promise.all(valid.map(uploadFile));
+    const uploaded = results.filter((a): a is Attachment => a !== null);
+    setPendingAttachments((prev) => [...prev, ...uploaded]);
+    setUploading(false);
+  }, [uploadFile]);
+
+  const removePendingAttachment = useCallback((url: string) => {
+    setPendingAttachments((prev) => prev.filter((a) => a.url !== url));
+  }, []);
 
   useEffect(() => {
     hasInitialScrolled.current = false;
@@ -497,7 +533,7 @@ export function ChatView() {
   }, [scrollToMessageId, setScrollToMessageId]);
 
   /** Core streaming function shared by handleSend and handleDebate */
-  const streamResponse = async (userContent: string, modelOverride?: string) => {
+  const streamResponse = async (userContent: string, modelOverride?: string, userAttachments?: Attachment[]) => {
     isNearBottomRef.current = true;
     userScrolledAwayRef.current = false;
     setRerouting(null); // Clear any previous reroute
@@ -507,6 +543,7 @@ export function ChatView() {
       role: "user",
       content: userContent,
       timestamp: Date.now(),
+      ...(userAttachments?.length ? { attachments: userAttachments } : {}),
     };
     addMessage(userMsg);
 
@@ -556,6 +593,7 @@ export function ChatView() {
           connectedServices: Object.keys(connectedServices).filter(
             (k) => connectedServices[k]
           ),
+          ...(userAttachments?.length ? { attachments: userAttachments } : {}),
         }),
       });
 
@@ -716,7 +754,9 @@ export function ChatView() {
 
   const handleSend = async () => {
     const input = inputRef.current;
-    if (!input || !input.value.trim() || isStreaming || !workspaceCardReady) return;
+    const hasText = input && input.value.trim();
+    const hasAttachments = pendingAttachments.length > 0;
+    if (!input || (!hasText && !hasAttachments) || isStreaming || !workspaceCardReady) return;
 
     if (chatBlocked) {
       const userContent = input.value.trim();
@@ -742,12 +782,14 @@ export function ChatView() {
 
     if (spendingCapEnabled && todayCost >= spendingCap) return;
 
-    const userContent = input.value.trim();
+    const userContent = input.value.trim() || (pendingAttachments.length > 0 ? "What's in this file?" : "");
+    const attachmentsToSend = pendingAttachments.length > 0 ? [...pendingAttachments] : undefined;
     input.value = "";
     input.style.height = "auto";
     localStorage.removeItem(DRAFT_KEY(activeProjectId));
+    setPendingAttachments([]);
 
-    await streamResponse(userContent);
+    await streamResponse(userContent, undefined, attachmentsToSend);
   };
 
   /** Stop the current streaming response */
@@ -778,6 +820,14 @@ export function ChatView() {
       handleSend();
     }
   };
+
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const files = Array.from(e.clipboardData.files);
+    if (files.length > 0) {
+      e.preventDefault();
+      handleFiles(files);
+    }
+  }, [handleFiles]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -824,6 +874,13 @@ export function ChatView() {
     setSlashQuery("");
   }, [userId, activeProjectId]);
 
+  const handleSlashFile = useCallback(() => {
+    setSlashOpen(false);
+    setSlashQuery("");
+    if (inputRef.current) inputRef.current.value = "";
+    fileInputRef.current?.click();
+  }, []);
+
   // Consume pendingInput from store (e.g. decision revisit) — send directly
   useEffect(() => {
     if (pendingInput && inputRef.current && !isStreaming) {
@@ -862,7 +919,36 @@ export function ChatView() {
         </div>
       )}
 
-      <div className={`relative flex flex-1 flex-col transition-all duration-300 ${inspectorOpen ? "mr-[420px]" : ""}`}>
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.length) handleFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
+      <div
+        className={`relative flex flex-1 flex-col transition-all duration-300 ${inspectorOpen ? "mr-[420px]" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={(e) => { if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
+      >
+        {/* Drop overlay */}
+        {dragOver && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-foreground/20 rounded-xl pointer-events-none">
+            <div className="flex flex-col items-center gap-2">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <p className="font-mono text-xs text-muted-foreground">Drop images or PDFs</p>
+            </div>
+          </div>
+        )}
         <header className="flex h-12 items-center justify-between border-b border-border px-4">
           <div className="relative flex items-center gap-2" ref={logoMenuRef}>
             <button
@@ -1039,6 +1125,36 @@ export function ChatView() {
                         <DebateTrace trace={msg.debateTrace!} />
                       )}
 
+                      {/* Inline attachment viewers */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {msg.attachments.map((att) =>
+                            att.mimeType.startsWith("image/") ? (
+                              <img
+                                key={att.url}
+                                src={att.url}
+                                alt={att.name}
+                                className="max-w-[320px] max-h-[240px] rounded-lg border border-border object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(att.url, "_blank")}
+                              />
+                            ) : att.mimeType === "application/pdf" ? (
+                              <div key={att.url} className="w-full max-w-[400px] rounded-lg border border-border overflow-hidden">
+                                <div className="flex items-center gap-2 bg-foreground/5 px-3 py-1.5 border-b border-border">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                                  </svg>
+                                  <span className="font-mono text-[11px] text-foreground/70 truncate">{att.name}</span>
+                                  <a href={att.url} target="_blank" rel="noopener noreferrer" className="ml-auto shrink-0 font-mono text-[9px] text-muted-foreground/50 hover:text-foreground transition-colors">
+                                    open
+                                  </a>
+                                </div>
+                                <iframe src={att.url} className="w-full h-[300px] bg-white" title={att.name} />
+                              </div>
+                            ) : null
+                          )}
+                        </div>
+                      )}
+
                       {msg.role === "assistant" && displayContent.startsWith("__error__") ? (
                         <ErrorCard payload={displayContent.slice("__error__".length)} />
                       ) : msg.role === "assistant" ? (
@@ -1114,6 +1230,7 @@ export function ChatView() {
               connectedServices={connectedServices}
               onSelect={handleCommandSelect}
               onConnect={handleSlashConnect}
+              onFile={handleSlashFile}
               onClose={() => { setSlashOpen(false); setSlashQuery(""); if (inputRef.current) inputRef.current.value = ""; }}
             />
 
@@ -1132,6 +1249,40 @@ export function ChatView() {
                   </>
                 )}
 
+                {/* Attachment preview strip */}
+                {(pendingAttachments.length > 0 || uploading) && (
+                  <div className="flex items-center gap-2 border-t border-border/50 px-3 py-2 overflow-x-auto">
+                    {pendingAttachments.map((a) => (
+                      <div key={a.url} className="group/att relative shrink-0">
+                        {a.mimeType.startsWith("image/") ? (
+                          <img src={a.url} alt={a.name} className="h-16 w-16 rounded-lg object-cover border border-border" />
+                        ) : (
+                          <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-border bg-foreground/5">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                            </svg>
+                            <span className="absolute bottom-1 left-0 right-0 text-center font-mono text-[8px] text-muted-foreground/60 truncate px-1">PDF</span>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => removePendingAttachment(a.url)}
+                          className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-foreground text-background text-[10px] group-hover/att:flex"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                    {uploading && (
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-border border-dashed">
+                        <svg className="animate-spin h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Composer — middle section */}
                 <div className="flex items-end gap-2 border-t border-border/50 p-2">
                   <ModelPickerTrigger
@@ -1143,6 +1294,7 @@ export function ChatView() {
                   ref={inputRef}
                   onKeyDown={handleKeyDown}
                   onChange={handleInputChange}
+                  onPaste={handlePaste}
                   placeholder={workspaceCardReady ? "Say something... (type / for commands)" : "Add a card to start chatting..."}
                   disabled={!workspaceCardReady}
                   rows={1}

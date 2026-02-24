@@ -288,9 +288,43 @@ async function streamAnthropic(
         msgs.push({ role: "user", content: [toolResult] });
       }
     } else {
-      // User message
-      const text = typeof m.content === "string" ? m.content : String(m.content ?? "");
-      msgs.push({ role: "user", content: text });
+      // User message — may be multimodal (content array with image_url parts)
+      if (Array.isArray(m.content)) {
+        const blocks: Anthropic.ContentBlockParam[] = [];
+        for (const part of m.content) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const p = part as any;
+          if (p.type === "text") {
+            blocks.push({ type: "text", text: p.text });
+          } else if (p.type === "image_url") {
+            const url: string = p.image_url?.url ?? "";
+            if (url.startsWith("data:application/pdf;base64,")) {
+              // PDF → Anthropic document block
+              const b64 = url.replace("data:application/pdf;base64,", "");
+              blocks.push({
+                type: "document",
+                source: { type: "base64", media_type: "application/pdf", data: b64 },
+              } as Anthropic.ContentBlockParam);
+            } else if (url.startsWith("data:")) {
+              // Base64 image
+              const match = url.match(/^data:(image\/[^;]+);base64,(.+)$/);
+              if (match) {
+                blocks.push({
+                  type: "image",
+                  source: { type: "base64", media_type: match[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp", data: match[2] },
+                });
+              }
+            } else {
+              // URL image
+              blocks.push({ type: "image", source: { type: "url", url } } as Anthropic.ContentBlockParam);
+            }
+          }
+        }
+        if (blocks.length > 0) msgs.push({ role: "user", content: blocks });
+      } else {
+        const text = typeof m.content === "string" ? m.content : String(m.content ?? "");
+        msgs.push({ role: "user", content: text });
+      }
     }
   }
 
@@ -598,10 +632,28 @@ async function streamGemini(
         contents.push({ role: "user", parts: [responsePart] });
       }
     } else {
-      // User message
-      const text = typeof m.content === "string" ? m.content : String(m.content ?? "");
-      if (text) {
-        contents.push({ role: "user", parts: [{ text }] });
+      // User message — may be multimodal (content array with image_url parts)
+      if (Array.isArray(m.content)) {
+        const parts: Part[] = [];
+        for (const part of m.content) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const p = part as any;
+          if (p.type === "text") {
+            parts.push({ text: p.text });
+          } else if (p.type === "image_url") {
+            const url: string = p.image_url?.url ?? "";
+            const dataMatch = url.match(/^data:([^;]+);base64,(.+)$/);
+            if (dataMatch) {
+              parts.push({ inlineData: { mimeType: dataMatch[1], data: dataMatch[2] } });
+            }
+          }
+        }
+        if (parts.length > 0) contents.push({ role: "user", parts });
+      } else {
+        const text = typeof m.content === "string" ? m.content : String(m.content ?? "");
+        if (text) {
+          contents.push({ role: "user", parts: [{ text }] });
+        }
       }
     }
   }

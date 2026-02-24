@@ -162,6 +162,7 @@ export async function POST(req: NextRequest) {
         signature: m.signature ?? null,
         tx_hash: m.txHash ?? null,
         cards: m.cards ?? null,
+        attachments: m.attachments ?? null,
         timestamp: m.timestamp,
       }));
 
