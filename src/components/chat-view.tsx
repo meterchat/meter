@@ -220,15 +220,113 @@ const TOOL_LABELS: Record<string, string> = {
   supabase_list_tables: "Listing tables",
 };
 
-function ThinkingIndicator({ toolName, rerouting }: { toolName?: string | null; rerouting?: { provider: string; toModel: string } | null }) {
+function getHintPool(
+  elapsedS: number,
+  hasImage: boolean,
+  hasPdf: boolean,
+  modelId: string | undefined,
+  toolName: string | null | undefined,
+): string[] {
+  if (toolName) {
+    const toolHints: Record<string, string[]> = {
+      web_search: ["Scanning results", "Reading sources"],
+      search_emails: ["Searching inbox", "Filtering results"],
+      read_email: ["Parsing email content"],
+      supabase_query: ["Executing query", "Fetching rows"],
+      save_decision: ["Writing to memory"],
+      list_decisions: ["Recalling past decisions"],
+    };
+    return toolHints[toolName] ?? ["Processing"];
+  }
+
+  if (elapsedS < 5) {
+    if (hasImage) return ["Analyzing image"];
+    if (hasPdf) return ["Reading document"];
+    return ["Understanding your request"];
+  }
+  if (elapsedS < 15) {
+    const hints = hasImage
+      ? ["Processing visual details", "Interpreting image content"]
+      : hasPdf
+        ? ["Extracting text from PDF", "Analyzing document"]
+        : ["Reasoning through this", "Considering the details"];
+    const modelName = modelId ? shortModelName(modelId) : null;
+    if (modelName && modelName !== "Auto") hints.push(`${modelName} is working`);
+    return hints;
+  }
+  if (elapsedS < 45) {
+    const hints = ["Working through the problem", "Crafting a thorough response", "Almost there"];
+    if (hasImage) hints.unshift("Deep image analysis in progress");
+    if (hasPdf) hints.unshift("Cross-referencing document sections");
+    return hints;
+  }
+  if (elapsedS < 120) {
+    return ["This is a complex one", "Still working on it", "Taking extra care with this response"];
+  }
+  return ["Still processing — complex tasks take longer", "Working through it carefully", "Large inputs need more time", "Hang tight — generating response"];
+}
+
+const HINT_CYCLE_MS = 3500;
+
+function ThinkingIndicator({
+  toolName,
+  rerouting,
+  thinkingStartedAt,
+  hasImageAttachment,
+  hasPdfAttachment,
+  modelId,
+}: {
+  toolName?: string | null;
+  rerouting?: { provider: string; toModel: string } | null;
+  thinkingStartedAt: number;
+  hasImageAttachment?: boolean;
+  hasPdfAttachment?: boolean;
+  modelId?: string;
+}) {
   let label: string;
-  const sublabel: string | null = null;
   if (rerouting) {
     const toLabel = shortModelName(rerouting.toModel);
     label = `Re-routing to ${toLabel}`;
   } else {
     label = toolName ? TOOL_LABELS[toolName] ?? toolName : "Thinking";
   }
+
+  // --- Cycling sublabel ---
+  const [elapsedS, setElapsedS] = useState(0);
+  const [hintIndex, setHintIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const prevToolRef = useRef(toolName);
+
+  useEffect(() => {
+    const t = setInterval(() => setElapsedS(Math.floor((Date.now() - thinkingStartedAt) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [thinkingStartedAt]);
+
+  const hintPool = useMemo(
+    () => getHintPool(elapsedS, hasImageAttachment ?? false, hasPdfAttachment ?? false, modelId, toolName),
+    [elapsedS, hasImageAttachment, hasPdfAttachment, modelId, toolName],
+  );
+
+  useEffect(() => {
+    const cycler = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setHintIndex((i) => (i + 1) % Math.max(hintPool.length, 1));
+        setVisible(true);
+      }, 200);
+    }, HINT_CYCLE_MS);
+    return () => clearInterval(cycler);
+  }, [hintPool.length]);
+
+  useEffect(() => {
+    if (toolName !== prevToolRef.current) {
+      prevToolRef.current = toolName;
+      setHintIndex(0);
+      setVisible(true);
+    }
+  }, [toolName]);
+
+  const sublabel = hintPool[hintIndex % hintPool.length] ?? null;
 
   return (
     <div className="flex items-center gap-2 px-4 py-3 mb-4">
@@ -246,7 +344,7 @@ function ThinkingIndicator({ toolName, rerouting }: { toolName?: string | null; 
           {label}
         </span>
         {sublabel && (
-          <span className="text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px]">
+          <span className={`text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px] sublabel-fade ${visible ? "" : "sublabel-fade-hidden"}`}>
             {sublabel}
           </span>
         )}
@@ -344,6 +442,7 @@ export function ChatView() {
   const [switchingProjectName, setSwitchingProjectName] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [rerouting, setRerouting] = useState<{ provider: string; toModel: string } | null>(null);
+  const [thinkingStartedAt, setThinkingStartedAt] = useState<number>(0);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
   const logoMenuRef = useRef<HTMLDivElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -557,6 +656,7 @@ export function ChatView() {
     };
     addMessage(assistantMsg);
     setStreaming(true);
+    setThinkingStartedAt(Date.now());
 
     const effectiveModel = modelOverride ?? selectedModelId;
     const isDebateMode = effectiveModel === "meter-1.0";
@@ -906,6 +1006,9 @@ export function ChatView() {
 
   const lastMsg = messages[messages.length - 1];
   const showThinking = isStreaming && (rerouting || activeTool || (lastMsg?.role === "assistant" && lastMsg.content === ""));
+  const lastUserMsg = messages.length >= 2 ? messages[messages.length - 2] : null;
+  const hasImageAttachment = lastUserMsg?.attachments?.some(a => a.mimeType.startsWith("image/")) ?? false;
+  const hasPdfAttachment = lastUserMsg?.attachments?.some(a => a.mimeType === "application/pdf") ?? false;
 
   return (
     <div className="flex h-screen bg-background">
@@ -1183,7 +1286,16 @@ export function ChatView() {
               );
             })}
 
-            {showThinking && !debatePhase && <ThinkingIndicator toolName={activeTool} rerouting={rerouting} />}
+            {showThinking && !debatePhase && (
+              <ThinkingIndicator
+                toolName={activeTool}
+                rerouting={rerouting}
+                thinkingStartedAt={thinkingStartedAt}
+                hasImageAttachment={hasImageAttachment}
+                hasPdfAttachment={hasPdfAttachment}
+                modelId={selectedModelId}
+              />
+            )}
 
             <div ref={bottomRef} data-scroll-anchor />
           </div>
