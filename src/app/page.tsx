@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useMeterStore } from "@/lib/store";
+import { trackConnectorConnected } from "@/lib/analytics";
 import { ChatView } from "@/components/chat-view";
 import { LoginScreen } from "@/components/login-screen";
 
@@ -18,6 +19,7 @@ function HomeInner() {
     const oauthResult = searchParams.get("oauth");
     const provider = searchParams.get("provider");
     if (oauthResult === "success" && provider) {
+      trackConnectorConnected({ provider });
       connectService(provider);
       fetchConnectionStatus();
       router.replace("/");

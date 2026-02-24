@@ -6,6 +6,7 @@ import {
 } from "@simplewebauthn/server";
 import crypto from "crypto";
 import { createSession, setSessionCookie } from "@/lib/session";
+import { serverTrackAccountCreated } from "@/lib/analytics-server";
 
 const RP_NAME = "Meter";
 const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID || "meter.chat";
@@ -147,6 +148,9 @@ export async function POST(req: NextRequest) {
 
       // Create server-side session and set cookie
       const sessionToken = await createSession(uid);
+
+      serverTrackAccountCreated(uid, { email: user?.email ?? "" });
+
       const response = NextResponse.json({
         verified: true,
         user: {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMeterStore } from "@/lib/store";
+import { trackCardAdded } from "@/lib/analytics";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -52,6 +53,7 @@ function AddCardForm({ clientSecret, onSuccess }: { clientSecret: string; onSucc
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to confirm");
+        trackCardAdded({ brand: data.cardBrand, last4: data.cardLast4, source: "modal" });
         setCardOnFile(true, data.cardLast4, data.cardBrand);
         await fetchCards();
         onSuccess();

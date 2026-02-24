@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useMeterStore } from "@/lib/store";
+import {
+  trackSettlementInitiated,
+  trackSettlementCompleted,
+  trackSettlementFailed,
+} from "@/lib/analytics";
 
 export function SettlePill() {
   const [open, setOpen] = useState(false);
@@ -85,13 +90,17 @@ export function SettlePill() {
   }, [activeProject, pendingCharges]);
 
   const handleSettle = async () => {
+    trackSettlementInitiated({ amount: pendingBalance, projectId: activeProject?.id });
     const result = await settleAll();
     if (result.success) {
+      trackSettlementCompleted({ amount: pendingBalance, projectId: activeProject?.id });
       setSettled(true);
       setTimeout(() => {
         setSettled(false);
         setOpen(false);
       }, 1200);
+    } else {
+      trackSettlementFailed({ amount: pendingBalance, projectId: activeProject?.id });
     }
   };
 

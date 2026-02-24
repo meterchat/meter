@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { deleteAllUserSessions } from "@/lib/session";
+import { serverTrackAccountDeleted } from "@/lib/analytics-server";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
@@ -82,6 +83,8 @@ export async function POST(req: NextRequest) {
 
     // Delete user (cascades passkey_credentials, oauth_tokens)
     await supabase.from("meter_users").delete().eq("id", userId);
+
+    serverTrackAccountDeleted(userId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

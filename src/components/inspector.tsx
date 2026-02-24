@@ -10,6 +10,28 @@ import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
 import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
 import { AddCardModal } from "@/components/add-card-modal";
+import {
+  trackWorkspaceDeleted,
+  trackWorkspaceRenamed,
+  trackDecisionArchived,
+  trackDecisionReopened,
+  trackDecisionRevisited,
+  trackConnectorInitiated,
+  trackConnectorDisconnected,
+  trackArtifactGenerated,
+  trackArtifactRegenerated,
+  trackArtifactPushed,
+  trackCardRemoved,
+  trackCardDefaultChanged,
+  trackCardAdded,
+  trackSettlementInitiated,
+  trackSettlementCompleted,
+  trackSettlementFailed,
+  trackSpendLimitUpdated,
+  trackInspectorToggled,
+  trackInspectorTabChanged,
+  trackThemeChanged,
+} from "@/lib/analytics";
 
 const INSPECTOR_TABS = ["decisions", "payments", "connections"] as const;
 
@@ -48,6 +70,7 @@ export function Inspector() {
 
   const handleDeleteWorkspace = async () => {
     if (!activeCompany) return;
+    trackWorkspaceDeleted({ workspaceId: activeCompany.id, workspaceName: activeCompany.name });
     setDeleting(true);
 
     // Soft-delete server-side session (sets deleted_at, retained 7 days)
@@ -96,6 +119,7 @@ export function Inspector() {
 
   const handleSaveName = () => {
     if (!activeCompany || !editingName.trim()) return;
+    trackWorkspaceRenamed({ workspaceId: activeCompany.id, oldName: activeCompany.name, newName: editingName.trim() });
     renameCompany(activeCompany.id, editingName.trim());
     setNameEdited(false);
   };
@@ -104,14 +128,14 @@ export function Inspector() {
 
   return (
     <>
-      <div className="fixed inset-0 z-40" onClick={() => setInspectorOpen(false)} />
+      <div className="fixed inset-0 z-40" onClick={() => { trackInspectorToggled({ open: false }); setInspectorOpen(false); }} />
       <div className="fixed right-0 top-0 h-screen w-[420px] border-l border-border bg-card flex flex-col z-50">
         <div className="flex h-12 items-center justify-between border-b border-border px-4">
           <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
             Meter
           </span>
           <button
-            onClick={() => setInspectorOpen(false)}
+            onClick={() => { trackInspectorToggled({ open: false }); setInspectorOpen(false); }}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -125,7 +149,7 @@ export function Inspector() {
           {INSPECTOR_TABS.map((tab) => (
             <button
               key={tab}
-              onClick={() => setInspectorTab(tab)}
+              onClick={() => { trackInspectorTabChanged({ tab }); setInspectorTab(tab); }}
             className={`flex-1 py-2.5 font-mono text-[11px] uppercase tracking-wider transition-colors ${
                 inspectorTab === tab
                   ? "text-foreground border-b border-foreground"
@@ -266,6 +290,7 @@ function ConnectionsTab() {
 
   const handleConnect = (providerId: string) => {
     if (!userId) return;
+    trackConnectorInitiated({ provider: providerId, method: isApiKeyProvider(providerId) ? "api_key" : "oauth" });
     if (isApiKeyProvider(providerId)) {
       setApiKeyProvider(providerId);
     } else {
@@ -310,7 +335,7 @@ function ConnectionsTab() {
                       Connected
                     </span>
                     <button
-                      onClick={() => disconnectServiceRemote(connector.id)}
+                      onClick={() => { trackConnectorDisconnected({ provider: connector.id }); disconnectServiceRemote(connector.id); }}
                       className="text-muted-foreground/40 hover:text-red-400 transition-colors"
                       title="Disconnect"
                     >
@@ -359,7 +384,11 @@ function DecisionRow({ decision }: { decision: Decision }) {
   const isDecided = decision.status === "decided";
 
   const handleRevisit = () => {
-    if (isDecided) reopenDecision(decision.id);
+    trackDecisionRevisited({ decisionId: decision.id, status: decision.status });
+    if (isDecided) {
+      trackDecisionReopened({ decisionId: decision.id });
+      reopenDecision(decision.id);
+    }
     const msg = isDecided
       ? `I want to revisit the decision "${decision.title}" — we chose "${decision.choice}". Can we reconsider this?`
       : `Let's discuss the open decision "${decision.title}" and make a call.`;
@@ -401,7 +430,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
             revisit
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); archiveDecision(decision.id); }}
+            onClick={(e) => { e.stopPropagation(); trackDecisionArchived({ decisionId: decision.id }); archiveDecision(decision.id); }}
             className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
           >
             archive
@@ -715,10 +744,12 @@ function ArtifactsSection({ activeProjectId }: { activeProjectId: string | null 
   };
 
   const handleGenerate = () => {
+    trackArtifactGenerated({ projectId: activeProjectId ?? undefined });
     setPendingInput("Generate strategy artifacts for this project based on all our decisions and conversation so far. Create README.md, ARCHITECTURE.md, DESIGN.md, DECISIONS.md, CLAUDE.md, and .cursorrules files.");
   };
 
   const handleRegenerate = (filePath: string) => {
+    trackArtifactRegenerated({ filePath, projectId: activeProjectId ?? undefined });
     setPendingInput(`Regenerate the ${filePath} strategy artifact based on the latest decisions and conversation context.`);
   };
 
@@ -745,6 +776,7 @@ function ArtifactsSection({ activeProjectId }: { activeProjectId: string | null 
         body: JSON.stringify(body),
       });
       if (res.ok && activeProjectId) {
+        trackArtifactPushed({ repo: targetRepo, artifactCount: artifactIds?.length, projectId: activeProjectId });
         await fetchArtifacts(activeProjectId);
       }
     } catch { /* silent */ }
@@ -963,6 +995,7 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
   const saveLimitOnBlur = (field: keyof typeof spendLimits, raw: string) => {
     const val = raw.trim() === "" ? null : Number(raw);
     if (val !== null && isNaN(val)) return;
+    trackSpendLimitUpdated({ field, value: val, projectId: activeProjectId ?? undefined });
     updateSpendLimits({ [field]: val }, activeProjectId ?? undefined);
   };
 
@@ -987,6 +1020,7 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
 
   const handleRemove = async (pmId: string) => {
     setRemoveError(null);
+    trackCardRemoved({ cardId: pmId });
     const result = await removeCard(pmId);
     if (!result.success) {
       setRemoveError(result.error ?? "Failed to remove card");
@@ -1000,15 +1034,20 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
 
   const handleSettle = async () => {
     if (settlementError) clearSettlementError();
+    trackSettlementInitiated({ amount: pendingBalance, projectId: workspaceId ?? undefined });
     const result = await settleAll();
     if (result.success) {
+      trackSettlementCompleted({ amount: pendingBalance, projectId: workspaceId ?? undefined });
       setSettleSuccess(true);
       setTimeout(() => setSettleSuccess(false), 2000);
+    } else {
+      trackSettlementFailed({ amount: pendingBalance, projectId: workspaceId ?? undefined });
     }
   };
 
   const handleSetDefault = async (cardId: string) => {
     if (!cardId) return;
+    trackCardDefaultChanged({ cardId });
     setSwitchingCardId(cardId);
     await setDefaultCard(cardId);
     setTimeout(() => setSwitchingCardId(null), 1200);
@@ -1197,7 +1236,7 @@ function ThemeToggle() {
 
   return (
     <button
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={() => { const next = isDark ? "light" : "dark"; trackThemeChanged({ theme: next }); setTheme(next); }}
       className="relative h-[26px] w-[52px] rounded-full border border-border bg-background transition-colors hover:border-foreground/20"
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >

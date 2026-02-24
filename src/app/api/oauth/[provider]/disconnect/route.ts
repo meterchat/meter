@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deleteToken } from "@/lib/oauth";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import { serverTrackOAuthDisconnected } from "@/lib/analytics-server";
 
 export async function POST(
   req: NextRequest,
@@ -19,6 +20,7 @@ export async function POST(
   }
 
   await deleteToken(userId, providerId, workspaceId);
+  serverTrackOAuthDisconnected(userId, { provider: providerId, workspaceId });
 
   // Backward compat: update gmail_connected field
   if (providerId === "gmail") {

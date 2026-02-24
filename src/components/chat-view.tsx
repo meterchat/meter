@@ -2,6 +2,27 @@
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type Attachment } from "@/lib/store";
+import {
+  trackMessageSent,
+  trackMessageCopied,
+  trackMessagePinned,
+  trackMessageUnpinned,
+  trackResponseStopped,
+  trackFileUploaded,
+  trackChatBlocked,
+  trackDebateStarted,
+  trackDebateCompleted,
+  trackDecideClicked,
+  trackDecisionCreated,
+  trackDecisionResolved,
+  trackConnectorInitiated,
+  trackWorkspaceCreated,
+  trackCardAssignedToWorkspace,
+  trackOnboardingStepViewed,
+  trackSlashCommandUsed,
+  trackInspectorToggled,
+  resetUser,
+} from "@/lib/analytics";
 import { MeterPill } from "@/components/meter-pill";
 import { HeaderMeter } from "@/components/header-meter";
 import { ModelPickerTrigger, ModelPickerPanel } from "@/components/model-picker";
@@ -95,6 +116,7 @@ function CopyButton({ text }: { text: string }) {
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     await navigator.clipboard.writeText(text);
+    trackMessageCopied();
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -117,7 +139,12 @@ function PinButton({ messageId, pinned }: { messageId: string; pinned?: boolean 
   const togglePinMessage = useMeterStore((s) => s.togglePinMessage);
   return (
     <button
-      onClick={(e) => { e.stopPropagation(); togglePinMessage(messageId); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (pinned) trackMessageUnpinned({ messageId });
+        else trackMessagePinned({ messageId });
+        togglePinMessage(messageId);
+      }}
       className={`absolute right-2 top-9 rounded-md p-1 transition-all ${
         pinned
           ? "text-amber-500/70 hover:text-amber-500"
@@ -480,6 +507,8 @@ export function ChatView() {
     createCompany(name, sessionId);
     addProject(name, sessionId);
     setActiveProjectChat(sessionId);
+    trackWorkspaceCreated({ name, source: "chat_onboarding" });
+    trackOnboardingStepViewed({ step: "card" });
     setOnboardingStep("card");
   };
 
@@ -542,6 +571,12 @@ export function ChatView() {
     setUploading(true);
     const results = await Promise.all(valid.map(uploadFile));
     const uploaded = results.filter((a): a is Attachment => a !== null);
+    if (uploaded.length > 0) {
+      trackFileUploaded({
+        mimeType: uploaded[0].mimeType,
+        count: uploaded.length,
+      });
+    }
     setPendingAttachments((prev) => [...prev, ...uploaded]);
     setUploading(false);
   }, [uploadFile]);
@@ -828,6 +863,10 @@ export function ChatView() {
                   projectId: activeProjectId,
                 });
                 useMeterStore.getState().setMessageDecisionId(decId);
+                trackDecisionCreated({ decisionId: decId, title: d.title, projectId: activeProjectId });
+                if (d.status === "decided") {
+                  trackDecisionResolved({ decisionId: decId, title: d.title });
+                }
               }
               if (data.name === "save_artifact" && data.artifact) {
                 const a = data.artifact as { id?: string; filePath: string; status: string };
@@ -865,6 +904,7 @@ export function ChatView() {
       // Persist debate trace to the message
       if (isDebateMode && localTrace.length > 0) {
         useMeterStore.getState().setDebateTrace(localTrace);
+        trackDebateCompleted({ projectId: activeProjectId, turnCount: localTrace.length });
       }
 
       if (finalUsage) {
@@ -913,6 +953,7 @@ export function ChatView() {
     if (!input || (!hasText && !hasAttachments) || isStreaming || !workspaceCardReady) return;
 
     if (chatBlocked) {
+      trackChatBlocked({ projectId: activeProjectId });
       const userContent = input.value.trim();
       input.value = "";
       input.style.height = "auto";
@@ -938,6 +979,15 @@ export function ChatView() {
 
     const userContent = input.value.trim() || (pendingAttachments.length > 0 ? "What's in this file?" : "");
     const attachmentsToSend = pendingAttachments.length > 0 ? [...pendingAttachments] : undefined;
+
+    trackMessageSent({
+      model: selectedModelId,
+      projectId: activeProjectId,
+      hasAttachments: !!attachmentsToSend,
+      attachmentCount: attachmentsToSend?.length ?? 0,
+      messageLength: userContent.length,
+    });
+
     input.value = "";
     input.style.height = "auto";
     localStorage.removeItem(DRAFT_KEY(activeProjectId));
@@ -948,18 +998,21 @@ export function ChatView() {
 
   /** Stop the current streaming response */
   const handleStop = () => {
+    trackResponseStopped();
     abortRef.current?.abort();
   };
 
   /** Triggered by the "Debate" button on a decision-point message */
   const handleDebate = async () => {
     if (isStreaming || !workspaceCardReady) return;
+    trackDebateStarted({ projectId: activeProjectId });
     await streamResponse("Debate this.", "meter-1.0");
   };
 
   /** Triggered by the "Decide" button on a decision-point message */
   const handleDecide = async () => {
     if (isStreaming || !workspaceCardReady) return;
+    trackDecideClicked({ projectId: activeProjectId });
     await streamResponse("Yes, log that as a decision.");
   };
 
@@ -1005,6 +1058,7 @@ export function ChatView() {
 
   const handleCommandSelect = useCallback((chatPrompt: string) => {
     if (!inputRef.current) return;
+    trackSlashCommandUsed({ command: chatPrompt.slice(0, 50) });
     inputRef.current.value = chatPrompt;
     setSlashOpen(false);
     setSlashQuery("");
@@ -1019,6 +1073,7 @@ export function ChatView() {
 
   const handleSlashConnect = useCallback((providerId: string) => {
     if (!userId) return;
+    trackConnectorInitiated({ provider: providerId, method: isApiKeyProvider(providerId) ? "api_key" : "oauth" });
     if (isApiKeyProvider(providerId)) {
       setApiKeyProvider(providerId);
     } else {
@@ -1123,7 +1178,7 @@ export function ChatView() {
                 </button>
                 <div className="mx-2 my-1 h-px bg-border" />
                 <button
-                  onClick={() => { setLogoMenuOpen(false); logout(); }}
+                  onClick={() => { setLogoMenuOpen(false); resetUser(); logout(); }}
                   className="flex w-full items-center gap-2.5 px-3 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1213,7 +1268,7 @@ export function ChatView() {
                       <p>Welcome to <strong>{activeProject?.name ?? "this workspace"}</strong>. Add a payment method to get started, or use your existing card.</p>
                     </div>
                     <button
-                      onClick={() => setCardAssigned(activeProjectId)}
+                      onClick={() => { trackCardAssignedToWorkspace({ projectId: activeProjectId }); setCardAssigned(activeProjectId); }}
                       className="mt-3 w-full rounded-lg border border-foreground/20 bg-foreground/5 py-2.5 font-mono text-xs text-foreground transition-colors hover:bg-foreground/10"
                     >
                       Use {cardBrand ? cardBrand.charAt(0).toUpperCase() + cardBrand.slice(1) : "card"} ****{cardLast4 ?? ""}{sourceWorkspaceName ? ` from ${sourceWorkspaceName}` : ""}
@@ -1346,7 +1401,7 @@ export function ChatView() {
                       )}
 
                       {msg.role === "assistant" && msg.decisionId && (
-                        <DecisionPill onOpen={() => { setInspectorOpen(true); setInspectorTab("decisions"); }} />
+                        <DecisionPill onOpen={() => { trackInspectorToggled({ open: true }); setInspectorOpen(true); setInspectorTab("decisions"); }} />
                       )}
                       {msg.role === "assistant" && <MessageFooter msg={msg} projectId={activeProjectId} />}
                     </div>

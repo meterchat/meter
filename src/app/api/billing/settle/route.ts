@@ -3,6 +3,11 @@ import { stripe, ensureStripeCustomer } from "@/lib/stripe";
 import { getSupabaseServer } from "@/lib/supabase";
 import { batchSettle, SettlementItem } from "@/lib/base";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
+import {
+  serverTrackSettlementCompleted,
+  serverTrackSettlementFailed,
+  serverTrackSettlementWaived,
+} from "@/lib/analytics-server";
 
 function scopedSessionId(userId: string, localId: string): string {
   if (localId.startsWith(`${userId}:`)) return localId;
@@ -45,6 +50,12 @@ export async function POST(req: NextRequest) {
       card_brand: null,
       status: "waived",
     }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
+
+    serverTrackSettlementWaived(userId, {
+      amount,
+      workspaceId,
+      messageCount: messageIds?.length ?? 0,
+    });
 
     return NextResponse.json({
       success: true,
@@ -158,6 +169,17 @@ export async function POST(req: NextRequest) {
       .eq("id", dbSessionId)
       .eq("user_id", userId);
 
+    serverTrackSettlementCompleted(userId, {
+      amount,
+      workspaceId,
+      messageCount: messageIds?.length ?? 0,
+      chargeCount: chargeIds?.length ?? 0,
+      stripePaymentIntentId: paymentIntent.id,
+      txHash: txHash ?? undefined,
+      cardLast4: pmObj && "card" in pmObj ? pmObj.card?.last4 ?? undefined : undefined,
+      cardBrand: pmObj && "card" in pmObj ? pmObj.card?.brand ?? undefined : undefined,
+    });
+
     return NextResponse.json({
       success: true,
       paymentIntentId: paymentIntent.id,
@@ -167,6 +189,12 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Settlement error:", message);
+
+    serverTrackSettlementFailed(userId, {
+      amount,
+      workspaceId,
+      error: message,
+    });
 
     if (message.includes("authentication_required") || message.includes("card_declined")) {
       await markSettlementFailed().catch(() => {});

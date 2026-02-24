@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import { serverTrackSessionCreated, serverTrackSessionDeleted } from "@/lib/analytics-server";
 
 // Namespace session IDs per user to prevent collisions
 // (e.g. all users start with session id "meter")
@@ -101,6 +102,8 @@ export async function DELETE(req: NextRequest) {
 
     if (delErr) throw delErr;
 
+    serverTrackSessionDeleted(userId, { sessionId: localSessionId });
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Failed to delete session:", err);
@@ -144,6 +147,14 @@ export async function POST(req: NextRequest) {
     );
 
     if (sessErr) throw sessErr;
+
+    // Track session creation (first sync only — no messages means new session)
+    if (!clientHasMessages) {
+      serverTrackSessionCreated(userId, {
+        sessionId: session.id,
+        projectName: session.name,
+      });
+    }
 
     // Upsert messages in batches
     if (clientHasMessages) {

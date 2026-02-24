@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useMeterStore } from "@/lib/store";
+import { trackCardAdded } from "@/lib/analytics";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -44,6 +45,7 @@ function CardFormInner({ clientSecret }: { clientSecret: string }) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to confirm");
+        trackCardAdded({ brand: data.cardBrand, last4: data.cardLast4, source: "inline_form" });
         setCardOnFile(true, data.cardLast4, data.cardBrand);
       }
     } catch (err) {
