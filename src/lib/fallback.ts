@@ -3,13 +3,23 @@
  *
  * Tier 1: OpenRouter (user's selected model)
  * Tier 2: Same model via direct API key (CLAUDE_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY) — silent
- * Tier 3: Auto-route to a different model via direct key — sends "rerouting" event to client
+ * Tier 3: AWS Bedrock (Claude models only) — silent
+ * Tier 4: Auto-route to a different model (OpenRouter → direct → Bedrock) — sends "rerouting" event
  *
  * If all tiers fail, sends a final error event.
  */
 
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  BedrockRuntimeClient,
+  ConverseStreamCommand,
+  type Message as BedrockMessage,
+  type ContentBlock as BedrockContentBlock,
+  type SystemContentBlock,
+  type Tool as BedrockTool,
+  type ToolInputSchema,
+} from "@aws-sdk/client-bedrock-runtime";
 import { GoogleGenerativeAI, type Content, type Part, type FunctionDeclarationSchema } from "@google/generative-ai";
 import type { ToolDef } from "./tools";
 
@@ -59,6 +69,31 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
 /** Models where direct API should be preferred over OpenRouter.
  *  Empty — OpenRouter is primary for all models (supports caching natively). */
 const PREFER_DIRECT: Set<string> = new Set([]);
+
+/* ─── Bedrock provider (Claude models via AWS) ─────────────────── */
+
+/** Maps OpenRouter model IDs to AWS Bedrock cross-region inference profile IDs */
+const BEDROCK_MODELS: Record<string, string> = {
+  "anthropic/claude-sonnet-4.6": "us.anthropic.claude-sonnet-4-6",
+  "anthropic/claude-opus-4.6": "us.anthropic.claude-opus-4-6-v1",
+};
+
+/** Check whether AWS Bedrock API key is configured */
+function isBedrockAvailable(): boolean {
+  return !!(process.env.BEDROCK_API_KEY || process.env.AWS_BEARER_TOKEN_BEDROCK);
+}
+
+/** Build a BedrockRuntimeClient using bearer token auth (Bedrock API key) */
+function createBedrockClient(): BedrockRuntimeClient {
+  // The AWS SDK reads AWS_BEARER_TOKEN_BEDROCK for bearer auth.
+  // Map BEDROCK_API_KEY → AWS_BEARER_TOKEN_BEDROCK so the SDK picks it up.
+  if (process.env.BEDROCK_API_KEY && !process.env.AWS_BEARER_TOKEN_BEDROCK) {
+    process.env.AWS_BEARER_TOKEN_BEDROCK = process.env.BEDROCK_API_KEY;
+  }
+  return new BedrockRuntimeClient({
+    region: process.env.AWS_REGION ?? "us-east-1",
+  });
+}
 
 /** Models that support cache_control breakpoints on OpenRouter */
 function supportsCacheControl(model: string): boolean {
@@ -236,18 +271,19 @@ export async function streamOpenRouter(
 }
 
 /**
- * Stream via direct Anthropic API (Tier 2). Uses @anthropic-ai/sdk.
+ * Core streaming logic for Anthropic-protocol APIs (direct Anthropic + Bedrock).
+ * Accepts a pre-built client (Anthropic or AnthropicBedrock).
  */
-async function streamAnthropic(
+async function _streamAnthropicProtocol(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: any,
   nativeModel: string,
-  apiKey: string,
   conversation: Message[],
   tools: ToolDef[],
   send: Send,
   estimateTokens: (text: string) => number,
   totalTokensOut: { value: number },
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
-  const client = new Anthropic({ apiKey });
 
   // Convert OpenAI message format to Anthropic format
   const systemMsg = conversation.find((m) => m.role === "system");
@@ -458,6 +494,179 @@ async function streamAnthropic(
 
   if (!textContent && !hasToolCalls) {
     throw new Error("Model returned empty response");
+  }
+
+  return { textContent, toolCalls, hasToolCalls };
+}
+
+/**
+ * Stream via direct Anthropic API (Tier 2). Uses @anthropic-ai/sdk.
+ */
+async function streamAnthropic(
+  nativeModel: string,
+  apiKey: string,
+  conversation: Message[],
+  tools: ToolDef[],
+  send: Send,
+  estimateTokens: (text: string) => number,
+  totalTokensOut: { value: number },
+): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
+  const client = new Anthropic({ apiKey });
+  return _streamAnthropicProtocol(client, nativeModel, conversation, tools, send, estimateTokens, totalTokensOut);
+}
+
+/**
+ * Stream via AWS Bedrock Converse API (Tier 3).
+ * Uses bearer token auth (Bedrock API key) with ConverseStreamCommand.
+ */
+async function streamBedrock(
+  bedrockModelId: string,
+  conversation: Message[],
+  tools: ToolDef[],
+  send: Send,
+  estimateTokens: (text: string) => number,
+  totalTokensOut: { value: number },
+): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
+  const client = createBedrockClient();
+
+  // ── Convert OpenAI messages to Bedrock Converse format ──
+  const systemBlocks: SystemContentBlock[] = [];
+  const bedrockMessages: BedrockMessage[] = [];
+
+  for (const m of conversation) {
+    if (m.role === "system") {
+      const text = typeof m.content === "string" ? m.content : "";
+      if (text) systemBlocks.push({ text });
+      continue;
+    }
+
+    if (m.role === "assistant") {
+      const text = typeof m.content === "string" ? m.content : "";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toolCalls = (m as any).tool_calls as
+        | { id: string; function: { name: string; arguments: string } }[]
+        | undefined;
+
+      const content: BedrockContentBlock[] = [];
+      if (text) content.push({ text });
+      if (toolCalls) {
+        for (const tc of toolCalls) {
+          let input: Record<string, unknown> = {};
+          try { input = JSON.parse(tc.function.arguments); } catch { /* malformed */ }
+          content.push({
+            toolUse: { toolUseId: tc.id, name: tc.function.name, input: input as unknown as import("@smithy/types").DocumentType },
+          });
+        }
+      }
+      if (content.length > 0) bedrockMessages.push({ role: "assistant", content });
+    } else if (m.role === "tool") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toolCallId = (m as any).tool_call_id as string;
+      const text = typeof m.content === "string" ? m.content : String(m.content ?? "");
+      const toolResult: BedrockContentBlock = {
+        toolResult: {
+          toolUseId: toolCallId,
+          content: [{ text }],
+        },
+      };
+      // Merge consecutive tool results into one user message (Bedrock requires alternating roles)
+      const last = bedrockMessages[bedrockMessages.length - 1];
+      if (last?.role === "user" && last.content) {
+        last.content.push(toolResult);
+      } else {
+        bedrockMessages.push({ role: "user", content: [toolResult] });
+      }
+    } else {
+      // User message — may be multimodal
+      const content: BedrockContentBlock[] = [];
+      if (Array.isArray(m.content)) {
+        for (const part of m.content) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const p = part as any;
+          if (p.type === "text") {
+            content.push({ text: p.text });
+          } else if (p.type === "image_url") {
+            const url: string = p.image_url?.url ?? "";
+            const dataMatch = url.match(/^data:(image\/[^;]+);base64,(.+)$/);
+            if (dataMatch) {
+              const format = dataMatch[1].split("/")[1] as "jpeg" | "png" | "gif" | "webp";
+              content.push({
+                image: { format, source: { bytes: Buffer.from(dataMatch[2], "base64") } },
+              });
+            }
+          }
+        }
+      } else {
+        const text = typeof m.content === "string" ? m.content : String(m.content ?? "");
+        if (text) content.push({ text });
+      }
+      if (content.length > 0) bedrockMessages.push({ role: "user", content });
+    }
+  }
+
+  // ── Convert tools to Bedrock format ──
+  const bedrockTools: BedrockTool[] = tools.map((t) => ({
+    toolSpec: {
+      name: t.function.name,
+      description: t.function.description,
+      inputSchema: { json: t.function.parameters } as ToolInputSchema,
+    },
+  }));
+
+  const command = new ConverseStreamCommand({
+    modelId: bedrockModelId,
+    messages: bedrockMessages,
+    ...(systemBlocks.length > 0 ? { system: systemBlocks } : {}),
+    ...(bedrockTools.length > 0 ? { toolConfig: { tools: bedrockTools } } : {}),
+    inferenceConfig: { maxTokens: 16384 },
+  });
+
+  const response = await client.send(command);
+
+  // ── Parse streaming events ──
+  let textContent = "";
+  const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+  let hasToolCalls = false;
+  let toolIdx = 0;
+
+  if (response.stream) {
+    for await (const chunk of response.stream) {
+      if (chunk.contentBlockStart?.start?.toolUse) {
+        const tu = chunk.contentBlockStart.start.toolUse;
+        hasToolCalls = true;
+        toolCalls.set(toolIdx, { id: tu.toolUseId ?? "", name: tu.name ?? "", arguments: "" });
+        toolIdx++;
+      }
+
+      if (chunk.contentBlockDelta?.delta) {
+        const delta = chunk.contentBlockDelta.delta;
+        if (delta.text) {
+          textContent += delta.text;
+          totalTokensOut.value += estimateTokens(delta.text);
+          send({ type: "delta", content: delta.text, tokensOut: totalTokensOut.value });
+        }
+        if (delta.toolUse?.input) {
+          const existing = toolCalls.get(toolIdx - 1);
+          if (existing) existing.arguments += delta.toolUse.input;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const reasoning = (delta as any).reasoningContent?.text;
+        if (reasoning) send({ type: "thinking_delta", content: reasoning });
+      }
+
+      if (chunk.metadata?.usage) {
+        const u = chunk.metadata.usage;
+        send({
+          type: "usage",
+          tokensIn: u.inputTokens,
+          tokensOut: u.outputTokens,
+        });
+      }
+    }
+  }
+
+  if (!textContent && !hasToolCalls) {
+    throw new Error("Bedrock returned empty response");
   }
 
   return { textContent, toolCalls, hasToolCalls };
@@ -785,7 +994,7 @@ export interface FallbackResult {
   hasToolCalls: boolean;
   /** Which model actually served the response */
   actualModel: string;
-  /** Which tier succeeded: 1=openrouter, 2=direct-same-model, 3=auto-route */
+  /** Which tier succeeded: 1=openrouter, 2=direct-same-model, 3=bedrock, 4=auto-route */
   tier: number;
 }
 
@@ -794,8 +1003,10 @@ export interface FallbackResult {
  *
  * Tier 1: OpenRouter with the requested model
  * Tier 2: Same model via direct API key (silent — no client notification)
- * Tier 3: Different model via direct API key (sends "rerouting" event)
+ * Tier 3: AWS Bedrock for Claude models (silent — no client notification)
+ * Tier 4: Different model via OpenRouter → direct → Bedrock (sends "rerouting" event)
  *
+ * Final fallback: GPT 5.2 (via OpenRouter or direct OpenAI key).
  * Throws only if ALL tiers fail.
  */
 export async function streamWithFallback(
@@ -851,8 +1062,23 @@ export async function streamWithFallback(
     }
   }
 
-  // ── Tier 3: Auto-route to a different model ─────────────────────
-  // For each candidate, try OpenRouter first, then direct key (mirrors Tier 1→2).
+  // ── Tier 3: AWS Bedrock (Claude models only, silent) ────────────
+  const bedrockModelId = BEDROCK_MODELS[requestedModel];
+  if (bedrockModelId && isBedrockAvailable()) {
+    try {
+      console.log("[fallback] tier 3 (bedrock, same model):", requestedModel, "→", bedrockModelId);
+      const result = await streamBedrock(bedrockModelId, conversation, tools, send, estimateTokens, totalTokensOut);
+      return { ...result, actualModel: requestedModel, tier: 3 };
+    } catch (err) {
+      const e = err as Error;
+      console.error("[fallback] tier 3 (bedrock) failed:", requestedModel, e.message);
+      errors.push({ tier: 3, model: requestedModel, error: e.message });
+    }
+  }
+
+  // ── Tier 4: Auto-route to a different model ─────────────────────
+  // For each candidate, try OpenRouter → direct key → Bedrock (if Claude).
+  // GPT 5.2 serves as the final fallback for all models.
   const candidates = AUTO_ROUTE_ORDER.filter((m) => m !== requestedModel);
 
   for (const candidateModel of candidates) {
@@ -865,28 +1091,43 @@ export async function streamWithFallback(
     // Try OpenRouter first for this candidate
     if (process.env.OPENROUTER_API_KEY) {
       try {
-        console.log("[fallback] tier 3 (openrouter, auto-route):", candidateModel);
+        console.log("[fallback] tier 4 (openrouter, auto-route):", candidateModel);
         send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
         const result = await streamOpenRouter(candidateModel, conversation, tools, send, estimateTokens, totalTokensOut);
-        return { ...result, actualModel: candidateModel, tier: 3 };
+        return { ...result, actualModel: candidateModel, tier: 4 };
       } catch (err) {
         const e = err as Error;
-        console.error("[fallback] tier 3 openrouter failed:", candidateModel, e.message);
-        errors.push({ tier: 3, model: candidateModel, error: e.message });
+        console.error("[fallback] tier 4 openrouter failed:", candidateModel, e.message);
+        errors.push({ tier: 4, model: candidateModel, error: e.message });
       }
     }
 
     // Then try direct key for this candidate
     if (candidateProvider && candidateKey) {
       try {
-        console.log("[fallback] tier 3 (direct, auto-route):", candidateModel);
+        console.log("[fallback] tier 4 (direct, auto-route):", candidateModel);
         send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
         const result = await streamDirect(candidateProvider, candidateKey, conversation, tools, send, estimateTokens, totalTokensOut);
-        return { ...result, actualModel: candidateModel, tier: 3 };
+        return { ...result, actualModel: candidateModel, tier: 4 };
       } catch (err) {
         const e = err as Error;
-        console.error("[fallback] tier 3 direct failed:", candidateModel, e.message);
-        errors.push({ tier: 3, model: candidateModel, error: e.message });
+        console.error("[fallback] tier 4 direct failed:", candidateModel, e.message);
+        errors.push({ tier: 4, model: candidateModel, error: e.message });
+      }
+    }
+
+    // Then try Bedrock for Claude candidates
+    const candidateBedrockId = BEDROCK_MODELS[candidateModel];
+    if (candidateBedrockId && isBedrockAvailable()) {
+      try {
+        console.log("[fallback] tier 4 (bedrock, auto-route):", candidateModel, "→", candidateBedrockId);
+        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
+        const result = await streamBedrock(candidateBedrockId, conversation, tools, send, estimateTokens, totalTokensOut);
+        return { ...result, actualModel: candidateModel, tier: 4 };
+      } catch (err) {
+        const e = err as Error;
+        console.error("[fallback] tier 4 bedrock failed:", candidateModel, e.message);
+        errors.push({ tier: 4, model: candidateModel, error: e.message });
       }
     }
   }
