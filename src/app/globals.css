@@ -149,6 +149,14 @@
   animation: shimmer 2s ease-in-out infinite;
 }
 
+/* Sublabel fade for ThinkingIndicator sub-status */
+.sublabel-fade {
+  transition: opacity 200ms ease-in-out;
+}
+.sublabel-fade-hidden {
+  opacity: 0;
+}
+
 /* Meter ticking — subtle pulse on cost digits */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(2px); }
