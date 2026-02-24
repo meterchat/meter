@@ -42,7 +42,7 @@ export async function ensureStripeCustomer(userId: string): Promise<string> {
 
   // Create new customer
   const customer = await stripe.customers.create({
-    email: user.email,
+    ...(user.email ? { email: user.email } : {}),
     metadata: { meter_user_id: userId },
   });
 

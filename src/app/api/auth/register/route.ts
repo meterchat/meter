@@ -58,9 +58,11 @@ export async function POST(req: NextRequest) {
         rpID: RP_ID,
         userName: normalizedEmail,
         userDisplayName: normalizedEmail.split("@")[0],
+        userID: new TextEncoder().encode(userId),
         attestationType: "none",
         authenticatorSelection: {
-          residentKey: "preferred",
+          residentKey: "required",
+          requireResidentKey: true,
           userVerification: "preferred",
         },
         excludeCredentials: (existingCreds ?? []).map((c) => ({
