@@ -149,7 +149,7 @@ const STATEMENTS: string[] = [
   // File attachments support
   `alter table chat_messages add column if not exists attachments jsonb`,
   `insert into storage.buckets (id, name, public) values ('attachments', 'attachments', true) on conflict (id) do nothing`,
-  `create policy if not exists "Public read access" on storage.objects for select using (bucket_id = 'attachments')`,
+  `do $$ begin create policy "Public read access" on storage.objects for select using (bucket_id = 'attachments'); exception when duplicate_object then null; end $$`,
 
   // Soft-delete support for workspace deletion (7-day retention)
   `alter table chat_sessions add column if not exists deleted_at timestamptz default null`,
