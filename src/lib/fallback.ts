@@ -3,13 +3,15 @@
  *
  * Tier 1: OpenRouter (user's selected model)
  * Tier 2: Same model via direct API key (CLAUDE_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY) — silent
- * Tier 3: Auto-route to a different model via direct key — sends "rerouting" event to client
+ * Tier 3: AWS Bedrock (Claude models only) — silent
+ * Tier 4: Auto-route to a different model (OpenRouter → direct → Bedrock) — sends "rerouting" event
  *
  * If all tiers fail, sends a final error event.
  */
 
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import AnthropicBedrock from "@anthropic-ai/bedrock-sdk";
 import { GoogleGenerativeAI, type Content, type Part, type FunctionDeclarationSchema } from "@google/generative-ai";
 import type { ToolDef } from "./tools";
 
@@ -59,6 +61,39 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
 /** Models where direct API should be preferred over OpenRouter.
  *  Empty — OpenRouter is primary for all models (supports caching natively). */
 const PREFER_DIRECT: Set<string> = new Set([]);
+
+/* ─── Bedrock provider (Claude models via AWS) ─────────────────── */
+
+/** Maps OpenRouter model IDs to AWS Bedrock cross-region inference profile IDs */
+const BEDROCK_MODELS: Record<string, string> = {
+  "anthropic/claude-sonnet-4.6": "us.anthropic.claude-sonnet-4-6",
+  "anthropic/claude-opus-4.6": "us.anthropic.claude-opus-4-6-v1",
+};
+
+/** Check whether AWS Bedrock credentials are configured */
+function isBedrockAvailable(): boolean {
+  return !!(
+    (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) ||
+    process.env.BEDROCK_API_KEY
+  );
+}
+
+/** Build an AnthropicBedrock client from available env vars */
+function createBedrockClient(): AnthropicBedrock {
+  const accessKey = process.env.AWS_ACCESS_KEY_ID ?? process.env.BEDROCK_API_KEY;
+  const secretKey = process.env.AWS_SECRET_ACCESS_KEY ?? process.env.BEDROCK_SECRET_KEY;
+  const region = process.env.AWS_REGION ?? process.env.BEDROCK_REGION ?? "us-east-1";
+
+  if (accessKey && secretKey) {
+    return new AnthropicBedrock({
+      awsAccessKey: accessKey,
+      awsSecretKey: secretKey,
+      awsRegion: region,
+    });
+  }
+  // Fall back to SDK's default credential chain (IAM role, etc.)
+  return new AnthropicBedrock({ awsRegion: region });
+}
 
 /** Models that support cache_control breakpoints on OpenRouter */
 function supportsCacheControl(model: string): boolean {
@@ -236,18 +271,19 @@ export async function streamOpenRouter(
 }
 
 /**
- * Stream via direct Anthropic API (Tier 2). Uses @anthropic-ai/sdk.
+ * Core streaming logic for Anthropic-protocol APIs (direct Anthropic + Bedrock).
+ * Accepts a pre-built client (Anthropic or AnthropicBedrock).
  */
-async function streamAnthropic(
+async function _streamAnthropicProtocol(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: any,
   nativeModel: string,
-  apiKey: string,
   conversation: Message[],
   tools: ToolDef[],
   send: Send,
   estimateTokens: (text: string) => number,
   totalTokensOut: { value: number },
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
-  const client = new Anthropic({ apiKey });
 
   // Convert OpenAI message format to Anthropic format
   const systemMsg = conversation.find((m) => m.role === "system");
@@ -461,6 +497,38 @@ async function streamAnthropic(
   }
 
   return { textContent, toolCalls, hasToolCalls };
+}
+
+/**
+ * Stream via direct Anthropic API (Tier 2). Uses @anthropic-ai/sdk.
+ */
+async function streamAnthropic(
+  nativeModel: string,
+  apiKey: string,
+  conversation: Message[],
+  tools: ToolDef[],
+  send: Send,
+  estimateTokens: (text: string) => number,
+  totalTokensOut: { value: number },
+): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
+  const client = new Anthropic({ apiKey });
+  return _streamAnthropicProtocol(client, nativeModel, conversation, tools, send, estimateTokens, totalTokensOut);
+}
+
+/**
+ * Stream via AWS Bedrock (Tier 3). Uses @anthropic-ai/bedrock-sdk.
+ * Same Anthropic protocol, routed through AWS infrastructure.
+ */
+async function streamBedrock(
+  bedrockModelId: string,
+  conversation: Message[],
+  tools: ToolDef[],
+  send: Send,
+  estimateTokens: (text: string) => number,
+  totalTokensOut: { value: number },
+): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
+  const client = createBedrockClient();
+  return _streamAnthropicProtocol(client, bedrockModelId, conversation, tools, send, estimateTokens, totalTokensOut);
 }
 
 /**
@@ -785,7 +853,7 @@ export interface FallbackResult {
   hasToolCalls: boolean;
   /** Which model actually served the response */
   actualModel: string;
-  /** Which tier succeeded: 1=openrouter, 2=direct-same-model, 3=auto-route */
+  /** Which tier succeeded: 1=openrouter, 2=direct-same-model, 3=bedrock, 4=auto-route */
   tier: number;
 }
 
@@ -794,8 +862,10 @@ export interface FallbackResult {
  *
  * Tier 1: OpenRouter with the requested model
  * Tier 2: Same model via direct API key (silent — no client notification)
- * Tier 3: Different model via direct API key (sends "rerouting" event)
+ * Tier 3: AWS Bedrock for Claude models (silent — no client notification)
+ * Tier 4: Different model via OpenRouter → direct → Bedrock (sends "rerouting" event)
  *
+ * Final fallback: GPT 5.2 (via OpenRouter or direct OpenAI key).
  * Throws only if ALL tiers fail.
  */
 export async function streamWithFallback(
@@ -851,8 +921,23 @@ export async function streamWithFallback(
     }
   }
 
-  // ── Tier 3: Auto-route to a different model ─────────────────────
-  // For each candidate, try OpenRouter first, then direct key (mirrors Tier 1→2).
+  // ── Tier 3: AWS Bedrock (Claude models only, silent) ────────────
+  const bedrockModelId = BEDROCK_MODELS[requestedModel];
+  if (bedrockModelId && isBedrockAvailable()) {
+    try {
+      console.log("[fallback] tier 3 (bedrock, same model):", requestedModel, "→", bedrockModelId);
+      const result = await streamBedrock(bedrockModelId, conversation, tools, send, estimateTokens, totalTokensOut);
+      return { ...result, actualModel: requestedModel, tier: 3 };
+    } catch (err) {
+      const e = err as Error;
+      console.error("[fallback] tier 3 (bedrock) failed:", requestedModel, e.message);
+      errors.push({ tier: 3, model: requestedModel, error: e.message });
+    }
+  }
+
+  // ── Tier 4: Auto-route to a different model ─────────────────────
+  // For each candidate, try OpenRouter → direct key → Bedrock (if Claude).
+  // GPT 5.2 serves as the final fallback for all models.
   const candidates = AUTO_ROUTE_ORDER.filter((m) => m !== requestedModel);
 
   for (const candidateModel of candidates) {
@@ -865,28 +950,43 @@ export async function streamWithFallback(
     // Try OpenRouter first for this candidate
     if (process.env.OPENROUTER_API_KEY) {
       try {
-        console.log("[fallback] tier 3 (openrouter, auto-route):", candidateModel);
+        console.log("[fallback] tier 4 (openrouter, auto-route):", candidateModel);
         send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
         const result = await streamOpenRouter(candidateModel, conversation, tools, send, estimateTokens, totalTokensOut);
-        return { ...result, actualModel: candidateModel, tier: 3 };
+        return { ...result, actualModel: candidateModel, tier: 4 };
       } catch (err) {
         const e = err as Error;
-        console.error("[fallback] tier 3 openrouter failed:", candidateModel, e.message);
-        errors.push({ tier: 3, model: candidateModel, error: e.message });
+        console.error("[fallback] tier 4 openrouter failed:", candidateModel, e.message);
+        errors.push({ tier: 4, model: candidateModel, error: e.message });
       }
     }
 
     // Then try direct key for this candidate
     if (candidateProvider && candidateKey) {
       try {
-        console.log("[fallback] tier 3 (direct, auto-route):", candidateModel);
+        console.log("[fallback] tier 4 (direct, auto-route):", candidateModel);
         send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
         const result = await streamDirect(candidateProvider, candidateKey, conversation, tools, send, estimateTokens, totalTokensOut);
-        return { ...result, actualModel: candidateModel, tier: 3 };
+        return { ...result, actualModel: candidateModel, tier: 4 };
       } catch (err) {
         const e = err as Error;
-        console.error("[fallback] tier 3 direct failed:", candidateModel, e.message);
-        errors.push({ tier: 3, model: candidateModel, error: e.message });
+        console.error("[fallback] tier 4 direct failed:", candidateModel, e.message);
+        errors.push({ tier: 4, model: candidateModel, error: e.message });
+      }
+    }
+
+    // Then try Bedrock for Claude candidates
+    const candidateBedrockId = BEDROCK_MODELS[candidateModel];
+    if (candidateBedrockId && isBedrockAvailable()) {
+      try {
+        console.log("[fallback] tier 4 (bedrock, auto-route):", candidateModel, "→", candidateBedrockId);
+        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
+        const result = await streamBedrock(candidateBedrockId, conversation, tools, send, estimateTokens, totalTokensOut);
+        return { ...result, actualModel: candidateModel, tier: 4 };
+      } catch (err) {
+        const e = err as Error;
+        console.error("[fallback] tier 4 bedrock failed:", candidateModel, e.message);
+        errors.push({ tier: 4, model: candidateModel, error: e.message });
       }
     }
   }
