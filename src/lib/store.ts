@@ -95,6 +95,7 @@ interface ProjectThread {
   todayByModel: Record<string, { cost: number; count: number }>;
   todayDate: string;
   totalCost: number;
+  currentMessageCost: number;
   connectedServices: Record<string, boolean>;
   cardAssigned?: boolean;
 }
@@ -231,6 +232,7 @@ function createProject(id: string, name: string): ProjectThread {
     todayByModel: {},
     todayDate: todayStr(),
     totalCost: 0,
+    currentMessageCost: 0,
     connectedServices: {},
     cardAssigned: false,
   };
@@ -597,6 +599,7 @@ export const useMeterStore = create<MeterState>()(
             todayTokensOut: active.todayTokensOut + deltaOut,
             todayCost: active.todayCost + costDelta,
             totalCost: active.totalCost + costDelta,
+            currentMessageCost: active.currentMessageCost + costDelta,
           };
 
           return { projects: replaceActiveProject(s, updated) };
@@ -686,6 +689,7 @@ export const useMeterStore = create<MeterState>()(
             todayByModel: byModel,
             todayCost: active.todayCost + costDelta,
             totalCost: active.totalCost + costDelta,
+            currentMessageCost: active.currentMessageCost + costDelta,
           };
 
           return { projects: replaceActiveProject(s, updated) };
@@ -905,7 +909,11 @@ export const useMeterStore = create<MeterState>()(
       setStreaming: (v) =>
         set((s) => {
           const active = getActiveProject(s);
-          const updated = { ...active, isStreaming: v };
+          const updated = {
+            ...active,
+            isStreaming: v,
+            ...(v ? { currentMessageCost: 0 } : {}),
+          };
           return { projects: replaceActiveProject(s, updated) };
         }),
 

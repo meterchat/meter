@@ -3,11 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMeterStore } from "@/lib/store";
 import { MeterIcon } from "./meter-icon";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
 
 function useAnimatedNumber(value: number, duration = 350) {
   const [display, setDisplay] = useState(value);
@@ -37,44 +32,6 @@ function useAnimatedNumber(value: number, duration = 350) {
   return display;
 }
 
-function getMsUntilMidnight() {
-  const now = new Date();
-  const midnight = new Date(now);
-  midnight.setHours(24, 0, 0, 0);
-  return midnight.getTime() - now.getTime();
-}
-
-function formatCountdown(ms: number) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
-}
-
-function MidnightCountdown() {
-  const [remaining, setRemaining] = useState(getMsUntilMidnight);
-
-  useEffect(() => {
-    const id = setInterval(() => setRemaining(getMsUntilMidnight()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="space-y-2.5">
-      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">
-        Resets in
-      </div>
-      <div className="font-mono text-lg tabular-nums text-foreground">
-        {formatCountdown(remaining)}
-      </div>
-      <p className="font-mono text-[10px] leading-relaxed text-muted-foreground/50">
-        Today&apos;s spend meter resets at midnight local time.
-      </p>
-    </div>
-  );
-}
-
 interface MeterPillProps {
   value?: number;
 }
@@ -82,33 +39,62 @@ interface MeterPillProps {
 export function MeterPill({ value }: MeterPillProps) {
   const { projects, activeProjectId } = useMeterStore();
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
-  const today = value ?? activeProject?.todayCost ?? 0;
   const isStreaming = activeProject?.isStreaming ?? false;
-  const animatedToday = useAnimatedNumber(today);
+  const messageCost = value ?? activeProject?.currentMessageCost ?? 0;
 
-  const costStr = isStreaming
-    ? `$${animatedToday.toFixed(4)}`
-    : `$${animatedToday.toFixed(2)}`;
+  // Phase tracks the display lifecycle:
+  // idle: no active message, show $0.00 dimmed
+  // streaming: AI is responding, show live cost
+  // lingering: response complete, freeze cost for 2s before resetting
+  const [phase, setPhase] = useState<"idle" | "streaming" | "lingering">("idle");
+  const lingerTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (isStreaming) {
+      clearTimeout(lingerTimer.current);
+      setPhase("streaming");
+    } else if (phase === "streaming") {
+      // Streaming just stopped — linger to show the final cost
+      setPhase("lingering");
+      lingerTimer.current = setTimeout(() => {
+        setPhase("idle");
+      }, 2000);
+    }
+    return () => clearTimeout(lingerTimer.current);
+  }, [isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const displayValue = phase === "idle" ? 0 : messageCost;
+  const animatedCost = useAnimatedNumber(displayValue);
+  const isIdle = phase === "idle";
+
+  const costStr = phase === "streaming"
+    ? `$${animatedCost.toFixed(4)}`
+    : `$${animatedCost.toFixed(2)}`;
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 font-mono text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
-          title="Today's spend"
-        >
-          <MeterIcon active={isStreaming} size={16} />
-          <span className="text-[12px] text-foreground tabular-nums">
-            {costStr}
-          </span>
-          <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
-            TODAY
-          </span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="top" align="end" sideOffset={8} className="w-56 p-3">
-        <MidnightCountdown />
-      </PopoverContent>
-    </Popover>
+    <button
+      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 font-mono transition-colors ${
+        isIdle
+          ? "border-border/50 text-muted-foreground/40"
+          : phase === "lingering"
+            ? "border-border text-muted-foreground/60"
+            : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground"
+      }`}
+      title="Message spend"
+    >
+      <MeterIcon active={isStreaming} size={16} />
+      <span className={`text-[12px] tabular-nums ${
+        isIdle
+          ? "text-muted-foreground/30"
+          : phase === "lingering"
+            ? "text-muted-foreground/60"
+            : "text-foreground"
+      }`}>
+        {costStr}
+      </span>
+      <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+        MSG
+      </span>
+    </button>
   );
 }
