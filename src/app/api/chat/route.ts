@@ -4,6 +4,14 @@ import { streamWithFallback, type Send } from "@/lib/fallback";
 import { runDebate } from "@/lib/debate";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
+import {
+  serverTrackChatCompleted,
+  serverTrackChatFailed,
+  serverTrackModelRerouted,
+  serverTrackSpendLimitHit,
+  serverTrackExposureCapHit,
+  serverTrackDecisionSaved,
+} from "@/lib/analytics-server";
 import type OpenAI from "openai";
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
@@ -33,6 +41,12 @@ export async function POST(req: NextRequest) {
     if (projectId && !(await isSuperAdmin(userId))) {
       const limitCheck = await checkSpendLimits(userId, projectId);
       if (limitCheck) {
+        serverTrackSpendLimitHit(userId, {
+          projectId,
+          limitType: limitCheck.includes("Daily") ? "daily" : "monthly",
+          currentSpend: 0,
+          limit: 0,
+        });
         return new Response(
           JSON.stringify({ error: limitCheck }),
           { status: 429, headers: { "Content-Type": "application/json" } }
@@ -40,6 +54,11 @@ export async function POST(req: NextRequest) {
       }
       const capCheck = await checkExposureCap(userId, projectId);
       if (capCheck) {
+        serverTrackExposureCapHit(userId, {
+          projectId,
+          outstanding: 0,
+          cap: 0,
+        });
         return new Response(
           JSON.stringify({ error: capCheck }),
           { status: 429, headers: { "Content-Type": "application/json" } }
@@ -125,6 +144,8 @@ export async function POST(req: NextRequest) {
         // ── Standard single-model flow ─────────────────────────────
         const totalTokensOut = { value: 0 };
         let activeModel = resolvedModel;
+        let toolRoundCount = 0;
+        const toolsUsedSet = new Set<string>();
 
         // Aggregate API-reported usage across tool rounds instead of
         // only capturing the last round (which under-reports total cost).
@@ -142,14 +163,19 @@ export async function POST(req: NextRequest) {
         // then sum across rounds. Forward everything else to the client.
         const roundSend: Send = (data) => {
           if (data.type === "usage") {
-            // Within a round, replace (last event wins for that round)
             roundTokensIn = (data.tokensIn as number) || 0;
             roundTokensOut = (data.tokensOut as number) || 0;
             roundCacheCreation = (data.cacheCreationTokens as number) || 0;
             roundCacheRead = (data.cacheReadTokens as number) || 0;
-            // Cache read rate is per-provider, not cumulative (last wins)
             if (data.cacheReadRate) roundCacheReadRate = data.cacheReadRate as number;
             return;
+          }
+          if (data.type === "rerouting") {
+            serverTrackModelRerouted(userId, {
+              requestedModel: resolvedModel,
+              actualModel: data.to as string,
+              projectId,
+            });
           }
           send(data);
         };
@@ -183,6 +209,7 @@ export async function POST(req: NextRequest) {
 
             // No tool calls → done
             if (!result.hasToolCalls || result.toolCalls.size === 0) break;
+            toolRoundCount++;
 
             // Add assistant message with tool calls to conversation
             conversation.push({
@@ -206,6 +233,7 @@ export async function POST(req: NextRequest) {
                 // malformed args — pass empty
               }
 
+              toolsUsedSet.add(tc.name);
               const toolResult = await executeTool(tc.name, args, { userId, projectId, workspaceId: projectId });
 
               const toolResultEvent: Record<string, unknown> = { type: "tool_result", name: tc.name };
@@ -220,6 +248,14 @@ export async function POST(req: NextRequest) {
                   alternatives: args.alternatives || [],
                   reasoning: args.reasoning || null,
                 };
+                if (serverDecisionId) {
+                  serverTrackDecisionSaved(userId, {
+                    decisionId: serverDecisionId,
+                    title: args.title as string,
+                    status: "decided",
+                    projectId,
+                  });
+                }
               }
               if (tc.name === "save_artifact") {
                 let artifactData: { id?: string } | undefined;
@@ -242,11 +278,35 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           // All fallback tiers exhausted — show error to client
           console.error("[chat] all providers failed:", (err as Error).message);
+          serverTrackChatFailed(userId, {
+            model: resolvedModel,
+            error: (err as Error).message,
+            projectId,
+          });
 
           send({
             type: "error",
             code: "all_providers_failed",
             model: resolvedModel,
+          });
+        }
+
+        // Track aggregated server-side metrics
+        if (cumulativeTokensIn > 0 || cumulativeTokensOut > 0) {
+          const isAdmin = await isSuperAdmin(userId);
+          serverTrackChatCompleted(userId, {
+            model: activeModel,
+            requestedModel: resolvedModel,
+            projectId,
+            tokensIn: cumulativeTokensIn,
+            tokensOut: cumulativeTokensOut,
+            cacheCreationTokens: cumulativeCacheCreation || undefined,
+            cacheReadTokens: cumulativeCacheRead || undefined,
+            cacheReadRate: roundCacheReadRate || undefined,
+            toolRounds: toolRoundCount,
+            toolsUsed: Array.from(toolsUsedSet),
+            isDebate: false,
+            isSuperAdmin: isAdmin,
           });
         }
 

@@ -6,6 +6,7 @@ import {
 } from "@simplewebauthn/server";
 import crypto from "crypto";
 import { createSession, setSessionCookie } from "@/lib/session";
+import { serverTrackUserLoggedIn, serverTrackLoginFailed } from "@/lib/analytics-server";
 
 const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID || "meter.chat";
 const BASE_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://meter.chat";
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (!user) {
+        serverTrackLoginFailed({ email: normalizedEmail, reason: "user_not_found" });
         return NextResponse.json({ error: "User not found" }, { status: 404 });
       }
 
@@ -116,6 +118,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (!verification.verified) {
+        serverTrackLoginFailed({ email: challengeRecord.email ?? "", reason: "verification_failed" });
         return NextResponse.json({ error: "Verification failed" }, { status: 400 });
       }
 
@@ -141,6 +144,11 @@ export async function POST(req: NextRequest) {
 
       // Create server-side session and set cookie
       const sessionToken = await createSession(uid);
+      serverTrackUserLoggedIn(uid, {
+        email: user?.email,
+        hasWorkspaces: (sessionCount ?? 0) > 0,
+        cardOnFile: !!user?.stripe_customer_id && !!user?.card_last4,
+      });
       const response = NextResponse.json({
         verified: true,
         user: {

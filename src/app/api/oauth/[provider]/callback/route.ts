@@ -5,6 +5,7 @@ import {
   exchangeCodeForToken,
   storeToken,
 } from "@/lib/oauth";
+import { serverTrackOAuthCompleted } from "@/lib/analytics-server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -70,6 +71,7 @@ export async function GET(
           .eq("id", userId);
       }
 
+      serverTrackOAuthCompleted(userId, { provider: providerId, workspaceId });
       return NextResponse.redirect(`${appUrl}/?oauth=success&provider=${providerId}`);
     } catch (err) {
       console.error(`OAuth callback error for ${providerId}:`, err);

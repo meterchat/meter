@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/supabase";
 import OpenAI from "openai";
 import crypto from "crypto";
 import { TOOL_DEFINITIONS, SYSTEM_PROMPT, executeTool } from "@/lib/tools";
+import { serverTrackApiV1Request } from "@/lib/analytics-server";
 
 function getOpenRouterClient() {
   return new OpenAI({
@@ -195,6 +196,13 @@ export async function POST(req: NextRequest) {
         model: resolvedModel,
         input_tokens: finalTokensIn,
         output_tokens: finalTokensOut,
+      });
+
+      serverTrackApiV1Request(userId, {
+        apiKeyId: keyId,
+        model: resolvedModel,
+        tokensIn: finalTokensIn,
+        tokensOut: finalTokensOut,
       });
     },
   });

@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { getValidAccessToken } from "@/lib/oauth";
 import { getFileContent, createOrUpdateFile } from "@/lib/connectors/github";
+import { serverTrackArtifactsPushed } from "@/lib/analytics-server";
 
 // POST /api/artifacts/push — push artifacts to GitHub
 export async function POST(req: NextRequest) {
@@ -84,6 +85,14 @@ export async function POST(req: NextRequest) {
         });
       }
     }
+
+    serverTrackArtifactsPushed(userId, {
+      repo,
+      artifactCount: artifacts.length,
+      succeeded: results.length,
+      failed: errors.length,
+      workspaceId,
+    });
 
     return NextResponse.json({
       pushed: results,
