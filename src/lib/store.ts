@@ -689,7 +689,7 @@ export const useMeterStore = create<MeterState>()(
             todayByModel: byModel,
             todayCost: active.todayCost + costDelta,
             totalCost: active.totalCost + costDelta,
-            currentMessageCost: active.currentMessageCost + costDelta,
+            currentMessageCost: Math.max(0, active.currentMessageCost + costDelta),
           };
 
           return { projects: replaceActiveProject(s, updated) };

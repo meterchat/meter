@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment } from "@/lib/store";
+import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore } from "@/lib/decisions-store";
 
@@ -61,6 +61,8 @@ export function useSessionSync() {
     txHash: m.tx_hash as string | undefined,
     cards: m.cards as ActionCard[] | undefined,
     attachments: m.attachments as Attachment[] | undefined,
+    debateTrace: m.debate_trace as DebateTurn[] | undefined,
+    thinking: m.thinking as string | undefined,
     timestamp: m.timestamp as number,
   });
 
@@ -90,6 +92,7 @@ export function useSessionSync() {
       todayByModel: {},
       todayDate: session.today_date ?? todayStr(),
       totalCost: Math.max(totalFromSession, totalFromMessages),
+      currentMessageCost: 0,
       connectedServices: existingConnectedServices ?? {},
     };
   };

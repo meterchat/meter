@@ -174,6 +174,8 @@ export async function POST(req: NextRequest) {
         tx_hash: m.txHash ?? null,
         cards: m.cards ?? null,
         attachments: m.attachments ?? null,
+        debate_trace: m.debateTrace ?? null,
+        thinking: m.thinking ?? null,
         timestamp: m.timestamp,
       }));
 
