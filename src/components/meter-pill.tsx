@@ -143,7 +143,7 @@ export function MeterPill() {
       }`}
       title="Message cost"
     >
-      <MeterIcon active={isStreaming} size={16} />
+      <MeterIcon active={phase === "streaming" || phase === "resetting" || phase === "settling"} size={16} />
       <span
         className={`text-[12px] leading-none tabular-nums inline-flex items-center ${
           phase === "idle"
