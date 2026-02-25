@@ -5,9 +5,6 @@ import { useMeterStore } from "@/lib/store";
 import { MeterIcon } from "./meter-icon";
 
 /* ── Single slot digit: a column of 0-9 that rolls via translateY ── */
-/* Cell height is slightly taller than the viewport so adjacent glyphs
-   never bleed through the overflow-hidden boundary at sub-pixel edges. */
-const CELL = 1.2; // em per digit cell
 
 const SlotDigit = memo(function SlotDigit({
   digit,
@@ -22,13 +19,13 @@ const SlotDigit = memo(function SlotDigit({
 }) {
   return (
     <span
-      className="inline-block overflow-hidden"
+      className="inline-block overflow-hidden leading-none"
       style={{ height: "1em" }}
     >
       <span
-        className="inline-flex flex-col will-change-transform"
+        className="flex flex-col will-change-transform"
         style={{
-          transform: `translateY(${-digit * CELL}em)`,
+          transform: `translateY(${-digit}em)`,
           transition: animate
             ? `transform ${duration}ms cubic-bezier(0.16, 1, 0.3, 1)`
             : "none",
@@ -38,8 +35,8 @@ const SlotDigit = memo(function SlotDigit({
         {Array.from({ length: 10 }, (_, n) => (
           <span
             key={n}
-            className="flex items-center justify-center"
-            style={{ height: `${CELL}em` }}
+            className="flex items-center justify-center leading-none"
+            style={{ height: "1em" }}
           >
             {n}
           </span>
@@ -143,7 +140,7 @@ export function MeterPill() {
     >
       <MeterIcon active={isStreaming} size={16} />
       <span
-        className={`text-[12px] tabular-nums inline-flex items-center ${
+        className={`text-[12px] leading-none tabular-nums inline-flex items-center ${
           phase === "idle"
             ? "text-muted-foreground/30"
             : phase === "locked"
