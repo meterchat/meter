@@ -18,6 +18,14 @@ export const metadata: Metadata = {
   description: "Every AI model. One bill. No subscription. The meter runs in dollars.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover" as const,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

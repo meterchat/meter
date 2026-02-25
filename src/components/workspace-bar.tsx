@@ -22,9 +22,9 @@ export function WorkspaceBar() {
   );
 
   return (
-    <div className="mt-2 flex items-center gap-3 font-mono text-[10px] text-muted-foreground/50">
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-muted-foreground/50">
       {/* Left: Workspace + Track */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         {/* Workspace (building icon) */}
         <div className="flex items-center gap-1">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">

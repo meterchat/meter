@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useMeterStore } from "@/lib/store";
 import { MeterIcon } from "./meter-icon";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function useAnimatedNumber(value: number, duration = 350) {
   const [display, setDisplay] = useState(value);
@@ -67,6 +68,7 @@ export function HeaderMeter() {
   const [open, setOpen] = useState(false);
   const [remaining, setRemaining] = useState(getMsUntilMidnight);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const projects = useMeterStore((s) => s.projects);
   const activeProjectId = useMeterStore((s) => s.activeProjectId);
@@ -160,32 +162,38 @@ export function HeaderMeter() {
         className="flex h-8 items-center gap-2 rounded-lg border border-border px-2.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
         title="Today's spend for this workspace"
       >
-        <div className="flex items-center gap-1.5">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
-            <path d="M9 22v-4h6v4" />
-          </svg>
-          <span className="max-w-[110px] truncate text-foreground">
-            {activeProject?.name ?? "Workspace"}
-          </span>
-        </div>
-        <span className="h-4 w-px bg-border/70" />
+        {!isMobile && (
+          <>
+            <div className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+                <path d="M9 22v-4h6v4" />
+              </svg>
+              <span className="max-w-[110px] truncate text-foreground">
+                {activeProject?.name ?? "Workspace"}
+              </span>
+            </div>
+            <span className="h-4 w-px bg-border/70" />
+          </>
+        )}
         <MeterIcon active={isStreaming} size={14} />
         <span className="tabular-nums text-[12px] text-foreground">{costStr}</span>
-        <span className="text-[11px] text-muted-foreground/50 uppercase tracking-wider">
-          TODAY
-        </span>
+        {!isMobile && (
+          <span className="text-[11px] text-muted-foreground/50 uppercase tracking-wider">
+            TODAY
+          </span>
+        )}
         <svg
           width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          className={`transition-transform ${open ? "rotate-180" : ""}`}
+          className={`mobile-sm-ok transition-transform ${open ? "rotate-180" : ""}`}
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[360px] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
+        <div className={`absolute top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl ${isMobile ? "fixed left-2 right-2 w-auto" : "right-0 w-[360px]"}`}>
           <div className="border-b border-border/50 px-4 py-3">
             <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">
               Resets in
