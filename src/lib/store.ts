@@ -96,6 +96,8 @@ interface ProjectThread {
   todayDate: string;
   totalCost: number;
   currentMessageCost: number;
+  estimatedInputCost: number;
+  appliedInputCost: number;
   connectedServices: Record<string, boolean>;
   cardAssigned?: boolean;
 }
@@ -168,7 +170,7 @@ interface MeterState {
   updateLastAssistantMessage: (content: string, tokensOut: number) => void;
   updateLastAssistantThinking: (thinking: string) => void;
   finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number) => void;
-  setStreaming: (v: boolean) => void;
+  setStreaming: (v: boolean, estimatedInputCost?: number) => void;
   markSettled: (messageId: string) => void;
   settleAll: () => Promise<{ success: boolean; error?: string }>;
   getPendingBalance: () => number;
@@ -234,6 +236,8 @@ function createProject(id: string, name: string): ProjectThread {
     todayDate: todayStr(),
     totalCost: 0,
     currentMessageCost: 0,
+    estimatedInputCost: 0,
+    appliedInputCost: 0,
     connectedServices: {},
     cardAssigned: false,
   };
@@ -592,7 +596,12 @@ export const useMeterStore = create<MeterState>()(
 
           const prevOut = last?.tokensOut || 0;
           const deltaOut = Math.max(0, tokensOut - prevOut);
-          const costDelta = deltaOut * model.outputPrice;
+          const outputCostDelta = deltaOut * model.outputPrice;
+
+          // Drip estimated input cost gradually across streaming deltas
+          const remainingInput = active.estimatedInputCost - active.appliedInputCost;
+          const inputDrip = remainingInput > 0.000001 ? remainingInput * 0.08 : 0;
+          const costDelta = outputCostDelta + inputDrip;
 
           const updated = {
             ...active,
@@ -601,6 +610,7 @@ export const useMeterStore = create<MeterState>()(
             todayCost: active.todayCost + costDelta,
             totalCost: active.totalCost + costDelta,
             currentMessageCost: active.currentMessageCost + costDelta,
+            appliedInputCost: active.appliedInputCost + inputDrip,
           };
 
           return { projects: replaceActiveProject(s, updated) };
@@ -675,7 +685,7 @@ export const useMeterStore = create<MeterState>()(
           const streamedEstimateOut = last?.tokensOut ?? 0;
           const streamedOutputCost = streamedEstimateOut * streamingModel.outputPrice;
           const finalOutputCost = tokensOut * model.outputPrice;
-          const costDelta = inputCost + (finalOutputCost - streamedOutputCost);
+          const costDelta = (inputCost - active.appliedInputCost) + (finalOutputCost - streamedOutputCost);
 
           // Reconcile todayTokensOut: streaming accumulated char/4 estimates,
           // now correct to actual API-reported output tokens.
@@ -907,13 +917,17 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
-      setStreaming: (v) =>
+      setStreaming: (v, estimatedInputCost?) =>
         set((s) => {
           const active = getActiveProject(s);
           const updated = {
             ...active,
             isStreaming: v,
-            ...(v ? { currentMessageCost: 0 } : {}),
+            ...(v ? {
+              currentMessageCost: 0,
+              estimatedInputCost: estimatedInputCost ?? 0,
+              appliedInputCost: 0,
+            } : {}),
           };
           return { projects: replaceActiveProject(s, updated) };
         }),
