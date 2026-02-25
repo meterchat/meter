@@ -151,6 +151,10 @@ const STATEMENTS: string[] = [
   `insert into storage.buckets (id, name, public) values ('attachments', 'attachments', true) on conflict (id) do nothing`,
   `do $$ begin create policy "Public read access" on storage.objects for select using (bucket_id = 'attachments'); exception when duplicate_object then null; end $$`,
 
+  // Debate trace + thinking persistence (survive logout/login)
+  `alter table chat_messages add column if not exists debate_trace jsonb`,
+  `alter table chat_messages add column if not exists thinking text`,
+
   // Soft-delete support for workspace deletion (7-day retention)
   `alter table chat_sessions add column if not exists deleted_at timestamptz default null`,
 
