@@ -192,6 +192,7 @@ interface MeterState {
   setSpendingCap: (v: number) => void;
   setAutoSettleThreshold: (v: number) => void;
   setIsSettling: (v: boolean) => void;
+  incrementCurrentMessageCost: (costDelta: number) => void;
   setDecisionMode: (v: boolean) => void;
 
   fetchCards: () => Promise<void>;
@@ -1050,6 +1051,18 @@ export const useMeterStore = create<MeterState>()(
       setSpendingCap: (v) => set({ spendingCap: v }),
       setAutoSettleThreshold: (v) => set({ autoSettleThreshold: v }),
       setIsSettling: (v) => set({ isSettling: v }),
+      incrementCurrentMessageCost: (costDelta) =>
+        set((s) => {
+          const active = ensureDaily(getActiveProject(s));
+          return {
+            projects: replaceActiveProject(s, {
+              ...active,
+              currentMessageCost: active.currentMessageCost + costDelta,
+              todayCost: active.todayCost + costDelta,
+              totalCost: active.totalCost + costDelta,
+            }),
+          };
+        }),
       setDecisionMode: (v) => set({ decisionMode: v }),
 
       reset: () =>
