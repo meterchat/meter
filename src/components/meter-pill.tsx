@@ -18,7 +18,7 @@ const SlotDigit = memo(function SlotDigit({
 }) {
   return (
     <span
-      className="inline-block overflow-hidden align-middle"
+      className="inline-block overflow-hidden align-top"
       style={{ height: "1em" }}
     >
       <span
@@ -139,7 +139,7 @@ export function MeterPill() {
     >
       <MeterIcon active={isStreaming} size={16} />
       <span
-        className={`text-[12px] tabular-nums inline-flex items-center ${
+        className={`text-[12px] tabular-nums inline-flex items-baseline ${
           phase === "idle"
             ? "text-muted-foreground/30"
             : phase === "locked"

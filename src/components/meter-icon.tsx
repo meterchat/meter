@@ -24,7 +24,7 @@ interface MeterIconProps {
   size?: number;
 }
 
-export function MeterIcon({ size = 20 }: MeterIconProps) {
+export function MeterIcon({ active, size = 20 }: MeterIconProps) {
   const [frame, setFrame] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
@@ -38,18 +38,22 @@ export function MeterIcon({ size = 20 }: MeterIconProps) {
     });
   }, []);
 
-  // Always animate — meter icon spins continuously
+  // Only animate when active (AI is streaming)
   useEffect(() => {
+    if (!active) {
+      setFrame(0);
+      return;
+    }
     const interval = setInterval(() => {
       setFrame((f) => (f + 1) % FRAMES.length);
     }, 100);
     return () => clearInterval(interval);
-  }, []);
+  }, [active]);
 
   // Draw to canvas for instant rendering
   useEffect(() => {
     const canvas = canvasRef.current;
-    const img = imagesRef.current[frame];
+    const img = imagesRef.current[active ? frame : 0];
     if (!canvas || !img) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -62,7 +66,7 @@ export function MeterIcon({ size = 20 }: MeterIconProps) {
         ctx.drawImage(img, 0, 0, size, size);
       };
     }
-  }, [frame, size]);
+  }, [frame, active, size]);
 
   return (
     <canvas
