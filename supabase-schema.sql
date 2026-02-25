@@ -95,9 +95,17 @@ create table if not exists chat_messages (
   signature text,
   tx_hash text,
   cards jsonb,
+  attachments jsonb,
+  debate_trace jsonb,
+  thinking text,
   timestamp bigint not null,
   created_at timestamptz default now()
 );
+
+-- Add columns for debate trace / thinking / attachments (run if table exists)
+-- alter table chat_messages add column if not exists attachments jsonb;
+-- alter table chat_messages add column if not exists debate_trace jsonb;
+-- alter table chat_messages add column if not exists thinking text;
 
 -- =============================================
 -- WORKSPACES
