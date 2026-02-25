@@ -93,6 +93,8 @@ export function useSessionSync() {
       todayDate: session.today_date ?? todayStr(),
       totalCost: Math.max(totalFromSession, totalFromMessages),
       currentMessageCost: 0,
+      estimatedInputCost: 0,
+      appliedInputCost: 0,
       connectedServices: existingConnectedServices ?? {},
     };
   };
