@@ -47,7 +47,7 @@ const SlotDigit = memo(function SlotDigit({
 });
 
 /* ── Phases ────────────────────────────────────────────────────────── */
-type Phase = "idle" | "resetting" | "streaming" | "locked";
+type Phase = "idle" | "resetting" | "streaming" | "settling" | "locked";
 
 /* ── MeterPill ─────────────────────────────────────────────────────── */
 export function MeterPill() {
@@ -93,16 +93,21 @@ export function MeterPill() {
     }
     if (!isStreaming && wasStreamingRef.current) {
       clearTimeout(resetTimerRef.current);
-      setPhase("locked");
+      // Keep animation enabled briefly so finalizeResponse cost rolls smoothly
+      setPhase("settling");
       wasStreamingRef.current = false;
+
+      resetTimerRef.current = setTimeout(() => {
+        setPhase("locked");
+      }, 600);
     }
     return () => clearTimeout(resetTimerRef.current);
   }, [isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* Monotonic cost updates — buffer during reset, apply during stream */
+  /* Monotonic cost updates — buffer during reset, apply during stream/settling */
   useEffect(() => {
     const clamped = Math.max(0, rawCost);
-    if (phase === "streaming") {
+    if (phase === "streaming" || phase === "settling") {
       const next = Math.max(maxCostRef.current, clamped);
       maxCostRef.current = next;
       setDisplayCost(next);
@@ -113,7 +118,7 @@ export function MeterPill() {
   }, [rawCost, phase]);
 
   /* Dynamic decimal places: 4 while active, 2 when settled */
-  const isActive = phase === "streaming" || phase === "resetting";
+  const isActive = phase === "streaming" || phase === "resetting" || phase === "settling";
   const decimals = isActive ? 4 : 2;
   const formatted = displayCost.toFixed(decimals);
   const [intPart, decPart] = formatted.split(".");
@@ -121,8 +126,8 @@ export function MeterPill() {
   const decDigits = decPart.split("").map(Number);
 
   const isResetting = phase === "resetting";
-  const animate = phase === "resetting" || phase === "streaming";
-  const duration = isResetting ? 250 : 150;
+  const animate = phase === "resetting" || phase === "streaming" || phase === "settling";
+  const duration = isResetting ? 250 : phase === "settling" ? 350 : 150;
   const cascadeStep = isResetting ? 20 : 0;
 
   let digitIdx = 0;

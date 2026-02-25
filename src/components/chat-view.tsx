@@ -743,15 +743,7 @@ export function ChatView() {
       timestamp: Date.now(),
     };
     addMessage(assistantMsg);
-
-    // Estimate input cost upfront so it can be dripped during streaming
-    const estInputTokens = messages.reduce((sum, m) => {
-      const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
-      return sum + Math.ceil(content.length / 4) + 4;
-    }, 0);
-    const pricingId = selectedModelId === "auto" ? "openai/gpt-5.2" : selectedModelId;
-    const estInputCost = estInputTokens * getModel(pricingId).inputPrice;
-    setStreaming(true, estInputCost);
+    setStreaming(true);
     setThinkingStartedAt(Date.now());
 
     const effectiveModel = modelOverride ?? selectedModelId;
