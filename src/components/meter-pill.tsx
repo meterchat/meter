@@ -18,7 +18,7 @@ const SlotDigit = memo(function SlotDigit({
 }) {
   return (
     <span
-      className="inline-block overflow-hidden align-top"
+      className="inline-block overflow-hidden align-middle"
       style={{ height: "1em" }}
     >
       <span
@@ -88,7 +88,7 @@ export function MeterPill() {
         setPhase("streaming");
         // Apply any cost that accumulated during the reset animation
         setDisplayCost(maxCostRef.current);
-      }, 650);
+      }, 300);
     }
     if (!isStreaming && wasStreamingRef.current) {
       clearTimeout(resetTimerRef.current);
@@ -111,33 +111,35 @@ export function MeterPill() {
     }
   }, [rawCost, phase]);
 
-  /* Format as fixed digits: $X.XXXX */
-  const formatted = displayCost.toFixed(4);
+  /* Dynamic decimal places: 4 while active, 2 when settled */
+  const isActive = phase === "streaming" || phase === "resetting";
+  const decimals = isActive ? 4 : 2;
+  const formatted = displayCost.toFixed(decimals);
   const [intPart, decPart] = formatted.split(".");
   const intDigits = intPart.split("").map(Number);
   const decDigits = decPart.split("").map(Number);
 
   const isResetting = phase === "resetting";
   const animate = phase === "resetting" || phase === "streaming";
-  const duration = isResetting ? 400 : 250;
-  const cascadeStep = isResetting ? 55 : 0;
+  const duration = isResetting ? 250 : 150;
+  const cascadeStep = isResetting ? 20 : 0;
 
   let digitIdx = 0;
 
   return (
     <button
-      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 font-mono transition-colors ${
+      className={`flex shrink-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 font-mono transition-colors ${
         phase === "idle"
           ? "border-border/50 text-muted-foreground/40"
           : phase === "locked"
             ? "border-border text-muted-foreground/60"
             : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground"
       }`}
-      title="Thought spend"
+      title="Message cost"
     >
       <MeterIcon active={isStreaming} size={16} />
       <span
-        className={`text-[12px] tabular-nums inline-flex items-baseline ${
+        className={`text-[12px] tabular-nums inline-flex items-center ${
           phase === "idle"
             ? "text-muted-foreground/30"
             : phase === "locked"
@@ -167,7 +169,7 @@ export function MeterPill() {
         ))}
       </span>
       <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
-        thought
+        MSG
       </span>
     </button>
   );

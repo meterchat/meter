@@ -445,6 +445,7 @@ export function ChatView() {
     updateLastAssistantMessage,
     finalizeResponse,
     setStreaming,
+    incrementCurrentMessageCost,
     inspectorOpen,
     toggleInspector,
     spendingCap,
@@ -825,6 +826,11 @@ export function ChatView() {
               if (currentTurn) {
                 currentTurn = { model: currentTurn.model, phase: currentTurn.phase, content: currentTurn.content + (data.content as string) };
                 setActiveDebateTurn(currentTurn);
+                // Track output cost incrementally during debate turns
+                const deltaText = data.content as string;
+                const estTokens = Math.ceil(deltaText.length / 4);
+                const debateModel = getModel("meter-1.0");
+                incrementCurrentMessageCost(estTokens * debateModel.outputPrice);
               }
             } else if (data.type === "debate_turn_end") {
               if (currentTurn) {
@@ -939,12 +945,12 @@ export function ChatView() {
       }
     } finally {
       abortRef.current = null;
-      setStreaming(false);
       setActiveTool(null);
-      // Keep rerouting state — cleared on next send so the picker
-      // continues showing the actual model used for the last response.
       setDebatePhase(null);
       setActiveDebateTurn(null);
+      // Delay setStreaming(false) so the meter pill slot animation has
+      // time to roll to the final cost value before locking.
+      setTimeout(() => setStreaming(false), 350);
     }
   };
 
