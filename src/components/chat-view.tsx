@@ -35,6 +35,7 @@ import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
 import { WorkspaceBar } from "@/components/workspace-bar";
 import { useWorkspaceStore } from "@/lib/workspace-store";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName } from "@/lib/models";
 import { useSessionSync } from "@/lib/use-session-sync";
@@ -123,7 +124,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground/0 transition-all group-hover/msg:text-muted-foreground/40 hover:!text-muted-foreground hover:bg-foreground/5"
+      className="mobile-sm-ok absolute right-2 top-2 rounded-md p-1 text-muted-foreground/0 transition-all group-hover/msg:text-muted-foreground/40 hover:!text-muted-foreground hover:bg-foreground/5 max-md:text-muted-foreground/30"
       title={copied ? "Copied!" : "Copy message"}
     >
       {copied ? (
@@ -145,10 +146,10 @@ function PinButton({ messageId, pinned }: { messageId: string; pinned?: boolean 
         else trackMessagePinned({ messageId });
         togglePinMessage(messageId);
       }}
-      className={`absolute right-2 top-9 rounded-md p-1 transition-all ${
+      className={`mobile-sm-ok absolute right-2 top-9 rounded-md p-1 transition-all ${
         pinned
           ? "text-amber-500/70 hover:text-amber-500"
-          : "text-muted-foreground/0 group-hover/msg:text-muted-foreground/40 hover:!text-muted-foreground hover:bg-foreground/5"
+          : "text-muted-foreground/0 group-hover/msg:text-muted-foreground/40 hover:!text-muted-foreground hover:bg-foreground/5 max-md:text-muted-foreground/30"
       }`}
       title={pinned ? "Unpin" : "Pin"}
     >
@@ -419,7 +420,7 @@ function ThinkingIndicator({
           {label}
         </span>
         {displaySublabel && (
-          <span className={`text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px] sublabel-fade ${hasRealThinking || visible ? "" : "sublabel-fade-hidden"}`}>
+          <span className={`text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px] max-md:max-w-[200px] sublabel-fade ${hasRealThinking || visible ? "" : "sublabel-fade-hidden"}`}>
             {displaySublabel}
           </span>
         )}
@@ -433,6 +434,7 @@ export function ChatView() {
   // Sync sessions to Supabase for eternal persistence
   useSessionSync();
 
+  const isMobile = useIsMobile();
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
 
   const {
@@ -1145,9 +1147,9 @@ export function ChatView() {
       />
 
       <div
-        className={`relative flex flex-1 flex-col transition-all duration-300 ${inspectorOpen ? "mr-[420px]" : ""}`}
+        className={`relative flex flex-1 flex-col transition-all duration-300 ${inspectorOpen && !isMobile ? "mr-[420px]" : ""}`}
       >
-        <header className="flex h-12 items-center justify-between border-b border-border px-4">
+        <header className="flex h-12 items-center justify-between border-b border-border px-4" style={{ paddingTop: isMobile ? "env(safe-area-inset-top, 0px)" : undefined, height: isMobile ? "calc(3rem + env(safe-area-inset-top, 0px))" : undefined }}>
           <div className="relative flex items-center gap-2" ref={logoMenuRef}>
             <button
               onClick={() => setLogoMenuOpen((v) => !v)}
@@ -1210,7 +1212,7 @@ export function ChatView() {
           {!sessionsLoaded && messages.length === 0 ? (
             <ChatSkeleton />
           ) : (
-          <div className="mx-auto max-w-2xl px-4 py-6">
+          <div className="mx-auto max-w-2xl px-4 py-6 max-md:px-3">
             {/* First-time onboarding — workspace name then card */}
             {messages.length === 0 && !workspaceCardReady && !cardOnFile && onboardingStep === "workspace" && (
               <div className="mb-4">
@@ -1307,7 +1309,7 @@ export function ChatView() {
               return (
                 <div key={msg.id} id={`msg-${msg.id}`} className="group/msg relative mb-4 transition-all duration-300">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"} ${msg.pinned ? "border-l-2 border-amber-500/40" : ""}`}>
+                    <div className={`relative rounded-xl px-4 py-3 text-sm leading-relaxed max-w-[85%] md:max-w-[85%] max-md:max-w-[92%] ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"} ${msg.pinned ? "border-l-2 border-amber-500/40" : ""}`}>
                       {displayContent && !displayContent.startsWith("__error__") && (
                         <>
                           <CopyButton text={msg.role === "user" ? msg.content : displayContent} />
@@ -1428,7 +1430,7 @@ export function ChatView() {
         </div>
 
         {/* Composer area */}
-        <div className="p-4">
+        <div className="p-4 md:pb-4" style={{ paddingBottom: isMobile ? "calc(1rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
           <div className="relative mx-auto max-w-2xl">
             {/* Scroll-to-bottom button — positioned above the composer */}
             {showScrollBtn && (
