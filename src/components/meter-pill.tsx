@@ -126,10 +126,8 @@ export function MeterPill() {
   /* Counter visibility: shown during active phases + locked, hidden at idle */
   const showCounter = phase !== "idle";
 
-  /* Dynamic decimal places: 4 while active, 2 when settled */
-  const isActive = phase === "streaming" || phase === "resetting" || phase === "settling";
-  const decimals = isActive ? 4 : 2;
-  const formatted = displayCost.toFixed(decimals);
+  /* Dynamic decimal places: always 4 */
+  const formatted = displayCost.toFixed(4);
   const [intPart, decPart] = formatted.split(".");
   const intDigits = intPart.split("").map(Number);
   const decDigits = decPart.split("").map(Number);
@@ -184,9 +182,6 @@ export function MeterPill() {
                 duration={duration}
               />
             ))}
-          </span>
-          <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
-            MSG
           </span>
         </>
       )}
