@@ -15,6 +15,7 @@ import {
   trackDecideClicked,
   trackDecisionCreated,
   trackDecisionResolved,
+  trackDecisionStaged,
   trackConnectorInitiated,
   trackWorkspaceCreated,
   trackCardAssignedToWorkspace,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/analytics";
 import { MeterPill } from "@/components/meter-pill";
 import { HeaderMeter } from "@/components/header-meter";
+import { CommitButton } from "@/components/commit-button";
 import { ModelPickerTrigger, ModelPickerPanel } from "@/components/model-picker";
 import { Inspector } from "@/components/inspector";
 import { ProfileSettings } from "@/components/profile-settings";
@@ -41,6 +43,7 @@ import { getModel, shortModelName } from "@/lib/models";
 import { useSessionSync } from "@/lib/use-session-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { useArtifactsStore } from "@/lib/artifacts-store";
+import { useStagingStore } from "@/lib/staging-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
 import ReactMarkdown from "react-markdown";
 
@@ -165,10 +168,14 @@ function DecisionPill({ onOpen }: { onOpen: () => void }) {
   return (
     <button
       onClick={onOpen}
-      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 font-mono text-[10px] text-emerald-400 transition-colors hover:bg-emerald-500/10"
+      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 px-2.5 py-1 font-mono text-[10px] text-amber-400 transition-colors hover:bg-amber-500/10"
     >
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-      Decision logged
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="4" />
+        <line x1="1.05" y1="12" x2="7" y2="12" />
+        <line x1="17.01" y1="12" x2="22.96" y2="12" />
+      </svg>
+      Decision staged
     </button>
   );
 }
@@ -861,20 +868,16 @@ export function ChatView() {
             } else if (data.type === "tool_result") {
               if (data.name === "save_decision" && data.decision) {
                 const d = data.decision as { id?: string; title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
-                const decId = useDecisionsStore.getState().addDecision({
+                const decId = useStagingStore.getState().stageDecision({
                   id: d.id || undefined,
                   title: d.title,
-                  status: d.status === "decided" ? "decided" : "undecided",
                   choice: d.choice,
                   alternatives: d.alternatives,
                   reasoning: d.reasoning ?? undefined,
                   projectId: activeProjectId,
                 });
                 useMeterStore.getState().setMessageDecisionId(decId);
-                trackDecisionCreated({ decisionId: decId, title: d.title, projectId: activeProjectId });
-                if (d.status === "decided") {
-                  trackDecisionResolved({ decisionId: decId, title: d.title });
-                }
+                trackDecisionStaged({ decisionId: decId, title: d.title, projectId: activeProjectId });
               }
               if (data.name === "save_artifact" && data.artifact) {
                 const a = data.artifact as { id?: string; filePath: string; status: string };
@@ -1204,6 +1207,7 @@ export function ChatView() {
           </div>
           <div className="relative flex items-center gap-2">
             <HeaderMeter />
+            <CommitButton />
             <button
               onClick={toggleInspector}
               className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 transition-colors hover:bg-foreground/5"
