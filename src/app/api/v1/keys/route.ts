@@ -84,18 +84,33 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ key, prefix: keyPrefix });
 }
 
-// DELETE — revoke a key
+// DELETE — revoke a key (scoped to owning user)
 export async function DELETE(req: NextRequest) {
   const supabase = getSupabaseServer();
   const id = req.nextUrl.searchParams.get("id");
+  const walletAddress = req.nextUrl.searchParams.get("walletAddress");
   if (!id) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
+  if (!walletAddress) {
+    return NextResponse.json({ error: "walletAddress required" }, { status: 400 });
+  }
 
-  const { error } = await supabase
+  const { data: user } = await supabase
+    .from("users")
+    .select("id")
+    .eq("wallet_address", walletAddress)
+    .single();
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const { error, count } = await supabase
     .from("api_keys")
     .update({ active: false })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   if (error) {
     return NextResponse.json({ error: "Failed to revoke key" }, { status: 500 });
