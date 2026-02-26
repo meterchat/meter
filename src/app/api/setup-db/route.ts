@@ -205,6 +205,94 @@ const STATEMENTS: string[] = [
   `create index if not exists idx_artifacts_user on artifacts(user_id)`,
   `create index if not exists idx_artifacts_project on artifacts(project_id)`,
   `create unique index if not exists idx_artifacts_user_project_path on artifacts(user_id, coalesce(project_id, ''), file_path)`,
+
+  // ── RLS: helper function to set app context ──
+  `create or replace function set_app_user(p_user_id text)
+   returns void as $$
+   begin perform set_config('app.user_id', p_user_id, true); end;
+   $$ language plpgsql security definer`,
+
+  // ── RLS: enable on all user-data tables ──
+  `alter table chat_sessions enable row level security`,
+  `alter table chat_messages enable row level security`,
+  `alter table decisions enable row level security`,
+  `alter table artifacts enable row level security`,
+  `alter table settlement_history enable row level security`,
+  `alter table oauth_tokens enable row level security`,
+  `alter table meter_users enable row level security`,
+  `alter table passkey_credentials enable row level security`,
+  `alter table auth_sessions enable row level security`,
+  `alter table workspaces enable row level security`,
+  `alter table workspace_projects enable row level security`,
+  `alter table oauth_state enable row level security`,
+  `alter table auth_challenges enable row level security`,
+
+  // ── RLS: policies (idempotent via exception handler) ──
+  `do $$ begin
+     create policy chat_sessions_owner on chat_sessions for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy chat_messages_owner on chat_messages for all
+       using (session_id in (select id from chat_sessions where user_id = current_setting('app.user_id', true)));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy decisions_owner on decisions for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy artifacts_owner on artifacts for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy settlement_history_owner on settlement_history for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy oauth_tokens_owner on oauth_tokens for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy meter_users_self on meter_users for all
+       using (id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy passkey_credentials_owner on passkey_credentials for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy auth_sessions_owner on auth_sessions for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy workspaces_owner on workspaces for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy workspace_projects_owner on workspace_projects for all
+       using (workspace_id in (select id from workspaces where user_id = current_setting('app.user_id', true)));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy oauth_state_owner on oauth_state for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  // auth_challenges must be open for unauthenticated register/login flows
+  `do $$ begin
+     create policy auth_challenges_open on auth_challenges for all
+       using (true);
+   exception when duplicate_object then null; end $$`,
 ];
 
 function getProjectRef(url: string): string | null {

@@ -14,6 +14,27 @@ function scopedSessionId(userId: string, localId: string): string {
   return `${userId}:${localId}`;
 }
 
+/** Verify all messageIds belong to sessions owned by userId */
+async function verifyMessageOwnership(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  userId: string,
+  messageIds: string[],
+): Promise<boolean> {
+  if (!messageIds || messageIds.length === 0) return true;
+  const { data: sessions } = await supabase
+    .from("chat_sessions")
+    .select("id")
+    .eq("user_id", userId);
+  if (!sessions?.length) return false;
+  const sessionIds = sessions.map((s: { id: string }) => s.id);
+  const { data: msgs } = await supabase
+    .from("chat_messages")
+    .select("id")
+    .in("id", messageIds)
+    .in("session_id", sessionIds);
+  return msgs !== null && msgs.length === messageIds.length;
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
@@ -31,6 +52,9 @@ export async function POST(req: NextRequest) {
   // Superadmin accounts don't charge — just mark messages settled and record it
   if (await isSuperAdmin(userId)) {
     if (messageIds && messageIds.length > 0) {
+      if (!(await verifyMessageOwnership(supabase, userId, messageIds))) {
+        return NextResponse.json({ error: "Forbidden: message ownership mismatch" }, { status: 403 });
+      }
       await supabase
         .from("chat_messages")
         .update({ settled: true, receipt_status: "settled" })
@@ -116,6 +140,9 @@ export async function POST(req: NextRequest) {
 
     // Update messages in Supabase
     if (messageIds && messageIds.length > 0) {
+      if (!(await verifyMessageOwnership(supabase, userId, messageIds))) {
+        return NextResponse.json({ error: "Forbidden: message ownership mismatch" }, { status: 403 });
+      }
       await supabase
         .from("chat_messages")
         .update({ settled: true, receipt_status: "settled" })
