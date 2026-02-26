@@ -670,19 +670,17 @@ export const useMeterStore = create<MeterState>()(
             count: existing.count + 1,
           };
 
-          // Output costs are incrementally added during streaming by
-          // updateLastAssistantMessage using the *selected* model's price.
-          // When the actual model differs (rerouting), reconcile against what
-          // was accumulated, not the final model's rate.
-          const selectedPricingId = s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId;
-          const streamingModel = getModel(selectedPricingId);
-          const streamedEstimateOut = last?.tokensOut ?? 0;
-          const streamedOutputCost = streamedEstimateOut * streamingModel.outputPrice;
-          const finalOutputCost = tokensOut * model.outputPrice;
-          const costDelta = inputCost + (finalOutputCost - streamedOutputCost);
+          // Snap to ground truth: during streaming (and debate turns),
+          // costs are estimated incrementally via char/4 heuristics and may
+          // use different model pricing.  Rather than trying to reverse-
+          // engineer what was accumulated, compute the exact adjustment
+          // needed so every counter matches the API-reported actuals.
+          // This eliminates debate-mode double-counting and rerouting drift.
+          const prevMessageCost = active.currentMessageCost;
+          const costAdjustment = totalMsgCost - prevMessageCost;
 
-          // Reconcile todayTokensOut: streaming accumulated char/4 estimates,
-          // now correct to actual API-reported output tokens.
+          // Same for output tokens: streaming used char/4 estimates.
+          const streamedEstimateOut = last?.tokensOut ?? 0;
           const tokensOutAdjustment = tokensOut - streamedEstimateOut;
 
           const updated = {
@@ -692,9 +690,9 @@ export const useMeterStore = create<MeterState>()(
             todayTokensOut: Math.max(0, active.todayTokensOut + tokensOutAdjustment),
             todayMessageCount: active.todayMessageCount + 1,
             todayByModel: byModel,
-            todayCost: active.todayCost + costDelta,
-            totalCost: active.totalCost + costDelta,
-            currentMessageCost: Math.max(0, active.currentMessageCost + costDelta),
+            todayCost: active.todayCost + costAdjustment,
+            totalCost: active.totalCost + costAdjustment,
+            currentMessageCost: totalMsgCost,
           };
 
           return { projects: replaceActiveProject(s, updated) };
