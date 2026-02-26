@@ -156,7 +156,8 @@ When the user asks to generate strategy artifacts or prepare specs for their cod
 3. DESIGN.md — high-level design philosophy and product/protocol design decisions
 4. DECISIONS.md — format each locked decision as an ADR (title, context, decision, consequences)
 5. CLAUDE.md — agent instructions optimized for Claude Code / Codex (concise directives, file structure, key patterns)
-6. .cursorrules — agent instructions optimized for Cursor
+6. BRAND.md — brand voice, tone, visual identity guidelines, and naming conventions
+7. .cursorrules — agent instructions optimized for Cursor
 Base all content on the locked decisions and conversation context. Be specific and actionable — these files are read by coding agents, not just humans.
 
 Review items: When you identify actionable items from the conversation, emails, or connected services, tag them with markers so they appear in the user's Review panel:

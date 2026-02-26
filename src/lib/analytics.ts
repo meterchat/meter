@@ -217,6 +217,24 @@ export function trackArtifactPushed(properties: { repo: string; artifactCount?: 
   capture("artifact_pushed", properties);
 }
 
+// ─── Commit / Staging ────────────────────────────────────────────────────
+
+export function trackDecisionStaged(properties: { decisionId: string; title: string; projectId?: string }) {
+  capture("decision_staged", properties);
+}
+
+export function trackDecisionUnstaged(properties: { decisionId: string }) {
+  capture("decision_unstaged", properties);
+}
+
+export function trackCommitExecuted(properties: { decisionCount: number; artifactCount: number; projectId?: string }) {
+  capture("commit_executed", properties);
+}
+
+export function trackCommitDropdownOpened(properties?: Record<string, unknown>) {
+  capture("commit_dropdown_opened", properties);
+}
+
 // ─── Model ──────────────────────────────────────────────────────────────
 
 export function trackModelSelected(properties: { model: string; previousModel?: string }) {

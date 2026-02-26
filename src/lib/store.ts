@@ -4,6 +4,7 @@ import { DEFAULT_MODEL, getModel } from "@/lib/models";
 import { CONNECTORS } from "@/lib/connectors";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore } from "@/lib/decisions-store";
+import { useStagingStore } from "@/lib/staging-store";
 
 export type ReceiptStatus = "signing" | "signed" | "settled";
 
@@ -508,6 +509,9 @@ export const useMeterStore = create<MeterState>()(
           panelOpen: false,
           filter: "all",
         });
+
+        // Clear staging store
+        useStagingStore.getState().clearStaged();
 
         // Remove persisted localStorage for other stores + drafts
         if (typeof window !== "undefined") {

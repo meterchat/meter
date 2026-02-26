@@ -9,6 +9,8 @@ export interface Artifact {
   githubSha?: string;
   lastGeneratedAt?: number;
   lastPushedAt?: number;
+  lastCommittedContent?: string;
+  lastCommittedAt?: number;
   projectId?: string;
 }
 
@@ -23,6 +25,8 @@ interface ArtifactsState {
   setTargetRepo: (repo: string | null) => void;
   setPushing: (v: boolean) => void;
   clearArtifacts: () => void;
+  commitArtifact: (id: string) => void;
+  commitAllArtifacts: () => void;
 }
 
 export const useArtifactsStore = create<ArtifactsState>()((set) => ({
@@ -73,4 +77,22 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
   setTargetRepo: (repo) => set({ targetRepo: repo }),
   setPushing: (v) => set({ pushing: v }),
   clearArtifacts: () => set({ artifacts: [] }),
+
+  commitArtifact: (id) =>
+    set((s) => ({
+      artifacts: s.artifacts.map((a) =>
+        a.id === id
+          ? { ...a, lastCommittedContent: a.content, lastCommittedAt: Date.now() }
+          : a
+      ),
+    })),
+
+  commitAllArtifacts: () =>
+    set((s) => ({
+      artifacts: s.artifacts.map((a) =>
+        a.content
+          ? { ...a, lastCommittedContent: a.content, lastCommittedAt: Date.now() }
+          : a
+      ),
+    })),
 }));
