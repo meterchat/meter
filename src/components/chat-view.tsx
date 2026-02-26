@@ -1007,7 +1007,12 @@ export function ChatView() {
   /** Stop the current streaming response */
   const handleStop = () => {
     trackResponseStopped();
-    abortRef.current?.abort();
+    if (abortRef.current) {
+      abortRef.current.abort();
+    } else {
+      // No active stream (e.g. stuck after refresh) — force reset
+      setStreaming(false);
+    }
   };
 
   /** Triggered by the "Debate" button on a decision-point message */

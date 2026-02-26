@@ -1098,6 +1098,14 @@ export const useMeterStore = create<MeterState>()(
         projects: s.projects,
         activeProjectId: s.activeProjectId,
       }),
+      // No stream survives a page load — reset any stale isStreaming flags
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.projects = state.projects.map((p) =>
+            p.isStreaming ? { ...p, isStreaming: false } : p
+          );
+        }
+      },
     }
   )
 );
