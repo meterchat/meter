@@ -47,6 +47,12 @@ const SlotDigit = memo(function SlotDigit({
 });
 
 /* ── Phases ────────────────────────────────────────────────────────── */
+// idle     → just the icon, counter hidden
+// resetting → counter expanding, digits cascading to 0
+// streaming → counter visible, digits rolling with cost
+// settling  → stream ended, finalizeResponse rolls in, icon still spinning
+// locked   → counter greyed out briefly, about to retract
+// idle     → counter retracted, back to icon only
 type Phase = "idle" | "resetting" | "streaming" | "settling" | "locked";
 
 /* ── MeterPill ─────────────────────────────────────────────────────── */
@@ -78,7 +84,6 @@ export function MeterPill() {
   /* Detect streaming start / stop */
   useEffect(() => {
     if (isStreaming && !wasStreamingRef.current) {
-      // New message → cascade digits back to 0, then stream
       clearTimeout(resetTimerRef.current);
       setPhase("resetting");
       setDisplayCost(0);
@@ -87,18 +92,20 @@ export function MeterPill() {
 
       resetTimerRef.current = setTimeout(() => {
         setPhase("streaming");
-        // Apply any cost that accumulated during the reset animation
         setDisplayCost(maxCostRef.current);
       }, 300);
     }
     if (!isStreaming && wasStreamingRef.current) {
       clearTimeout(resetTimerRef.current);
-      // Keep animation enabled briefly so finalizeResponse cost rolls smoothly
       setPhase("settling");
       wasStreamingRef.current = false;
 
+      // settling → locked (greyed) → idle (retract)
       resetTimerRef.current = setTimeout(() => {
         setPhase("locked");
+        resetTimerRef.current = setTimeout(() => {
+          setPhase("idle");
+        }, 1500);
       }, 600);
     }
     return () => clearTimeout(resetTimerRef.current);
@@ -112,10 +119,12 @@ export function MeterPill() {
       maxCostRef.current = next;
       setDisplayCost(next);
     } else if (phase === "resetting") {
-      // Buffer while the cascade runs
       maxCostRef.current = Math.max(maxCostRef.current, clamped);
     }
   }, [rawCost, phase]);
+
+  /* Counter visibility: shown during active phases + locked, hidden at idle */
+  const showCounter = phase !== "idle";
 
   /* Dynamic decimal places: 4 while active, 2 when settled */
   const isActive = phase === "streaming" || phase === "resetting" || phase === "settling";
@@ -130,53 +139,57 @@ export function MeterPill() {
   const duration = isResetting ? 250 : phase === "settling" ? 350 : 150;
   const cascadeStep = isResetting ? 20 : 0;
 
+  const iconActive = phase === "streaming" || phase === "resetting" || phase === "settling";
+
   let digitIdx = 0;
 
   return (
-    <button
-      className={`flex shrink-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 font-mono transition-colors ${
+    <div
+      className={`flex shrink-0 items-center overflow-hidden rounded-lg border font-mono transition-all duration-300 ease-in-out ${
         phase === "idle"
-          ? "border-border/50 text-muted-foreground/40"
+          ? "gap-0 border-transparent px-1 py-1.5"
           : phase === "locked"
-            ? "border-border text-muted-foreground/60"
-            : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground"
+            ? "gap-2 border-border px-2.5 py-1.5 text-muted-foreground/60"
+            : "gap-2 border-border px-2.5 py-1.5 text-muted-foreground hover:border-foreground/20 hover:text-foreground"
       }`}
       title="Message cost"
     >
-      <MeterIcon active={phase === "streaming" || phase === "resetting" || phase === "settling"} size={16} />
-      <span
-        className={`text-[12px] leading-none tabular-nums inline-flex items-center ${
-          phase === "idle"
-            ? "text-muted-foreground/30"
-            : phase === "locked"
-              ? "text-muted-foreground/60"
-              : "text-foreground"
-        }`}
-      >
-        <span>$</span>
-        {intDigits.map((d, i) => (
-          <SlotDigit
-            key={`i${i}`}
-            digit={d}
-            animate={animate}
-            delay={cascadeStep * digitIdx++}
-            duration={duration}
-          />
-        ))}
-        <span>.</span>
-        {decDigits.map((d, i) => (
-          <SlotDigit
-            key={`d${i}`}
-            digit={d}
-            animate={animate}
-            delay={cascadeStep * digitIdx++}
-            duration={duration}
-          />
-        ))}
-      </span>
-      <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
-        MSG
-      </span>
-    </button>
+      <MeterIcon active={iconActive} size={16} />
+      {showCounter && (
+        <>
+          <span
+            className={`text-[12px] leading-none tabular-nums inline-flex items-center transition-opacity duration-300 ${
+              phase === "locked"
+                ? "text-muted-foreground/40"
+                : "text-foreground"
+            }`}
+          >
+            <span>$</span>
+            {intDigits.map((d, i) => (
+              <SlotDigit
+                key={`i${i}`}
+                digit={d}
+                animate={animate}
+                delay={cascadeStep * digitIdx++}
+                duration={duration}
+              />
+            ))}
+            <span>.</span>
+            {decDigits.map((d, i) => (
+              <SlotDigit
+                key={`d${i}`}
+                digit={d}
+                animate={animate}
+                delay={cascadeStep * digitIdx++}
+                duration={duration}
+              />
+            ))}
+          </span>
+          <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+            MSG
+          </span>
+        </>
+      )}
+    </div>
   );
 }
