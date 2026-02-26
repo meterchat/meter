@@ -35,7 +35,7 @@ import {
   trackThemeChanged,
 } from "@/lib/analytics";
 
-const INSPECTOR_TABS = ["decisions", "blueprint", "payments", "connections"] as const;
+const INSPECTOR_TABS = ["decisions", "blueprints", "payments", "connections"] as const;
 
 export function Inspector() {
   const {
@@ -170,7 +170,7 @@ export function Inspector() {
 
       <div className="flex-1 overflow-y-auto p-4">
         {inspectorTab === "decisions" && <DecisionsTab activeProjectId={activeProject?.id ?? null} />}
-        {inspectorTab === "blueprint" && <BlueprintTab activeProjectId={activeProject?.id ?? null} />}
+        {inspectorTab === "blueprints" && <BlueprintTab activeProjectId={activeProject?.id ?? null} />}
         {inspectorTab === "payments" && <PaymentsTab activeProject={activeProject} />}
         {inspectorTab === "connections" && <ConnectionsTab />}
       </div>
@@ -837,7 +837,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
       {/* Header with actions */}
       <div className="flex items-center justify-between">
         <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">
-          Blueprint
+          Blueprints
         </div>
         <div className="flex items-center gap-1.5">
           {artifacts.length > 0 && (

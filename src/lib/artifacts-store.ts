@@ -46,7 +46,13 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
         return;
       }
       const data = await res.json();
-      set({ artifacts: data.artifacts ?? [], loading: false });
+      // Server-stored artifacts are already "committed" — initialise
+      // lastCommittedContent so they don't appear as new in the commit dropdown.
+      const fetched = (data.artifacts ?? []).map((a: Artifact) => ({
+        ...a,
+        lastCommittedContent: a.lastCommittedContent ?? a.content,
+      }));
+      set({ artifacts: fetched, loading: false });
     } catch {
       set({ loading: false });
     }
