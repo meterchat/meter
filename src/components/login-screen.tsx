@@ -498,10 +498,6 @@ export function LoginScreen() {
     } else {
       trackUserLoggedIn({ method: method ?? "passkey" });
     }
-    if (user.gmailConnected) {
-      connectService("gmail");
-    }
-
     // Use server-side flag — local companies store may not be populated yet
     const hasWorkspace = user.hasWorkspaces || companies.length > 0;
 

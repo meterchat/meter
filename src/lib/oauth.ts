@@ -15,20 +15,6 @@ export interface OAuthProviderConfig {
 }
 
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
-  gmail: {
-    id: "gmail",
-    name: "Gmail",
-    type: "oauth",
-    authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-    tokenUrl: "https://oauth2.googleapis.com/token",
-    scopes: [
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "openid",
-      "email",
-    ],
-    clientIdEnv: "GOOGLE_CLIENT_ID",
-    clientSecretEnv: "GOOGLE_CLIENT_SECRET",
-  },
   github: {
     id: "github",
     name: "GitHub",
@@ -38,16 +24,6 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     scopes: ["repo", "read:user"],
     clientIdEnv: "GITHUB_CLIENT_ID",
     clientSecretEnv: "GITHUB_CLIENT_SECRET",
-  },
-  vercel: {
-    id: "vercel",
-    name: "Vercel",
-    type: "oauth",
-    authorizeUrl: "https://vercel.com/integrations/authorize",
-    tokenUrl: "https://api.vercel.com/v2/oauth/access_token",
-    scopes: [],
-    clientIdEnv: "VERCEL_CLIENT_ID",
-    clientSecretEnv: "VERCEL_CLIENT_SECRET",
   },
   stripe: {
     id: "stripe",
@@ -60,8 +36,6 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     clientSecretEnv: "STRIPE_SECRET_KEY",
   },
   mercury: { id: "mercury", name: "Mercury", type: "api_key", clientIdEnv: "", clientSecretEnv: "" },
-  ramp: { id: "ramp", name: "Ramp", type: "api_key", clientIdEnv: "", clientSecretEnv: "" },
-  supabase: { id: "supabase", name: "Supabase", type: "api_key", clientIdEnv: "", clientSecretEnv: "" },
   posthog: { id: "posthog", name: "PostHog", type: "api_key", clientIdEnv: "", clientSecretEnv: "" },
 };
 
