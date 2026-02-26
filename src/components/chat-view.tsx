@@ -16,6 +16,7 @@ import {
   trackDecisionCreated,
   trackDecisionResolved,
   trackDecisionStaged,
+  trackPerTxnLimitHit,
   trackConnectorInitiated,
   trackWorkspaceCreated,
   trackCardAssignedToWorkspace,
@@ -460,6 +461,7 @@ export function ChatView() {
     selectedModelId,
     approveCard,
     rejectCard,
+    spendLimits,
   } = useMeterStore();
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
@@ -807,6 +809,25 @@ export function ChatView() {
       let buffer = "";
       let currentTurn: { model: string; phase: string; content: string } | null = null;
 
+      /** Abort the stream if currentMessageCost crosses the per-txn limit. */
+      const checkPerTxnLimit = (): boolean => {
+        const limit = spendLimits.perTxnLimit;
+        if (limit === null || limit <= 0) return false;
+        const state = useMeterStore.getState();
+        const active = state.projects.find((p) => p.id === state.activeProjectId);
+        const cost = active?.currentMessageCost ?? 0;
+        if (cost >= limit) {
+          const notice = `\n\n---\n*Per-transaction limit ($${limit.toFixed(2)}) reached. Response stopped at $${cost.toFixed(2)}.*`;
+          fullContent += notice;
+          const lastMsg = (active?.messages ?? []).at(-1);
+          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0);
+          trackPerTxnLimitHit({ projectId: activeProjectId, limit, actualCost: cost, model: effectiveModel });
+          abort.abort();
+          return true;
+        }
+        return false;
+      };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -838,6 +859,7 @@ export function ChatView() {
                 const estTokens = Math.ceil(deltaText.length / 4);
                 const debateModel = getModel("meter-1.0");
                 incrementCurrentMessageCost(estTokens * debateModel.outputPrice);
+                if (checkPerTxnLimit()) break;
               }
             } else if (data.type === "debate_turn_end") {
               if (currentTurn) {
@@ -863,6 +885,7 @@ export function ChatView() {
               setActiveTool(null);
               setRerouting(null);
               updateLastAssistantMessage(fullContent, data.tokensOut);
+              if (checkPerTxnLimit()) break;
             } else if (data.type === "tool_call") {
               setActiveTool(data.name as string);
             } else if (data.type === "tool_result") {

@@ -189,6 +189,15 @@ export function trackSpendLimitUpdated(properties: {
   capture("spend_limit_updated", properties);
 }
 
+export function trackPerTxnLimitHit(properties: {
+  projectId: string;
+  limit: number;
+  actualCost: number;
+  model: string;
+}) {
+  capture("per_txn_limit_hit", properties);
+}
+
 // ─── Connectors & OAuth ─────────────────────────────────────────────────
 
 export function trackConnectorInitiated(properties: { provider: string; method?: string }) {

@@ -378,6 +378,8 @@ function trimConversation(messages: Message[], maxTokens: number): Message[] {
   return messages.slice(startIdx);
 }
 
+// NOTE: per_txn_limit is enforced client-side during streaming (see chat-view.tsx).
+// Only daily/monthly limits are pre-flight checked here.
 async function checkSpendLimits(userId: string, projectId: string): Promise<string | null> {
   try {
     const supabase = getSupabaseServer();
