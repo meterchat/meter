@@ -5,11 +5,18 @@ import { useMeterStore } from "@/lib/store";
 import { MeterIcon } from "./meter-icon";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-function useAnimatedNumber(value: number, duration = 350) {
+function useAnimatedNumber(value: number, enabled = true, duration = 350) {
   const [display, setDisplay] = useState(value);
   const prevRef = useRef(value);
 
   useEffect(() => {
+    if (!enabled) {
+      // Skip animation — just track the value directly
+      setDisplay(value);
+      prevRef.current = value;
+      return;
+    }
+
     let raf = 0;
     const start = performance.now();
     const from = prevRef.current;
@@ -28,7 +35,7 @@ function useAnimatedNumber(value: number, duration = 350) {
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [value, duration]);
+  }, [value, enabled, duration]);
 
   return display;
 }
@@ -133,7 +140,7 @@ export function HeaderMeter() {
     };
   }, [assistantMsgs, activeProject?.totalCost, activeProject?.todayCost]);
 
-  const animatedToday = useAnimatedNumber(usage.today);
+  const animatedToday = useAnimatedNumber(usage.today, !isStreaming);
   const costStr = isStreaming
     ? `$${animatedToday.toFixed(4)}`
     : `$${animatedToday.toFixed(2)}`;
