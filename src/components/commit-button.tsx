@@ -23,6 +23,7 @@ const BLUEPRINT_FILES = [
 
 export function CommitButton() {
   const [open, setOpen] = useState(false);
+  const [committing, setCommitting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
@@ -73,11 +74,15 @@ export function CommitButton() {
     if (!open) trackCommitDropdownOpened();
   };
 
-  const handleCommit = () => {
+  const handleCommit = async () => {
+    setCommitting(true);
     const decisionCount = stagedDecisions.length;
     const artifactCount = modifiedArtifacts.length;
     trackCommitExecuted({ decisionCount, artifactCount, projectId: activeProjectId });
+    // Small delay so the action feels processed, not instant
+    await new Promise((r) => setTimeout(r, 600));
     commit(activeProjectId);
+    setCommitting(false);
     setOpen(false);
   };
 
@@ -217,7 +222,7 @@ export function CommitButton() {
               {/* Blueprint changes */}
               <div className="px-4 py-3">
                 <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
-                  Blueprint
+                  Blueprints
                 </div>
                 <div className="flex flex-col gap-0.5">
                   {modifiedArtifacts.map((a) => (
@@ -286,21 +291,38 @@ export function CommitButton() {
               <div className="border-t border-border/50 px-4 py-3">
                 <button
                   onClick={handleCommit}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground py-2 font-mono text-[11px] text-background transition-colors hover:bg-foreground/90 active:bg-foreground/80"
+                  disabled={committing}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground py-2 font-mono text-[11px] text-background transition-colors hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-70"
                 >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Commit
+                  {committing ? (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="animate-spin"
+                    >
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                  {committing ? "Committing..." : "Commit"}
                 </button>
               </div>
             </>

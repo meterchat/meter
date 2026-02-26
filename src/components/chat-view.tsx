@@ -165,18 +165,30 @@ function PinButton({ messageId, pinned }: { messageId: string; pinned?: boolean 
   );
 }
 
-function DecisionPill({ onOpen }: { onOpen: () => void }) {
+function DecisionPill({ decisionId, onOpen }: { decisionId: string; onOpen: () => void }) {
+  const isCommitted = useDecisionsStore((s) => s.decisions.some((d) => d.id === decisionId));
+
   return (
     <button
       onClick={onOpen}
-      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 px-2.5 py-1 font-mono text-[10px] text-amber-400 transition-colors hover:bg-amber-500/10"
+      className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] transition-colors ${
+        isCommitted
+          ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10"
+          : "border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10"
+      }`}
     >
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="4" />
-        <line x1="1.05" y1="12" x2="7" y2="12" />
-        <line x1="17.01" y1="12" x2="22.96" y2="12" />
-      </svg>
-      Decision staged
+      {isCommitted ? (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <line x1="1.05" y1="12" x2="7" y2="12" />
+          <line x1="17.01" y1="12" x2="22.96" y2="12" />
+        </svg>
+      )}
+      {isCommitted ? "Decision logged" : "Decision staged"}
     </button>
   );
 }
@@ -1441,7 +1453,7 @@ export function ChatView() {
                       )}
 
                       {msg.role === "assistant" && msg.decisionId && (
-                        <DecisionPill onOpen={() => { trackInspectorToggled({ open: true }); setInspectorOpen(true); setInspectorTab("decisions"); }} />
+                        <DecisionPill decisionId={msg.decisionId} onOpen={() => { trackInspectorToggled({ open: true }); setInspectorOpen(true); setInspectorTab("decisions"); }} />
                       )}
                       {msg.role === "assistant" && <MessageFooter msg={msg} projectId={activeProjectId} />}
                     </div>
