@@ -165,11 +165,11 @@ interface MeterState {
   setCardAssigned: (projectId: string) => void;
 
   togglePinMessage: (messageId: string) => void;
-  addMessage: (msg: ChatMessage) => void;
-  updateLastAssistantMessage: (content: string, tokensOut: number) => void;
-  updateLastAssistantThinking: (thinking: string) => void;
-  finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number, actualCost?: number) => void;
-  setStreaming: (v: boolean) => void;
+  addMessage: (msg: ChatMessage, forProjectId?: string) => void;
+  updateLastAssistantMessage: (content: string, tokensOut: number, forProjectId?: string) => void;
+  updateLastAssistantThinking: (thinking: string, forProjectId?: string) => void;
+  finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number, actualCost?: number, forProjectId?: string) => void;
+  setStreaming: (v: boolean, forProjectId?: string) => void;
   markSettled: (messageId: string) => void;
   settleAll: () => Promise<{ success: boolean; error?: string }>;
   getPendingBalance: () => number;
@@ -178,8 +178,8 @@ interface MeterState {
 
   approveCard: (messageId: string, cardId: string) => void;
   rejectCard: (messageId: string, cardId: string) => void;
-  setMessageDecisionId: (decisionId: string) => void;
-  setDebateTrace: (trace: DebateTurn[]) => void;
+  setMessageDecisionId: (decisionId: string, forProjectId?: string) => void;
+  setDebateTrace: (trace: DebateTurn[], forProjectId?: string) => void;
 
   setPendingInput: (v: string | null) => void;
 
@@ -193,7 +193,7 @@ interface MeterState {
   setSpendingCap: (v: number) => void;
   setAutoSettleThreshold: (v: number) => void;
   setIsSettling: (v: boolean) => void;
-  incrementCurrentMessageCost: (costDelta: number) => void;
+  incrementCurrentMessageCost: (costDelta: number, forProjectId?: string) => void;
   setDecisionMode: (v: boolean) => void;
 
   fetchCards: () => Promise<void>;
@@ -256,6 +256,15 @@ function ensureDaily(project: ProjectThread): ProjectThread {
 
 function getActiveProject(state: MeterState): ProjectThread {
   return state.projects.find((p) => p.id === state.activeProjectId) ?? state.projects[0];
+}
+
+/** Resolve a specific project by ID, falling back to the active project. */
+function getProjectByIdOrActive(state: MeterState, forProjectId?: string): ProjectThread {
+  if (forProjectId) {
+    const match = state.projects.find((p) => p.id === forProjectId);
+    if (match) return match;
+  }
+  return getActiveProject(state);
 }
 
 function replaceActiveProject(state: MeterState, project: ProjectThread): ProjectThread[] {
@@ -576,16 +585,16 @@ export const useMeterStore = create<MeterState>()(
           ),
         })),
 
-      addMessage: (msg) =>
+      addMessage: (msg, forProjectId?) =>
         set((s) => {
-          const active = ensureDaily(getActiveProject(s));
+          const active = ensureDaily(getProjectByIdOrActive(s, forProjectId));
           const updated = { ...active, messages: [...active.messages, msg] };
           return { projects: replaceActiveProject(s, updated) };
         }),
 
-      updateLastAssistantMessage: (content, tokensOut) =>
+      updateLastAssistantMessage: (content, tokensOut, forProjectId?) =>
         set((s) => {
-          const active = ensureDaily(getActiveProject(s));
+          const active = ensureDaily(getProjectByIdOrActive(s, forProjectId));
           const pricingModelId = s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId;
           const model = getModel(pricingModelId);
           const msgs = [...active.messages];
@@ -610,9 +619,9 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, updated) };
         }),
 
-      updateLastAssistantThinking: (thinking) =>
+      updateLastAssistantThinking: (thinking, forProjectId?) =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getProjectByIdOrActive(s, forProjectId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last?.role === "assistant") {
@@ -621,9 +630,9 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
-      finalizeResponse: (tokensIn, tokensOut, confidence, actualModel, cacheCreationTokens, cacheReadTokens, cacheReadRate, actualCost) => {
+      finalizeResponse: (tokensIn, tokensOut, confidence, actualModel, cacheCreationTokens, cacheReadTokens, cacheReadRate, actualCost, forProjectId?) => {
         set((s) => {
-          const active = ensureDaily(getActiveProject(s));
+          const active = ensureDaily(getProjectByIdOrActive(s, forProjectId));
           const pricingModelId = actualModel
             ?? (s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId);
           const model = getModel(pricingModelId);
@@ -895,9 +904,9 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, updated) };
         }),
 
-      setMessageDecisionId: (decisionId) =>
+      setMessageDecisionId: (decisionId, forProjectId?) =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getProjectByIdOrActive(s, forProjectId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
@@ -906,9 +915,9 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
-      setDebateTrace: (trace) =>
+      setDebateTrace: (trace, forProjectId?) =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getProjectByIdOrActive(s, forProjectId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
@@ -917,9 +926,9 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
-      setStreaming: (v) =>
+      setStreaming: (v, forProjectId?) =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getProjectByIdOrActive(s, forProjectId);
           const updated = {
             ...active,
             isStreaming: v,
@@ -1061,9 +1070,9 @@ export const useMeterStore = create<MeterState>()(
       setSpendingCap: (v) => set({ spendingCap: v }),
       setAutoSettleThreshold: (v) => set({ autoSettleThreshold: v }),
       setIsSettling: (v) => set({ isSettling: v }),
-      incrementCurrentMessageCost: (costDelta) =>
+      incrementCurrentMessageCost: (costDelta, forProjectId?) =>
         set((s) => {
-          const active = ensureDaily(getActiveProject(s));
+          const active = ensureDaily(getProjectByIdOrActive(s, forProjectId));
           return {
             projects: replaceActiveProject(s, {
               ...active,
