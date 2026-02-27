@@ -482,6 +482,14 @@ export function ChatView() {
   const todayCost = activeProject?.todayCost ?? 0;
   const todayMessageCount = activeProject?.todayMessageCount ?? 0;
 
+  // Fetch spend limits on mount and when project changes — can't rely on
+  // Inspector since it's unmounted when closed, and limits aren't persisted
+  // across page reloads without this.
+  const fetchSpendLimits = useMeterStore((s) => s.fetchSpendLimits);
+  useEffect(() => {
+    if (activeProjectId) fetchSpendLimits(activeProjectId);
+  }, [activeProjectId, fetchSpendLimits]);
+
   const decisions = useDecisionsStore((s) => s.decisions);
   const updateDecision = useDecisionsStore((s) => s.updateDecision);
 

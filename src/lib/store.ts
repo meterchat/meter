@@ -1107,6 +1107,7 @@ export const useMeterStore = create<MeterState>()(
         lastAutoSettleDate: s.lastAutoSettleDate,
         projects: s.projects,
         activeProjectId: s.activeProjectId,
+        spendLimits: s.spendLimits,
       }),
       // No stream survives a page load — reset any stale isStreaming flags
       onRehydrateStorage: () => (state) => {
