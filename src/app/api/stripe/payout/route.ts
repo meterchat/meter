@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const cur = currency ?? "usd";
 
     // Check our platform Stripe balance
-    const balance = await stripe.balance.retrieve();
+    const balance = await getStripe().balance.retrieve();
     const available = balance.available.find((b) => b.currency === cur);
 
     if (!available || available.amount <= 0) {
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payout = await stripe.payouts.create({
+    const payout = await getStripe().payouts.create({
       amount: payoutAmountCents,
       currency: cur,
       description: "Meter platform payout",

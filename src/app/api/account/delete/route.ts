@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { deleteAllUserSessions } from "@/lib/session";
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     // Delete Stripe customer
     if (user.stripe_customer_id) {
       try {
-        await stripe.customers.del(user.stripe_customer_id);
+        await getStripe().customers.del(user.stripe_customer_id);
       } catch (e) {
         console.error("Stripe customer deletion failed:", e);
       }

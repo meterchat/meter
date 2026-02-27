@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, ensureStripeCustomer } from "@/lib/stripe";
+import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 
@@ -16,11 +16,11 @@ export async function POST(req: NextRequest) {
 
     const customerId = await ensureStripeCustomer(userId);
 
-    await stripe.customers.update(customerId, {
+    await getStripe().customers.update(customerId, {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
 
-    const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+    const pm = await getStripe().paymentMethods.retrieve(paymentMethodId);
     const last4 = pm.card?.last4 ?? "0000";
     const brand = pm.card?.brand ?? "unknown";
 
