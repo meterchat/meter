@@ -9,6 +9,7 @@ import { getAccounts as mercuryGetAccounts, listTransactions as mercuryListTrans
 import { listTransactions as rampListTransactions, getSpendingSummary as rampGetSpendingSummary } from "@/lib/connectors/ramp";
 import { supabaseQuery, supabaseListTables } from "@/lib/connectors/supabase-connector";
 import { queryEvents as posthogQueryEvents, getInsights as posthogGetInsights } from "@/lib/connectors/posthog";
+import { getCard as agentcardGetCard, checkBalance as agentcardCheckBalance, listTransactions as agentcardListTransactions, createPayment as agentcardCreatePayment } from "@/lib/connectors/agentcard";
 
 /* ─── Tool schemas (OpenAI function-calling format) ─────────────── */
 
@@ -308,6 +309,28 @@ export async function executeTool(
     case "posthog_get_insights":
       return withConnectorToken("posthog", ctx, async (token) =>
         posthogGetInsights(token, { limit: args.limit as number | undefined })
+      );
+    // AgentCard
+    case "agentcard_get_card":
+      return withConnectorToken("agentcard", ctx, async (token) =>
+        agentcardGetCard(token)
+      );
+    case "agentcard_check_balance":
+      return withConnectorToken("agentcard", ctx, async (token) =>
+        agentcardCheckBalance(token)
+      );
+    case "agentcard_list_transactions":
+      return withConnectorToken("agentcard", ctx, async (token) =>
+        agentcardListTransactions(token, { limit: args.limit as number | undefined })
+      );
+    case "agentcard_create_payment":
+      return withConnectorToken("agentcard", ctx, async (token) =>
+        agentcardCreatePayment(token, {
+          amount: args.amount as number,
+          currency: args.currency as string,
+          merchant: args.merchant as string,
+          description: args.description as string | undefined,
+        })
       );
     default:
       return `Unknown tool: ${name}`;
