@@ -16,7 +16,7 @@
  */
 
 import { streamWithFallback, type Send } from "./fallback";
-import { DEBATE_MODELS, shortModelName } from "./models";
+import { DEBATE_MODELS, shortModelName, getModel } from "./models";
 import type OpenAI from "openai";
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
@@ -69,13 +69,21 @@ function extractDebateContext(conversation: Message[]): {
   return { topic, context: trimmed };
 }
 
+/** Debate usage accumulator — tracks raw tokens AND actual per-model cost */
+interface DebateUsage {
+  tokensIn: number;
+  tokensOut: number;
+  /** Actual dollar cost summed across all models (includes markup) */
+  actualCost: number;
+}
+
 /** Run a single model turn — stream to client, collect text + usage */
 async function runModelTurn(
   modelId: string,
   messages: Message[],
   phase: string,
   send: Send,
-  usage: { tokensIn: number; tokensOut: number },
+  usage: DebateUsage,
 ): Promise<string> {
   send({ type: "debate_turn_start", model: modelId, phase });
 
@@ -101,15 +109,18 @@ async function runModelTurn(
     content = "(This model was unavailable for this round.)";
   }
 
+  // Price this turn using the ACTUAL model's rate (not a blended rate)
+  const model = getModel(modelId);
   usage.tokensIn += roundIn;
   usage.tokensOut += roundOut;
+  usage.actualCost += roundIn * model.inputPrice + roundOut * model.outputPrice;
   send({ type: "debate_turn_end", model: modelId, phase });
 
   return content;
 }
 
 export async function runDebate(conversation: Message[], send: Send) {
-  const usage = { tokensIn: 0, tokensOut: 0 };
+  const usage: DebateUsage = { tokensIn: 0, tokensOut: 0, actualCost: 0 };
   const { topic, context } = extractDebateContext(conversation);
   const modelNames = DEBATE_MODELS.map(shortModelName);
 
@@ -266,9 +277,18 @@ Write the definitive answer. Lead with the conclusion, then briefly note why the
     totalOut,
   );
 
+  const synthModel = getModel("anthropic/claude-sonnet-4.6");
   usage.tokensIn += synthRoundIn;
   usage.tokensOut += synthRoundOut;
+  usage.actualCost += synthRoundIn * synthModel.inputPrice + synthRoundOut * synthModel.outputPrice;
 
-  send({ type: "usage", tokensIn: usage.tokensIn, tokensOut: usage.tokensOut });
+  // Send actual per-model cost so the client doesn't need to re-derive from
+  // a blended rate (which can't be accurate across models with different prices).
+  send({
+    type: "usage",
+    tokensIn: usage.tokensIn,
+    tokensOut: usage.tokensOut,
+    actualCost: usage.actualCost,
+  });
   send({ type: "done", actualModel: "meter-1.0" });
 }

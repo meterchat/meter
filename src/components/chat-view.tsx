@@ -40,7 +40,7 @@ import { WorkspaceBar } from "@/components/workspace-bar";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
-import { getModel, shortModelName } from "@/lib/models";
+import { getModel, shortModelName, DEBATE_MODELS } from "@/lib/models";
 import { useSessionSync } from "@/lib/use-session-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { useArtifactsStore } from "@/lib/artifacts-store";
@@ -746,6 +746,24 @@ export function ChatView() {
     userScrolledAwayRef.current = false;
     setRerouting(null); // Clear any previous reroute
 
+    // Client-side daily limit check — Supabase sync is delayed (2-10s), so the
+    // server pre-flight can read stale cost and let overspend through. The client
+    // store has the authoritative todayCost since it tracks every message.
+    if (spendLimits.dailyLimit != null && spendLimits.dailyLimit > 0) {
+      const state = useMeterStore.getState();
+      const active = state.projects.find((p) => p.id === state.activeProjectId);
+      const todayCost = active?.todayCost ?? 0;
+      if (todayCost >= spendLimits.dailyLimit) {
+        addMessage({
+          id: Math.random().toString(36).slice(2, 10),
+          role: "assistant",
+          content: `Daily spend limit reached ($${todayCost.toFixed(2)} / $${spendLimits.dailyLimit.toFixed(2)}). Adjust your limit or wait until tomorrow.`,
+          timestamp: Date.now(),
+        });
+        return;
+      }
+    }
+
     const userMsg: ChatMessage = {
       id: Math.random().toString(36).slice(2, 10),
       role: "user",
@@ -779,7 +797,7 @@ export function ChatView() {
 
     // Track debate trace locally during streaming
     const localTrace: DebateTurn[] = [];
-    let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number } | null = null;
+    let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number; actualCost?: number } | null = null;
     let actualModelUsed: string | null = null;
 
     const abort = new AbortController();
@@ -806,6 +824,42 @@ export function ChatView() {
         }),
       });
 
+      // Pre-estimate input cost so the per-txn limit check isn't blind to it.
+      // Input tokens are only reported by the API at the end, but we can't wait
+      // that long — the response would already be fully streamed. Rough estimate
+      // using char/4 is good enough for limit enforcement (finalization corrects).
+      const estimatedInputTokens = allMessages.reduce(
+        (sum, m) => sum + Math.ceil((typeof m.content === "string" ? m.content.length : 0) / 4),
+        0,
+      );
+      const inputModel = isDebateMode
+        ? getModel(DEBATE_MODELS[0]) // conservative: price at most expensive debate model
+        : getModel(effectiveModel);
+      const estimatedInputCost = isDebateMode
+        ? estimatedInputTokens * DEBATE_MODELS.reduce((sum, id) => sum + getModel(id).inputPrice, 0)
+        : estimatedInputTokens * inputModel.inputPrice;
+      if (estimatedInputCost > 0) {
+        incrementCurrentMessageCost(estimatedInputCost);
+
+        // Check limits immediately after pre-loading input cost — if the input
+        // alone would exceed the per-txn or daily limit, abort before streaming.
+        const txnLimit = spendLimits.perTxnLimit;
+        const dailyLimit = spendLimits.dailyLimit;
+        const st = useMeterStore.getState();
+        const proj = st.projects.find((p) => p.id === st.activeProjectId);
+        const msgCost = proj?.currentMessageCost ?? 0;
+        const todayCost = proj?.todayCost ?? 0;
+        if ((txnLimit != null && txnLimit > 0 && msgCost >= txnLimit) ||
+            (dailyLimit != null && dailyLimit > 0 && todayCost >= dailyLimit)) {
+          const which = txnLimit != null && txnLimit > 0 && msgCost >= txnLimit
+            ? `Per-transaction limit ($${txnLimit.toFixed(2)})`
+            : `Daily limit ($${dailyLimit!.toFixed(2)})`;
+          updateLastAssistantMessage(`${which} would be exceeded by this message's input cost alone. Message not sent.`, 0);
+          abort.abort();
+          return;
+        }
+      }
+
       if (res.status === 429) {
         const body = await res.json().catch(() => ({ error: "Spend limit reached" }));
         updateLastAssistantMessage(body.error ?? "Spend limit reached. Please adjust your limits or wait for the next period.", 0);
@@ -821,22 +875,37 @@ export function ChatView() {
       let buffer = "";
       let currentTurn: { model: string; phase: string; content: string } | null = null;
 
-      /** Abort the stream if currentMessageCost crosses the per-txn limit. */
+      /** Abort the stream if per-txn or daily limit is exceeded. */
       const checkPerTxnLimit = (): boolean => {
-        const limit = spendLimits.perTxnLimit;
-        if (limit === null || limit <= 0) return false;
         const state = useMeterStore.getState();
         const active = state.projects.find((p) => p.id === state.activeProjectId);
         const cost = active?.currentMessageCost ?? 0;
-        if (cost >= limit) {
-          const notice = `\n\n---\n*Per-transaction limit ($${limit.toFixed(2)}) reached. Response stopped at $${cost.toFixed(2)}.*`;
+
+        // Per-transaction limit
+        const txnLimit = spendLimits.perTxnLimit;
+        if (txnLimit != null && txnLimit > 0 && cost >= txnLimit) {
+          const notice = `\n\n---\n*Per-transaction limit ($${txnLimit.toFixed(2)}) reached. Response stopped at $${cost.toFixed(2)}.*`;
           fullContent += notice;
           const lastMsg = (active?.messages ?? []).at(-1);
           updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0);
-          trackPerTxnLimitHit({ projectId: activeProjectId, limit, actualCost: cost, model: effectiveModel });
+          trackPerTxnLimitHit({ projectId: activeProjectId, limit: txnLimit, actualCost: cost, model: effectiveModel });
           abort.abort();
           return true;
         }
+
+        // Daily limit — also enforce mid-stream so a single expensive
+        // response can't blow through the daily budget.
+        const dailyLimit = spendLimits.dailyLimit;
+        const todayCost = active?.todayCost ?? 0;
+        if (dailyLimit != null && dailyLimit > 0 && todayCost >= dailyLimit) {
+          const notice = `\n\n---\n*Daily limit ($${dailyLimit.toFixed(2)}) reached. Response stopped at $${todayCost.toFixed(2)} today.*`;
+          fullContent += notice;
+          const lastMsg = (active?.messages ?? []).at(-1);
+          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0);
+          abort.abort();
+          return true;
+        }
+
         return false;
       };
 
@@ -866,11 +935,11 @@ export function ChatView() {
               if (currentTurn) {
                 currentTurn = { model: currentTurn.model, phase: currentTurn.phase, content: currentTurn.content + (data.content as string) };
                 setActiveDebateTurn(currentTurn);
-                // Track output cost incrementally during debate turns
+                // Track output cost incrementally using the actual model's rate
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
-                const debateModel = getModel("meter-1.0");
-                incrementCurrentMessageCost(estTokens * debateModel.outputPrice);
+                const turnModel = getModel(currentTurn.model);
+                incrementCurrentMessageCost(estTokens * turnModel.outputPrice);
                 if (checkPerTxnLimit()) break;
               }
             } else if (data.type === "debate_turn_end") {
@@ -939,6 +1008,7 @@ export function ChatView() {
                 cacheCreationTokens: data.cacheCreationTokens ?? 0,
                 cacheReadTokens: data.cacheReadTokens ?? 0,
                 cacheReadRate: data.cacheReadRate ?? 0,
+                actualCost: data.actualCost ?? undefined,
               };
             }
           } catch {
@@ -962,6 +1032,7 @@ export function ChatView() {
           finalUsage.cacheCreationTokens,
           finalUsage.cacheReadTokens,
           finalUsage.cacheReadRate,
+          finalUsage.actualCost,
         );
       }
     } catch {
@@ -979,6 +1050,7 @@ export function ChatView() {
           finalUsage.cacheCreationTokens,
           finalUsage.cacheReadTokens,
           finalUsage.cacheReadRate,
+          finalUsage.actualCost,
         );
       }
     } finally {
