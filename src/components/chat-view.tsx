@@ -750,6 +750,10 @@ export function ChatView() {
 
   /** Core streaming function shared by handleSend and handleDebate */
   const streamResponse = async (userContent: string, modelOverride?: string, userAttachments?: Attachment[]) => {
+    // Pin the project ID at stream start so all mutations target the correct
+    // workspace even if the user switches workspaces mid-stream.
+    const streamProjectId = activeProjectId;
+
     isNearBottomRef.current = true;
     userScrolledAwayRef.current = false;
     setRerouting(null); // Clear any previous reroute
@@ -759,7 +763,7 @@ export function ChatView() {
     // store has the authoritative todayCost since it tracks every message.
     if (spendLimits.dailyLimit != null && spendLimits.dailyLimit > 0) {
       const state = useMeterStore.getState();
-      const active = state.projects.find((p) => p.id === state.activeProjectId);
+      const active = state.projects.find((p) => p.id === streamProjectId);
       const todayCost = active?.todayCost ?? 0;
       if (todayCost >= spendLimits.dailyLimit) {
         addMessage({
@@ -767,7 +771,7 @@ export function ChatView() {
           role: "assistant",
           content: `Daily spend limit reached ($${todayCost.toFixed(2)} / $${spendLimits.dailyLimit.toFixed(2)}). Adjust your limit or wait until tomorrow.`,
           timestamp: Date.now(),
-        });
+        }, streamProjectId);
         return;
       }
     }
@@ -779,7 +783,7 @@ export function ChatView() {
       timestamp: Date.now(),
       ...(userAttachments?.length ? { attachments: userAttachments } : {}),
     };
-    addMessage(userMsg);
+    addMessage(userMsg, streamProjectId);
 
     const assistantMsg: ChatMessage = {
       id: Math.random().toString(36).slice(2, 10),
@@ -789,8 +793,8 @@ export function ChatView() {
       receiptStatus: "signing",
       timestamp: Date.now(),
     };
-    addMessage(assistantMsg);
-    setStreaming(true);
+    addMessage(assistantMsg, streamProjectId);
+    setStreaming(true, streamProjectId);
     setThinkingStartedAt(Date.now());
 
     const effectiveModel = modelOverride ?? selectedModelId;
@@ -824,7 +828,7 @@ export function ChatView() {
         body: JSON.stringify({
           messages: allMessages,
           model: effectiveModel,
-          projectId: activeProjectId,
+          projectId: streamProjectId,
           connectedServices: Object.keys(connectedServices).filter(
             (k) => connectedServices[k]
           ),
@@ -855,7 +859,7 @@ export function ChatView() {
 
       if (res.status === 429) {
         const body = await res.json().catch(() => ({ error: "Spend limit reached" }));
-        updateLastAssistantMessage(body.error ?? "Spend limit reached. Please adjust your limits or wait for the next period.", 0);
+        updateLastAssistantMessage(body.error ?? "Spend limit reached. Please adjust your limits or wait for the next period.", 0, streamProjectId);
         return;
       }
       if (!res.ok) throw new Error(`Chat API failed (${res.status})`);
@@ -874,7 +878,7 @@ export function ChatView() {
        *  polluting todayCost in the store. */
       const checkSpendLimits = (): boolean => {
         const state = useMeterStore.getState();
-        const active = state.projects.find((p) => p.id === state.activeProjectId);
+        const active = state.projects.find((p) => p.id === streamProjectId);
         // currentMessageCost tracks output cost accumulated during streaming.
         // Add the local input estimate for a more accurate per-txn check.
         const cost = (active?.currentMessageCost ?? 0) + estimatedInputCost;
@@ -885,8 +889,8 @@ export function ChatView() {
           const notice = `\n\n---\n*Per-transaction limit ($${txnLimit.toFixed(2)}) reached. Response stopped at ~$${cost.toFixed(2)}.*`;
           fullContent += notice;
           const lastMsg = (active?.messages ?? []).at(-1);
-          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0);
-          trackPerTxnLimitHit({ projectId: activeProjectId, limit: txnLimit, actualCost: cost, model: effectiveModel });
+          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0, streamProjectId);
+          trackPerTxnLimitHit({ projectId: streamProjectId, limit: txnLimit, actualCost: cost, model: effectiveModel });
           abort.abort();
           return true;
         }
@@ -899,7 +903,7 @@ export function ChatView() {
           const notice = `\n\n---\n*Daily limit ($${dailyLimit.toFixed(2)}) reached. Response stopped at ~$${todayCost.toFixed(2)} today.*`;
           fullContent += notice;
           const lastMsg = (active?.messages ?? []).at(-1);
-          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0);
+          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0, streamProjectId);
           abort.abort();
           return true;
         }
@@ -937,7 +941,7 @@ export function ChatView() {
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
                 const turnModel = getModel(currentTurn.model);
-                incrementCurrentMessageCost(estTokens * turnModel.outputPrice);
+                incrementCurrentMessageCost(estTokens * turnModel.outputPrice, streamProjectId);
                 if (checkSpendLimits()) break;
               }
             } else if (data.type === "debate_turn_end") {
@@ -958,12 +962,12 @@ export function ChatView() {
             // ── Standard events ───────────────────────────────
             } else if (data.type === "thinking_delta") {
               thinkingContent += data.content;
-              useMeterStore.getState().updateLastAssistantThinking(thinkingContent);
+              useMeterStore.getState().updateLastAssistantThinking(thinkingContent, streamProjectId);
             } else if (data.type === "delta") {
               fullContent += data.content;
               setActiveTool(null);
               setRerouting(null);
-              updateLastAssistantMessage(fullContent, data.tokensOut);
+              updateLastAssistantMessage(fullContent, data.tokensOut, streamProjectId);
               if (checkSpendLimits()) break;
             } else if (data.type === "tool_call") {
               setActiveTool(data.name as string);
@@ -976,10 +980,10 @@ export function ChatView() {
                   choice: d.choice,
                   alternatives: d.alternatives,
                   reasoning: d.reasoning ?? undefined,
-                  projectId: activeProjectId,
+                  projectId: streamProjectId,
                 });
-                useMeterStore.getState().setMessageDecisionId(decId);
-                trackDecisionStaged({ decisionId: decId, title: d.title, projectId: activeProjectId });
+                useMeterStore.getState().setMessageDecisionId(decId, streamProjectId);
+                trackDecisionStaged({ decisionId: decId, title: d.title, projectId: streamProjectId });
               }
               if (data.name === "save_artifact" && data.artifact) {
                 const a = data.artifact as { id?: string; filePath: string; status: string };
@@ -995,7 +999,7 @@ export function ChatView() {
             } else if (data.type === "error") {
               const errorPayload = JSON.stringify({ code: data.code, model: data.model });
               fullContent = `__error__${errorPayload}`;
-              updateLastAssistantMessage(fullContent, 0);
+              updateLastAssistantMessage(fullContent, 0, streamProjectId);
             } else if (data.type === "done") {
               if (data.actualModel) actualModelUsed = data.actualModel as string;
             } else if (data.type === "usage") {
@@ -1017,8 +1021,8 @@ export function ChatView() {
 
       // Persist debate trace to the message
       if (isDebateMode && localTrace.length > 0) {
-        useMeterStore.getState().setDebateTrace(localTrace);
-        trackDebateCompleted({ projectId: activeProjectId, turnCount: localTrace.length });
+        useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
+        trackDebateCompleted({ projectId: streamProjectId, turnCount: localTrace.length });
       }
 
       if (finalUsage) {
@@ -1031,13 +1035,14 @@ export function ChatView() {
           finalUsage.cacheReadTokens,
           finalUsage.cacheReadRate,
           finalUsage.actualCost,
+          streamProjectId,
         );
       }
     } catch {
       // Abort or network error — persist whatever we have so far.
       // Partial responses are still billed upstream (industry standard).
       if (isDebateMode && localTrace.length > 0) {
-        useMeterStore.getState().setDebateTrace(localTrace);
+        useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
       }
       if (finalUsage) {
         finalizeResponse(
@@ -1049,6 +1054,7 @@ export function ChatView() {
           finalUsage.cacheReadTokens,
           finalUsage.cacheReadRate,
           finalUsage.actualCost,
+          streamProjectId,
         );
       }
     } finally {
@@ -1058,7 +1064,7 @@ export function ChatView() {
       setActiveDebateTurn(null);
       // Delay setStreaming(false) so the meter pill slot animation has
       // time to roll to the final cost value before locking.
-      setTimeout(() => setStreaming(false), 350);
+      setTimeout(() => setStreaming(false, streamProjectId), 350);
     }
   };
 
