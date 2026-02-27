@@ -3,24 +3,34 @@ import { NextRequest, NextResponse } from "next/server";
 const DEV_HOSTS = ["dev.getmeter.xyz", "getmeter.dev"];
 const PROD_HOST = "getmeter.xyz";
 
+function isDevHost(hostname: string) {
+  return DEV_HOSTS.some((h) => hostname.startsWith(h.split(".")[0]));
+}
+
 export function middleware(req: NextRequest) {
   const hostname = req.headers.get("host") ?? "";
   const { pathname } = req.nextUrl;
 
-  // dev.getmeter.xyz → rewrite to /console
-  if (DEV_HOSTS.some((h) => hostname.startsWith(h.split(".")[0]))) {
-    if (!pathname.startsWith("/console") && !pathname.startsWith("/api") && !pathname.startsWith("/_next") && !pathname.startsWith("/favicon")) {
+  // ── getmeter.dev routing ──────────────────────────────────────
+  // Root → landing page. Console, docs, api, etc. pass through.
+  if (isDevHost(hostname)) {
+    if (pathname === "/") {
       const url = req.nextUrl.clone();
-      url.pathname = `/console${pathname}`;
+      url.pathname = "/landing";
       return NextResponse.rewrite(url);
     }
+    // /console, /docs, /api/* all pass through to their actual routes
+    return NextResponse.next();
   }
 
-  // Block /console on production domain (keep demo & console separate)
-  if (pathname.startsWith("/console") && hostname === PROD_HOST) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+  // ── Production domain (getmeter.xyz / meter.chat) ─────────────
+  // Block /console and /landing on production domain
+  if (hostname === PROD_HOST || hostname === "meter.chat") {
+    if (pathname.startsWith("/console") || pathname.startsWith("/landing")) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
   }
 
   return NextResponse.next();

@@ -1,0 +1,197 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseServer } from "@/lib/supabase";
+import { requireAuth } from "@/lib/auth";
+import { serverTrackSessionCreated, serverTrackSessionDeleted } from "@/lib/analytics-server";
+
+// Namespace session IDs per user to prevent collisions
+// (e.g. all users start with session id "meter")
+function scopedId(userId: string, localId: string): string {
+  // Already scoped — don't double-prefix
+  if (localId.startsWith(`${userId}:`)) return localId;
+  return `${userId}:${localId}`;
+}
+
+function unscopedId(userId: string, dbId: string): string {
+  const prefix = `${userId}:`;
+  return dbId.startsWith(prefix) ? dbId.slice(prefix.length) : dbId;
+}
+
+// GET /api/sessions — load all sessions + messages for the authenticated user
+export async function GET() {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { userId } = auth;
+
+  try {
+    const supabase = getSupabaseServer();
+
+    const { data: sessions, error: sessErr } = await supabase
+      .from("chat_sessions")
+      .select("*")
+      .eq("user_id", userId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+
+    if (sessErr) throw sessErr;
+
+    // Load messages per session to avoid Supabase's default 1000-row limit.
+    // Order descending to get the MOST RECENT 10k, then reverse to chronological.
+    const messagesBySession: Record<string, Record<string, unknown>[]> = {};
+    for (const session of sessions ?? []) {
+      const { data: msgs, error: msgErr } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("session_id", session.id)
+        .order("timestamp", { ascending: false })
+        .limit(10000);
+      if (msgErr) throw msgErr;
+      messagesBySession[session.id] = ((msgs ?? []) as Record<string, unknown>[]).reverse();
+    }
+
+    // Return sessions with unscoped IDs so the client sees its original local IDs
+    const result = (sessions ?? []).map((s) => ({
+      ...s,
+      id: unscopedId(userId, s.id),
+      messages: (messagesBySession[s.id] ?? []).map((m) => ({
+        ...m,
+        session_id: unscopedId(userId, m.session_id as string),
+      })),
+    }));
+
+    return NextResponse.json({ sessions: result });
+  } catch (err) {
+    console.error("Failed to load sessions:", err);
+    return NextResponse.json({ error: "Failed to load sessions" }, { status: 500 });
+  }
+}
+
+// DELETE /api/sessions?sessionId=xxx — soft-delete a session (retained 7 days)
+export async function DELETE(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { userId } = auth;
+
+  const localSessionId = req.nextUrl.searchParams.get("sessionId");
+
+  if (!localSessionId) {
+    return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
+  }
+
+  const dbId = scopedId(userId, localSessionId);
+
+  try {
+    const supabase = getSupabaseServer();
+
+    const { data: session, error: fetchErr } = await supabase
+      .from("chat_sessions")
+      .select("id")
+      .eq("id", dbId)
+      .eq("user_id", userId)
+      .single();
+
+    if (fetchErr || !session) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+
+    // Soft-delete: set deleted_at timestamp, data retained 7 days
+    const { error: delErr } = await supabase
+      .from("chat_sessions")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", session.id)
+      .eq("user_id", userId);
+
+    if (delErr) throw delErr;
+
+    serverTrackSessionDeleted(userId, { sessionId: localSessionId });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to delete session:", err);
+    return NextResponse.json({ error: "Failed to delete session" }, { status: 500 });
+  }
+}
+
+// POST /api/sessions — save/sync a session with its messages
+export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { userId } = auth;
+
+  try {
+    const body = await req.json();
+    const { session, messages } = body;
+
+    if (!session) {
+      return NextResponse.json({ error: "Missing session" }, { status: 400 });
+    }
+
+    const supabase = getSupabaseServer();
+    const dbSessionId = scopedId(userId, session.id);
+    const clientHasMessages = Array.isArray(messages) && messages.length > 0;
+
+    // Upsert the session with scoped ID
+    const { error: sessErr } = await supabase.from("chat_sessions").upsert(
+      {
+        id: dbSessionId,
+        user_id: userId,
+        project_name: session.name,
+        total_cost: session.totalCost ?? 0,
+        today_cost: session.todayCost ?? 0,
+        today_tokens_in: session.todayTokensIn ?? 0,
+        today_tokens_out: session.todayTokensOut ?? 0,
+        today_message_count: session.todayMessageCount ?? 0,
+        today_date: session.todayDate,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    );
+
+    if (sessErr) throw sessErr;
+
+    // Track session creation (first sync only — no messages means new session)
+    if (!clientHasMessages) {
+      serverTrackSessionCreated(userId, {
+        sessionId: session.id,
+        projectName: session.name,
+      });
+    }
+
+    // Upsert messages in batches
+    if (clientHasMessages) {
+      const rows = messages.map((m: Record<string, unknown>) => ({
+        id: m.id,
+        session_id: dbSessionId,
+        role: m.role,
+        content: m.content ?? "",
+        model: m.model ?? null,
+        tokens_in: m.tokensIn ?? null,
+        tokens_out: m.tokensOut ?? null,
+        cost: m.cost ?? null,
+        confidence: m.confidence ?? null,
+        settled: m.settled ?? false,
+        receipt_status: m.receiptStatus ?? null,
+        signature: m.signature ?? null,
+        tx_hash: m.txHash ?? null,
+        cards: m.cards ?? null,
+        attachments: m.attachments ?? null,
+        debate_trace: m.debateTrace ?? null,
+        thinking: m.thinking ?? null,
+        timestamp: m.timestamp,
+      }));
+
+      // Batch upsert in chunks of 100
+      for (let i = 0; i < rows.length; i += 100) {
+        const chunk = rows.slice(i, i + 100);
+        const { error: msgErr } = await supabase
+          .from("chat_messages")
+          .upsert(chunk, { onConflict: "id" });
+        if (msgErr) throw msgErr;
+      }
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to save session:", err);
+    return NextResponse.json({ error: "Failed to save session" }, { status: 500 });
+  }
+}

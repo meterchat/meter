@@ -1,6 +1,41 @@
 "use client";
 
-import { useMeterStore, ChatMessage } from "@/lib/store";
+import { useState, useMemo, useEffect } from "react";
+import { useTheme } from "next-themes";
+import { useMeterStore, selectConnectedServices, ChatMessage, PaymentCard } from "@/lib/store";
+import { useWorkspaceStore } from "@/lib/workspace-store";
+import { useDecisionsStore, Decision } from "@/lib/decisions-store";
+import { CONNECTORS } from "@/lib/connectors";
+import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
+import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
+import { ApiKeyDialog } from "@/components/api-key-dialog";
+import { AddCardModal } from "@/components/add-card-modal";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import {
+  trackWorkspaceDeleted,
+  trackWorkspaceRenamed,
+  trackDecisionArchived,
+  trackDecisionReopened,
+  trackDecisionRevisited,
+  trackConnectorInitiated,
+  trackConnectorDisconnected,
+  trackArtifactGenerated,
+  trackArtifactRegenerated,
+  trackArtifactPushed,
+  trackCardRemoved,
+  trackCardDefaultChanged,
+  trackCardAdded,
+  trackSettlementInitiated,
+  trackSettlementCompleted,
+  trackSettlementFailed,
+  trackSpendLimitUpdated,
+  trackInspectorToggled,
+  trackInspectorTabChanged,
+  trackThemeChanged,
+} from "@/lib/analytics";
+
+const INSPECTOR_TABS = ["decisions", "blueprints", "payments", "connections"] as const;
 
 export function Inspector() {
   const {
@@ -10,32 +45,166 @@ export function Inspector() {
     setInspectorTab,
     projects,
     activeProjectId,
-    spendingCap,
-    setSpendingCap,
-    spendingCapEnabled,
-    setSpendingCapEnabled,
-    email,
-    logout,
+    userId,
+    removeProject,
   } = useMeterStore();
 
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
+  const activeCompanyId = useWorkspaceStore((s) => s.activeCompanyId);
+  const companies = useWorkspaceStore((s) => s.companies);
+  const deleteCompany = useWorkspaceStore((s) => s.deleteCompany);
+  const renameCompany = useWorkspaceStore((s) => s.renameCompany);
+  const setActiveCompany = useWorkspaceStore((s) => s.setActiveCompany);
+
+  const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? null;
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
+
+  const [manageOpen, setManageOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [editingName, setEditingName] = useState("");
+  const [nameEdited, setNameEdited] = useState(false);
+
+  useEffect(() => {
+    if (!INSPECTOR_TABS.includes(inspectorTab as typeof INSPECTOR_TABS[number])) {
+      setInspectorTab("decisions");
+    }
+  }, [inspectorTab, setInspectorTab]);
+
+  const handleDeleteWorkspace = async () => {
+    if (!activeCompany) return;
+    trackWorkspaceDeleted({ workspaceId: activeCompany.id, workspaceName: activeCompany.name });
+    setDeleting(true);
+
+    // Soft-delete server-side session (sets deleted_at, retained 7 days)
+    const sessionId = activeCompany.sessionId;
+    if (sessionId) {
+      try {
+        await fetch(
+          `/api/sessions?sessionId=${encodeURIComponent(sessionId)}`,
+          { method: "DELETE" }
+        );
+      } catch {
+        // Continue with local deletion even if server fails
+      }
+    }
+
+    // Remove from local stores
+    if (sessionId) removeProject(sessionId);
+    const companyId = activeCompany.id;
+    deleteCompany(companyId);
+
+    // Switch to next available workspace
+    const remaining = companies.filter((c) => c.id !== companyId);
+    if (remaining.length > 0) {
+      setActiveCompany(remaining[0].id);
+      const nextSession = remaining[0].sessionId;
+      if (nextSession) {
+        const { setActiveProject } = useMeterStore.getState();
+        setActiveProject(nextSession);
+      }
+    }
+
+    setManageOpen(false);
+    setDeleteConfirmText("");
+    setDeleting(false);
+    setInspectorOpen(false);
+  };
+
+  const openManageDialog = () => {
+    if (activeCompany) {
+      setEditingName(activeCompany.name);
+      setNameEdited(false);
+      setDeleteConfirmText("");
+    }
+    setManageOpen(true);
+  };
+
+  const handleSaveName = () => {
+    if (!activeCompany || !editingName.trim()) return;
+    trackWorkspaceRenamed({ workspaceId: activeCompany.id, oldName: activeCompany.name, newName: editingName.trim() });
+    renameCompany(activeCompany.id, editingName.trim());
+    setNameEdited(false);
+  };
+
+  const isMobile = useIsMobile();
+
+  const handleClose = () => {
+    trackInspectorToggled({ open: false });
+    setInspectorOpen(false);
+  };
 
   if (!inspectorOpen) return null;
 
-  const tabs = ["usage", "purchases", "settings"] as const;
-
-  return (
+  const inspectorContent = (
     <>
-      <div className="fixed inset-0 z-40" onClick={() => setInspectorOpen(false)} />
-      <div className="fixed right-0 top-0 h-screen w-[380px] border-l border-border bg-card flex flex-col z-50">
-        {/* Header */}
-        <div className="flex h-12 items-center justify-between border-b border-border px-4">
-          <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-            Meter
+      <div className="flex h-12 items-center justify-between border-b border-border px-4">
+        <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
+          Meter
+        </span>
+        <button
+          onClick={handleClose}
+          className="mobile-sm-ok text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="flex border-b border-border">
+        {INSPECTOR_TABS.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => { trackInspectorTabChanged({ tab }); setInspectorTab(tab); }}
+          className={`flex-1 py-2.5 font-mono text-[11px] uppercase tracking-wider transition-colors ${
+              inspectorTab === tab
+                ? "text-foreground border-b border-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        {inspectorTab === "decisions" && <DecisionsTab activeProjectId={activeProject?.id ?? null} />}
+        {inspectorTab === "blueprints" && <BlueprintTab activeProjectId={activeProject?.id ?? null} />}
+        {inspectorTab === "payments" && <PaymentsTab activeProject={activeProject} />}
+        {inspectorTab === "connections" && <ConnectionsTab />}
+      </div>
+
+      {activeCompany && (
+        <div className="border-t border-border px-4 py-3 flex items-center justify-between" style={{ paddingBottom: isMobile ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
+          <button
+            onClick={openManageDialog}
+            className="rounded-md py-1.5 px-2 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground hover:bg-foreground/5"
+          >
+            Manage workspace
+          </button>
+          <ThemeToggle />
+        </div>
+      )}
+      {!activeCompany && (
+        <div className="border-t border-border px-4 py-3 flex items-center justify-end" style={{ paddingBottom: isMobile ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
+          <ThemeToggle />
+        </div>
+      )}
+    </>
+  );
+
+  const manageDialog = manageOpen && activeCompany ? (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" onClick={() => setManageOpen(false)} />
+      <div className={`fixed z-[70] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card shadow-2xl ${isMobile ? "w-[calc(100%-2rem)]" : "w-[380px]"}`}>
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <span className="font-mono text-xs uppercase tracking-wider text-foreground">
+            Manage Workspace
           </span>
           <button
-            onClick={() => setInspectorOpen(false)}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setManageOpen(false)}
+            className="mobile-sm-ok text-muted-foreground hover:text-foreground transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -44,317 +213,1143 @@ export function Inspector() {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-border">
-          {tabs.map((tab) => (
+        <div className="p-5 flex flex-col gap-5">
+          {/* Workspace Name */}
+          <div className="flex flex-col gap-2">
+            <label className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">
+              Workspace Name
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={editingName}
+                onChange={(e) => { setEditingName(e.target.value); setNameEdited(true); }}
+                className="flex-1 h-9 rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-foreground/30 transition-colors"
+              />
+              {nameEdited && editingName.trim() && editingName.trim() !== activeCompany.name && (
+                <button
+                  onClick={handleSaveName}
+                  className="h-9 rounded-lg bg-foreground px-3 font-mono text-[11px] text-background transition-colors hover:bg-foreground/90"
+                >
+                  Save
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          {/* Danger Zone */}
+          <div className="flex flex-col gap-3">
+            <div className="font-mono text-[11px] text-red-400/70 uppercase tracking-wider">
+              Danger Zone
+            </div>
+            <p className="font-mono text-[11px] text-muted-foreground/60 leading-relaxed">
+              Type <span className="text-foreground/80">{activeCompany.name}</span> to confirm deletion. This removes all messages and data for this workspace.
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={activeCompany.name}
+              className="h-9 rounded-lg border border-red-500/20 bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-red-500/40 transition-colors"
+            />
             <button
-              key={tab}
-              onClick={() => setInspectorTab(tab)}
-              className={`flex-1 py-2.5 font-mono text-[10px] uppercase tracking-wider transition-colors ${
-                inspectorTab === tab
-                  ? "text-foreground border-b border-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              onClick={handleDeleteWorkspace}
+              disabled={deleting || deleteConfirmText !== activeCompany.name}
+              className="h-9 rounded-lg bg-red-500/10 border border-red-500/20 font-mono text-[11px] text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              {tab}
+              {deleting ? "Deleting..." : "Delete Workspace"}
             </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {inspectorTab === "usage" && (
-            <UsageTab
-              todayCost={activeProject?.todayCost ?? 0}
-              todayTokensIn={activeProject?.todayTokensIn ?? 0}
-              todayTokensOut={activeProject?.todayTokensOut ?? 0}
-              todayMessageCount={activeProject?.todayMessageCount ?? 0}
-              todayByModel={activeProject?.todayByModel ?? {}}
-              spendingCap={spendingCap}
-              spendingCapEnabled={spendingCapEnabled}
-              messages={activeProject?.messages ?? []}
-              email={email}
-            />
-          )}
-          {inspectorTab === "purchases" && <PurchasesTab />}
-          {inspectorTab === "settings" && (
-            <SettingsTab
-              email={email}
-              spendingCap={spendingCap}
-              spendingCapEnabled={spendingCapEnabled}
-              setSpendingCapEnabled={setSpendingCapEnabled}
-              setSpendingCap={setSpendingCap}
-            />
-          )}
-        </div>
-
-        {/* Sign out */}
-        <div className="border-t border-border p-4">
-          <button
-            onClick={logout}
-            className="w-full rounded-lg border border-border py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5"
-          >
-            Sign Out
-          </button>
+            <p className="font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
+              Deleted workspaces are retained for 7 days. To recover, email support@meter.chat within 7 days of deletion.
+            </p>
+          </div>
         </div>
       </div>
+    </>
+  ) : null;
+
+  if (isMobile) {
+    return (
+      <>
+        <Drawer open={inspectorOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
+          <DrawerContent className="h-[85vh] bg-card">
+            <div className="flex h-full flex-col">
+              {inspectorContent}
+            </div>
+          </DrawerContent>
+        </Drawer>
+        {manageDialog}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={handleClose} />
+      <div className="fixed right-0 top-0 h-screen w-[420px] border-l border-border bg-card flex flex-col z-50">
+        {inspectorContent}
+      </div>
+      {manageDialog}
     </>
   );
 }
 
-function StatRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-xs text-foreground font-mono">{value}</span>
-    </div>
-  );
-}
-
-/* ─── USAGE TAB ─── */
-function UsageTab({
-  todayCost,
-  todayTokensIn,
-  todayTokensOut,
-  todayMessageCount,
-  todayByModel,
-  spendingCap,
-  spendingCapEnabled,
-  messages,
-  email,
-}: {
+/* ─── SHARED TYPES ─── */
+interface ProjectLike {
+  id: string;
+  messages: ChatMessage[];
   todayCost: number;
   todayTokensIn: number;
   todayTokensOut: number;
   todayMessageCount: number;
   todayByModel: Record<string, { cost: number; count: number }>;
-  spendingCap: number;
-  spendingCapEnabled: boolean;
-  messages: ChatMessage[];
-  email: string | null;
-}) {
-  const settledCount = messages.filter((m) => m.role === "assistant" && m.settled).length;
-  const pendingCount = messages.filter((m) => m.role === "assistant" && m.cost !== undefined && !m.settled).length;
+  totalCost: number;
+  settlementError?: string | null;
+  chatBlocked?: boolean;
+}
+
+/* ─── CONNECTIONS TAB ─── */
+function ConnectionsTab() {
+  const connectedServices = useMeterStore(selectConnectedServices);
+  const userId = useMeterStore((s) => s.userId);
+  const activeProjectId = useMeterStore((s) => s.activeProjectId);
+  const disconnectServiceRemote = useMeterStore((s) => s.disconnectServiceRemote);
+  const connectionsLoading = useMeterStore((s) => s.connectionsLoading);
+  const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
+
+  const handleConnect = (providerId: string) => {
+    if (!userId) return;
+    trackConnectorInitiated({ provider: providerId, method: isApiKeyProvider(providerId) ? "api_key" : "oauth" });
+    if (isApiKeyProvider(providerId)) {
+      setApiKeyProvider(providerId);
+    } else {
+      initiateOAuthFlow(providerId, activeProjectId);
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Today's spend */}
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Today
-        </div>
-        <div className="flex items-baseline gap-2 mb-2">
-          <span className="font-mono text-2xl text-foreground">${todayCost.toFixed(2)}</span>
-          {spendingCapEnabled && (
-            <span className="font-mono text-[10px] text-muted-foreground/40">
-              of ${spendingCap.toFixed(0)} cap
-            </span>
-          )}
-        </div>
-        <div className="h-1 w-full rounded-full bg-border overflow-hidden">
-          <div
-            className="h-full rounded-full bg-foreground/40 transition-all duration-300"
-            style={{ width: `${Math.min(100, (todayCost / Math.max(spendingCap, 1)) * 100)}%` }}
-          />
-        </div>
-      </div>
-
-      <div className="h-px bg-border" />
-
-      {/* Stats */}
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Activity
-        </div>
-        <StatRow label="Messages" value={todayMessageCount.toString()} />
-        <StatRow label="Tokens In" value={todayTokensIn.toLocaleString()} />
-        <StatRow label="Tokens Out" value={todayTokensOut.toLocaleString()} />
-        <StatRow label="Settled" value={settledCount.toString()} />
-        <StatRow label="Pending" value={pendingCount.toString()} />
-      </div>
-
-      <div className="h-px bg-border" />
-
-      {/* By model */}
-      {Object.keys(todayByModel).length > 0 && (
-        <div>
-          <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-            By Model
-          </div>
-          {Object.entries(todayByModel).map(([model, data]) => (
-            <div key={model} className="flex items-center justify-between py-1.5">
-              <span className="text-xs text-muted-foreground">{model}</span>
-              <span className="text-xs text-foreground font-mono">
-                ${data.cost.toFixed(2)} &middot; {data.count} msgs
-              </span>
-            </div>
-          ))}
+    <div className="flex flex-col gap-3">
+      {connectionsLoading && (
+        <div className="rounded-lg border border-border/50 bg-foreground/[0.03] px-3 py-2 font-mono text-[11px] text-muted-foreground/60">
+          Syncing connections...
         </div>
       )}
+      <div className="space-y-1.5">
+        {CONNECTORS.map((connector) => {
+          const connected = !!connectedServices[connector.id];
+          return (
+            <div
+              key={connector.id}
+              className="flex items-center gap-2.5 rounded-lg border border-border/50 px-3 py-2 hover:bg-foreground/[0.03] transition-colors"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="text-muted-foreground shrink-0"
+              >
+                <path d={connector.iconPath} />
+              </svg>
+              <div className="min-w-0">
+                <div className="text-[12px] text-foreground">{connector.name}</div>
+                <div className="font-mono text-[10px] text-muted-foreground/50">
+                  {connector.description}
+                </div>
+              </div>
+              <div className="ml-auto shrink-0">
+                {connected ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[10px] text-emerald-500">
+                      Connected
+                    </span>
+                    <button
+                      onClick={() => { trackConnectorDisconnected({ provider: connector.id }); disconnectServiceRemote(connector.id); }}
+                      className="text-muted-foreground/40 hover:text-red-400 transition-colors"
+                      title="Disconnect"
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleConnect(connector.id)}
+                    className="rounded-md border border-border px-2.5 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
+                  >
+                    Connect
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-      <div className="h-px bg-border" />
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Payment Method
+      {apiKeyProvider && (
+        <ApiKeyDialog
+          provider={apiKeyProvider}
+          onClose={() => setApiKeyProvider(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─── DECISIONS TAB ─── */
+function DecisionRow({ decision }: { decision: Decision }) {
+  const { archiveDecision, reopenDecision } = useDecisionsStore();
+  const setPendingInput = useMeterStore((s) => s.setPendingInput);
+  const [expanded, setExpanded] = useState(false);
+  const isDecided = decision.status === "decided";
+
+  const handleRevisit = () => {
+    trackDecisionRevisited({ decisionId: decision.id, status: decision.status });
+    if (isDecided) {
+      trackDecisionReopened({ decisionId: decision.id });
+      reopenDecision(decision.id);
+    }
+    const msg = isDecided
+      ? `I want to revisit the decision "${decision.title}" — we chose "${decision.choice}". Can we reconsider this?`
+      : `Let's discuss the open decision "${decision.title}" and make a call.`;
+    setPendingInput(msg);
+  };
+
+  return (
+    <div className="rounded-md transition-colors">
+      <div
+        className="group flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`shrink-0 text-muted-foreground/40 transition-transform ${expanded ? "rotate-90" : ""}`}
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+        <span
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+            isDecided ? "bg-emerald-500" : "bg-amber-500"
+          }`}
+        />
+        <span className="flex-1 truncate font-mono text-[12px] text-foreground/80">
+          {decision.title}
+        </span>
+        <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleRevisit(); }}
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+          >
+            revisit
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); trackDecisionArchived({ decisionId: decision.id }); archiveDecision(decision.id); }}
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+          >
+            archive
+          </button>
         </div>
-        <div className="rounded-lg border border-border p-3 flex items-center gap-3">
-          <div className="h-8 w-12 rounded bg-foreground/10 flex items-center justify-center">
-            <svg width="20" height="14" viewBox="0 0 24 16" fill="none" className="text-muted-foreground">
-              <rect x="1" y="1" width="22" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
-              <line x1="1" y1="5" x2="23" y2="5" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
-          </div>
-          <div>
-            <span className="text-xs text-foreground font-mono">&bull;&bull;&bull;&bull; 4242</span>
-            <span className="block text-[10px] text-muted-foreground/50">{email ?? "account"}</span>
-          </div>
+        <span
+          className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+            isDecided
+              ? "bg-emerald-500/10 text-emerald-500"
+              : "bg-amber-500/10 text-amber-500"
+          }`}
+        >
+          {isDecided ? "decided" : "open"}
+        </span>
+      </div>
+
+      {expanded && (
+        <div className="ml-6 mr-1 mb-2 mt-0.5 flex flex-col gap-1.5 border-l border-border/40 pl-3">
+          {decision.choice && (
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Choice</span>
+              <p className="font-mono text-[12px] text-foreground/70 mt-0.5">{decision.choice}</p>
+            </div>
+          )}
+          {Array.isArray(decision.alternatives) && decision.alternatives.length > 0 && (
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Alternatives</span>
+              <ul className="mt-0.5">
+                {decision.alternatives.map((alt, i) => (
+                  <li key={i} className="font-mono text-[12px] text-foreground/50 flex items-start gap-1.5">
+                    <span className="text-muted-foreground/30 mt-px">-</span>
+                    {alt}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {decision.reasoning && (
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Reasoning</span>
+              <p className="font-mono text-[12px] text-foreground/50 mt-0.5">{decision.reasoning}</p>
+            </div>
+          )}
+          {!decision.choice && !decision.reasoning && (!Array.isArray(decision.alternatives) || decision.alternatives.length === 0) && (
+            <p className="font-mono text-[11px] text-muted-foreground/30 italic">No details recorded</p>
+          )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── PINS SECTION ─── */
+function formatPinTime(ts: number) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHrs = Math.floor(diffMins / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
+  const projects = useMeterStore((s) => s.projects);
+  const togglePinMessage = useMeterStore((s) => s.togglePinMessage);
+  const setScrollToMessageId = useMeterStore((s) => s.setScrollToMessageId);
+  const project = projects.find((p) => p.id === activeProjectId);
+  const pinned = project?.messages.filter((m) => m.pinned) ?? [];
+
+  if (pinned.length === 0) return null;
+
+  const handleClick = (msgId: string) => {
+    setScrollToMessageId(msgId);
+  };
+
+  return (
+    <div>
+      <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+        Pinned
+      </div>
+      <div className="flex flex-col gap-1">
+        {pinned.map((msg) => {
+          const preview = msg.content.replace(/[#*`_~>\[\]]/g, "").slice(0, 100);
+          const modelLabel = msg.model ?? "";
+          const costLabel = msg.cost != null ? `$${msg.cost.toFixed(4)}` : "";
+          const timeLabel = formatPinTime(msg.timestamp);
+          const meta = [modelLabel, costLabel, timeLabel].filter(Boolean).join(" · ");
+          return (
+            <div
+              key={msg.id}
+              onClick={() => handleClick(msg.id)}
+              className="group relative rounded-md border border-border/50 px-3 py-2 hover:bg-foreground/[0.03] transition-colors cursor-pointer"
+            >
+              <p className="font-mono text-[12px] text-foreground/70 leading-relaxed line-clamp-2">
+                {preview}{msg.content.length > 100 ? "..." : ""}
+              </p>
+              {meta && (
+                <span className="mt-1 block font-mono text-[10px] text-muted-foreground/40">
+                  {meta}
+                </span>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); togglePinMessage(msg.id); }}
+                className="absolute right-1.5 top-1.5 hidden group-hover:block rounded p-0.5 text-muted-foreground/40 hover:text-amber-500 transition-colors"
+                title="Unpin"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-/* ─── SETTINGS TAB ─── */
-function SettingsTab({
-  email,
-  spendingCap,
-  setSpendingCap,
-  spendingCapEnabled,
-  setSpendingCapEnabled,
-}: {
-  email: string | null;
-  spendingCap: number;
-  spendingCapEnabled: boolean;
-  setSpendingCapEnabled: (v: boolean) => void;
-  setSpendingCap: (v: number) => void;
-}) {
+function DecisionsTab({ activeProjectId }: { activeProjectId: string | null }) {
+  const { decisions } = useDecisionsStore();
+  const scoped = decisions
+    .filter((d) => !d.archived && d.projectId && d.projectId === activeProjectId)
+    .sort((a, b) => {
+      if (a.status !== b.status) return a.status === "undecided" ? -1 : 1;
+      return b.updatedAt - a.updatedAt;
+    });
+  const legacy = decisions
+    .filter((d) => !d.archived && !d.projectId)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+
   return (
     <div className="flex flex-col gap-4">
+      <PinsSection activeProjectId={activeProjectId} />
       <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Account
+        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Decisions
         </div>
-        <StatRow label="Email" value={email ?? "—"} />
+        {scoped.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-2">
+            <span className="font-mono text-xs text-muted-foreground/40">
+              No decisions yet
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground/30">
+              Decisions are logged as you chat
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {scoped.map((d) => (
+              <DecisionRow key={d.id} decision={d} />
+            ))}
+          </div>
+        )}
+      </div>
+      {legacy.length > 0 && (
+        <>
+          <div className="h-px bg-border" />
+          <div>
+            <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+              Unassigned
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {legacy.map((d) => (
+                <DecisionRow key={d.id} decision={d} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─── BLUEPRINT TAB ─── */
+function formatArtifactTime(ts?: number) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHrs = Math.floor(diffMins / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
+  artifact: Artifact;
+  onRegenerate: (filePath: string) => void;
+  onPush: (id: string) => void;
+  pushing: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isSynced = artifact.status === "synced";
+  const isCommitted = !!artifact.lastCommittedContent;
+  const isModified = artifact.content && artifact.content !== artifact.lastCommittedContent;
+
+  return (
+    <div className="rounded-md transition-colors">
+      <div
+        className="group flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`shrink-0 text-muted-foreground/40 transition-transform ${expanded ? "rotate-90" : ""}`}
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+        <span className="flex-1 truncate font-mono text-[12px] text-foreground/80">
+          {artifact.filePath}
+        </span>
+        <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onRegenerate(artifact.filePath); }}
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+          >
+            regen
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onPush(artifact.id); }}
+            disabled={pushing}
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors disabled:opacity-30"
+          >
+            push
+          </button>
+        </div>
+        <span
+          className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+            isSynced
+              ? "bg-emerald-500/10 text-emerald-500"
+              : isCommitted
+              ? isModified
+                ? "bg-amber-500/10 text-amber-500"
+                : "bg-foreground/5 text-muted-foreground/50"
+              : "bg-amber-500/10 text-amber-500"
+          }`}
+        >
+          {isSynced ? "synced" : isCommitted ? (isModified ? "modified" : "committed") : "draft"}
+        </span>
       </div>
 
-      <div className="h-px bg-border" />
-
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Daily Spending Cap
+      {expanded && (
+        <div className="ml-6 mr-1 mb-2 mt-0.5 flex flex-col gap-1.5 border-l border-border/40 pl-3">
+          {artifact.lastGeneratedAt && (
+            <span className="font-mono text-[10px] text-muted-foreground/40">
+              Generated {formatArtifactTime(artifact.lastGeneratedAt)}
+              {artifact.lastPushedAt && ` · Pushed ${formatArtifactTime(artifact.lastPushedAt)}`}
+              {artifact.lastCommittedAt && ` · Committed ${formatArtifactTime(artifact.lastCommittedAt)}`}
+            </span>
+          )}
+          {artifact.githubRepo && (
+            <span className="font-mono text-[10px] text-muted-foreground/40">
+              {artifact.githubRepo}
+            </span>
+          )}
+          {artifact.content && (
+            <pre className="max-h-[200px] overflow-y-auto rounded bg-foreground/[0.03] p-2 font-mono text-[11px] text-foreground/60 leading-relaxed whitespace-pre-wrap break-words">
+              {artifact.content.slice(0, 2000)}{artifact.content.length > 2000 ? "\n..." : ""}
+            </pre>
+          )}
         </div>
-        <label className="mb-2 flex items-center gap-2 font-mono text-[10px] text-muted-foreground/80">
-          <input
-            type="checkbox"
-            checked={spendingCapEnabled}
-            onChange={(e) => setSpendingCapEnabled(e.target.checked)}
-          />
-          Enable daily cap
-        </label>
-        {spendingCapEnabled && (
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-sm text-foreground">$</span>
-            <input
-              type="number"
-              value={spendingCap}
-              onChange={(e) => setSpendingCap(Number(e.target.value))}
-              step={1}
-              min={1}
-              max={100}
-              className="w-20 border-b border-border bg-transparent py-0.5 font-mono text-sm text-foreground focus:border-foreground focus:outline-none"
-            />
-            <span className="font-mono text-[10px] text-muted-foreground/40">per day</span>
+      )}
+    </div>
+  );
+}
+
+function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
+  const { artifacts, loading, pushing, targetRepo, fetchArtifacts, setTargetRepo, setPushing } = useArtifactsStore();
+  const setPendingInput = useMeterStore((s) => s.setPendingInput);
+  const connectedServices = useMeterStore(selectConnectedServices);
+  const activeProjectIdFromStore = useMeterStore((s) => s.activeProjectId);
+  const githubConnected = !!connectedServices["github"];
+
+  const [repos, setRepos] = useState<{ fullName: string; name: string; private: boolean }[]>([]);
+  const [reposLoading, setReposLoading] = useState(false);
+  const [showRepoSelector, setShowRepoSelector] = useState(false);
+
+  useEffect(() => {
+    if (activeProjectId) {
+      fetchArtifacts(activeProjectId);
+    }
+  }, [activeProjectId, fetchArtifacts]);
+
+  const fetchRepos = async () => {
+    if (!githubConnected || !activeProjectIdFromStore) return;
+    setReposLoading(true);
+    try {
+      const res = await fetch(`/api/github/repos?workspaceId=${encodeURIComponent(activeProjectIdFromStore)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRepos((data.repos ?? []).map((r: { fullName: string; name: string; private: boolean }) => ({
+          fullName: r.fullName,
+          name: r.name,
+          private: r.private,
+        })));
+      }
+    } catch { /* silent */ }
+    setReposLoading(false);
+  };
+
+  const handleGenerate = () => {
+    trackArtifactGenerated({ projectId: activeProjectId ?? undefined });
+    setPendingInput("Generate strategy artifacts for this project based on all our decisions and conversation so far. Create README.md, ARCHITECTURE.md, DESIGN.md, DECISIONS.md, CLAUDE.md, BRAND.md, and .cursorrules files.");
+  };
+
+  const handleRegenerate = (filePath: string) => {
+    trackArtifactRegenerated({ filePath, projectId: activeProjectId ?? undefined });
+    setPendingInput(`Regenerate the ${filePath} strategy artifact based on the latest decisions and conversation context.`);
+  };
+
+  const handlePush = async (artifactIds?: string[]) => {
+    if (!githubConnected) {
+      initiateOAuthFlow("github", activeProjectIdFromStore);
+      return;
+    }
+    if (!targetRepo) {
+      setShowRepoSelector(true);
+      await fetchRepos();
+      return;
+    }
+    setPushing(true);
+    try {
+      const body: Record<string, unknown> = {
+        repo: targetRepo,
+        workspaceId: activeProjectIdFromStore,
+      };
+      if (artifactIds) body.artifactIds = artifactIds;
+      const res = await fetch("/api/artifacts/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok && activeProjectId) {
+        trackArtifactPushed({ repo: targetRepo, artifactCount: artifactIds?.length, projectId: activeProjectId });
+        await fetchArtifacts(activeProjectId);
+      }
+    } catch { /* silent */ }
+    setPushing(false);
+  };
+
+  const handleDownloadZip = () => {
+    if (artifacts.length === 0) return;
+    // Build a simple text bundle (each file separated)
+    const parts = artifacts.map((a) => `--- ${a.filePath} ---\n${a.content}\n`);
+    const blob = new Blob([parts.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `blueprint-${activeProjectId ?? "project"}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header with actions */}
+      <div className="flex items-center justify-between">
+        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">
+          Blueprints
+        </div>
+        <div className="flex items-center gap-1.5">
+          {artifacts.length > 0 && (
+            <>
+              <button
+                onClick={handleDownloadZip}
+                className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                title="Download all"
+              >
+                Download
+              </button>
+              <button
+                onClick={() => handlePush()}
+                disabled={pushing || artifacts.length === 0}
+                className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-30"
+              >
+                {pushing ? "Pushing..." : "Push to GitHub"}
+              </button>
+            </>
+          )}
+          <button
+            onClick={handleGenerate}
+            className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
+          >
+            Generate
+          </button>
+        </div>
+      </div>
+
+      {/* Repo selector */}
+      {showRepoSelector && (
+        <div className="rounded-lg border border-border/50 p-2">
+          <div className="font-mono text-[10px] text-muted-foreground/50 mb-1.5">
+            Select target repo
           </div>
+          {reposLoading ? (
+            <div className="py-2 text-center font-mono text-[11px] text-muted-foreground/40">
+              Loading repos...
+            </div>
+          ) : (
+            <div className="max-h-[160px] overflow-y-auto flex flex-col gap-0.5">
+              {repos.map((r) => (
+                <button
+                  key={r.fullName}
+                  onClick={() => {
+                    setTargetRepo(r.fullName);
+                    setShowRepoSelector(false);
+                  }}
+                  className={`text-left rounded px-2 py-1.5 font-mono text-[11px] transition-colors hover:bg-foreground/5 ${
+                    targetRepo === r.fullName ? "text-foreground bg-foreground/5" : "text-foreground/70"
+                  }`}
+                >
+                  {r.fullName}
+                  {r.private && <span className="ml-1.5 text-[9px] text-muted-foreground/40">private</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Target repo indicator */}
+      {targetRepo && !showRepoSelector && (
+        <div className="flex items-center gap-1.5">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground/40 shrink-0">
+            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+          </svg>
+          <span className="font-mono text-[10px] text-muted-foreground/50">{targetRepo}</span>
+          <button
+            onClick={() => { setShowRepoSelector(true); fetchRepos(); }}
+            className="font-mono text-[10px] text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+          >
+            change
+          </button>
+        </div>
+      )}
+
+      {/* Artifact list */}
+      {loading ? (
+        <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">
+          Loading...
+        </div>
+      ) : artifacts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-6 gap-2">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/20">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+          <span className="font-mono text-[12px] text-muted-foreground/40">
+            No artifacts yet
+          </span>
+          <span className="font-mono text-[11px] text-muted-foreground/30">
+            Generate strategy docs for your coding agents
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-0.5">
+          {artifacts.map((a) => (
+            <ArtifactRow
+              key={a.id}
+              artifact={a}
+              onRegenerate={handleRegenerate}
+              onPush={(id) => handlePush([id])}
+              pushing={pushing}
+            />
+          ))}
+        </div>
+      )}
+
+      {!githubConnected && artifacts.length > 0 && (
+        <div className="mt-2 rounded-lg border border-border/50 bg-foreground/[0.02] px-3 py-2">
+          <button
+            onClick={() => initiateOAuthFlow("github", activeProjectIdFromStore)}
+            className="font-mono text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
+          >
+            Connect GitHub to push artifacts
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── CARD VISUAL ─── */
+const CARD_BACKGROUND = "from-zinc-950 via-zinc-900 to-zinc-800";
+
+function CardVisual({ card, index, isTop, isSwitching, onClick, onRemove, canRemove }: {
+  card: PaymentCard;
+  index: number;
+  isTop: boolean;
+  isSwitching: boolean;
+  onClick: () => void;
+  onRemove?: () => void;
+  canRemove: boolean;
+}) {
+  const brandLabel = card.brand.charAt(0).toUpperCase() + card.brand.slice(1);
+  return (
+    <div
+      onClick={onClick}
+      className={`relative w-full max-w-[320px] aspect-[1.586/1] mx-auto rounded-2xl p-4 bg-gradient-to-br ${CARD_BACKGROUND} border border-white/10 cursor-pointer transition-all duration-200 ${
+        isTop ? "shadow-lg" : "hover:-translate-y-1 shadow-md"
+      } ${isSwitching ? "ring-2 ring-emerald-400/60 scale-[1.02]" : ""}`}
+      style={{
+        marginTop: index > 0 ? "-60px" : undefined,
+        zIndex: isTop ? 10 : 10 - index,
+      }}
+    >
+      {card.isDefault && (
+        <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-400" />
+      )}
+      <div className="flex items-center justify-between mb-6">
+        <svg width="28" height="20" viewBox="0 0 24 16" fill="none" className="text-white/60">
+          <rect x="1" y="1" width="22" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="1" y1="5" x2="23" y2="5" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+        <span className="font-mono text-[11px] text-white/50 uppercase">{brandLabel}</span>
+      </div>
+      <div className="flex items-end justify-between">
+        <span className="font-mono text-[12px] text-white/80 tracking-widest">{card.last4}</span>
+        <span className="font-mono text-[11px] text-white/50">
+          {String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}
+        </span>
+      </div>
+      {isTop && canRemove && onRemove && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="absolute bottom-2 right-2 rounded px-1.5 py-0.5 font-mono text-[10px] text-white/40 hover:text-white/70 hover:bg-white/10 transition-colors"
+        >
+          remove
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ─── PAYMENTS TAB ─── */
+function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
+  const cards = useMeterStore((s) => s.cards);
+  const cardsLoading = useMeterStore((s) => s.cardsLoading);
+  const fetchCards = useMeterStore((s) => s.fetchCards);
+  const setDefaultCard = useMeterStore((s) => s.setDefaultCard);
+  const removeCard = useMeterStore((s) => s.removeCard);
+  const settlementHistory = useMeterStore((s) => s.settlementHistory);
+  const settlementHistoryLoading = useMeterStore((s) => s.settlementHistoryLoading);
+  const fetchSettlementHistory = useMeterStore((s) => s.fetchSettlementHistory);
+  const getPendingBalance = useMeterStore((s) => s.getPendingBalance);
+  const settleAll = useMeterStore((s) => s.settleAll);
+  const isSettling = useMeterStore((s) => s.isSettling);
+  const clearSettlementError = useMeterStore((s) => s.clearSettlementError);
+  const cardLast4 = useMeterStore((s) => s.cardLast4);
+  const cardBrand = useMeterStore((s) => s.cardBrand);
+
+  // Spend limits (moved from controls tab)
+  const spendLimits = useMeterStore((s) => s.spendLimits);
+  const fetchSpendLimits = useMeterStore((s) => s.fetchSpendLimits);
+  const updateSpendLimits = useMeterStore((s) => s.updateSpendLimits);
+  const [dailyInput, setDailyInput] = useState("");
+  const [monthlyInput, setMonthlyInput] = useState("");
+  const [perTxnInput, setPerTxnInput] = useState("");
+
+  const activeProjectId = activeProject?.id ?? null;
+  useEffect(() => {
+    if (!activeProjectId) return;
+    fetchSpendLimits(activeProjectId);
+  }, [activeProjectId, fetchSpendLimits]);
+
+  useEffect(() => {
+    setDailyInput(spendLimits.dailyLimit != null ? String(spendLimits.dailyLimit) : "");
+    setMonthlyInput(spendLimits.monthlyLimit != null ? String(spendLimits.monthlyLimit) : "");
+    setPerTxnInput(spendLimits.perTxnLimit != null ? String(spendLimits.perTxnLimit) : "");
+  }, [spendLimits]);
+
+  const saveLimitOnBlur = (field: keyof typeof spendLimits, raw: string) => {
+    const val = raw.trim() === "" ? null : Number(raw);
+    if (val !== null && isNaN(val)) return;
+    trackSpendLimitUpdated({ field, value: val, projectId: activeProjectId ?? undefined });
+    updateSpendLimits({ [field]: val }, activeProjectId ?? undefined);
+  };
+
+  const settlementError = activeProject?.settlementError ?? null;
+
+  const [addCardOpen, setAddCardOpen] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [settleSuccess, setSettleSuccess] = useState(false);
+  const [switchingCardId, setSwitchingCardId] = useState<string | null>(null);
+  const workspaceId = activeProject?.id ?? null;
+
+  useEffect(() => {
+    fetchCards();
+    if (workspaceId) {
+      fetchSettlementHistory(workspaceId);
+    }
+  }, [fetchCards, fetchSettlementHistory, workspaceId]);
+
+  const sorted = useMemo(() => {
+    return [...cards].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+  }, [cards]);
+
+  const handleRemove = async (pmId: string) => {
+    setRemoveError(null);
+    trackCardRemoved({ cardId: pmId });
+    const result = await removeCard(pmId);
+    if (!result.success) {
+      setRemoveError(result.error ?? "Failed to remove card");
+    }
+  };
+
+  const canRemoveCards = cards.length > 1;
+
+  const pendingBalance = getPendingBalance();
+  const brandLabel = cardBrand ? cardBrand.charAt(0).toUpperCase() + cardBrand.slice(1) : "Card";
+
+  const handleSettle = async () => {
+    if (settlementError) clearSettlementError();
+    trackSettlementInitiated({ amount: pendingBalance, projectId: workspaceId ?? undefined });
+    const result = await settleAll();
+    if (result.success) {
+      trackSettlementCompleted({ amount: pendingBalance, projectId: workspaceId ?? undefined });
+      setSettleSuccess(true);
+      setTimeout(() => setSettleSuccess(false), 2000);
+    } else {
+      trackSettlementFailed({ amount: pendingBalance, projectId: workspaceId ?? undefined });
+    }
+  };
+
+  const handleSetDefault = async (cardId: string) => {
+    if (!cardId) return;
+    trackCardDefaultChanged({ cardId });
+    setSwitchingCardId(cardId);
+    await setDefaultCard(cardId);
+    setTimeout(() => setSwitchingCardId(null), 1200);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Settle */}
+      <div className="rounded-lg border border-border p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">Outstanding</span>
+          <span className="font-mono text-[13px] font-medium tabular-nums text-foreground">
+            ${pendingBalance.toFixed(2)}
+          </span>
+        </div>
+
+        {settlementError ? (
+          <>
+            <div className="mb-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+              <span className="font-mono text-[11px] text-red-400">{settlementError}</span>
+              <p className="mt-0.5 font-mono text-[10px] text-red-400/60">Please update your card or try again.</p>
+            </div>
+
+            <button
+              onClick={handleSettle}
+              disabled={isSettling || pendingBalance <= 0}
+              className={`w-full rounded-lg py-2.5 font-mono text-[12px] transition-colors ${
+                settleSuccess
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  : "bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40"
+              }`}
+            >
+              {settleSuccess ? "Settled" : isSettling ? "Processing..." : `Pay & Settle $${pendingBalance.toFixed(2)}`}
+            </button>
+          </>
+        ) : (
+          <p className="font-mono text-[10px] text-muted-foreground/50 text-center py-1">
+            Settles automatically at midnight
+          </p>
+        )}
+
+        {cardLast4 && pendingBalance > 0 && (
+          <p className="mt-1.5 text-center font-mono text-[10px] text-muted-foreground/40">
+            Charged to {brandLabel} {cardLast4}
+          </p>
         )}
       </div>
 
       <div className="h-px bg-border" />
 
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Model Preferences
+      {/* Spend Limits */}
+      {activeProjectId && (
+        <div>
+          <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+            Spend Limits
+          </div>
+          <div className="space-y-2">
+            <LimitRow
+              label="Daily Limit"
+              value={dailyInput}
+              onChange={setDailyInput}
+              onBlur={() => saveLimitOnBlur("dailyLimit", dailyInput)}
+            />
+            <LimitRow
+              label="Monthly Limit"
+              value={monthlyInput}
+              onChange={setMonthlyInput}
+              onBlur={() => saveLimitOnBlur("monthlyLimit", monthlyInput)}
+            />
+            <LimitRow
+              label="Per-Txn Max"
+              value={perTxnInput}
+              onChange={setPerTxnInput}
+              onBlur={() => saveLimitOnBlur("perTxnLimit", perTxnInput)}
+            />
+          </div>
+          <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
+            Leave blank for no limit. Limits are enforced server-side.
+          </p>
         </div>
-        <p className="font-mono text-[10px] text-muted-foreground/40">
-          Auto-routing picks the best model per message. You can override per-message in the composer.
-        </p>
+      )}
+
+      <div className="h-px bg-border" />
+
+      {/* Payment Cards — Apple Wallet stack */}
+      <div>
+        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Payment Cards
+        </div>
+        {cardsLoading && cards.length === 0 ? (
+          <div className="py-6 text-center font-mono text-[12px] text-muted-foreground/40">Loading cards...</div>
+        ) : sorted.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-3 rounded-lg border border-dashed border-border">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30">
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+              <line x1="1" y1="10" x2="23" y2="10" />
+            </svg>
+            <span className="font-mono text-[12px] text-muted-foreground/40">No cards yet</span>
+          </div>
+        ) : (
+          <div className="relative pb-2 flex flex-col items-center">
+            {sorted.map((card, i) => (
+              <CardVisual
+                key={card.id}
+                card={card}
+                index={i}
+                isTop={i === 0}
+                isSwitching={switchingCardId === card.id}
+                onClick={() => { if (!card.isDefault) handleSetDefault(card.id); }}
+                onRemove={() => handleRemove(card.id)}
+                canRemove={canRemoveCards}
+              />
+            ))}
+          </div>
+        )}
+        {removeError && (
+          <p className="mt-1 font-mono text-[11px] text-red-400">{removeError}</p>
+        )}
+        <button
+          onClick={() => setAddCardOpen(true)}
+          disabled={addCardOpen}
+          className="mt-2 w-full rounded-lg border border-border py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5 disabled:opacity-40"
+        >
+          + Add Card
+        </button>
       </div>
 
       <div className="h-px bg-border" />
 
+      {/* Settlement History */}
       <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Data
+        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+          Settlement History
         </div>
-        <p className="font-mono text-[10px] text-muted-foreground/40 mb-2">
-          Your conversation persists as one eternal session.
-        </p>
+        {settlementHistoryLoading && settlementHistory.length === 0 ? (
+          <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">Loading...</div>
+        ) : settlementHistory.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-6 gap-2">
+            <span className="font-mono text-[12px] text-muted-foreground/40">No settlements yet</span>
+            <span className="font-mono text-[11px] text-muted-foreground/30">
+              Settlements appear here as they happen
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {settlementHistory.map((s) => {
+              const brandLabel = s.cardBrand
+                ? s.cardBrand.charAt(0).toUpperCase() + s.cardBrand.slice(1)
+                : "";
+              return (
+                <div key={s.id} className="flex items-center justify-between py-1.5 font-mono text-[12px]">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-foreground/80">
+                      ${s.amount.toFixed(2)}
+                      <span className="text-muted-foreground/40 ml-1.5">
+                        {new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/40">
+                      {brandLabel} {s.cardLast4 ?? ""} &middot; {s.messageCount} msgs
+                    </span>
+                  </div>
+                  <span className={`shrink-0 text-[10px] ${s.status === "succeeded" ? "text-emerald-500/60" : "text-red-400/60"}`}>
+                    {s.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+      <AddCardModal open={addCardOpen} onClose={() => setAddCardOpen(false)} />
     </div>
   );
 }
 
-/* ─── PURCHASES TAB ─── */
-function PurchasesTab() {
+/* ─── THEME TOGGLE ─── */
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) return <div className="w-[52px] h-[26px]" />;
+
+  const isDark = resolvedTheme === "dark";
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Virtual Cards */}
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Virtual Cards
-        </div>
-        <div className="rounded-lg border border-dashed border-border p-6 text-center">
-          <p className="font-mono text-[11px] text-muted-foreground/40 mb-3">No virtual cards yet</p>
-          <button className="rounded-lg border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5">
-            + New Card
-          </button>
-        </div>
+    <button
+      onClick={() => { const next = isDark ? "light" : "dark"; trackThemeChanged({ theme: next }); setTheme(next); }}
+      className="relative h-[26px] w-[52px] rounded-full border border-border bg-background transition-colors hover:border-foreground/20"
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      <div
+        className={`absolute top-[2px] h-[20px] w-[20px] rounded-full transition-all duration-200 flex items-center justify-center ${
+          isDark
+            ? "left-[2px] bg-foreground/15"
+            : "left-[28px] bg-foreground/15"
+        }`}
+      >
+        {isDark ? (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+        )}
       </div>
+    </button>
+  );
+}
 
-      <div className="h-px bg-border" />
-
-      {/* Purchase History */}
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Purchase History
-        </div>
-        <div className="rounded-lg border border-dashed border-border p-6 text-center">
-          <p className="font-mono text-[11px] text-muted-foreground/40">No purchases yet</p>
-          <p className="font-mono text-[10px] text-muted-foreground/20 mt-1">
-            Agent purchases will appear here
-          </p>
-        </div>
-      </div>
-
-      <div className="h-px bg-border" />
-
-      {/* Agent Spend Controls */}
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Agent Spend Controls
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
-            <div>
-              <span className="text-xs text-foreground font-mono">Daily Limit</span>
-              <span className="block text-[10px] text-muted-foreground/50">Max spend per day</span>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground/40">Not set</span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
-            <div>
-              <span className="text-xs text-foreground font-mono">Monthly Limit</span>
-              <span className="block text-[10px] text-muted-foreground/50">Max spend per month</span>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground/40">Not set</span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
-            <div>
-              <span className="text-xs text-foreground font-mono">Per-Transaction</span>
-              <span className="block text-[10px] text-muted-foreground/50">Require approval above</span>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground/40">Not set</span>
-          </div>
-        </div>
+function LimitRow({ label, value, onChange, onBlur }: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-1">
+        <span className="font-mono text-xs text-muted-foreground/50">$</span>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          min={0}
+          step={1}
+          placeholder="—"
+          className="w-16 border-b border-border bg-transparent py-0.5 text-right font-mono text-xs text-foreground placeholder:text-muted-foreground/30 focus:border-foreground focus:outline-none"
+        />
       </div>
     </div>
   );

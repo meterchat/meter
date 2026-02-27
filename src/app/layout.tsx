@@ -14,8 +14,16 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Meter — Use First, Pay After",
+  title: "Meter — Pay Per Thought",
   description: "Every AI model. One bill. No subscription. The meter runs in dollars.",
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover" as const,
 };
 
 export default function RootLayout({
@@ -24,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <link rel="preload" as="image" href="/logo-dark-copy.webp" />
         {[1, 2, 3, 4, 5, 6].map((n) => (

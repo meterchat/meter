@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -40,6 +41,10 @@
 
 :root {
   --radius: 0.625rem;
+}
+
+/* ── Dark mode (default) ─────────────────────────────────────── */
+.dark {
   --background: #1a1a1a;
   --foreground: #e5e5e5;
   --card: #222222;
@@ -66,6 +71,36 @@
   --sidebar-accent-foreground: #e5e5e5;
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Light mode ──────────────────────────────────────────────── */
+:root:not(.dark) {
+  --background: #fafaf9;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+  --primary: #1c1917;
+  --primary-foreground: #fafaf9;
+  --secondary: #f5f5f4;
+  --secondary-foreground: #1c1917;
+  --muted: #f5f5f4;
+  --muted-foreground: #78716c;
+  --accent: #f5f5f4;
+  --accent-foreground: #1c1917;
+  --destructive: #dc2626;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.06);
+  --ring: rgba(0, 0, 0, 0.12);
+  --sidebar: #f5f5f4;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: #1c1917;
+  --sidebar-primary-foreground: #fafaf9;
+  --sidebar-accent: #e7e5e4;
+  --sidebar-accent-foreground: #1c1917;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: rgba(0, 0, 0, 0.12);
 }
 
 @layer base {
@@ -103,9 +138,9 @@
 .thinking-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.3) 0%,
-    rgba(255,255,255,0.7) 50%,
-    rgba(255,255,255,0.3) 100%
+    var(--foreground) 0%,
+    var(--muted-foreground) 50%,
+    var(--foreground) 100%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;
@@ -114,13 +149,105 @@
   animation: shimmer 2s ease-in-out infinite;
 }
 
+/* Sublabel fade for ThinkingIndicator sub-status */
+.sublabel-fade {
+  transition: opacity 200ms ease-in-out;
+}
+.sublabel-fade-hidden {
+  opacity: 0;
+}
+
 /* Meter ticking — subtle pulse on cost digits */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes meter-tick {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
 .meter-ticking {
   animation: meter-tick 0.15s ease-out;
+}
+
+/* ── Mobile: safe areas + touch improvements ──────────────── */
+@supports (padding: env(safe-area-inset-top)) {
+  :root {
+    --sat: env(safe-area-inset-top);
+    --sab: env(safe-area-inset-bottom);
+    --sal: env(safe-area-inset-left);
+    --sar: env(safe-area-inset-right);
+  }
+}
+
+/* Prevent pull-to-refresh on mobile */
+@media (max-width: 767px) {
+  html, body {
+    overscroll-behavior-y: none;
+  }
+
+  /* Make tap targets at least 44px on mobile */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Exceptions: inline icon buttons / pills that are intentionally small */
+  .mobile-sm-ok {
+    min-height: unset;
+    min-width: unset;
+  }
+}
+
+/* ── Landing page utilities ─────────────────────────────────── */
+
+/* Animated grid background with radial fade */
+.dot-grid-fade {
+  position: relative;
+}
+
+.dot-grid-fade::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image:
+    linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent 100%),
+    radial-gradient(ellipse 60% 70% at 50% 50%, transparent 10%, rgba(0,0,0,0.5) 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent 100%),
+    radial-gradient(ellipse 60% 70% at 50% 50%, transparent 10%, rgba(0,0,0,0.5) 100%);
+  -webkit-mask-composite: source-in;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+/* Button shine sweep effect */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -100%;
+  width: 50%;
+  height: 200%;
+  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.15), transparent);
+  transform: skewX(-25deg);
+  animation: shine 4s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0% { left: -100%; }
+  20%, 100% { left: 150%; }
 }
 
 /* Hide Next.js error overlay portal */

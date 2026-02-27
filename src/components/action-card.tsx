@@ -45,9 +45,6 @@ export function ActionCard({
             <div className="font-mono text-sm text-foreground">
               ${card.cost.toFixed(2)}
             </div>
-            {card.status === "approved" && (
-              <div className="font-mono text-[9px] text-yellow-500/70">pending</div>
-            )}
           </div>
         )}
       </div>

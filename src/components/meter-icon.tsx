@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 
 const FRAMES = [
   "/frame-1.png",
@@ -24,7 +24,7 @@ interface MeterIconProps {
   size?: number;
 }
 
-export function MeterIcon({ active, size = 20 }: MeterIconProps) {
+export const MeterIcon = memo(function MeterIcon({ active, size = 20 }: MeterIconProps) {
   const [frame, setFrame] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
@@ -38,6 +38,7 @@ export function MeterIcon({ active, size = 20 }: MeterIconProps) {
     });
   }, []);
 
+  // Only animate when active (AI is streaming)
   useEffect(() => {
     if (!active) {
       setFrame(0);
@@ -75,4 +76,4 @@ export function MeterIcon({ active, size = 20 }: MeterIconProps) {
       style={{ width: size, height: size, imageRendering: "pixelated" }}
     />
   );
-}
+});
