@@ -1,7 +1,7 @@
 export interface MeterConfig {
   /** Your Meter API key (starts with mk_) */
   apiKey: string;
-  /** Base URL for the Meter API. Default: https://getmeter.xyz */
+  /** Base URL for the Meter API. Default: https://getmeter.dev */
   baseUrl?: string;
 }
 
@@ -41,7 +41,7 @@ export class MeterClient {
 
   constructor(config: MeterConfig) {
     this.apiKey = config.apiKey;
-    this.baseUrl = (config.baseUrl ?? "https://getmeter.xyz").replace(
+    this.baseUrl = (config.baseUrl ?? "https://getmeter.dev").replace(
       /\/$/,
       ""
     );

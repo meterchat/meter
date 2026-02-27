@@ -2,15 +2,15 @@
   "name": "meter",
   "version": "0.2.0",
   "description": "Use first, pay after — every AI model, one bill, no subscription",
-  "author": "Meter <hello@meterchat.com>",
+  "author": "Meter <hello@getmeter.dev>",
   "license": "MIT",
-  "homepage": "https://meterchat.com",
+  "homepage": "https://meter.chat",
   "repository": {
     "type": "git",
-    "url": "https://github.com/meterchat/meter.git"
+    "url": "https://github.com/meterxyz/meter.git"
   },
   "bugs": {
-    "url": "https://github.com/meterchat/meter/issues"
+    "url": "https://github.com/meterxyz/meter/issues"
   },
   "keywords": [
     "ai",

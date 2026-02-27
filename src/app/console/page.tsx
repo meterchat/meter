@@ -64,7 +64,7 @@ export default function ConsolePage() {
     );
   }
 
-  const jsSnippet = `const response = await fetch("https://meterchat.com/api/v1/chat", {
+  const jsSnippet = `const response = await fetch("https://getmeter.dev/api/v1/chat", {
   method: "POST",
   headers: {
     "Authorization": "Bearer mk_your_api_key",
@@ -88,14 +88,14 @@ while (true) {
   }
 }`;
 
-  const curlSnippet = `curl -N https://meterchat.com/api/v1/chat \\
+  const curlSnippet = `curl -N https://getmeter.dev/api/v1/chat \\
   -H "Authorization: Bearer mk_your_api_key" \\
   -H "Content-Type: application/json" \\
   -d '{"messages":[{"role":"user","content":"Hello"}],"model":"anthropic/claude-sonnet-4.6"}'`;
 
   const aiSnippet = `Integrate Meter AI into this app. Use the following API:
 
-POST https://meterchat.com/api/v1/chat
+POST https://getmeter.dev/api/v1/chat
 Authorization: Bearer mk_YOUR_KEY
 Content-Type: application/json
 

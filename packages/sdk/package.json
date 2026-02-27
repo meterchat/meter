@@ -1,10 +1,10 @@
 {
-  "name": "@meterxyz/sdk",
+  "name": "@getmeter/sdk",
   "version": "0.1.0",
-  "description": "Official SDK for the Meter AI API — metered, crypto-settled AI",
-  "author": "Meter <hello@getmeter.xyz>",
+  "description": "Official SDK for the Meter AI billing and routing API",
+  "author": "Meter <hello@getmeter.dev>",
   "license": "MIT",
-  "homepage": "https://getmeter.xyz",
+  "homepage": "https://getmeter.dev",
   "repository": {
     "type": "git",
     "url": "https://github.com/meterxyz/meter.git",
