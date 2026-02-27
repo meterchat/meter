@@ -1,21 +1,249 @@
 "use client";
 
-import { useRef, useEffect, useMemo, useState, useCallback } from "react";
-import { useMeterStore, ChatMessage } from "@/lib/store";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type Attachment } from "@/lib/store";
+import {
+  trackMessageSent,
+  trackMessageCopied,
+  trackMessagePinned,
+  trackMessageUnpinned,
+  trackResponseStopped,
+  trackFileUploaded,
+  trackChatBlocked,
+  trackDebateStarted,
+  trackDebateCompleted,
+  trackDecideClicked,
+  trackDecisionCreated,
+  trackDecisionResolved,
+  trackDecisionStaged,
+  trackPerTxnLimitHit,
+  trackConnectorInitiated,
+  trackWorkspaceCreated,
+  trackCardAssignedToWorkspace,
+  trackOnboardingStepViewed,
+  trackSlashCommandUsed,
+  trackInspectorToggled,
+  resetUser,
+} from "@/lib/analytics";
 import { MeterPill } from "@/components/meter-pill";
+import { HeaderMeter } from "@/components/header-meter";
+import { CommitButton } from "@/components/commit-button";
 import { ModelPickerTrigger, ModelPickerPanel } from "@/components/model-picker";
 import { Inspector } from "@/components/inspector";
+import { ProfileSettings } from "@/components/profile-settings";
 import { ActionCard } from "@/components/action-card";
-import { DecisionsBar } from "@/components/decisions-bar";
-import { DecisionsPanel } from "@/components/decisions-panel";
-import { Decision } from "@/lib/decisions-store";
-import { getModel, shortModelName } from "@/lib/models";
+import { DomainCard } from "@/components/domain-card";
+import { CommandBar } from "@/components/command-bar";
+import { SlashCommandPopover, type SlashCommandHandle } from "@/components/slash-command";
+import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
+import { ApiKeyDialog } from "@/components/api-key-dialog";
+import { WorkspaceBar } from "@/components/workspace-bar";
+import { useWorkspaceStore } from "@/lib/workspace-store";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { InlineCardForm } from "@/components/inline-card-form";
+import { getModel, shortModelName, DEBATE_MODELS } from "@/lib/models";
+import { useSessionSync } from "@/lib/use-session-sync";
+import { useDecisionsStore } from "@/lib/decisions-store";
+import { useArtifactsStore } from "@/lib/artifacts-store";
+import { useStagingStore } from "@/lib/staging-store";
+import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
+import ReactMarkdown from "react-markdown";
+
+const DRAFT_KEY = (id: string) => `meter:draft:${id}`;
 
 function statusLabel(msg: ChatMessage) {
   if (msg.receiptStatus === "settled") return "Settled";
   if (msg.receiptStatus === "signed") return "Signed";
   return "Signing";
 }
+
+function ErrorCard({ payload }: { payload: string }) {
+  let model = "";
+  try {
+    const parsed = JSON.parse(payload);
+    model = parsed.model ?? "";
+  } catch { /* ignore */ }
+
+  const modelLabel = model ? shortModelName(model) : "This model";
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+        <p className="font-mono text-[11px] text-foreground/70">
+          {modelLabel} is temporarily unavailable across all providers. Please try again in a moment.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ChatSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-6 animate-pulse">
+      {/* Simulated user message */}
+      <div className="mb-4 flex justify-end">
+        <div className="max-w-[65%] rounded-xl bg-foreground/[0.04] dark:bg-foreground/10 px-4 py-3">
+          <div className="h-3 w-48 rounded bg-muted-foreground/10" />
+        </div>
+      </div>
+      {/* Simulated assistant response */}
+      <div className="mb-4 flex justify-start">
+        <div className="max-w-[75%] rounded-xl px-4 py-3 space-y-2">
+          <div className="h-3 w-full rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[90%] rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[70%] rounded bg-muted-foreground/10" />
+        </div>
+      </div>
+      {/* Simulated user message */}
+      <div className="mb-4 flex justify-end">
+        <div className="max-w-[55%] rounded-xl bg-foreground/[0.04] dark:bg-foreground/10 px-4 py-3">
+          <div className="h-3 w-32 rounded bg-muted-foreground/10" />
+        </div>
+      </div>
+      {/* Simulated assistant response */}
+      <div className="mb-4 flex justify-start">
+        <div className="max-w-[75%] rounded-xl px-4 py-3 space-y-2">
+          <div className="h-3 w-full rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[85%] rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[60%] rounded bg-muted-foreground/10" />
+          <div className="h-3 w-[75%] rounded bg-muted-foreground/10" />
+        </div>
+      </div>
+      <div className="flex justify-center pt-4">
+        <span className="font-mono text-[10px] text-muted-foreground/30">Loading chat history...</span>
+      </div>
+    </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(text);
+    trackMessageCopied();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="mobile-sm-ok absolute right-2 top-2 rounded-md p-1 text-muted-foreground/0 transition-all group-hover/msg:text-muted-foreground/40 hover:!text-muted-foreground hover:bg-foreground/5 max-md:text-muted-foreground/30"
+      title={copied ? "Copied!" : "Copy message"}
+    >
+      {copied ? (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+      )}
+    </button>
+  );
+}
+
+function PinButton({ messageId, pinned }: { messageId: string; pinned?: boolean }) {
+  const togglePinMessage = useMeterStore((s) => s.togglePinMessage);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        if (pinned) trackMessageUnpinned({ messageId });
+        else trackMessagePinned({ messageId });
+        togglePinMessage(messageId);
+      }}
+      className={`mobile-sm-ok absolute right-2 top-9 rounded-md p-1 transition-all ${
+        pinned
+          ? "text-amber-500/70 hover:text-amber-500"
+          : "text-muted-foreground/0 group-hover/msg:text-muted-foreground/40 hover:!text-muted-foreground hover:bg-foreground/5 max-md:text-muted-foreground/30"
+      }`}
+      title={pinned ? "Unpin" : "Pin"}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="17" x2="12" y2="22" />
+        <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+      </svg>
+    </button>
+  );
+}
+
+function DecisionPill({ decisionId, onOpen }: { decisionId: string; onOpen: () => void }) {
+  const isCommitted = useDecisionsStore((s) => s.decisions.some((d) => d.id === decisionId));
+
+  return (
+    <button
+      onClick={onOpen}
+      className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] transition-colors ${
+        isCommitted
+          ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10"
+          : "border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10"
+      }`}
+    >
+      {isCommitted ? (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <line x1="1.05" y1="12" x2="7" y2="12" />
+          <line x1="17.01" y1="12" x2="22.96" y2="12" />
+        </svg>
+      )}
+      {isCommitted ? "Decision logged" : "Decision staged"}
+    </button>
+  );
+}
+
+/* ─── Decision-point buttons (Decide / Debate) ─── */
+
+function DecisionPointButtons({
+  onDecide,
+  onDebate,
+  disabled,
+}: {
+  onDecide: () => void;
+  onDebate: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <button
+        onClick={onDecide}
+        disabled={disabled}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 active:bg-emerald-500/20 active:text-emerald-400 disabled:opacity-40"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+        Decide
+      </button>
+      <button
+        onClick={onDebate}
+        disabled={disabled}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-400 active:bg-amber-500/20 active:text-amber-400 disabled:opacity-40"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        Debate
+      </button>
+    </div>
+  );
+}
+
+/** Check if a message contains the [decision-point] tag */
+function hasDecisionPoint(content: string): boolean {
+  return content.includes("[decision-point]");
+}
+
+/** Strip the [decision-point] tag from content for display */
+function stripDecisionPoint(content: string): string {
+  return content.replace(/\s*\[decision-point\]\s*/g, "").trim();
+}
+
+const mdComponents = {
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+  ),
+};
 
 function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string }) {
   const hasCost = msg.cost !== undefined;
@@ -29,7 +257,10 @@ function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground/70">
-      <span style={{ color: msg.model ? getModel(msg.model).color : undefined }}>{modelName}</span>
+      <span className="inline-flex items-center" style={{ color: msg.model ? getModel(msg.model).color : undefined }}>
+        {modelName}
+        {msg.model === "meter-1.0" && <DebateModelDots />}
+      </span>
       <span className="text-muted-foreground/30">&middot;</span>
       <span>{totalTokens.toLocaleString()} tokens</span>
       <span className="text-muted-foreground/30">&middot;</span>
@@ -53,8 +284,147 @@ function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string
   );
 }
 
-/* ─── Thinking indicator with shimmer ─── */
-function ThinkingIndicator() {
+/* ─── Thinking / tool-use indicator with shimmer ─── */
+const TOOL_LABELS: Record<string, string> = {
+  web_search: "Searching the web",
+  save_decision: "Saving decision",
+  list_decisions: "Recalling decisions",
+  get_current_datetime: "Checking date",
+  search_emails: "Searching emails",
+  read_email: "Reading email",
+  github_create_repo: "Creating repo",
+  github_list_repos: "Listing repos",
+  github_create_issue: "Creating issue",
+  vercel_deploy: "Deploying",
+  vercel_list_deployments: "Listing deployments",
+  stripe_list_payments: "Checking payments",
+  stripe_get_balance: "Checking balance",
+  stripe_list_subscriptions: "Listing subscriptions",
+  mercury_get_accounts: "Checking accounts",
+  mercury_list_transactions: "Listing transactions",
+  ramp_list_transactions: "Listing expenses",
+  ramp_get_spending_summary: "Summarizing spending",
+  supabase_query: "Querying database",
+  supabase_list_tables: "Listing tables",
+};
+
+function getHintPool(
+  elapsedS: number,
+  hasImage: boolean,
+  hasPdf: boolean,
+  modelId: string | undefined,
+  toolName: string | null | undefined,
+): string[] {
+  if (toolName) {
+    const toolHints: Record<string, string[]> = {
+      web_search: ["Scanning results", "Reading sources"],
+      search_emails: ["Searching inbox", "Filtering results"],
+      read_email: ["Parsing email content"],
+      supabase_query: ["Executing query", "Fetching rows"],
+      save_decision: ["Writing to memory"],
+      list_decisions: ["Recalling past decisions"],
+    };
+    return toolHints[toolName] ?? ["Processing"];
+  }
+
+  if (elapsedS < 5) {
+    if (hasImage) return ["Analyzing image"];
+    if (hasPdf) return ["Reading document"];
+    return ["Understanding your request"];
+  }
+  if (elapsedS < 15) {
+    const hints = hasImage
+      ? ["Processing visual details", "Interpreting image content"]
+      : hasPdf
+        ? ["Extracting text from PDF", "Analyzing document"]
+        : ["Reasoning through this", "Considering the details"];
+    const modelName = modelId ? shortModelName(modelId) : null;
+    if (modelName && modelName !== "Auto") hints.push(`${modelName} is working`);
+    return hints;
+  }
+  if (elapsedS < 45) {
+    const hints = ["Working through the problem", "Crafting a thorough response", "Almost there"];
+    if (hasImage) hints.unshift("Deep image analysis in progress");
+    if (hasPdf) hints.unshift("Cross-referencing document sections");
+    return hints;
+  }
+  if (elapsedS < 120) {
+    return ["This is a complex one", "Still working on it", "Taking extra care with this response"];
+  }
+  return ["Still processing — complex tasks take longer", "Working through it carefully", "Large inputs need more time", "Hang tight — generating response"];
+}
+
+const HINT_CYCLE_MS = 3500;
+
+function ThinkingIndicator({
+  toolName,
+  rerouting,
+  thinkingStartedAt,
+  hasImageAttachment,
+  hasPdfAttachment,
+  modelId,
+  thinkingText,
+}: {
+  toolName?: string | null;
+  rerouting?: { provider: string; toModel: string } | null;
+  thinkingStartedAt: number;
+  hasImageAttachment?: boolean;
+  hasPdfAttachment?: boolean;
+  modelId?: string;
+  thinkingText?: string;
+}) {
+  let label: string;
+  if (rerouting) {
+    const toLabel = shortModelName(rerouting.toModel);
+    label = `Re-routing to ${toLabel}`;
+  } else {
+    label = toolName ? TOOL_LABELS[toolName] ?? toolName : "Thinking";
+  }
+
+  const hasRealThinking = !!thinkingText && thinkingText.length > 0;
+
+  // --- Cycling sublabel (fallback when no real thinking) ---
+  const [elapsedS, setElapsedS] = useState(0);
+  const [hintIndex, setHintIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const prevToolRef = useRef(toolName);
+
+  useEffect(() => {
+    if (hasRealThinking) return; // no need to tick when real thinking is streaming
+    const t = setInterval(() => setElapsedS(Math.floor((Date.now() - thinkingStartedAt) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [thinkingStartedAt, hasRealThinking]);
+
+  const hintPool = useMemo(
+    () => getHintPool(elapsedS, hasImageAttachment ?? false, hasPdfAttachment ?? false, modelId, toolName),
+    [elapsedS, hasImageAttachment, hasPdfAttachment, modelId, toolName],
+  );
+
+  useEffect(() => {
+    if (hasRealThinking) return; // no cycling when real thinking is streaming
+    const cycler = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setHintIndex((i) => (i + 1) % Math.max(hintPool.length, 1));
+        setVisible(true);
+      }, 200);
+    }, HINT_CYCLE_MS);
+    return () => clearInterval(cycler);
+  }, [hintPool.length, hasRealThinking]);
+
+  useEffect(() => {
+    if (toolName !== prevToolRef.current) {
+      prevToolRef.current = toolName;
+      setHintIndex(0);
+      setVisible(true);
+    }
+  }, [toolName]);
+
+  // Real thinking: show last ~80 chars. Fallback: cycling hints.
+  const displaySublabel = hasRealThinking
+    ? thinkingText.split("\n").filter(l => l.trim()).slice(-2).join(" ").slice(-80)
+    : hintPool[hintIndex % hintPool.length] ?? null;
+
   return (
     <div className="flex items-center gap-2 px-4 py-3 mb-4">
       <svg
@@ -66,15 +436,28 @@ function ThinkingIndicator() {
       >
         <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="20 14" />
       </svg>
-      <span className="thinking-shimmer text-sm font-medium select-none">
-        Thinking
-      </span>
+      <div className="flex flex-col">
+        <span className="thinking-shimmer text-sm font-medium select-none">
+          {label}
+        </span>
+        {displaySublabel && (
+          <span className={`text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px] max-md:max-w-[200px] sublabel-fade ${hasRealThinking || visible ? "" : "sublabel-fade-hidden"}`}>
+            {displaySublabel}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
 /* ─── Main ChatView ────────────────────────────────────────────── */
 export function ChatView() {
+  // Sync sessions to Supabase for eternal persistence
+  useSessionSync();
+
+  const isMobile = useIsMobile();
+  const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
+
   const {
     projects,
     activeProjectId,
@@ -83,6 +466,7 @@ export function ChatView() {
     updateLastAssistantMessage,
     finalizeResponse,
     setStreaming,
+    incrementCurrentMessageCost,
     inspectorOpen,
     toggleInspector,
     spendingCap,
@@ -90,56 +474,192 @@ export function ChatView() {
     selectedModelId,
     approveCard,
     rejectCard,
+    spendLimits,
   } = useMeterStore();
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
   const messages = activeProject?.messages ?? [];
   const isStreaming = activeProject?.isStreaming ?? false;
   const todayCost = activeProject?.todayCost ?? 0;
-  const todayTokens = (activeProject?.todayTokensIn ?? 0) + (activeProject?.todayTokensOut ?? 0);
   const todayMessageCount = activeProject?.todayMessageCount ?? 0;
+
+  // Fetch spend limits on mount and when project changes — can't rely on
+  // Inspector since it's unmounted when closed, and limits aren't persisted
+  // across page reloads without this.
+  const fetchSpendLimits = useMeterStore((s) => s.fetchSpendLimits);
+  useEffect(() => {
+    if (activeProjectId) fetchSpendLimits(activeProjectId);
+  }, [activeProjectId, fetchSpendLimits]);
+
+  const decisions = useDecisionsStore((s) => s.decisions);
+  const updateDecision = useDecisionsStore((s) => s.updateDecision);
+
+  const meterProjectId = useMemo(() => {
+    const meterProject = projects.find(
+      (p) => p.id === "meter" || p.name?.toLowerCase() === "meter"
+    );
+    return meterProject?.id ?? null;
+  }, [projects]);
+
+  useEffect(() => {
+    if (!meterProjectId) return;
+    const unassigned = decisions.filter((d) => !d.projectId);
+    if (unassigned.length === 0) return;
+    unassigned.forEach((d) => {
+      updateDecision(d.id, { projectId: meterProjectId });
+    });
+  }, [decisions, meterProjectId, updateDecision]);
+
+  const userId = useMeterStore((s) => s.userId);
+  const cardOnFile = useMeterStore((s) => s.cardOnFile);
+  const cardLast4 = useMeterStore((s) => s.cardLast4);
+  const cardBrand = useMeterStore((s) => s.cardBrand);
+  const workspaceCardReady = useMeterStore(selectWorkspaceCardReady);
+  const setCardAssigned = useMeterStore((s) => s.setCardAssigned);
+  const chatBlocked = activeProject?.chatBlocked ?? false;
+
+  const sourceWorkspaceName = useMemo(() => {
+    if (workspaceCardReady || !cardOnFile) return null;
+    const source = projects.find(
+      (p) => p.id !== activeProjectId && p.cardAssigned === true
+    );
+    return source?.name ?? null;
+  }, [workspaceCardReady, cardOnFile, projects, activeProjectId]);
+
+  // Onboarding state: first-time users go workspace name → card → chat
+  const [onboardingWorkspaceName, setOnboardingWorkspaceName] = useState("");
+  const [onboardingStep, setOnboardingStep] = useState<"workspace" | "card">("workspace");
+  const createCompany = useWorkspaceStore((s) => s.createCompany);
+  const addProject = useMeterStore((s) => s.addProject);
+  const setActiveProjectChat = useMeterStore((s) => s.setActiveProject);
+
+  const handleOnboardingCreateWorkspace = () => {
+    const name = onboardingWorkspaceName.trim();
+    if (!name) return;
+    const sessionId = `ws_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    createCompany(name, sessionId);
+    addProject(name, sessionId);
+    setActiveProjectChat(sessionId);
+    trackWorkspaceCreated({ name, source: "chat_onboarding" });
+    trackOnboardingStepViewed({ step: "card" });
+    setOnboardingStep("card");
+  };
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  const [showHeaderMeterDropdown, setShowHeaderMeterDropdown] = useState(false);
+  const modelPickerRef = useRef<HTMLDivElement>(null);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [switchingProjectName, setSwitchingProjectName] = useState<string | null>(null);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [rerouting, setRerouting] = useState<{ provider: string; toModel: string } | null>(null);
+  const [thinkingStartedAt, setThinkingStartedAt] = useState<number>(0);
+  const [logoMenuOpen, setLogoMenuOpen] = useState(false);
+  const logoMenuRef = useRef<HTMLDivElement>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [slashOpen, setSlashOpen] = useState(false);
+  const [slashQuery, setSlashQuery] = useState("");
+  const [commandBarOpen, setCommandBarOpen] = useState(false);
+  const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
+  // Debate mode state
+  const [debateTrace, setDebateTraceLocal] = useState<DebateTurn[]>([]);
+  const [activeDebateTurn, setActiveDebateTurn] = useState<{ model: string; phase: string; content: string } | null>(null);
+  const [debatePhase, setDebatePhase] = useState<"debating" | "synthesizing" | null>(null);
+  const slashRef = useRef<SlashCommandHandle>(null);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isNearBottomRef = useRef(true);
+  const userScrolledAwayRef = useRef(false);
+  const scrollAwayAtRef = useRef(0);
+  const isProgrammaticScrollRef = useRef(false);
+  const hasInitialScrolled = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
+  const uploadFile = useCallback(async (file: File): Promise<Attachment | null> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/attachments/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("Upload failed:", body.error);
+        return null;
+      }
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const handleFiles = useCallback(async (files: FileList | File[]) => {
+    const valid = Array.from(files).filter(
+      (f) => f.type.startsWith("image/") || f.type === "application/pdf"
+    );
+    if (valid.length === 0) return;
+    setUploading(true);
+    const results = await Promise.all(valid.map(uploadFile));
+    const uploaded = results.filter((a): a is Attachment => a !== null);
+    if (uploaded.length > 0) {
+      trackFileUploaded({
+        mimeType: uploaded[0].mimeType,
+        count: uploaded.length,
+      });
+    }
+    setPendingAttachments((prev) => [...prev, ...uploaded]);
+    setUploading(false);
+  }, [uploadFile]);
+
+  const removePendingAttachment = useCallback((url: string) => {
+    setPendingAttachments((prev) => prev.filter((a) => a.url !== url));
+  }, []);
+
+  useEffect(() => {
+    hasInitialScrolled.current = false;
+  }, [activeProjectId]);
+
+  // Restore draft from localStorage on mount / project switch
+  useEffect(() => {
+    const saved = localStorage.getItem(DRAFT_KEY(activeProjectId));
+    if (saved && inputRef.current) {
+      inputRef.current.value = saved;
+      inputRef.current.style.height = "auto";
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px";
+    }
+  }, [activeProjectId]);
+
+  const pendingInput = useMeterStore((s) => s.pendingInput);
+  const setPendingInput = useMeterStore((s) => s.setPendingInput);
   const setInspectorOpen = useMeterStore((s) => s.setInspectorOpen);
   const setInspectorTab = useMeterStore((s) => s.setInspectorTab);
 
-  const headerMeterStats = useMemo(() => {
-    const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
-    const weekAgo = now - 7 * dayMs;
-    const monthAgo = now - 30 * dayMs;
-    const assistantMsgs = (activeProject?.messages ?? []).filter((m) => m.role === "assistant" && m.cost !== undefined);
-
-    return {
-      today: activeProject?.todayCost ?? 0,
-      week: assistantMsgs.filter((m) => m.timestamp >= weekAgo).reduce((sum, m) => sum + (m.cost ?? 0), 0),
-      month: assistantMsgs.filter((m) => m.timestamp >= monthAgo).reduce((sum, m) => sum + (m.cost ?? 0), 0),
-      total: activeProject?.totalCost ?? 0,
-      messagesToday: activeProject?.todayMessageCount ?? 0,
-      tokensToday: (activeProject?.todayTokensIn ?? 0) + (activeProject?.todayTokensOut ?? 0),
-    };
-  }, [activeProject]);
-
-  const openedRef = useRef(false);
   useEffect(() => {
-    if (openedRef.current) return;
-    openedRef.current = true;
-    setInspectorOpen(true);
-    setInspectorTab("usage");
-  }, [setInspectorOpen, setInspectorTab]);
+    if (!modelPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
+        setModelPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [modelPickerOpen]);
 
-  const openUsageInspector = () => {
-    setInspectorOpen(true);
-    setInspectorTab("usage");
-  };
+  useEffect(() => {
+    if (!logoMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (logoMenuRef.current && !logoMenuRef.current.contains(e.target as Node)) {
+        setLogoMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [logoMenuOpen]);
+
+  // Inspector starts closed; user can open it manually
 
   const handleProjectSwitch = (projectId: string) => {
     if (projectId === activeProjectId) {
@@ -154,54 +674,147 @@ export function ChatView() {
     setTimeout(() => setSwitchingProjectName(null), 700);
   };
 
-  // Track whether user is scrolled near the bottom
-  const handleScroll = useCallback(() => {
+  // Detect user-initiated scroll-up via wheel / touch to pause auto-scroll.
+  useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const threshold = 80;
-    isNearBottomRef.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY < 0) {
+        userScrolledAwayRef.current = true;
+        scrollAwayAtRef.current = Date.now();
+      }
+    };
+    let touchStartY = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      touchStartY = e.touches[0].clientY;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches[0].clientY > touchStartY) {
+        userScrolledAwayRef.current = true;
+        scrollAwayAtRef.current = Date.now();
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: true });
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+    };
   }, []);
 
-  // Auto-scroll to bottom when content changes and user was at bottom
-  useEffect(() => {
-    if (isNearBottomRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  const handleScroll = useCallback(() => {
+    if (isProgrammaticScrollRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    isNearBottomRef.current = nearBottom;
+    setShowScrollBtn(!nearBottom);
+    if (nearBottom && Date.now() - scrollAwayAtRef.current > 500) {
+      userScrolledAwayRef.current = false;
     }
+  }, []);
+
+  // Auto-scroll using instant scrollTop (no smooth animation that fights
+  // with user scroll). Guarded by isProgrammaticScrollRef so our own scroll
+  // doesn't re-enter handleScroll and clear userScrolledAway.
+  useEffect(() => {
+    if (userScrolledAwayRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    if (!hasInitialScrolled.current) {
+      hasInitialScrolled.current = true;
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+    isProgrammaticScrollRef.current = true;
+    el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => {
+      isProgrammaticScrollRef.current = false;
+    });
   }, [messages]);
 
-  const handleSend = async () => {
-    const input = inputRef.current;
-    if (!input || !input.value.trim() || isStreaming) return;
+  // Scroll-to-message triggered from inspector pin clicks
+  const scrollToMessageId = useMeterStore((s) => s.scrollToMessageId);
+  const setScrollToMessageId = useMeterStore((s) => s.setScrollToMessageId);
+  useEffect(() => {
+    if (!scrollToMessageId) return;
+    const el = document.getElementById(`msg-${scrollToMessageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-amber-500/40", "rounded-xl");
+      setTimeout(() => el.classList.remove("ring-2", "ring-amber-500/40", "rounded-xl"), 2000);
+    }
+    setScrollToMessageId(null);
+  }, [scrollToMessageId, setScrollToMessageId]);
 
-    if (spendingCapEnabled && todayCost >= spendingCap) return;
+  /** Core streaming function shared by handleSend and handleDebate */
+  const streamResponse = async (userContent: string, modelOverride?: string, userAttachments?: Attachment[]) => {
+    // Pin the project ID at stream start so all mutations target the correct
+    // workspace even if the user switches workspaces mid-stream.
+    const streamProjectId = activeProjectId;
 
-    const userContent = input.value.trim();
-    input.value = "";
-    input.style.height = "auto";
-
-    // Snap to bottom when user sends a message
     isNearBottomRef.current = true;
+    userScrolledAwayRef.current = false;
+    setRerouting(null); // Clear any previous reroute
+
+    // Client-side daily limit check — Supabase sync is delayed (2-10s), so the
+    // server pre-flight can read stale cost and let overspend through. The client
+    // store has the authoritative todayCost since it tracks every message.
+    if (spendLimits.dailyLimit != null && spendLimits.dailyLimit > 0) {
+      const state = useMeterStore.getState();
+      const active = state.projects.find((p) => p.id === streamProjectId);
+      const todayCost = active?.todayCost ?? 0;
+      if (todayCost >= spendLimits.dailyLimit) {
+        addMessage({
+          id: Math.random().toString(36).slice(2, 10),
+          role: "assistant",
+          content: `Daily spend limit reached ($${todayCost.toFixed(2)} / $${spendLimits.dailyLimit.toFixed(2)}). Adjust your limit or wait until tomorrow.`,
+          timestamp: Date.now(),
+        }, streamProjectId);
+        return;
+      }
+    }
 
     const userMsg: ChatMessage = {
       id: Math.random().toString(36).slice(2, 10),
       role: "user",
       content: userContent,
       timestamp: Date.now(),
+      ...(userAttachments?.length ? { attachments: userAttachments } : {}),
     };
-    addMessage(userMsg);
+    addMessage(userMsg, streamProjectId);
 
-    const assistantMsgId = Math.random().toString(36).slice(2, 10);
     const assistantMsg: ChatMessage = {
-      id: assistantMsgId,
+      id: Math.random().toString(36).slice(2, 10),
       role: "assistant",
       content: "",
       tokensOut: 0,
       receiptStatus: "signing",
       timestamp: Date.now(),
     };
-    addMessage(assistantMsg);
-    setStreaming(true);
+    addMessage(assistantMsg, streamProjectId);
+    setStreaming(true, streamProjectId);
+    setThinkingStartedAt(Date.now());
+
+    const effectiveModel = modelOverride ?? selectedModelId;
+    const isDebateMode = effectiveModel === "meter-1.0";
+
+    // Reset debate state
+    if (isDebateMode) {
+      setDebateTraceLocal([]);
+      setActiveDebateTurn(null);
+      setDebatePhase("debating");
+    }
+
+    // Track debate trace locally during streaming
+    const localTrace: DebateTurn[] = [];
+    let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number; actualCost?: number } | null = null;
+    let actualModelUsed: string | null = null;
+
+    const abort = new AbortController();
+    abortRef.current = abort;
 
     try {
       const allMessages = [
@@ -212,17 +825,92 @@ export function ChatView() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: allMessages, model: selectedModelId }),
+        signal: abort.signal,
+        body: JSON.stringify({
+          messages: allMessages,
+          model: effectiveModel,
+          projectId: streamProjectId,
+          connectedServices: Object.keys(connectedServices).filter(
+            (k) => connectedServices[k]
+          ),
+          ...(userAttachments?.length ? { attachments: userAttachments } : {}),
+        }),
       });
 
+      // Pre-estimate input cost for limit checking. This is NOT added to
+      // the store (which would pollute todayCost) — it's only used as a local
+      // adjustment inside checkSpendLimits. finalizeResponse handles the real
+      // cost reconciliation when actual token counts arrive from the API.
+      //
+      // Cap at 30K tokens to match the server's MAX_CONTEXT_TOKENS truncation.
+      // Without the cap, long conversations would over-estimate 10x+ and
+      // falsely trigger limits.
+      const SERVER_MAX_CONTEXT_TOKENS = 30_000;
+      const rawEstimatedTokens = allMessages.reduce(
+        (sum, m) => sum + Math.ceil((typeof m.content === "string" ? m.content.length : 0) / 4),
+        0,
+      );
+      const estimatedInputTokens = Math.min(rawEstimatedTokens, SERVER_MAX_CONTEXT_TOKENS);
+      const inputModel = getModel(isDebateMode ? DEBATE_MODELS[0] : effectiveModel);
+      const estimatedInputCost = isDebateMode
+        // Debate sends context to each model per phase; sum of rates is a
+        // reasonable approximation for one round of input across all models.
+        ? estimatedInputTokens * DEBATE_MODELS.reduce((sum, id) => sum + getModel(id).inputPrice, 0)
+        : estimatedInputTokens * inputModel.inputPrice;
+
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({ error: "Spend limit reached" }));
+        updateLastAssistantMessage(body.error ?? "Spend limit reached. Please adjust your limits or wait for the next period.", 0, streamProjectId);
+        return;
+      }
       if (!res.ok) throw new Error(`Chat API failed (${res.status})`);
       const reader = res.body?.getReader();
       if (!reader) throw new Error("No reader");
 
       const decoder = new TextDecoder();
       let fullContent = "";
-      let finalUsage: { tokensIn: number; tokensOut: number; confidence: number } | null = null;
+      let thinkingContent = "";
       let buffer = "";
+      let currentTurn: { model: string; phase: string; content: string } | null = null;
+
+      /** Abort the stream if per-txn or daily limit is exceeded.
+       *  Adds estimatedInputCost (from closure) on top of the store's
+       *  currentMessageCost so the check accounts for input tokens without
+       *  polluting todayCost in the store. */
+      const checkSpendLimits = (): boolean => {
+        const state = useMeterStore.getState();
+        const active = state.projects.find((p) => p.id === streamProjectId);
+        // currentMessageCost tracks output cost accumulated during streaming.
+        // Add the local input estimate for a more accurate per-txn check.
+        const cost = (active?.currentMessageCost ?? 0) + estimatedInputCost;
+
+        // Per-transaction limit
+        const txnLimit = spendLimits.perTxnLimit;
+        if (txnLimit != null && txnLimit > 0 && cost >= txnLimit) {
+          const notice = `\n\n---\n*Per-transaction limit ($${txnLimit.toFixed(2)}) reached. Response stopped at ~$${cost.toFixed(2)}.*`;
+          fullContent += notice;
+          const lastMsg = (active?.messages ?? []).at(-1);
+          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0, streamProjectId);
+          trackPerTxnLimitHit({ projectId: streamProjectId, limit: txnLimit, actualCost: cost, model: effectiveModel });
+          abort.abort();
+          return true;
+        }
+
+        // Daily limit — also enforce mid-stream so a single expensive
+        // response can't blow through the daily budget.
+        const dailyLimit = spendLimits.dailyLimit;
+        const todayCost = (active?.todayCost ?? 0) + estimatedInputCost;
+        if (dailyLimit != null && dailyLimit > 0 && todayCost >= dailyLimit) {
+          const notice = `\n\n---\n*Daily limit ($${dailyLimit.toFixed(2)}) reached. Response stopped at ~$${todayCost.toFixed(2)} today.*`;
+          fullContent += notice;
+          const lastMsg = (active?.messages ?? []).at(-1);
+          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0, streamProjectId);
+          abort.abort();
+          return true;
+        }
+
+        return false;
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -239,14 +927,114 @@ export function ChatView() {
 
           try {
             const data = JSON.parse(payload);
-            if (data.type === "delta") {
+
+            // ── Debate-specific events ────────────────────────
+            if (data.type === "debate_start") {
+              // Debate started — UI already set above
+            } else if (data.type === "debate_turn_start") {
+              currentTurn = { model: data.model as string, phase: data.phase as string, content: "" };
+              setActiveDebateTurn(currentTurn);
+            } else if (data.type === "debate_turn_delta") {
+              if (currentTurn) {
+                currentTurn = { model: currentTurn.model, phase: currentTurn.phase, content: currentTurn.content + (data.content as string) };
+                setActiveDebateTurn(currentTurn);
+                // Track output cost incrementally using the actual model's rate
+                const deltaText = data.content as string;
+                const estTokens = Math.ceil(deltaText.length / 4);
+                const turnModel = getModel(currentTurn.model);
+                incrementCurrentMessageCost(estTokens * turnModel.outputPrice, streamProjectId);
+                if (checkSpendLimits()) break;
+              }
+            } else if (data.type === "debate_turn_end") {
+              if (currentTurn) {
+                localTrace.push({
+                  model: currentTurn.model,
+                  phase: currentTurn.phase as "opening" | "challenge" | "rebuttal" | "vote",
+                  content: currentTurn.content,
+                });
+                setDebateTraceLocal([...localTrace]);
+                setActiveDebateTurn(null);
+                currentTurn = null;
+              }
+            } else if (data.type === "debate_synthesis_start") {
+              setDebatePhase("synthesizing");
+              setActiveDebateTurn(null);
+
+            // ── Standard events ───────────────────────────────
+            } else if (data.type === "thinking_delta") {
+              thinkingContent += data.content;
+              useMeterStore.getState().updateLastAssistantThinking(thinkingContent, streamProjectId);
+            } else if (data.type === "delta") {
               fullContent += data.content;
-              updateLastAssistantMessage(fullContent, data.tokensOut);
+              setActiveTool(null);
+              setRerouting(null);
+              updateLastAssistantMessage(fullContent, data.tokensOut, streamProjectId);
+              if (checkSpendLimits()) break;
+            } else if (data.type === "tool_call") {
+              setActiveTool(data.name as string);
+            } else if (data.type === "tool_result") {
+              if (data.name === "save_decision" && data.decision) {
+                const d = data.decision as { id?: string; title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
+                const decId = useStagingStore.getState().stageDecision({
+                  id: d.id || undefined,
+                  title: d.title,
+                  choice: d.choice,
+                  alternatives: d.alternatives,
+                  reasoning: d.reasoning ?? undefined,
+                  projectId: streamProjectId,
+                });
+                useMeterStore.getState().setMessageDecisionId(decId, streamProjectId);
+                trackDecisionStaged({ decisionId: decId, title: d.title, projectId: streamProjectId });
+              }
+              if (data.name === "save_artifact" && data.artifact) {
+                const a = data.artifact as { id?: string; filePath: string; status: string };
+                useArtifactsStore.getState().upsertArtifact({
+                  id: a.id || `temp_${Date.now()}`,
+                  filePath: a.filePath,
+                  status: (a.status as "draft" | "synced") || "draft",
+                  lastGeneratedAt: Date.now(),
+                });
+              }
+              if (data.name === "porkbun_check_domain" && data.domainCard) {
+                const dc = data.domainCard as {
+                  id: string;
+                  type: string;
+                  title: string;
+                  description: string;
+                  cost?: number;
+                  status: string;
+                  metadata?: Record<string, string>;
+                };
+                useMeterStore.getState().addCardToLastMessage(
+                  {
+                    id: dc.id,
+                    type: dc.type as "domain",
+                    title: dc.title,
+                    description: dc.description,
+                    cost: dc.cost,
+                    status: dc.status as "pending" | "rejected",
+                    metadata: dc.metadata,
+                  },
+                  streamProjectId
+                );
+              }
+            } else if (data.type === "rerouting") {
+              setRerouting({ provider: data.provider as string, toModel: data.to as string });
+            } else if (data.type === "error") {
+              const errorPayload = JSON.stringify({ code: data.code, model: data.model });
+              fullContent = `__error__${errorPayload}`;
+              updateLastAssistantMessage(fullContent, 0, streamProjectId);
+            } else if (data.type === "done") {
+              if (data.actualModel) actualModelUsed = data.actualModel as string;
             } else if (data.type === "usage") {
               finalUsage = {
                 tokensIn: data.tokensIn,
                 tokensOut: data.tokensOut,
                 confidence: data.confidence ?? 0,
+                cacheCreationTokens: data.cacheCreationTokens ?? 0,
+                cacheReadTokens: data.cacheReadTokens ?? 0,
+                cacheReadRate: data.cacheReadRate ?? 0,
+                actualCost: data.actualCost ?? undefined,
               };
             }
           } catch {
@@ -255,37 +1043,236 @@ export function ChatView() {
         }
       }
 
-      if (finalUsage) finalizeResponse(finalUsage.tokensIn, finalUsage.tokensOut, finalUsage.confidence);
+      // Persist debate trace to the message
+      if (isDebateMode && localTrace.length > 0) {
+        useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
+        trackDebateCompleted({ projectId: streamProjectId, turnCount: localTrace.length });
+      }
+
+      if (finalUsage) {
+        finalizeResponse(
+          finalUsage.tokensIn,
+          finalUsage.tokensOut,
+          finalUsage.confidence,
+          actualModelUsed ?? undefined,
+          finalUsage.cacheCreationTokens,
+          finalUsage.cacheReadTokens,
+          finalUsage.cacheReadRate,
+          finalUsage.actualCost,
+          streamProjectId,
+        );
+      }
     } catch {
-      // keep silent for now
+      // Abort or network error — persist whatever we have so far.
+      // Partial responses are still billed upstream (industry standard).
+      if (isDebateMode && localTrace.length > 0) {
+        useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
+      }
+      if (finalUsage) {
+        finalizeResponse(
+          finalUsage.tokensIn,
+          finalUsage.tokensOut,
+          finalUsage.confidence,
+          actualModelUsed ?? undefined,
+          finalUsage.cacheCreationTokens,
+          finalUsage.cacheReadTokens,
+          finalUsage.cacheReadRate,
+          finalUsage.actualCost,
+          streamProjectId,
+        );
+      }
     } finally {
+      abortRef.current = null;
+      setActiveTool(null);
+      setDebatePhase(null);
+      setActiveDebateTurn(null);
+      // Delay setStreaming(false) so the meter pill slot animation has
+      // time to roll to the final cost value before locking.
+      setTimeout(() => setStreaming(false, streamProjectId), 350);
+    }
+  };
+
+  const handleSend = async () => {
+    const input = inputRef.current;
+    const hasText = input && input.value.trim();
+    const hasAttachments = pendingAttachments.length > 0;
+    if (!input || (!hasText && !hasAttachments) || isStreaming || !workspaceCardReady) return;
+
+    if (chatBlocked) {
+      trackChatBlocked({ projectId: activeProjectId });
+      const userContent = input.value.trim();
+      input.value = "";
+      input.style.height = "auto";
+      localStorage.removeItem(DRAFT_KEY(activeProjectId));
+      isNearBottomRef.current = true;
+      userScrolledAwayRef.current = false;
+      addMessage({
+        id: Math.random().toString(36).slice(2, 10),
+        role: "user",
+        content: userContent,
+        timestamp: Date.now(),
+      });
+      addMessage({
+        id: Math.random().toString(36).slice(2, 10),
+        role: "assistant",
+        content: "Chat is paused. Please update your payment method or settle your outstanding balance to continue.",
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    if (spendingCapEnabled && todayCost >= spendingCap) return;
+
+    const userContent = input.value.trim() || (pendingAttachments.length > 0 ? "What's in this file?" : "");
+    const attachmentsToSend = pendingAttachments.length > 0 ? [...pendingAttachments] : undefined;
+
+    trackMessageSent({
+      model: selectedModelId,
+      projectId: activeProjectId,
+      hasAttachments: !!attachmentsToSend,
+      attachmentCount: attachmentsToSend?.length ?? 0,
+      messageLength: userContent.length,
+    });
+
+    input.value = "";
+    input.style.height = "auto";
+    localStorage.removeItem(DRAFT_KEY(activeProjectId));
+    setPendingAttachments([]);
+
+    await streamResponse(userContent, undefined, attachmentsToSend);
+  };
+
+  /** Stop the current streaming response */
+  const handleStop = () => {
+    trackResponseStopped();
+    if (abortRef.current) {
+      abortRef.current.abort();
+    } else {
+      // No active stream (e.g. stuck after refresh) — force reset
       setStreaming(false);
     }
   };
 
+  /** Triggered by the "Debate" button on a decision-point message */
+  const handleDebate = async () => {
+    if (isStreaming || !workspaceCardReady) return;
+    trackDebateStarted({ projectId: activeProjectId });
+    await streamResponse("Debate this.", "meter-1.0");
+  };
+
+  /** Triggered by the "Decide" button on a decision-point message */
+  const handleDecide = async () => {
+    if (isStreaming || !workspaceCardReady) return;
+    trackDecideClicked({ projectId: activeProjectId });
+    await streamResponse("Yes, log that as a decision.");
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // When slash popover is open, forward navigation keys
+    if (slashOpen && slashRef.current) {
+      const consumed = slashRef.current.handleKey(e.key);
+      if (consumed) { e.preventDefault(); return; }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const handleRevisit = useCallback((decision: Decision) => {
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const files = Array.from(e.clipboardData.files);
+    if (files.length > 0) {
+      e.preventDefault();
+      handleFiles(files);
+    }
+  }, [handleFiles]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    if (val.startsWith("/")) {
+      setSlashOpen(true);
+      setSlashQuery(val.slice(1));
+      // Close command bar when slash popover opens
+      if (commandBarOpen) setCommandBarOpen(false);
+    } else {
+      if (slashOpen) { setSlashOpen(false); setSlashQuery(""); }
+    }
+
+    // Debounced draft save
+    clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      const v = inputRef.current?.value ?? "";
+      if (v) localStorage.setItem(DRAFT_KEY(activeProjectId), v);
+      else localStorage.removeItem(DRAFT_KEY(activeProjectId));
+    }, 250);
+  };
+
+  const handleCommandSelect = useCallback((chatPrompt: string) => {
     if (!inputRef.current) return;
-    const context = decision.choice
-      ? `I want to revisit the decision "${decision.title}" (chose: ${decision.choice}). ${decision.reasoning ? `Original reasoning: ${decision.reasoning}. ` : ""}Has anything changed?`
-      : `I want to revisit the open decision "${decision.title}". What should we consider?`;
-    inputRef.current.value = context;
-    inputRef.current.focus();
-    inputRef.current.style.height = "auto";
-    inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px";
+    trackSlashCommandUsed({ command: chatPrompt.slice(0, 50) });
+    inputRef.current.value = chatPrompt;
+    setSlashOpen(false);
+    setSlashQuery("");
+    // Need a tick for the value to settle before handleSend reads it
+    requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input || !input.value.trim() || isStreaming || !workspaceCardReady) return;
+      // Trigger send by dispatching keydown
+      handleSend();
+    });
+  }, [isStreaming, workspaceCardReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSlashConnect = useCallback((providerId: string) => {
+    if (!userId) return;
+    trackConnectorInitiated({ provider: providerId, method: isApiKeyProvider(providerId) ? "api_key" : "oauth" });
+    if (isApiKeyProvider(providerId)) {
+      setApiKeyProvider(providerId);
+    } else {
+      initiateOAuthFlow(providerId, activeProjectId);
+    }
+    setSlashOpen(false);
+    setSlashQuery("");
+  }, [userId, activeProjectId]);
+
+  const handleSlashFile = useCallback(() => {
+    setSlashOpen(false);
+    setSlashQuery("");
+    if (inputRef.current) inputRef.current.value = "";
+    fileInputRef.current?.click();
+  }, []);
+
+  // Consume pendingInput from store (e.g. decision revisit) — send directly
+  useEffect(() => {
+    if (pendingInput && inputRef.current && !isStreaming) {
+      inputRef.current.value = pendingInput;
+      setPendingInput(null);
+      handleSend();
+    }
+  }, [pendingInput]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const connectedServices = useMeterStore(selectConnectedServices);
+  const logout = useMeterStore((s) => s.logout);
+
+  const scrollToBottom = useCallback(() => {
+    userScrolledAwayRef.current = false;
+    setShowScrollBtn(false);
+    const el = scrollRef.current;
+    if (el) {
+      isProgrammaticScrollRef.current = true;
+      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => { isProgrammaticScrollRef.current = false; });
+    }
   }, []);
 
   const lastMsg = messages[messages.length - 1];
-  const showThinking = isStreaming && lastMsg?.role === "assistant" && lastMsg.content === "";
+  const showThinking = isStreaming && (rerouting || activeTool || (lastMsg?.role === "assistant" && lastMsg.content === ""));
+  const lastUserMsg = messages.length >= 2 ? messages[messages.length - 2] : null;
+  const hasImageAttachment = lastUserMsg?.attachments?.some(a => a.mimeType.startsWith("image/")) ?? false;
+  const hasPdfAttachment = lastUserMsg?.attachments?.some(a => a.mimeType === "application/pdf") ?? false;
 
   return (
     <div className="flex h-screen bg-background">
+      <ProfileSettings open={profileOpen} onClose={() => setProfileOpen(false)} />
       {switchingProjectName && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 backdrop-blur-sm">
           <div className="rounded-2xl border border-border bg-card px-8 py-6 text-center shadow-xl">
@@ -295,35 +1282,67 @@ export function ChatView() {
         </div>
       )}
 
-      <div className={`flex flex-1 flex-col transition-all duration-300 ${inspectorOpen ? "mr-[380px]" : ""}`}>
-        <header className="flex h-12 items-center justify-between border-b border-border px-4">
-          <div className="flex items-center gap-2">
-            <img src="/logo-dark-copy.webp" alt="Meter" width={72} height={20} />
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.length) handleFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
+      <div
+        className={`relative flex flex-1 flex-col transition-all duration-300 ${inspectorOpen && !isMobile ? "mr-[420px]" : ""}`}
+      >
+        <header className="flex h-12 items-center justify-between border-b border-border px-4" style={{ paddingTop: isMobile ? "env(safe-area-inset-top, 0px)" : undefined, height: isMobile ? "calc(3rem + env(safe-area-inset-top, 0px))" : undefined }}>
+          <div className="relative flex items-center gap-2" ref={logoMenuRef}>
+            <button
+              onClick={() => setLogoMenuOpen((v) => !v)}
+              className="flex items-center gap-1.5 rounded-lg px-1 py-1 transition-colors hover:bg-foreground/5"
+            >
+              <img src="/logo-dark-copy.webp" alt="Meter" width={72} height={20} className="hidden dark:block" />
+              <img src="/logo-light.webp" alt="Meter" width={72} height={20} className="block dark:hidden" />
+              <svg
+                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                className="text-muted-foreground/40"
+              >
+                <polyline points="7 10 12 5 17 10" />
+                <polyline points="7 14 12 19 17 14" />
+              </svg>
+            </button>
+            {logoMenuOpen && (
+              <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-xl border border-border bg-card shadow-xl py-1">
+                <button
+                  onClick={() => { setLogoMenuOpen(false); setProfileOpen(true); }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  Profile Settings
+                </button>
+                <div className="mx-2 my-1 h-px bg-border" />
+                <button
+                  onClick={() => { setLogoMenuOpen(false); resetUser(); logout(); }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
           <div className="relative flex items-center gap-2">
-            <button
-              onClick={() => setShowHeaderMeterDropdown((v) => !v)}
-              className="rounded-md border border-border px-2.5 py-1 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
-            >
-              {activeProject?.name} · ${headerMeterStats.total.toFixed(2)} total
-            </button>
-            {showHeaderMeterDropdown && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMeterDropdown(false)} />
-                <div className="absolute right-10 top-full z-50 mt-2 w-[300px] rounded-xl border border-border bg-card p-3.5 shadow-xl">
-                  <div className="space-y-1.5 font-mono text-[11px]">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Today</span><span>${headerMeterStats.today.toFixed(2)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">This week</span><span>${headerMeterStats.week.toFixed(2)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">This month</span><span>${headerMeterStats.month.toFixed(2)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">All time</span><span>${headerMeterStats.total.toFixed(2)}</span></div>
-                  </div>
-                  <div className="my-3 h-px bg-border" />
-                  <div className="font-mono text-[10px] text-muted-foreground/80">
-                    {headerMeterStats.messagesToday} messages · {(headerMeterStats.tokensToday / 1000).toFixed(1)}K tokens
-                  </div>
-                </div>
-              </>
-            )}
+            <HeaderMeter />
+            <CommitButton />
             <button
               onClick={toggleInspector}
               className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 transition-colors hover:bg-foreground/5"
@@ -338,104 +1357,291 @@ export function ChatView() {
         </header>
 
         {/* Messages */}
-        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-2xl px-4 py-6">
-            {messages.length === 0 && (
+        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto min-h-0">
+          {/* Skeleton while sessions load from server */}
+          {!sessionsLoaded && messages.length === 0 ? (
+            <ChatSkeleton />
+          ) : (
+          <div className="mx-auto max-w-2xl px-4 py-6 max-md:px-3">
+            {/* First-time onboarding — workspace name then card */}
+            {messages.length === 0 && !workspaceCardReady && !cardOnFile && onboardingStep === "workspace" && (
+              <div className="mb-4">
+                <div className="flex gap-3 justify-start">
+                  <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
+                      <p>Hi, I&apos;m <strong>Meter</strong> — your AI assistant with access to every frontier model.</p>
+                      <p>I can help you write code, analyze data, search the web, manage your databases, and more. Every response shows the exact cost in real time.</p>
+                      <p>Name your first workspace to get started.</p>
+                    </div>
+                    <div className="mt-3 max-w-sm">
+                      <input
+                        type="text"
+                        value={onboardingWorkspaceName}
+                        onChange={(e) => setOnboardingWorkspaceName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleOnboardingCreateWorkspace(); }}
+                        placeholder="e.g. My Project, Research, Startup..."
+                        className="w-full rounded-lg border border-border bg-card/50 px-3 py-2.5 font-mono text-[13px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleOnboardingCreateWorkspace}
+                        disabled={!onboardingWorkspaceName.trim()}
+                        className="mt-2 w-full rounded-lg bg-foreground py-2.5 font-mono text-xs text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
+                      >
+                        Create Workspace
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* First-time onboarding — card step (after workspace created) */}
+            {messages.length === 0 && !workspaceCardReady && !cardOnFile && onboardingStep === "card" && (
+              <div className="mb-4">
+                <div className="flex gap-3 justify-start">
+                  <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
+                      <p>Great — <strong>{activeProject?.name ?? "your workspace"}</strong> is ready.</p>
+                      <p>Add a payment method to start chatting. You won&apos;t be charged now — usage settles automatically once per day at midnight.</p>
+                    </div>
+                    <InlineCardForm />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* New workspace — has card globally but not assigned here yet */}
+            {messages.length === 0 && !workspaceCardReady && cardOnFile && (
+              <div className="mb-4">
+                <div className="flex gap-3 justify-start">
+                  <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
+                      <p>Welcome to <strong>{activeProject?.name ?? "this workspace"}</strong>. Add a payment method to get started, or use your existing card.</p>
+                    </div>
+                    <button
+                      onClick={() => { trackCardAssignedToWorkspace({ projectId: activeProjectId }); setCardAssigned(activeProjectId); }}
+                      className="mt-3 w-full rounded-lg border border-foreground/20 bg-foreground/5 py-2.5 font-mono text-xs text-foreground transition-colors hover:bg-foreground/10"
+                    >
+                      Use {cardBrand ? cardBrand.charAt(0).toUpperCase() + cardBrand.slice(1) : "card"} ****{cardLast4 ?? ""}{sourceWorkspaceName ? ` from ${sourceWorkspaceName}` : ""}
+                    </button>
+                    <div className="my-3 flex items-center gap-3">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="font-mono text-[10px] text-muted-foreground/40">or add a new card</span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                    <InlineCardForm />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Workspace ready — can chat */}
+            {messages.length === 0 && workspaceCardReady && (
               <div className="flex flex-col items-center justify-center gap-3 py-24">
                 <p className="text-sm text-muted-foreground">What are you building in {activeProject?.name ?? "this workspace"}?</p>
                 <p className="font-mono text-[10px] text-muted-foreground/40">Every model available. The meter runs in dollars.</p>
               </div>
             )}
 
-            {messages.map((msg) => (
-              <div key={msg.id} className="mb-4">
-                <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-foreground/10 text-foreground" : "text-foreground"}`}>
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+            {messages.map((msg, msgIdx) => {
+              const isLastAssistant = msg.role === "assistant" && msgIdx === messages.length - 1;
+              const displayContent = msg.role === "assistant" ? stripDecisionPoint(msg.content) : msg.content;
+              const showDecisionButtons = msg.role === "assistant"
+                && hasDecisionPoint(msg.content)
+                && !msg.decisionId
+                && !isStreaming;
+              // Show live debate trace on the last assistant message while streaming
+              const showLiveDebate = isLastAssistant && isStreaming && debatePhase;
+              // Show persisted debate trace on any message that has one
+              const showPersistedDebate = msg.debateTrace && msg.debateTrace.length > 0 && !showLiveDebate;
 
-                    {/* Inline action cards */}
-                    {msg.cards && msg.cards.length > 0 && (
-                      <div className="mt-2">
-                        {msg.cards.map((card) => (
-                          <ActionCard
-                            key={card.id}
-                            card={card}
-                            onApprove={() => approveCard(msg.id, card.id)}
-                            onReject={() => rejectCard(msg.id, card.id)}
-                          />
-                        ))}
-                      </div>
-                    )}
+              return (
+                <div key={msg.id} id={`msg-${msg.id}`} className="group/msg relative mb-4 transition-all duration-300">
+                  <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`relative rounded-xl px-4 py-3 text-sm leading-relaxed max-w-[85%] md:max-w-[85%] max-md:max-w-[92%] ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"} ${msg.pinned ? "border-l-2 border-amber-500/40" : ""}`}>
+                      {displayContent && !displayContent.startsWith("__error__") && (
+                        <>
+                          <CopyButton text={msg.role === "user" ? msg.content : displayContent} />
+                          <PinButton messageId={msg.id} pinned={msg.pinned} />
+                        </>
+                      )}
 
-                    {msg.role === "assistant" && <MessageFooter msg={msg} projectId={activeProjectId} />}
+                      {/* Debate trace — live or persisted */}
+                      {showLiveDebate && (
+                        <DebateTrace
+                          trace={debateTrace}
+                          activeTurn={activeDebateTurn}
+                          phase={debatePhase}
+                        />
+                      )}
+                      {showPersistedDebate && (
+                        <DebateTrace trace={msg.debateTrace!} />
+                      )}
+
+                      {/* Inline attachment viewers */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {msg.attachments.map((att) =>
+                            att.mimeType.startsWith("image/") ? (
+                              <img
+                                key={att.url}
+                                src={att.url}
+                                alt={att.name}
+                                className="max-w-[320px] max-h-[240px] rounded-lg border border-border object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(att.url, "_blank")}
+                              />
+                            ) : att.mimeType === "application/pdf" ? (
+                              <div key={att.url} className="w-full max-w-[400px] rounded-lg border border-border overflow-hidden">
+                                <div className="flex items-center gap-2 bg-foreground/5 px-3 py-1.5 border-b border-border">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                                  </svg>
+                                  <span className="font-mono text-[11px] text-foreground/70 truncate">{att.name}</span>
+                                  <a href={att.url} target="_blank" rel="noopener noreferrer" className="ml-auto shrink-0 font-mono text-[9px] text-muted-foreground/50 hover:text-foreground transition-colors">
+                                    open
+                                  </a>
+                                </div>
+                                <iframe src={att.url} className="w-full h-[300px] bg-white" title={att.name} />
+                              </div>
+                            ) : null
+                          )}
+                        </div>
+                      )}
+
+                      {msg.role === "assistant" && displayContent.startsWith("__error__") ? (
+                        <ErrorCard payload={displayContent.slice("__error__".length)} />
+                      ) : msg.role === "assistant" ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-a:text-blue-400 dark:prose-a:text-blue-400 prose-a:text-blue-600">
+                          <ReactMarkdown components={mdComponents}>{displayContent}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                      )}
+
+                      {msg.role === "assistant" && msg.thinking && !isStreaming && (
+                        <details className="mt-2 text-[11px] text-muted-foreground/60">
+                          <summary className="cursor-pointer font-mono hover:text-muted-foreground transition-colors">
+                            Show thinking
+                          </summary>
+                          <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
+                            {msg.thinking}
+                          </pre>
+                        </details>
+                      )}
+
+                      {msg.cards && msg.cards.length > 0 && (
+                        <div className="mt-2">
+                          {msg.cards.map((card) =>
+                            card.type === "domain" ? (
+                              <DomainCard
+                                key={card.id}
+                                card={card}
+                                messageId={msg.id}
+                              />
+                            ) : (
+                              <ActionCard
+                                key={card.id}
+                                card={card}
+                                onApprove={() => approveCard(msg.id, card.id)}
+                                onReject={() => rejectCard(msg.id, card.id)}
+                              />
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      {/* Decision point buttons: Decide / Debate */}
+                      {showDecisionButtons && (
+                        <DecisionPointButtons
+                          onDecide={handleDecide}
+                          onDebate={handleDebate}
+                          disabled={isStreaming}
+                        />
+                      )}
+
+                      {msg.role === "assistant" && msg.decisionId && (
+                        <DecisionPill decisionId={msg.decisionId} onOpen={() => { trackInspectorToggled({ open: true }); setInspectorOpen(true); setInspectorTab("decisions"); }} />
+                      )}
+                      {msg.role === "assistant" && <MessageFooter msg={msg} projectId={activeProjectId} />}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
-            {/* Thinking indicator — shows when waiting for first token */}
-            {showThinking && <ThinkingIndicator />}
+            {showThinking && !debatePhase && (
+              <ThinkingIndicator
+                toolName={activeTool}
+                rerouting={rerouting}
+                thinkingStartedAt={thinkingStartedAt}
+                hasImageAttachment={hasImageAttachment}
+                hasPdfAttachment={hasPdfAttachment}
+                modelId={selectedModelId}
+                thinkingText={lastMsg?.thinking}
+              />
+            )}
 
-            {/* Scroll anchor */}
-            <div ref={bottomRef} />
+            <div ref={bottomRef} data-scroll-anchor />
           </div>
+          )}
         </div>
 
-        {/* Composer with workspace switcher */}
-        <div className="border-t border-border p-4">
-          <div className="pointer-events-none absolute inset-x-0 -top-12 h-12 bg-gradient-to-t from-background to-transparent" />
-
-          <div className="mx-auto max-w-2xl">
-            {/* Click-away backdrops */}
-            {modelPickerOpen && (
-              <div className="fixed inset-0 z-30" onClick={() => setModelPickerOpen(false)} />
-            )}
-            {showProjectDropdown && (
-              <div className="fixed inset-0 z-30" onClick={() => setShowProjectDropdown(false)} />
-            )}
-
-            <div className="relative pt-4">
-              {/* Workspace switcher — floats above the composer */}
-              <div className="absolute -top-5 inset-x-0 z-0">
+        {/* Composer area */}
+        <div className="p-4 md:pb-4" style={{ paddingBottom: isMobile ? "calc(1rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
+          <div className="relative mx-auto max-w-2xl">
+            {/* Scroll-to-bottom button — positioned above the composer */}
+            {showScrollBtn && (
+              <div className="pointer-events-none absolute bottom-full left-0 right-0 flex justify-center pb-3" style={{ zIndex: 20 }}>
                 <button
-                  onClick={() => setShowProjectDropdown((v) => !v)}
-                  className="w-full rounded-xl border border-border bg-card/95 px-4 py-2 text-left shadow-lg backdrop-blur transition-colors hover:border-foreground/20 hover:bg-card"
+                  onClick={scrollToBottom}
+                  className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card shadow-lg transition-colors hover:bg-foreground/5"
+                  title="Scroll to bottom"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-foreground">{activeProject?.name ?? "Workspace"}</div>
-                    <div className="font-mono text-[10px] text-muted-foreground/70">Switch workspace</div>
-                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <polyline points="19 12 12 19 5 12" />
+                  </svg>
                 </button>
-
-                {showProjectDropdown && (
-                  <div className="absolute bottom-full left-0 right-0 z-20 mb-2 rounded-xl border border-border bg-card p-2 shadow-xl">
-                    {projects.map((project) => (
-                      <button
-                        key={project.id}
-                        onClick={() => handleProjectSwitch(project.id)}
-                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-foreground/5 ${project.id === activeProjectId ? "bg-foreground/[0.07]" : ""}`}
-                      >
-                        <div>
-                          <div className="text-sm text-foreground">{project.name}</div>
-                          <div className="font-mono text-[10px] text-muted-foreground/60">${project.totalCost.toFixed(2)} total</div>
-                        </div>
-                        {project.id === activeProjectId && <span className="font-mono text-[10px] text-muted-foreground">active</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
+            )}
 
-              {/* Decisions panel (drop-up, above composer) */}
-              <DecisionsPanel onRevisit={handleRevisit} />
+            {/* Slash command popover — positioned above the composer */}
+            <SlashCommandPopover
+              ref={slashRef}
+              open={slashOpen}
+              query={slashQuery}
+              connectedServices={connectedServices}
+              onSelect={handleCommandSelect}
+              onConnect={handleSlashConnect}
+              onFile={handleSlashFile}
+              onClose={() => { setSlashOpen(false); setSlashQuery(""); if (inputRef.current) inputRef.current.value = ""; }}
+            />
 
-              {/* Composer box */}
-              <div className="relative z-10 rounded-xl border border-border bg-card">
-                {/* Decisions bar */}
-                <DecisionsBar />
-                <div className="h-px bg-border/50" />
+            {/* Unified box */}
+            <div
+              className={`relative rounded-xl border bg-card overflow-hidden transition-colors ${dragOver ? "border-foreground/30 ring-1 ring-foreground/10" : "border-border"}`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
+            >
+              {/* Drop overlay */}
+              {dragOver && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-card/90 backdrop-blur-sm rounded-xl pointer-events-none">
+                  <div className="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <p className="font-mono text-xs text-muted-foreground">Drop images or PDFs</p>
+                  </div>
+                </div>
+              )}
+              {/* Command bar — top section (connections + commands) */}
+              <CommandBar open={commandBarOpen} onToggle={setCommandBarOpen} onSelectCommand={handleCommandSelect} />
 
-                {/* Model picker panel (expands inline above input) */}
+              {/* Model picker + composer area */}
+              <div ref={modelPickerRef}>
+                {/* Model picker panel (expands inline) */}
                 {modelPickerOpen && (
                   <>
                     <ModelPickerPanel onClose={() => setModelPickerOpen(false)} />
@@ -443,29 +1649,78 @@ export function ChatView() {
                   </>
                 )}
 
-                {/* Input row */}
-                <div className="flex items-end gap-2 p-2">
+                {/* Attachment preview strip */}
+                {(pendingAttachments.length > 0 || uploading) && (
+                  <div className="flex items-center gap-2 border-t border-border/50 px-3 py-2 overflow-x-auto">
+                    {pendingAttachments.map((a) => (
+                      <div key={a.url} className="group/att relative shrink-0">
+                        {a.mimeType.startsWith("image/") ? (
+                          <img src={a.url} alt={a.name} className="h-16 w-16 rounded-lg object-cover border border-border" />
+                        ) : (
+                          <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-border bg-foreground/5">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                            </svg>
+                            <span className="absolute bottom-1 left-0 right-0 text-center font-mono text-[8px] text-muted-foreground/60 truncate px-1">PDF</span>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => removePendingAttachment(a.url)}
+                          className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-foreground text-background text-[10px] group-hover/att:flex"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                    {uploading && (
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-border border-dashed">
+                        <svg className="animate-spin h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Composer — middle section */}
+                <div className="flex items-end gap-2 border-t border-border/50 p-2">
                   <ModelPickerTrigger
                     open={modelPickerOpen}
                     onToggle={() => setModelPickerOpen(!modelPickerOpen)}
+                    overrideModelId={rerouting?.toModel ?? null}
                   />
-                  <textarea
-                    ref={inputRef}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Say something..."
-                    rows={1}
-                    className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                    style={{ maxHeight: "120px" }}
-                    onInput={(e) => {
-                      const t = e.currentTarget;
-                      t.style.height = "auto";
-                      t.style.height = Math.min(t.scrollHeight, 120) + "px";
-                    }}
-                  />
-                  <MeterPill onClick={openUsageInspector} value={todayCost} tokens={todayTokens} />
+                <textarea
+                  ref={inputRef}
+                  onKeyDown={handleKeyDown}
+                  onChange={handleInputChange}
+                  onPaste={handlePaste}
+                  placeholder={!sessionsLoaded ? "Loading chat..." : workspaceCardReady ? "Say something... (type / for commands)" : "Add a card to start chatting..."}
+                  disabled={!workspaceCardReady || !sessionsLoaded}
+                  rows={1}
+                  className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ maxHeight: "120px" }}
+                  onInput={(e) => {
+                    const t = e.currentTarget;
+                    t.style.height = "auto";
+                    t.style.height = Math.min(t.scrollHeight, 120) + "px";
+                  }}
+                />
+                <MeterPill />
+                {isStreaming ? (
+                  <button
+                    onClick={handleStop}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/80"
+                    title="Stop generating"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="4" y="4" width="16" height="16" rx="2" />
+                    </svg>
+                  </button>
+                ) : (
                   <button
                     onClick={handleSend}
-                    disabled={isStreaming}
+                    disabled={!workspaceCardReady || !sessionsLoaded}
                     className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -473,15 +1728,25 @@ export function ChatView() {
                       <polyline points="5 12 12 5 19 12" />
                     </svg>
                   </button>
+                )}
                 </div>
               </div>
             </div>
-            <p className="mt-2 font-mono text-[10px] text-muted-foreground/50">{todayMessageCount} msgs today in {activeProject?.name ?? "—"}</p>
+
+            {/* Workspace picker — plain text below the box */}
+            <WorkspaceBar />
           </div>
         </div>
       </div>
 
       <Inspector />
+
+      {apiKeyProvider && (
+        <ApiKeyDialog
+          provider={apiKeyProvider}
+          onClose={() => setApiKeyProvider(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,35 @@
 "use client";
 
 import { useMeterStore } from "@/lib/store";
-import { MODELS, getModel, ModelConfig } from "@/lib/models";
+import { trackModelSelected } from "@/lib/analytics";
+import { MODELS, DEBATE_MODELS, getModel, shortModelName, ModelConfig } from "@/lib/models";
+
+/** Format a per-token price as a human-readable $/M string */
+function fmtPrice(pricePerToken: number): string {
+  const perM = pricePerToken * 1_000_000;
+  if (perM < 1) return `$${perM.toFixed(2)}`;
+  if (perM % 1 === 0) return `$${perM}`;
+  return `$${perM.toFixed(2)}`;
+}
+
+/** Fastest model speed across all models — used to compute relative speed bars */
+const MAX_SPEED = Math.max(...MODELS.map((m) => m.speed ?? 0));
+
+/** Tiny inline speed bar — width proportional to model speed vs fastest */
+function SpeedBar({ speed }: { speed: number }) {
+  const pct = Math.round((speed / MAX_SPEED) * 100);
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="inline-block h-[3px] rounded-full bg-foreground/20" style={{ width: 32 }}>
+        <span
+          className="block h-full rounded-full bg-foreground/50"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span className="text-muted-foreground/50">{speed} t/s</span>
+    </span>
+  );
+}
 
 function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number }) {
   switch (provider) {
@@ -27,6 +55,12 @@ function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5c-2.49 0-4.5-2.01-4.5-4.5S8.51 7.5 11 7.5c1.25 0 2.38.51 3.19 1.33l-1.29 1.25A2.99 2.99 0 0 0 11 9.5c-1.38 0-2.5 1.12-2.5 2.5s1.12 2.5 2.5 2.5c1.19 0 2.19-.83 2.44-1.95H11v-1.55h4.44c.05.28.06.56.06.85 0 2.49-2.01 4.15-4.5 4.15z" />
+        </svg>
+      );
+    case "xAI":
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+          <path d="M2.3 4h4.3l5.4 8.1L17.4 4h4.3l-7.7 11.3L21.7 20h-4.3l-5.4-8.1L6.6 20H2.3l7.7-11.3L2.3 4z" />
         </svg>
       );
     case "Meter":
@@ -56,16 +90,19 @@ function ModelLogo({ model, size = 14 }: { model: ModelConfig; size?: number }) 
 export function ModelPickerTrigger({
   open,
   onToggle,
+  overrideModelId,
 }: {
   open: boolean;
   onToggle: () => void;
+  overrideModelId?: string | null;
 }) {
   const selectedModelId = useMeterStore((s) => s.selectedModelId);
   const isStreaming = useMeterStore((s) => {
     const project = s.projects.find((p) => p.id === s.activeProjectId) ?? s.projects[0];
     return project?.isStreaming ?? false;
   });
-  const model = getModel(selectedModelId);
+  const displayId = overrideModelId ?? selectedModelId;
+  const model = getModel(displayId);
 
   return (
     <button
@@ -74,7 +111,10 @@ export function ModelPickerTrigger({
       className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-40 shrink-0"
     >
       <ModelLogo model={model} size={12} />
-      <span className="truncate max-w-[80px]">{model.name}</span>
+      <span className="truncate max-w-[120px]">
+        {model.name}
+        {displayId === "meter-1.0" && <span className="text-muted-foreground/50 ml-1">(Debate)</span>}
+      </span>
       <svg
         width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
@@ -102,6 +142,7 @@ export function ModelPickerPanel({
           <button
             key={m.id}
             onClick={() => {
+              trackModelSelected({ model: m.id, previousModel: selectedModelId });
               setSelectedModelId(m.id);
               onClose();
             }}
@@ -111,8 +152,41 @@ export function ModelPickerPanel({
           >
             <ModelLogo model={m} size={16} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-foreground truncate">{m.name}</div>
-              <div className="text-[10px] text-muted-foreground font-mono">{m.provider}</div>
+              <div className="text-xs font-medium text-foreground truncate">
+                {m.name}
+                {m.id === "meter-1.0" && <span className="text-muted-foreground/50 font-normal ml-1">(Debate Mode)</span>}
+              </div>
+              <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 flex-wrap">
+                {m.id === "meter-1.0" ? (
+                  <span className="inline-flex items-center gap-1">
+                    {DEBATE_MODELS.map((id) => {
+                      const dm = getModel(id);
+                      return (
+                        <span key={id} className="inline-flex items-center gap-0.5">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dm.color }} />
+                          <span>{shortModelName(id)}</span>
+                        </span>
+                      );
+                    })}
+                  </span>
+                ) : (
+                  <span>{m.provider}</span>
+                )}
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-muted-foreground/50">{fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
+                {m.quality != null && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span>{m.quality}% GPQA</span>
+                  </>
+                )}
+                {m.speed != null && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <SpeedBar speed={m.speed} />
+                  </>
+                )}
+              </div>
             </div>
             {m.id === selectedModelId && (
               <svg

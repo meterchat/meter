@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseServer } from "@/lib/supabase";
 import OpenAI from "openai";
 import crypto from "crypto";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
+import { TOOL_DEFINITIONS, SYSTEM_PROMPT, executeTool } from "@/lib/tools";
+import { serverTrackApiV1Request } from "@/lib/analytics-server";
 
 function getOpenRouterClient() {
   return new OpenAI({
@@ -25,6 +20,10 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+type Message = OpenAI.Chat.ChatCompletionMessageParam;
+
+const MAX_TOOL_ROUNDS = 5;
+
 async function authenticateApiKey(req: NextRequest) {
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer mk_")) {
@@ -33,7 +32,7 @@ async function authenticateApiKey(req: NextRequest) {
 
   const apiKey = auth.slice(7); // strip "Bearer "
   const keyHash = hashKey(apiKey);
-  const supabase = getSupabase();
+  const supabase = getSupabaseServer();
 
   const { data: keyRecord } = await supabase
     .from("api_keys")
@@ -64,21 +63,20 @@ export async function POST(req: NextRequest) {
   }
 
   const { messages, model } = await req.json();
-
-  const response = await getOpenRouterClient().chat.completions.create({
-    model: model || "anthropic/claude-opus-4.6",
-    messages: messages.map((m: { role: string; content: string }) => ({
-      role: m.role,
-      content: m.content,
-    })),
-    stream: true,
-    stream_options: { include_usage: true },
-  });
-
+  const resolvedModel = model || "anthropic/claude-opus-4.6";
+  const openrouter = getOpenRouterClient();
   const encoder = new TextEncoder();
-  const supabase = getSupabase();
+  const supabase = getSupabaseServer();
   const userId = keyRecord.user_id;
   const keyId = keyRecord.id;
+
+  const conversation: Message[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...messages.map((m: { role: string; content: string }) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
+  ];
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -86,30 +84,104 @@ export async function POST(req: NextRequest) {
       let finalTokensIn = 0;
       let finalTokensOut = 0;
 
-      for await (const chunk of response) {
-        const delta = chunk.choices?.[0]?.delta?.content || "";
-        if (delta) {
-          totalTokensOut += estimateTokens(delta);
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: "delta", content: delta, tokensOut: totalTokensOut })}\n\n`
-            )
-          );
-        }
+      try {
+        for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+          const response = await openrouter.chat.completions.create({
+            model: resolvedModel,
+            messages: conversation,
+            tools: TOOL_DEFINITIONS,
+            stream: true,
+            stream_options: { include_usage: true },
+          });
 
-        if (chunk.usage) {
-          finalTokensIn = chunk.usage.prompt_tokens;
-          finalTokensOut = chunk.usage.completion_tokens;
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: "usage",
-                tokensIn: finalTokensIn,
-                tokensOut: finalTokensOut,
-              })}\n\n`
-            )
-          );
+          let textContent = "";
+          const toolCalls = new Map<
+            number,
+            { id: string; name: string; arguments: string }
+          >();
+          let hasToolCalls = false;
+
+          for await (const chunk of response) {
+            const choice = chunk.choices?.[0];
+            if (!choice) {
+              if (chunk.usage) {
+                finalTokensIn = chunk.usage.prompt_tokens;
+                finalTokensOut = chunk.usage.completion_tokens;
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ type: "usage", tokensIn: finalTokensIn, tokensOut: finalTokensOut })}\n\n`
+                  )
+                );
+              }
+              continue;
+            }
+
+            const delta = choice.delta?.content || "";
+            if (delta) {
+              textContent += delta;
+              totalTokensOut += estimateTokens(delta);
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: "delta", content: delta, tokensOut: totalTokensOut })}\n\n`
+                )
+              );
+            }
+
+            if (choice.delta?.tool_calls) {
+              hasToolCalls = true;
+              for (const tc of choice.delta.tool_calls) {
+                const existing = toolCalls.get(tc.index) || { id: "", name: "", arguments: "" };
+                if (tc.id) existing.id = tc.id;
+                if (tc.function?.name) existing.name = tc.function.name;
+                if (tc.function?.arguments) existing.arguments += tc.function.arguments;
+                toolCalls.set(tc.index, existing);
+              }
+            }
+
+            if (chunk.usage) {
+              finalTokensIn = chunk.usage.prompt_tokens;
+              finalTokensOut = chunk.usage.completion_tokens;
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: "usage", tokensIn: finalTokensIn, tokensOut: finalTokensOut })}\n\n`
+                )
+              );
+            }
+          }
+
+          if (!hasToolCalls || toolCalls.size === 0) break;
+
+          conversation.push({
+            role: "assistant",
+            content: textContent || null,
+            tool_calls: Array.from(toolCalls.values()).map((tc) => ({
+              id: tc.id,
+              type: "function" as const,
+              function: { name: tc.name, arguments: tc.arguments },
+            })),
+          });
+
+          for (const tc of toolCalls.values()) {
+            let args: Record<string, unknown> = {};
+            try {
+              args = JSON.parse(tc.arguments);
+            } catch {
+              // malformed args
+            }
+            const result = await executeTool(tc.name, args, { userId });
+            conversation.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: result,
+            });
+          }
         }
+      } catch (err) {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "error", message: (err as Error).message })}\n\n`
+          )
+        );
       }
 
       controller.enqueue(
@@ -121,9 +193,16 @@ export async function POST(req: NextRequest) {
       await supabase.from("usage_records").insert({
         user_id: userId,
         api_key_id: keyId,
-        model: model || "anthropic/claude-opus-4.6",
-        tokens_in: finalTokensIn,
-        tokens_out: finalTokensOut,
+        model: resolvedModel,
+        input_tokens: finalTokensIn,
+        output_tokens: finalTokensOut,
+      });
+
+      serverTrackApiV1Request(userId, {
+        apiKeyId: keyId,
+        model: resolvedModel,
+        tokensIn: finalTokensIn,
+        tokensOut: finalTokensOut,
       });
     },
   });
