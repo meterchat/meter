@@ -168,7 +168,7 @@ interface MeterState {
   addMessage: (msg: ChatMessage) => void;
   updateLastAssistantMessage: (content: string, tokensOut: number) => void;
   updateLastAssistantThinking: (thinking: string) => void;
-  finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number) => void;
+  finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number, actualCost?: number) => void;
   setStreaming: (v: boolean) => void;
   markSettled: (messageId: string) => void;
   settleAll: () => Promise<{ success: boolean; error?: string }>;
@@ -621,30 +621,38 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
-      finalizeResponse: (tokensIn, tokensOut, confidence, actualModel, cacheCreationTokens, cacheReadTokens, cacheReadRate) => {
+      finalizeResponse: (tokensIn, tokensOut, confidence, actualModel, cacheCreationTokens, cacheReadTokens, cacheReadRate, actualCost) => {
         set((s) => {
           const active = ensureDaily(getActiveProject(s));
           const pricingModelId = actualModel
             ?? (s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId);
           const model = getModel(pricingModelId);
 
-          // Cache-aware input cost: providers charge different rates for
-          // cached vs uncached input tokens.
-          //   - Uncached: standard inputPrice
-          //   - Cache creation: 1.25x inputPrice (one-time write, Anthropic only)
-          //   - Cache read: rate * inputPrice (Anthropic/Gemini/DeepSeek=0.1x, OpenAI=0.5x)
-          // When no cache breakdown is provided (OpenRouter),
-          // fall back to flat inputPrice for all tokens.
-          const cacheWrite = cacheCreationTokens ?? 0;
-          const cacheHit = cacheReadTokens ?? 0;
-          const readRate = cacheReadRate || 0.1; // default to Anthropic rate
-          const uncachedIn = tokensIn - cacheWrite - cacheHit;
-          const inputCost = cacheWrite > 0 || cacheHit > 0
-            ? (uncachedIn * model.inputPrice) +
-              (cacheWrite * model.inputPrice * 1.25) +
-              (cacheHit * model.inputPrice * readRate)
-            : tokensIn * model.inputPrice;
-          const totalMsgCost = inputCost + tokensOut * model.outputPrice;
+          // When the server sends a pre-computed actualCost (e.g. debate mode
+          // which calls multiple models at different rates), use it directly.
+          // Otherwise compute from tokens × model rate with cache awareness.
+          let totalMsgCost: number;
+          if (actualCost != null && actualCost > 0) {
+            totalMsgCost = actualCost;
+          } else {
+            // Cache-aware input cost: providers charge different rates for
+            // cached vs uncached input tokens.
+            //   - Uncached: standard inputPrice
+            //   - Cache creation: 1.25x inputPrice (one-time write, Anthropic only)
+            //   - Cache read: rate * inputPrice (Anthropic/Gemini/DeepSeek=0.1x, OpenAI=0.5x)
+            // When no cache breakdown is provided (OpenRouter),
+            // fall back to flat inputPrice for all tokens.
+            const cacheWrite = cacheCreationTokens ?? 0;
+            const cacheHit = cacheReadTokens ?? 0;
+            const readRate = cacheReadRate || 0.1; // default to Anthropic rate
+            const uncachedIn = tokensIn - cacheWrite - cacheHit;
+            const inputCost = cacheWrite > 0 || cacheHit > 0
+              ? (uncachedIn * model.inputPrice) +
+                (cacheWrite * model.inputPrice * 1.25) +
+                (cacheHit * model.inputPrice * readRate)
+              : tokensIn * model.inputPrice;
+            totalMsgCost = inputCost + tokensOut * model.outputPrice;
+          }
 
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];

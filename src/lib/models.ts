@@ -37,7 +37,8 @@ export const MODELS: ModelConfig[] = [
     name: "Meter 1.0",
     provider: "Meter",
     color: "#F59E0B",
-    // Blended rate across Opus + GPT + Grok + synthesis (sum of 3 debate models)
+    // Display-only blended rate (NOT used for billing — debate cost is
+    // computed per-model in debate.ts and sent as actualCost).
     inputPrice: (6.95 / 1_000_000) * MARKUP_MULTIPLIER,
     outputPrice: (39.50 / 1_000_000) * MARKUP_MULTIPLIER,
     quality: 93,  // GPQA Diamond — multi-model ensemble exceeds best individual
