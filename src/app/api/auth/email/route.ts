@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 
 // POST /api/auth/email — collect email post-authentication (for Stripe receipts)
 export async function POST(req: NextRequest) {
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     if (user?.stripe_customer_id) {
       try {
-        await stripe.customers.update(user.stripe_customer_id, {
+        await getStripe().customers.update(user.stripe_customer_id, {
           email: normalizedEmail,
         });
       } catch {
