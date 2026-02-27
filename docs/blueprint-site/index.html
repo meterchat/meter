@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meter — Blueprint</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      line-height: 1.7;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { color: #ffffff; font-size: 2.4rem; margin-bottom: 0.25rem; letter-spacing: -0.03em; }
+    .tagline { color: #888; font-size: 1.1rem; margin-bottom: 3rem; }
+    h2 { color: #ffffff; font-size: 1.4rem; margin-top: 3rem; margin-bottom: 1rem; border-bottom: 1px solid #222; padding-bottom: 0.5rem; }
+    h3 { color: #cccccc; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+    p { margin-bottom: 1rem; color: #b0b0b0; }
+    .decision { background: #111; border-left: 3px solid #3b82f6; padding: 1rem 1.25rem; margin-bottom: 1rem; border-radius: 0 4px 4px 0; }
+    .decision .title { color: #ffffff; font-weight: 600; margin-bottom: 0.25rem; }
+    .decision .detail { color: #888; font-size: 0.9rem; }
+    code { background: #1a1a1a; color: #6ee7b7; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9rem; }
+    .command-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem; }
+    .command-card { background: #111; border: 1px solid #222; padding: 1rem; border-radius: 6px; }
+    .command-card code { background: none; padding: 0; color: #3b82f6; font-size: 1rem; font-weight: 600; }
+    .command-card .desc { color: #888; font-size: 0.85rem; margin-top: 0.25rem; }
+    .tabs { display: flex; gap: 0.5rem; margin-top: 1rem; }
+    .tab { background: #111; border: 1px solid #222; padding: 0.5rem 1rem; border-radius: 4px; color: #888; font-size: 0.85rem; }
+    .tab.active { border-color: #3b82f6; color: #ffffff; }
+    .file-list { margin-top: 1rem; }
+    .file { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #151515; font-size: 0.9rem; }
+    .file .name { color: #6ee7b7; font-family: monospace; }
+    .file .status { color: #888; }
+    .flow { background: #111; border: 1px solid #222; padding: 1.5rem; border-radius: 6px; margin-top: 1rem; text-align: center; color: #888; font-size: 1rem; letter-spacing: 0.02em; }
+    .flow span { color: #ffffff; font-weight: 600; }
+    .section-label { color: #555; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; margin-top: 2rem; }
+    a { color: #3b82f6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .footer { margin-top: 4rem; padding-top: 2rem; border-top: 1px solid #222; color: #555; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Meter</h1>
+  <p class="tagline">Git for thinking. Debate AI models. Lock decisions. Commit your blueprint.</p>
+
+  <h2>What is Meter?</h2>
+  <p>Meter is a version-controlled thinking environment for builders. It sits between your idea and your code — the strategic layer where you debate architecture, lock decisions, and commit structured blueprints that your AI coding agents consume.</p>
+  <p>The biggest problem with vibecoding isn't speed. It's direction. Builders jump straight into code, spending weeks on custom auth and billing, only to make wholesale breaking changes when the strategy shifts. Meter exists so you build the right thing first, without the debt.</p>
+
+  <h2>Core Product Decisions</h2>
+
+  <div class="decision">
+    <div class="title">Product Identity: Git for Thinking</div>
+    <div class="detail">Meter is a version-controlled thinking environment. The core metaphor mirrors Git: you debate (write), lock decisions (stage), and commit blueprints (push). Strategy has branches, commits, and history — just like code.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Tagline: Git for Thinking</div>
+    <div class="detail">"Git for thinking" is the headline. It creates productive confusion — your brain knows what Git does and what thinking is, and the collision creates a hook. The subtitle explains: "Debate AI models. Lock decisions. Commit your blueprint."</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Primary Action: Commit</div>
+    <div class="detail">The word "Commit" carries a perfect double meaning: committing to your decisions (psychological finality) and committing files to GitHub (technical action). It sits precisely one step before "Ship" — which is exactly where Meter lives in the workflow.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Commit Interaction Model</div>
+    <div class="detail">In chat, the AI asks "log this decision?" — user confirms — decision stages in the Commit dropdown. The dropdown shows staged decisions + blueprint diff. User reviews, optionally unstages items, writes a commit message, and clicks Commit. Decisions save to Decisions tab, blueprints save to Blueprint tab, push to GitHub if connected.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Commit Lives in Chat Messages</div>
+    <div class="detail">The "Decide" button in chat is renamed to "Commit." Clicking it commits the decision directly from where the thinking happened. No header button needed — the action lives where the clarity is. The header can display committed decisions as a read-only log.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Decision Lifecycle: Open → Locked → Committed</div>
+    <div class="detail">Open decisions are just conversations in chat — they don't appear in the log. The decisions log only contains locked and committed decisions. A decision enters the log when the user explicitly confirms it. It becomes "committed" when pushed via the Commit action.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Pricing: Pay Per Thought</div>
+    <div class="detail">Postpaid, metered billing. No seat licenses, no tiers. The meter ticks up in real-time as AI models think. Users pay only for what they use. The live meter in chat shows per-message cost, resetting each message. The header shows the daily running total.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Slash Commands: /money, /revenue, /users, /code</div>
+    <div class="detail">Four commands, named for what the builder needs to know — not which tool is connected. /money pulls from Mercury (runway, balances). /revenue from Stripe (MRR, churn). /users from PostHog (DAUs, retention). /code from GitHub (repos, PRs). Connector-agnostic naming so underlying tools can change without breaking muscle memory.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Connector Set: GitHub, PostHog, Stripe, Mercury</div>
+    <div class="detail">Four connectors, mapped to the four questions every builder asks before a strategic decision. GitHub is the commit target + code context. PostHog is product context. Stripe is revenue context. Mercury is runway context. Gmail, Vercel, Ramp, and Supabase were cut — they don't directly improve strategic decisions.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Inspector Tab renamed: Commands (not Connectors)</div>
+    <div class="detail">Adding a connector IS gaining a command. They are the same thing, so they get the same name. The inspector tab says Commands. The slash menu says Commands. One concept, one word.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">Porkbun Connector: v1 Availability, v2 Purchasing</div>
+    <div class="detail">v1: domain availability checks and pricing displayed in chat. v2: in-chat purchase cards for direct domain registration. This establishes the "purchase card" as a reusable chat UI primitive for future transactional actions.</div>
+  </div>
+
+  <div class="decision">
+    <div class="title">No Tracks/Branches in v1</div>
+    <div class="detail">Cut entirely. The chat itself is the safe sandbox — debating a crazy idea doesn't break the Blueprint because the Blueprint only changes when you Commit. One workspace = one infinite chat = one Blueprint. Branching is a v2 feature if needed.</div>
+  </div>
+
+  <h2>UI Architecture</h2>
+
+  <div class="section-label">Header</div>
+  <p>Daily meter box (dropdown shows lifetime total, daily breakdown, model breakdown). Commit button removed from header — commit action lives in chat messages.</p>
+
+  <div class="section-label">Chat</div>
+  <p>Per-message live meter — starts at $0.00, ticks up during AI response, resets per message. Static receipt bar after response completes showing model, tokens, cost, receipt link. "Commit" button on decision-worthy messages replaces old "Decide" button.</p>
+
+  <div class="section-label">Inspector Tabs</div>
+  <div class="tabs">
+    <div class="tab active">Decisions</div>
+    <div class="tab">Blueprint</div>
+    <div class="tab">Commands</div>
+    <div class="tab">Usage</div>
+  </div>
+  <p style="margin-top: 1rem;">Decisions: authoritative log of locked/committed decisions only — no open items. Blueprint: preview of all .md files ready for commit. Commands: connected integrations that double as slash commands. Usage: detailed cost history and model breakdown.</p>
+
+  <div class="section-label">Slash Commands</div>
+  <div class="command-grid">
+    <div class="command-card"><code>/money</code><div class="desc">Mercury — runway, balances, burn rate</div></div>
+    <div class="command-card"><code>/revenue</code><div class="desc">Stripe — MRR, customers, churn</div></div>
+    <div class="command-card"><code>/users</code><div class="desc">PostHog — DAUs, retention, funnels</div></div>
+    <div class="command-card"><code>/code</code><div class="desc">GitHub — repos, PRs, recent commits</div></div>
+  </div>
+
+  <h2>Blueprint Files</h2>
+  <p>Seven files generated at commit time, synthesizing all locked decisions into coherent documents that coding agents consume directly.</p>
+  <div class="file-list">
+    <div class="file"><span class="name">README.md</span><span class="status">Project overview, current phase, how to run</span></div>
+    <div class="file"><span class="name">ARCHITECTURE.md</span><span class="status">Technical architecture from all decisions</span></div>
+    <div class="file"><span class="name">DESIGN.md</span><span class="status">Product philosophy and design principles</span></div>
+    <div class="file"><span class="name">DECISIONS.md</span><span class="status">Every decision as an ADR</span></div>
+    <div class="file"><span class="name">CLAUDE.md</span><span class="status">Directives for Claude Code / Codex</span></div>
+    <div class="file"><span class="name">.cursorrules</span><span class="status">Directives for Cursor</span></div>
+    <div class="file"><span class="name">BRAND.md</span><span class="status">Name, tagline, positioning</span></div>
+  </div>
+
+  <h2>The Flow</h2>
+  <div class="flow">
+    <span>Debate</span> → <span>Lock</span> → <span>Commit</span> → <span>Code</span>
+  </div>
+  <p style="margin-top: 1rem; text-align: center; color: #555;">Think like you code. Commit like you mean it.</p>
+
+  <h2>Competitive Position</h2>
+  <p>8090 Software Factory shares the thesis that pre-code decisions matter, but executes top-down with rigid enterprise SDLC modules targeting PM-engineer teams at $200/seat. Meter executes bottom-up: chat-first, single-player, pay-per-thought, outputting directly to GitHub and coding agents. Same problem, opposite philosophies.</p>
+  <p>Multi-model debate tools (Crucible, Multiple.chat, Council AI) stop at the chat layer. Nobody else combines debate + decision logging + blueprint generation + git-native workflow + metered billing.</p>
+
+  <h2>Positioning</h2>
+  <p>Meter is git for thinking. It is an AI that lets you think before you code. Get the top AI models to debate your strategy, lock decisions, and commit your blueprints — before writing a line of code.</p>
+  <p>The largest issue with vibecoding is technical debt. Builders jump straight into coding features, spending weeks creating custom auth, billing, and infrastructure, only to make wholesale breaking changes when they pivot their strategy. Meter exists to ensure you build the right product without burdening yourself with debt.</p>
+
+  <div class="footer">
+    <p>Meter Blueprint — Published February 2025</p>
+    <p>Repository: <a href="https://github.com/meterxyz/meter">github.com/meterxyz/meter</a></p>
+  </div>
+
+</body>
+</html>
