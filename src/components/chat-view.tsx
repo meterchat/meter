@@ -836,35 +836,22 @@ export function ChatView() {
       // the store (which would pollute todayCost) — it's only used as a local
       // adjustment inside checkSpendLimits. finalizeResponse handles the real
       // cost reconciliation when actual token counts arrive from the API.
-      const estimatedInputTokens = allMessages.reduce(
+      //
+      // Cap at 30K tokens to match the server's MAX_CONTEXT_TOKENS truncation.
+      // Without the cap, long conversations would over-estimate 10x+ and
+      // falsely trigger limits.
+      const SERVER_MAX_CONTEXT_TOKENS = 30_000;
+      const rawEstimatedTokens = allMessages.reduce(
         (sum, m) => sum + Math.ceil((typeof m.content === "string" ? m.content.length : 0) / 4),
         0,
       );
-      const inputModel = isDebateMode
-        ? getModel(DEBATE_MODELS[0]) // conservative: price at most expensive debate model
-        : getModel(effectiveModel);
+      const estimatedInputTokens = Math.min(rawEstimatedTokens, SERVER_MAX_CONTEXT_TOKENS);
+      const inputModel = getModel(isDebateMode ? DEBATE_MODELS[0] : effectiveModel);
       const estimatedInputCost = isDebateMode
+        // Debate sends context to each model per phase; sum of rates is a
+        // reasonable approximation for one round of input across all models.
         ? estimatedInputTokens * DEBATE_MODELS.reduce((sum, id) => sum + getModel(id).inputPrice, 0)
         : estimatedInputTokens * inputModel.inputPrice;
-
-      // Check limits immediately — if estimated input alone exceeds them,
-      // abort before streaming. Uses local estimate, doesn't touch store.
-      {
-        const txnLimit = spendLimits.perTxnLimit;
-        const dailyLimit = spendLimits.dailyLimit;
-        const st = useMeterStore.getState();
-        const proj = st.projects.find((p) => p.id === st.activeProjectId);
-        const todayCost = proj?.todayCost ?? 0;
-        if ((txnLimit != null && txnLimit > 0 && estimatedInputCost >= txnLimit) ||
-            (dailyLimit != null && dailyLimit > 0 && todayCost + estimatedInputCost >= dailyLimit)) {
-          const which = txnLimit != null && txnLimit > 0 && estimatedInputCost >= txnLimit
-            ? `Per-transaction limit ($${txnLimit.toFixed(2)})`
-            : `Daily limit ($${dailyLimit!.toFixed(2)})`;
-          updateLastAssistantMessage(`${which} would be exceeded by this message's estimated input cost. Message not sent.`, 0);
-          abort.abort();
-          return;
-        }
-      }
 
       if (res.status === 429) {
         const body = await res.json().catch(() => ({ error: "Spend limit reached" }));
