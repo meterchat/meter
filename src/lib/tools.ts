@@ -9,7 +9,7 @@ import { getAccounts as mercuryGetAccounts, listTransactions as mercuryListTrans
 import { listTransactions as rampListTransactions, getSpendingSummary as rampGetSpendingSummary } from "@/lib/connectors/ramp";
 import { supabaseQuery, supabaseListTables } from "@/lib/connectors/supabase-connector";
 import { queryEvents as posthogQueryEvents, getInsights as posthogGetInsights } from "@/lib/connectors/posthog";
-import { getCard as agentcardGetCard, checkBalance as agentcardCheckBalance, listTransactions as agentcardListTransactions, createPayment as agentcardCreatePayment } from "@/lib/connectors/agentcard";
+import { checkDomain as porkbunCheckDomain, getPricing as porkbunGetPricing } from "@/lib/connectors/porkbun";
 
 /* ─── Tool schemas (OpenAI function-calling format) ─────────────── */
 
@@ -101,6 +101,33 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "porkbun_check_domain",
+      description:
+        "Check if a domain name is available for registration and get its price. Use when the user is discussing brand names, project names, or asks about domain availability. A purchase card will appear automatically for available domains.",
+      parameters: {
+        type: "object",
+        properties: {
+          domain: {
+            type: "string",
+            description: "Domain name to check (e.g. 'coolstartup.com', 'mybrand.io')",
+          },
+        },
+        required: ["domain"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "porkbun_get_pricing",
+      description:
+        "Get registration pricing for popular TLD extensions (.com, .io, .dev, .ai, etc.). Use when the user wants to compare prices across different TLDs.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
 ];
 
 /** For backwards compat — all built-in tools */
@@ -145,7 +172,9 @@ You have tools. Use them:
 - save_decision: Log important decisions when the user makes a choice or asks you to recommend something. This helps them track what was decided and why.
 - list_decisions: Recall past decisions when the user asks "what did we decide" or references earlier choices.
 - save_artifact: Save strategy/spec documents that coding agents will read. Use when the user asks to generate artifacts, export strategy, or prepare specs for their coding tools.
-- get_current_datetime: Know what day/time it is.${connectorSection}
+- get_current_datetime: Know what day/time it is.
+- porkbun_check_domain: Check if a domain is available and get its price. Use when the user picks a brand name or asks about domains. A purchase card will appear in chat for available domains.
+- porkbun_get_pricing: Get pricing for popular TLDs (.com, .io, .dev, etc.).${connectorSection}
 
 Be direct and concise. Write in plain prose — avoid bullet lists and bold text unless truly necessary. Use short paragraphs instead of lists. When citing search results, mention the source. Don't apologize for using tools — just use them when they'll help.
 
@@ -310,28 +339,11 @@ export async function executeTool(
       return withConnectorToken("posthog", ctx, async (token) =>
         posthogGetInsights(token, { limit: args.limit as number | undefined })
       );
-    // AgentCard
-    case "agentcard_get_card":
-      return withConnectorToken("agentcard", ctx, async (token) =>
-        agentcardGetCard(token)
-      );
-    case "agentcard_check_balance":
-      return withConnectorToken("agentcard", ctx, async (token) =>
-        agentcardCheckBalance(token)
-      );
-    case "agentcard_list_transactions":
-      return withConnectorToken("agentcard", ctx, async (token) =>
-        agentcardListTransactions(token, { limit: args.limit as number | undefined })
-      );
-    case "agentcard_create_payment":
-      return withConnectorToken("agentcard", ctx, async (token) =>
-        agentcardCreatePayment(token, {
-          amount: args.amount as number,
-          currency: args.currency as string,
-          merchant: args.merchant as string,
-          description: args.description as string | undefined,
-        })
-      );
+    // Porkbun (platform-level — no user token needed)
+    case "porkbun_check_domain":
+      return porkbunCheck(args.domain as string);
+    case "porkbun_get_pricing":
+      return porkbunPricing();
     default:
       return `Unknown tool: ${name}`;
   }
@@ -492,6 +504,33 @@ async function saveArtifact(
     }
   } catch (err) {
     return `Failed to save artifact: ${(err as Error).message}`;
+  }
+}
+
+/* ── porkbun_check_domain ──────────────────────────────────────── */
+
+async function porkbunCheck(domain: string): Promise<string> {
+  try {
+    const result = await porkbunCheckDomain(domain);
+    return JSON.stringify(result);
+  } catch (err) {
+    return `Domain check failed: ${(err as Error).message}`;
+  }
+}
+
+/* ── porkbun_get_pricing ──────────────────────────────────────── */
+
+async function porkbunPricing(): Promise<string> {
+  try {
+    const all = await porkbunGetPricing();
+    const popular = ["com", "net", "org", "io", "dev", "co", "app", "ai", "xyz", "sh", "me", "so", "gg"];
+    const filtered: Record<string, unknown> = {};
+    for (const tld of popular) {
+      if (all[tld]) filtered[tld] = all[tld];
+    }
+    return JSON.stringify(filtered, null, 2);
+  } catch (err) {
+    return `Pricing lookup failed: ${(err as Error).message}`;
   }
 }
 

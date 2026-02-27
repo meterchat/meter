@@ -178,6 +178,8 @@ interface MeterState {
 
   approveCard: (messageId: string, cardId: string) => void;
   rejectCard: (messageId: string, cardId: string) => void;
+  addCardToLastMessage: (card: ActionCard, forProjectId?: string) => void;
+  purchaseDomain: (messageId: string, cardId: string) => Promise<{ success: boolean; error?: string }>;
   setMessageDecisionId: (decisionId: string, forProjectId?: string) => void;
   setDebateTrace: (trace: DebateTurn[], forProjectId?: string) => void;
 
@@ -903,6 +905,136 @@ export const useMeterStore = create<MeterState>()(
           };
           return { projects: replaceActiveProject(s, updated) };
         }),
+
+      addCardToLastMessage: (card, forProjectId?) =>
+        set((s) => {
+          const active = getProjectByIdOrActive(s, forProjectId);
+          const msgs = [...active.messages];
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === "assistant") {
+            msgs[msgs.length - 1] = {
+              ...last,
+              cards: [...(last.cards ?? []), card],
+            };
+          }
+          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+        }),
+
+      purchaseDomain: async (messageId, cardId) => {
+        const s = get();
+        const active = getActiveProject(s);
+        const msg = active.messages.find((m) => m.id === messageId);
+        const card = msg?.cards?.find((c) => c.id === cardId);
+        if (!card || !card.metadata?.domain) {
+          return { success: false, error: "Card not found" };
+        }
+
+        // Check per-transaction spend limit
+        const cost = card.cost ?? 0;
+        const limits = s.spendLimits;
+        if (limits.perTxnLimit && cost > limits.perTxnLimit) {
+          return { success: false, error: `Purchase ($${cost.toFixed(2)}) exceeds per-transaction limit ($${limits.perTxnLimit.toFixed(2)})` };
+        }
+        if (limits.dailyLimit && (active.todayCost + cost) > limits.dailyLimit) {
+          return { success: false, error: `Purchase would exceed daily limit ($${limits.dailyLimit.toFixed(2)})` };
+        }
+
+        // Set card to purchasing state
+        set((prev) => {
+          const proj = getActiveProject(prev);
+          const updated = {
+            ...proj,
+            messages: proj.messages.map((m) => {
+              if (m.id !== messageId) return m;
+              return {
+                ...m,
+                cards: m.cards?.map((c) =>
+                  c.id === cardId ? { ...c, status: "approved" as const } : c
+                ),
+              };
+            }),
+          };
+          return { projects: replaceActiveProject(prev, updated) };
+        });
+
+        try {
+          const res = await fetch("/api/porkbun/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domain: card.metadata.domain }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            // Revert card status on failure
+            set((prev) => {
+              const proj = getActiveProject(prev);
+              const updated = {
+                ...proj,
+                messages: proj.messages.map((m) => {
+                  if (m.id !== messageId) return m;
+                  return {
+                    ...m,
+                    cards: m.cards?.map((c) =>
+                      c.id === cardId ? { ...c, status: "pending" as const } : c
+                    ),
+                  };
+                }),
+              };
+              return { projects: replaceActiveProject(prev, updated) };
+            });
+            return { success: false, error: data.error ?? "Registration failed" };
+          }
+
+          // Success: add to pending charges and update today cost
+          const purchaseCost = data.price ?? cost;
+          set((prev) => ({
+            pendingCharges: [
+              ...prev.pendingCharges,
+              {
+                id: card.id,
+                title: card.metadata!.domain,
+                cost: purchaseCost,
+                type: "card" as const,
+                workspaceId: active.id,
+                paidAt: Date.now(),
+              },
+            ],
+          }));
+
+          // Increment today cost
+          set((prev) => {
+            const proj = getActiveProject(prev);
+            return {
+              projects: replaceActiveProject(prev, {
+                ...proj,
+                todayCost: proj.todayCost + purchaseCost,
+                totalCost: proj.totalCost + purchaseCost,
+              }),
+            };
+          });
+
+          return { success: true };
+        } catch {
+          // Revert card status on error
+          set((prev) => {
+            const proj = getActiveProject(prev);
+            const updated = {
+              ...proj,
+              messages: proj.messages.map((m) => {
+                if (m.id !== messageId) return m;
+                return {
+                  ...m,
+                  cards: m.cards?.map((c) =>
+                    c.id === cardId ? { ...c, status: "pending" as const } : c
+                  ),
+                };
+              }),
+            };
+            return { projects: replaceActiveProject(prev, updated) };
+          });
+          return { success: false, error: "Network error — try again" };
+        }
+      },
 
       setMessageDecisionId: (decisionId, forProjectId?) =>
         set((s) => {

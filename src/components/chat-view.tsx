@@ -32,6 +32,7 @@ import { ModelPickerTrigger, ModelPickerPanel } from "@/components/model-picker"
 import { Inspector } from "@/components/inspector";
 import { ProfileSettings } from "@/components/profile-settings";
 import { ActionCard } from "@/components/action-card";
+import { DomainCard } from "@/components/domain-card";
 import { CommandBar } from "@/components/command-bar";
 import { SlashCommandPopover, type SlashCommandHandle } from "@/components/slash-command";
 import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
@@ -994,6 +995,29 @@ export function ChatView() {
                   lastGeneratedAt: Date.now(),
                 });
               }
+              if (data.name === "porkbun_check_domain" && data.domainCard) {
+                const dc = data.domainCard as {
+                  id: string;
+                  type: string;
+                  title: string;
+                  description: string;
+                  cost?: number;
+                  status: string;
+                  metadata?: Record<string, string>;
+                };
+                useMeterStore.getState().addCardToLastMessage(
+                  {
+                    id: dc.id,
+                    type: dc.type as "domain",
+                    title: dc.title,
+                    description: dc.description,
+                    cost: dc.cost,
+                    status: dc.status as "pending" | "rejected",
+                    metadata: dc.metadata,
+                  },
+                  streamProjectId
+                );
+              }
             } else if (data.type === "rerouting") {
               setRerouting({ provider: data.provider as string, toModel: data.to as string });
             } else if (data.type === "error") {
@@ -1508,14 +1532,22 @@ export function ChatView() {
 
                       {msg.cards && msg.cards.length > 0 && (
                         <div className="mt-2">
-                          {msg.cards.map((card) => (
-                            <ActionCard
-                              key={card.id}
-                              card={card}
-                              onApprove={() => approveCard(msg.id, card.id)}
-                              onReject={() => rejectCard(msg.id, card.id)}
-                            />
-                          ))}
+                          {msg.cards.map((card) =>
+                            card.type === "domain" ? (
+                              <DomainCard
+                                key={card.id}
+                                card={card}
+                                messageId={msg.id}
+                              />
+                            ) : (
+                              <ActionCard
+                                key={card.id}
+                                card={card}
+                                onApprove={() => approveCard(msg.id, card.id)}
+                                onReject={() => rejectCard(msg.id, card.id)}
+                              />
+                            )
+                          )}
                         </div>
                       )}
 

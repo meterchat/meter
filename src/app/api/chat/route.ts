@@ -266,6 +266,42 @@ export async function POST(req: NextRequest) {
                   status: "draft",
                 };
               }
+              if (tc.name === "porkbun_check_domain") {
+                try {
+                  const domainData = JSON.parse(toolResult);
+                  if (domainData.available) {
+                    toolResultEvent.domainCard = {
+                      id: `dom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                      type: "domain",
+                      title: domainData.domain,
+                      description: `Available · .${domainData.tld} · 1yr registration`,
+                      cost: parseFloat(domainData.price),
+                      status: "pending",
+                      metadata: {
+                        domain: domainData.domain,
+                        tld: domainData.tld,
+                        regularPrice: domainData.regularPrice,
+                        renewalPrice: domainData.renewalPrice ?? "",
+                        premium: String(domainData.premium),
+                        available: "true",
+                      },
+                    };
+                  } else {
+                    toolResultEvent.domainCard = {
+                      id: `dom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                      type: "domain",
+                      title: domainData.domain,
+                      description: "This domain is already taken",
+                      status: "rejected",
+                      metadata: {
+                        domain: domainData.domain,
+                        tld: domainData.tld,
+                        available: "false",
+                      },
+                    };
+                  }
+                } catch { /* non-JSON result — skip card */ }
+              }
               send(toolResultEvent);
 
               conversation.push({

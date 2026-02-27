@@ -76,13 +76,13 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
       "M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12",
   },
   {
-    command: "pay",
-    label: "/pay",
+    command: "domain",
+    label: "/domain",
     chatPrompt:
-      "Show me my agent card status. What's my available balance, recent transactions, and spending limits?",
-    connectorId: "agentcard",
+      "I want to check domain availability. What domain name should I look up?",
+    connectorId: "_builtin",
     iconPath:
-      "M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z",
+      "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z",
   },
 ];
 
@@ -349,91 +349,6 @@ export const CONNECTORS: ConnectorDef[] = [
         },
         commandLabel: "Get insights",
         chatPrompt: "Show me my PostHog insights",
-      },
-    ],
-  },
-  {
-    id: "agentcard",
-    name: "AgentCard",
-    connectionType: "api_key",
-    description: "agent payments & card",
-    iconPath:
-      "M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z",
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "agentcard_get_card",
-          description:
-            "Get the agent's virtual card details — masked card number, status, and spending limits.",
-          parameters: { type: "object", properties: {} },
-        },
-        commandLabel: "Card details",
-        chatPrompt: "Show me my agent card details",
-      },
-      {
-        type: "function",
-        function: {
-          name: "agentcard_check_balance",
-          description:
-            "Check the agent card's available spending balance and current limits.",
-          parameters: { type: "object", properties: {} },
-        },
-        commandLabel: "Check balance",
-        chatPrompt: "What's my agent card balance?",
-      },
-      {
-        type: "function",
-        function: {
-          name: "agentcard_list_transactions",
-          description:
-            "List recent transactions made with the agent card.",
-          parameters: {
-            type: "object",
-            properties: {
-              limit: {
-                type: "number",
-                description: "Max results to return (default 10)",
-              },
-            },
-          },
-        },
-        commandLabel: "Transactions",
-        chatPrompt: "Show me my recent agent card transactions",
-      },
-      {
-        type: "function",
-        function: {
-          name: "agentcard_create_payment",
-          description:
-            "Authorize a payment to a merchant or service using the agent card. Use when the agent needs to buy a domain, pay for a SaaS subscription, or purchase infrastructure.",
-          parameters: {
-            type: "object",
-            properties: {
-              amount: {
-                type: "number",
-                description: "Payment amount (e.g. 12.00)",
-              },
-              currency: {
-                type: "string",
-                description: "Currency code (e.g. 'usd')",
-              },
-              merchant: {
-                type: "string",
-                description:
-                  "Merchant or service name (e.g. 'Porkbun', 'Vercel', 'AWS')",
-              },
-              description: {
-                type: "string",
-                description:
-                  "What the payment is for (e.g. 'example.com domain registration')",
-              },
-            },
-            required: ["amount", "currency", "merchant"],
-          },
-        },
-        commandLabel: "Make payment",
-        chatPrompt: "Make a payment with my agent card",
       },
     ],
   },
