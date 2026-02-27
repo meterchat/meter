@@ -832,10 +832,10 @@ export function ChatView() {
         }),
       });
 
-      // Pre-estimate input cost so the per-txn limit check isn't blind to it.
-      // Input tokens are only reported by the API at the end, but we can't wait
-      // that long — the response would already be fully streamed. Rough estimate
-      // using char/4 is good enough for limit enforcement (finalization corrects).
+      // Pre-estimate input cost for limit checking. This is NOT added to
+      // the store (which would pollute todayCost) — it's only used as a local
+      // adjustment inside checkSpendLimits. finalizeResponse handles the real
+      // cost reconciliation when actual token counts arrive from the API.
       const estimatedInputTokens = allMessages.reduce(
         (sum, m) => sum + Math.ceil((typeof m.content === "string" ? m.content.length : 0) / 4),
         0,
@@ -846,23 +846,21 @@ export function ChatView() {
       const estimatedInputCost = isDebateMode
         ? estimatedInputTokens * DEBATE_MODELS.reduce((sum, id) => sum + getModel(id).inputPrice, 0)
         : estimatedInputTokens * inputModel.inputPrice;
-      if (estimatedInputCost > 0) {
-        incrementCurrentMessageCost(estimatedInputCost);
 
-        // Check limits immediately after pre-loading input cost — if the input
-        // alone would exceed the per-txn or daily limit, abort before streaming.
+      // Check limits immediately — if estimated input alone exceeds them,
+      // abort before streaming. Uses local estimate, doesn't touch store.
+      {
         const txnLimit = spendLimits.perTxnLimit;
         const dailyLimit = spendLimits.dailyLimit;
         const st = useMeterStore.getState();
         const proj = st.projects.find((p) => p.id === st.activeProjectId);
-        const msgCost = proj?.currentMessageCost ?? 0;
         const todayCost = proj?.todayCost ?? 0;
-        if ((txnLimit != null && txnLimit > 0 && msgCost >= txnLimit) ||
-            (dailyLimit != null && dailyLimit > 0 && todayCost >= dailyLimit)) {
-          const which = txnLimit != null && txnLimit > 0 && msgCost >= txnLimit
+        if ((txnLimit != null && txnLimit > 0 && estimatedInputCost >= txnLimit) ||
+            (dailyLimit != null && dailyLimit > 0 && todayCost + estimatedInputCost >= dailyLimit)) {
+          const which = txnLimit != null && txnLimit > 0 && estimatedInputCost >= txnLimit
             ? `Per-transaction limit ($${txnLimit.toFixed(2)})`
             : `Daily limit ($${dailyLimit!.toFixed(2)})`;
-          updateLastAssistantMessage(`${which} would be exceeded by this message's input cost alone. Message not sent.`, 0);
+          updateLastAssistantMessage(`${which} would be exceeded by this message's estimated input cost. Message not sent.`, 0);
           abort.abort();
           return;
         }
@@ -883,16 +881,21 @@ export function ChatView() {
       let buffer = "";
       let currentTurn: { model: string; phase: string; content: string } | null = null;
 
-      /** Abort the stream if per-txn or daily limit is exceeded. */
-      const checkPerTxnLimit = (): boolean => {
+      /** Abort the stream if per-txn or daily limit is exceeded.
+       *  Adds estimatedInputCost (from closure) on top of the store's
+       *  currentMessageCost so the check accounts for input tokens without
+       *  polluting todayCost in the store. */
+      const checkSpendLimits = (): boolean => {
         const state = useMeterStore.getState();
         const active = state.projects.find((p) => p.id === state.activeProjectId);
-        const cost = active?.currentMessageCost ?? 0;
+        // currentMessageCost tracks output cost accumulated during streaming.
+        // Add the local input estimate for a more accurate per-txn check.
+        const cost = (active?.currentMessageCost ?? 0) + estimatedInputCost;
 
         // Per-transaction limit
         const txnLimit = spendLimits.perTxnLimit;
         if (txnLimit != null && txnLimit > 0 && cost >= txnLimit) {
-          const notice = `\n\n---\n*Per-transaction limit ($${txnLimit.toFixed(2)}) reached. Response stopped at $${cost.toFixed(2)}.*`;
+          const notice = `\n\n---\n*Per-transaction limit ($${txnLimit.toFixed(2)}) reached. Response stopped at ~$${cost.toFixed(2)}.*`;
           fullContent += notice;
           const lastMsg = (active?.messages ?? []).at(-1);
           updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0);
@@ -904,9 +907,9 @@ export function ChatView() {
         // Daily limit — also enforce mid-stream so a single expensive
         // response can't blow through the daily budget.
         const dailyLimit = spendLimits.dailyLimit;
-        const todayCost = active?.todayCost ?? 0;
+        const todayCost = (active?.todayCost ?? 0) + estimatedInputCost;
         if (dailyLimit != null && dailyLimit > 0 && todayCost >= dailyLimit) {
-          const notice = `\n\n---\n*Daily limit ($${dailyLimit.toFixed(2)}) reached. Response stopped at $${todayCost.toFixed(2)} today.*`;
+          const notice = `\n\n---\n*Daily limit ($${dailyLimit.toFixed(2)}) reached. Response stopped at ~$${todayCost.toFixed(2)} today.*`;
           fullContent += notice;
           const lastMsg = (active?.messages ?? []).at(-1);
           updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0);
@@ -948,7 +951,7 @@ export function ChatView() {
                 const estTokens = Math.ceil(deltaText.length / 4);
                 const turnModel = getModel(currentTurn.model);
                 incrementCurrentMessageCost(estTokens * turnModel.outputPrice);
-                if (checkPerTxnLimit()) break;
+                if (checkSpendLimits()) break;
               }
             } else if (data.type === "debate_turn_end") {
               if (currentTurn) {
@@ -974,7 +977,7 @@ export function ChatView() {
               setActiveTool(null);
               setRerouting(null);
               updateLastAssistantMessage(fullContent, data.tokensOut);
-              if (checkPerTxnLimit()) break;
+              if (checkSpendLimits()) break;
             } else if (data.type === "tool_call") {
               setActiveTool(data.name as string);
             } else if (data.type === "tool_result") {
