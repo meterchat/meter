@@ -86,8 +86,8 @@ function ModelLogo({ model, size = 14 }: { model: ModelConfig; size?: number }) 
   );
 }
 
-/* ─── Trigger button (sits in the input row) ─── */
-export function ModelPickerTrigger({
+/* ─── Model Selector Bar (full-width top bar — replaces connections bar) ─── */
+export function ModelSelectorBar({
   open,
   onToggle,
   overrideModelId,
@@ -108,23 +108,29 @@ export function ModelPickerTrigger({
     <button
       onClick={onToggle}
       disabled={isStreaming}
-      className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-40 shrink-0"
+      className="flex w-full items-center gap-2 bg-foreground/[0.03] px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground/80 hover:bg-foreground/5 disabled:opacity-40"
     >
       <ModelLogo model={model} size={12} />
-      <span className="truncate max-w-[120px]">
+      <span className="text-[12px] text-foreground normal-case tracking-normal truncate">
         {model.name}
-        {displayId === "meter-1.0" && <span className="text-muted-foreground/50 ml-1">(Debate)</span>}
       </span>
+      <span className="text-[10px] text-muted-foreground/50 normal-case tracking-normal">
+        {model.provider}
+      </span>
+      {displayId === "meter-1.0" && <span className="text-muted-foreground/40 normal-case tracking-normal">(Debate)</span>}
       <svg
-        width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-        className={`transition-transform ${open ? "rotate-180" : ""}`}
+        className={`ml-auto transition-transform duration-200 ${open ? "rotate-180" : ""}`}
       >
         <polyline points="6 9 12 15 18 9" />
       </svg>
     </button>
   );
 }
+
+/** @deprecated Use ModelSelectorBar */
+export const ModelPickerTrigger = ModelSelectorBar;
 
 /* ─── Panel (rendered inline above the input row) ─── */
 export function ModelPickerPanel({

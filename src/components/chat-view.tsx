@@ -28,12 +28,12 @@ import {
 import { MeterPill } from "@/components/meter-pill";
 import { HeaderMeter } from "@/components/header-meter";
 import { CommitButton } from "@/components/commit-button";
-import { ModelPickerTrigger, ModelPickerPanel } from "@/components/model-picker";
+import { ModelSelectorBar, ModelPickerPanel } from "@/components/model-picker";
 import { Inspector } from "@/components/inspector";
 import { ProfileSettings } from "@/components/profile-settings";
 import { ActionCard } from "@/components/action-card";
 import { DomainCard } from "@/components/domain-card";
-import { CommandBar } from "@/components/command-bar";
+// CommandBar removed — model selector bar replaces connections in the chat box
 import { SlashCommandPopover, type SlashCommandHandle } from "@/components/slash-command";
 import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
@@ -562,7 +562,7 @@ export function ChatView() {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
-  const [commandBarOpen, setCommandBarOpen] = useState(false);
+  // commandBarOpen removed — connections bar replaced by model selector bar
   const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
   // Debate mode state
   const [debateTrace, setDebateTraceLocal] = useState<DebateTurn[]>([]);
@@ -1193,8 +1193,8 @@ export function ChatView() {
     if (val.startsWith("/")) {
       setSlashOpen(true);
       setSlashQuery(val.slice(1));
-      // Close command bar when slash popover opens
-      if (commandBarOpen) setCommandBarOpen(false);
+      // Close model picker when slash popover opens
+      if (modelPickerOpen) setModelPickerOpen(false);
     } else {
       if (slashOpen) { setSlashOpen(false); setSlashQuery(""); }
     }
@@ -1637,8 +1637,12 @@ export function ChatView() {
                   </div>
                 </div>
               )}
-              {/* Command bar — top section (connections + commands) */}
-              <CommandBar open={commandBarOpen} onToggle={setCommandBarOpen} onSelectCommand={handleCommandSelect} />
+              {/* Model selector bar — top section (replaces connections bar) */}
+              <ModelSelectorBar
+                open={modelPickerOpen}
+                onToggle={() => setModelPickerOpen(!modelPickerOpen)}
+                overrideModelId={rerouting?.toModel ?? null}
+              />
 
               {/* Model picker + composer area */}
               <div ref={modelPickerRef}>
@@ -1686,11 +1690,17 @@ export function ChatView() {
 
                 {/* Composer — middle section */}
                 <div className="flex items-end gap-2 border-t border-border/50 p-2">
-                  <ModelPickerTrigger
-                    open={modelPickerOpen}
-                    onToggle={() => setModelPickerOpen(!modelPickerOpen)}
-                    overrideModelId={rerouting?.toModel ?? null}
-                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground shrink-0"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span>Add file</span>
+                  </button>
                 <textarea
                   ref={inputRef}
                   onKeyDown={handleKeyDown}
