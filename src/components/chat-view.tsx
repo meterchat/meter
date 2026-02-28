@@ -1413,7 +1413,7 @@ export function ChatView() {
                 <div className="flex gap-3 justify-start">
                   <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
                     <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
-                      <p>Add a payment card to start chatting. You won&apos;t be charged now — usage settles daily at midnight.</p>
+                      <p>Add a payment card to start chatting. A small hold verifies your card — you won&apos;t be charged for usage until your balance reaches $25.</p>
                     </div>
                     <InlineCardForm onComplete={() => setShowExplainer(true)} />
                   </div>
@@ -1455,7 +1455,7 @@ export function ChatView() {
                       <p>You&apos;re all set. Here&apos;s how Meter works:</p>
                       <p><strong>Pay per thought.</strong> Every response costs a few cents. The exact price shows in real time — no subscriptions, no surprises.</p>
                       <p><strong>Pick your model.</strong> Choose from Claude, GPT, Gemini, Grok, DeepSeek and more. Each has its own per-token price.</p>
-                      <p><strong>Billed daily.</strong> Usage settles automatically at midnight. You only pay for what you use.</p>
+                      <p><strong>Autopay.</strong> Your card is charged automatically when your balance reaches $25. You can also settle anytime manually. You only pay for what you use.</p>
                     </div>
                   </div>
                 </div>

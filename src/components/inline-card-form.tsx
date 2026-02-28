@@ -74,7 +74,7 @@ function CardFormInner({ clientSecret, onComplete }: { clientSecret: string; onC
       </div>
 
       <p className="mt-2 font-mono text-[10px] text-muted-foreground/50 leading-relaxed">
-        No charge now. Usage settles daily at midnight.
+        A small hold verifies your card. Usage settles at $25 or when you choose.
       </p>
 
       {error && (
@@ -105,8 +105,16 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 401) {
+          // Session expired — clear auth to trigger re-login
+          useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
+        if (!data) return;
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
         } else {
