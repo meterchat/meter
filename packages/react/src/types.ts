@@ -35,12 +35,18 @@ export interface MeterChatProps {
   sessionId?: string;
   /** Placeholder text for the input. Default: "Ask anything..." */
   placeholder?: string;
-  /** Show model picker. Default: true */
+  /** Show model selector bar. Default: true */
   showModelPicker?: boolean;
   /** Show cost counter. Default: true */
   showCostCounter?: boolean;
+  /** Show file upload button. Default: true */
+  showFileUpload?: boolean;
+  /** Accepted file types for upload. Default: "image/*,application/pdf" */
+  acceptedFileTypes?: string;
   /** Called when a message is sent or received */
   onMessage?: (message: MeterChatMessage) => void;
+  /** Called when files are selected for upload */
+  onFileSelect?: (files: File[]) => void;
   /** CSS class for the outer container */
   className?: string;
 }

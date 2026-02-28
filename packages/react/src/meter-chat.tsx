@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useMeterChat } from "./use-meter-chat";
 import { useMeterContext } from "./provider";
 import { CostCounter } from "./cost-counter";
-import { ModelPicker } from "./model-picker";
+import { ModelSelectorBar } from "./model-picker";
 import type { MeterChatProps } from "./types";
 
 const BLINK_STYLE = `@keyframes meter-blink { 50% { opacity: 0; } }`;
@@ -13,7 +13,10 @@ export function MeterChat({
   placeholder = "Ask anything...",
   showModelPicker = true,
   showCostCounter = true,
+  showFileUpload = true,
+  acceptedFileTypes = "image/*,application/pdf",
   onMessage,
+  onFileSelect,
   className,
 }: MeterChatProps) {
   const { models } = useMeterContext();
@@ -30,6 +33,7 @@ export function MeterChat({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = useState("");
 
   // Auto-scroll on new messages
@@ -58,6 +62,22 @@ export function MeterChat({
     [handleSend]
   );
 
+  const handleFileClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        onFileSelect?.(Array.from(files));
+      }
+      // Reset input so same file can be selected again
+      e.target.value = "";
+    },
+    [onFileSelect]
+  );
+
   return (
     <div
       className={className}
@@ -73,31 +93,13 @@ export function MeterChat({
         overflow: "hidden",
       }}
     >
-      {/* Header */}
-      {(showModelPicker || showCostCounter) && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "8px 12px",
-            borderBottom: "1px solid var(--meter-border, #262626)",
-            fontSize: "12px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {showModelPicker && (
-              <ModelPicker
-                models={models}
-                selectedModelId={model}
-                onSelect={setModel}
-              />
-            )}
-          </div>
-          {showCostCounter && (
-            <CostCounter cost={sessionCost} currentCost={currentMessageCost} />
-          )}
-        </div>
+      {/* Model selector bar — replaces old connections bar */}
+      {showModelPicker && (
+        <ModelSelectorBar
+          models={models}
+          selectedModelId={model}
+          onSelect={setModel}
+        />
       )}
 
       {/* Messages */}
@@ -217,6 +219,35 @@ export function MeterChat({
             border: "1px solid var(--meter-border, #262626)",
           }}
         >
+          {/* Add file button */}
+          {showFileUpload && (
+            <button
+              onClick={handleFileClick}
+              style={{
+                background: "none",
+                border: "1px solid var(--meter-border, #333)",
+                borderRadius: "6px",
+                padding: "4px 10px",
+                fontSize: "11px",
+                color: "var(--meter-text-secondary, #888)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Add file
+            </button>
+          )}
+
           <textarea
             ref={inputRef}
             value={inputValue}
@@ -242,6 +273,12 @@ export function MeterChat({
               maxHeight: "120px",
             }}
           />
+
+          {/* Cost counter — inline in input row */}
+          {showCostCounter && (sessionCost > 0 || currentMessageCost > 0) && (
+            <CostCounter cost={sessionCost} currentCost={currentMessageCost} />
+          )}
+
           <button
             onClick={handleSend}
             disabled={isStreaming || !inputValue.trim()}
@@ -280,6 +317,16 @@ export function MeterChat({
           Powered by Meter
         </div>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={acceptedFileTypes}
+        multiple
+        style={{ display: "none" }}
+        onChange={handleFileChange}
+      />
 
       <style>{BLINK_STYLE}</style>
     </div>
