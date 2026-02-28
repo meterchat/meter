@@ -105,6 +105,7 @@ interface MeterState {
   userId: string | null;
   email: string | null;
   accountType: "standard" | "superadmin";
+  markupMultiplier: number;
   authenticated: boolean;
   cardOnFile: boolean;
   cardLast4: string | null;
@@ -147,7 +148,7 @@ interface MeterState {
   inspectorTab: string;
   scrollToMessageId: string | null;
 
-  setAuth: (userId: string, email: string | null, accountType?: "standard" | "superadmin") => void;
+  setAuth: (userId: string, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => void;
   setSessionsLoaded: (v: boolean) => void;
   setEmail: (email: string) => void;
   setCardOnFile: (v: boolean, last4?: string, brand?: string) => void;
@@ -303,6 +304,7 @@ export const useMeterStore = create<MeterState>()(
       userId: null,
       email: null,
       accountType: "standard" as const,
+      markupMultiplier: 1,
       authenticated: false,
       cardOnFile: false,
       cardLast4: null,
@@ -338,7 +340,7 @@ export const useMeterStore = create<MeterState>()(
       inspectorTab: "decisions",
       scrollToMessageId: null,
 
-      setAuth: (userId, email, accountType) => set({ userId, email, accountType: accountType ?? "standard", authenticated: true }),
+      setAuth: (userId: string, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? 1, authenticated: true }),
       setSessionsLoaded: (v) => set({ sessionsLoaded: v }),
       setEmail: (email) => set({ email }),
       setCardOnFile: (v, last4, brand) =>
@@ -607,7 +609,7 @@ export const useMeterStore = create<MeterState>()(
 
           const prevOut = last?.tokensOut || 0;
           const deltaOut = Math.max(0, tokensOut - prevOut);
-          const costDelta = deltaOut * model.outputPrice;
+          const costDelta = deltaOut * model.outputPrice * s.markupMultiplier;
 
           const updated = {
             ...active,
@@ -642,9 +644,11 @@ export const useMeterStore = create<MeterState>()(
           // When the server sends a pre-computed actualCost (e.g. debate mode
           // which calls multiple models at different rates), use it directly.
           // Otherwise compute from tokens × model rate with cache awareness.
+          // Account-level markup is applied to the final cost.
+          const markup = s.markupMultiplier;
           let totalMsgCost: number;
           if (actualCost != null && actualCost > 0) {
-            totalMsgCost = actualCost;
+            totalMsgCost = actualCost * markup;
           } else {
             // Cache-aware input cost: providers charge different rates for
             // cached vs uncached input tokens.
@@ -662,7 +666,7 @@ export const useMeterStore = create<MeterState>()(
                 (cacheWrite * model.inputPrice * 1.25) +
                 (cacheHit * model.inputPrice * readRate)
               : tokensIn * model.inputPrice;
-            totalMsgCost = inputCost + tokensOut * model.outputPrice;
+            totalMsgCost = (inputCost + tokensOut * model.outputPrice) * markup;
           }
 
           const msgs = [...active.messages];
@@ -1205,12 +1209,13 @@ export const useMeterStore = create<MeterState>()(
       incrementCurrentMessageCost: (costDelta, forProjectId?) =>
         set((s) => {
           const active = ensureDaily(getProjectByIdOrActive(s, forProjectId));
+          const scaled = costDelta * s.markupMultiplier;
           return {
             projects: replaceActiveProject(s, {
               ...active,
-              currentMessageCost: active.currentMessageCost + costDelta,
-              todayCost: active.todayCost + costDelta,
-              totalCost: active.totalCost + costDelta,
+              currentMessageCost: active.currentMessageCost + scaled,
+              todayCost: active.todayCost + scaled,
+              totalCost: active.totalCost + scaled,
             }),
           };
         }),
@@ -1236,6 +1241,7 @@ export const useMeterStore = create<MeterState>()(
         userId: s.userId,
         email: s.email,
         accountType: s.accountType,
+        markupMultiplier: s.markupMultiplier,
         authenticated: s.authenticated,
         cardOnFile: s.cardOnFile,
         cardLast4: s.cardLast4,

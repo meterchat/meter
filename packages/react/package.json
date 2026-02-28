@@ -1,0 +1,54 @@
+{
+  "name": "@meterxyz/react",
+  "version": "0.1.0",
+  "description": "Embeddable AI chat with built-in billing — drop in <MeterChat /> and go",
+  "author": "Meter <hello@getmeter.xyz>",
+  "license": "MIT",
+  "homepage": "https://getmeter.xyz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/meterxyz/meter.git",
+    "directory": "packages/react"
+  },
+  "keywords": [
+    "meter",
+    "ai",
+    "chat",
+    "embeddable",
+    "sdk",
+    "react",
+    "pay-per-use",
+    "metered"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "@meterxyz/sdk": "workspace:*",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.0.0"
+  }
+}

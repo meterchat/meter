@@ -68,7 +68,7 @@ export default function DocsPage() {
           <section className="mb-10">
             <h2 className="text-lg font-medium text-foreground mb-2" id="pricing">Pricing</h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-              Pay-per-token with a 2x markup on provider base rates. Most messages cost between $0.01 and $0.50.
+              Pay-per-token at provider base rates (no markup by default). Most messages cost between $0.01 and $0.25.
             </p>
             <div className="overflow-x-auto mb-3">
               <table className="w-full text-xs font-mono">

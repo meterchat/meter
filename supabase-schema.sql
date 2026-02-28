@@ -10,6 +10,7 @@ create table if not exists meter_users (
   id text primary key,
   email text unique not null,
   account_type text not null default 'standard',  -- 'standard' | 'superadmin'
+  markup_multiplier numeric not null default 1,   -- per-account pricing multiplier (1 = at-cost)
   stripe_customer_id text,
   card_last4 text,
   card_brand text,
@@ -174,6 +175,19 @@ create table if not exists usage_records (
   created_at timestamptz default now()
 );
 
+-- SDK end-users (maps developer's external user IDs to internal Meter users)
+create table if not exists sdk_end_users (
+  id text primary key,
+  developer_id uuid not null references users(id) on delete cascade,
+  external_user_id text not null,
+  stripe_customer_id text,
+  card_last4 text,
+  card_brand text,
+  markup_multiplier numeric not null default 1,
+  created_at timestamptz default now(),
+  unique(developer_id, external_user_id)
+);
+
 -- =============================================
 -- SETTLEMENT HISTORY
 -- =============================================
@@ -207,6 +221,9 @@ create table if not exists settlement_history (
 -- Workspace id on settlement history
 -- alter table settlement_history add column if not exists workspace_id text;
 
+-- SDK: developer scoping on chat sessions
+-- alter table chat_sessions add column if not exists developer_id uuid;
+
 -- =============================================
 -- INDEXES
 -- =============================================
@@ -224,6 +241,8 @@ create index if not exists idx_workspace_projects_workspace on workspace_project
 create index if not exists idx_decisions_user on decisions(user_id);
 create index if not exists idx_settlement_history_user on settlement_history(user_id);
 create index if not exists idx_settlement_history_workspace on settlement_history(workspace_id);
+create index if not exists idx_sdk_end_users_developer on sdk_end_users(developer_id);
+create index if not exists idx_sdk_end_users_lookup on sdk_end_users(developer_id, external_user_id);
 
 -- =============================================
 -- AUTH SESSIONS (server-side session tokens)
@@ -245,6 +264,9 @@ create index if not exists idx_auth_sessions_expires on auth_sessions(expires_at
 
 -- Add account_type column if it doesn't already exist
 -- alter table meter_users add column if not exists account_type text not null default 'standard';
+
+-- Markup multiplier (per-account pricing override; default 1 = at-cost)
+-- alter table meter_users add column if not exists markup_multiplier numeric not null default 1;
 
 -- Set a@buxor.co as superadmin creator account (no settlement charges)
 -- update meter_users set account_type = 'superadmin' where email = 'a@buxor.co';

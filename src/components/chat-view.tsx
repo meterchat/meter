@@ -475,6 +475,7 @@ export function ChatView() {
     approveCard,
     rejectCard,
     spendLimits,
+    markupMultiplier,
   } = useMeterStore();
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
@@ -852,11 +853,11 @@ export function ChatView() {
       );
       const estimatedInputTokens = Math.min(rawEstimatedTokens, SERVER_MAX_CONTEXT_TOKENS);
       const inputModel = getModel(isDebateMode ? DEBATE_MODELS[0] : effectiveModel);
-      const estimatedInputCost = isDebateMode
+      const estimatedInputCost = (isDebateMode
         // Debate sends context to each model per phase; sum of rates is a
         // reasonable approximation for one round of input across all models.
         ? estimatedInputTokens * DEBATE_MODELS.reduce((sum, id) => sum + getModel(id).inputPrice, 0)
-        : estimatedInputTokens * inputModel.inputPrice;
+        : estimatedInputTokens * inputModel.inputPrice) * markupMultiplier;
 
       if (res.status === 429) {
         const body = await res.json().catch(() => ({ error: "Spend limit reached" }));
