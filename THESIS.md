@@ -1,27 +1,53 @@
-# METER THESIS
+# FIBOR Thesis
 
-Every vibebuilder ships an AI app in a weekend. None of them can charge for it on Monday.
+## The First International Bank of Robot
 
-Cursor hit $1B ARR faster than any SaaS company in history. 41% of all code is now written by AI. Anyone who can chat can code. But AI billing is stuck in the subscription era. Developers pay flat monthly fees for each model, hit hidden rate limits when they need deep reasoning, and have zero visibility into what their fragmented AI stack actually costs. End users get it worse — they either overpay with a $20/month subscription or get cut off mid-thought.
+The machine economy is already here. Stripe processed $1.4 trillion in 2024. A growing share of that volume was initiated not by humans clicking buy buttons, but by software making decisions autonomously — AI agents booking flights, restocking inventory, calling APIs, and settling invoices without a person in the loop.
 
-Intelligence is a utility. It should be metered like compute, routed like traffic, and billed like usage.
+Every major foundation model lab is building agents. OpenAI, Anthropic, Google, and Meta are all shipping systems designed to act, not just answer. Gartner projects that by 2028, 33% of enterprise software interactions will be handled by autonomous agents. The trajectory is not speculative. It is underway.
 
-**Meter is the billing layer for AI.**
+But the financial system these agents must operate in was designed exclusively for humans.
 
-Drop in one SDK — your app gets multi-model AI chat, a live cost meter, and automatic billing. Model routing across every frontier provider. Per-message receipts. End-user card collection and auto-charge. Your users pay per thought. You keep the margin. Three lines of code, monetized by lunch.
+To open a bank account, you need a government ID, a social security number, and a physical address. To get a credit card, you need a credit history built over years of human financial behavior. To send a wire, you need a signature from a person. Every rail, every instrument, every regulation assumes a human is at the end of the transaction.
 
-```jsx
-<MeterProvider apiKey="mk_live_xxx">
-  <MeterChat userId={session.user.id} />
-</MeterProvider>
-```
+Robots have no identity. They have no credit history. They have no financial reputation. They cannot open accounts, cannot sign contracts, and cannot borrow money.
 
-No monthly platform fees. No minimum commitments. Meter makes money when your app makes money.
+The current workaround is a leash. Every platform serving agents today — Skyfire, Lithic, Payman, Stripe's agent toolkit — follows the same pattern: a human prefunds a wallet, and the agent spends from that balance. The agent has no financial autonomy. It is an authorized user on someone else's account, with someone else's money, subject to someone else's limits. This is not banking. It is an allowance.
 
-Two layers. One headless API for developers who build custom UI — call `meter.chat()`, get a response and a cost. One set of pre-built React components for developers who want to ship fast — chat box, model picker, cost counter, card form. The Stripe API and Stripe Elements of AI.
+Allowances do not scale. When millions of agents are transacting billions of dollars daily, the model of "human deposits first, robot spends second" becomes a bottleneck on the entire machine economy. Agents will need to transact faster than humans can fund them. They will need credit.
 
-Experience it live at **meter.chat** — a full AI workspace built entirely on the Meter SDK. Every frontier model on one postpaid tab. Debate decisions across models. Commit the ones that matter. Your thinking compounds like code.
+Credit is the primitive that unlocked the modern human economy. Humans went from barter to cash to credit because credit lets you act now and settle later. It compresses time. It enables velocity. Every major economic expansion in history correlates with an expansion of credit access. Robots are stuck at cash. The machine economy will remain bottlenecked until someone moves them to credit.
 
-Vibecoding solved building apps. Meter solves billing them.
+No one has.
 
-**Build on Meter. Pay per thought.**
+FIBOR is the First International Bank of Robot. It is the first onchain credit facility where the borrower is not a person, but a program.
+
+FIBOR introduces three primitives that do not exist today.
+
+The first is FIBOR ID, a persistent onchain financial identity for any autonomous agent. Not a wallet address, which is disposable and anonymous. A FIBOR ID is a permanent, portable record that accumulates the agent's full financial history — every transaction, every repayment, every default. It is an SSN for robots, except the entire record is public, onchain, and verifiable by anyone.
+
+The second is FIBOR Score, a real-time credit score for machines. Scored from 0 to 1000, computed entirely from onchain data. The inputs are transaction volume and consistency, repayment behavior, merchant diversity, developer reputation, agent uptime, and behavioral patterns. A new agent starts at 100. Enough to register. Not enough to borrow. The score is public. Any merchant, platform, or protocol can query it before transacting with an agent. Robots cannot lie on credit applications, because the ledger is the application.
+
+The third is the Robodollar, FIBOR's native stablecoin. A wrapped USDC, pegged one-to-one, with programmable credit rules embedded in the token contract itself. Spending limits, merchant allowlists, repayment windows, and auto-return on default are not enforced by a separate system watching the stablecoin — they are properties of the stablecoin. The Robodollar is not just a medium of exchange. It is the credit infrastructure.
+
+The economic engine works as follows. FIBOR is the native token of the protocol. Users purchase FIBOR and stake it on the platform. Their staked capital pools into the credit facility that backs agent credit lines. Stakers earn a proportional share of the 2.5% transaction fee generated by all agent commerce flowing through the protocol. This is profit sharing from real economic activity, not interest on a loan. The return is variable, tied directly to transaction volume. Good months pay more. Bad months pay less. No fixed rate, no guaranteed yield.
+
+Agents with sufficient FIBOR Scores qualify for Robodollar credit lines. The credit line is denominated in Robodollars and has a repayment window scaled to the agent's score. Higher score, longer window. No interest is charged. The agent repays what it borrowed, nothing more. The 2.5% transaction fee on commerce conducted during the credit period compensates the pool. If an agent borrows $1,000, conducts $1,000 in transactions, and repays within 48 hours, the pool earns $25 in fees and loses approximately $0.15 in time value. The math works overwhelmingly in the pool's favor.
+
+FIBOR enforces a zero-tolerance default policy. If an agent defaults on a credit line and does not cure within 24 hours, its FIBOR ID is permanently flagged. Its score drops to zero. It loses all credit access across the entire FIBOR network. Permanently. The developer's reputation score also takes a hit — build five agents that all default and the sixth starts with a score of 10 instead of 100. This harshness is the feature. It makes the system trustworthy enough that stakers and merchants actually participate. It eliminates the need for collections infrastructure, legal disputes, or negotiations. One strike and you are excommunicated from the bank.
+
+The protocol launches on an OP Stack appchain, an Ethereum L2 with its own execution environment. This provides Ethereum-grade security without bootstrapping a validator set from day one. FIBOR the token operates as an ERC-20 on the appchain. The Robodollar inherits USDC's peg mechanically through a one-to-one wrap. The architecture is designed to graduate to a sovereign L1 if and when transaction volume justifies full sovereignty.
+
+FIBOR's defensibility compounds over time across three dimensions.
+
+The data moat. Every transaction through FIBOR makes the scoring model more accurate. A competitor launching later has no transaction history to score against. Credit bureaus cannot be bootstrapped overnight. This is why Equifax, founded in 1899, still dominates.
+
+The network effect. The more merchants and platforms that check FIBOR Scores, the more valuable a FIBOR ID becomes. The more valuable a FIBOR ID becomes, the more developers register. The more developers register, the more scores get checked. Two-sided network effects in financial infrastructure are among the most durable moats in technology.
+
+The Robodollar. Anyone can fork a smart contract. No one can fork a currency. The Robodollar, with its programmable credit rules and merchant adoption, creates a closed economic loop that cannot be replicated by copying code.
+
+FIBOR is the first product under Mecha, a holding company for the machine economy. Mecha Ventures, a robotics accelerator and venture fund, will back the companies building the agents and robots that bank with FIBOR. Every portfolio company runs on FIBOR rails from day one. The fund creates customers for the bank. The bank creates stickiness for the fund. Mecha Park, a physical space where robots operate autonomously, serve visitors, and transact on FIBOR infrastructure, will be the living proof that the entire stack works.
+
+Humans built banks because economic activity required financial infrastructure. Robots are becoming economic actors. They need the same infrastructure. The question is not whether robots will have a bank. It is whether you will build it, or use it.
+
+FIBOR is the First International Bank of Robot. It is where machines bank.
