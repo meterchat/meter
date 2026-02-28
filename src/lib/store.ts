@@ -274,10 +274,14 @@ function ensureDaily(project: ProjectThread): ProjectThread {
   const week = mondayStr();
 
   const needsDaily = project.todayDate !== today;
-  const needsMonth = (project.monthKey ?? "") !== month;
-  const needsWeek = (project.weekKey ?? "") !== week;
+  // Only reset if key WAS set and is now stale (actual period boundary).
+  // If key is undefined (old data), just stamp the key — don't zero the cost.
+  const needsMonthReset = project.monthKey != null && project.monthKey !== month;
+  const needsWeekReset = project.weekKey != null && project.weekKey !== week;
+  const needsMonthInit = project.monthKey == null;
+  const needsWeekInit = project.weekKey == null;
 
-  if (!needsDaily && !needsMonth && !needsWeek) return project;
+  if (!needsDaily && !needsMonthReset && !needsWeekReset && !needsMonthInit && !needsWeekInit) return project;
 
   return {
     ...project,
@@ -285,8 +289,10 @@ function ensureDaily(project: ProjectThread): ProjectThread {
       todayCost: 0, todayTokensIn: 0, todayTokensOut: 0,
       todayMessageCount: 0, todayByModel: {}, todayDate: today,
     } : {}),
-    ...(needsMonth ? { monthCost: 0, monthKey: month } : {}),
-    ...(needsWeek ? { weekCost: 0, weekKey: week } : {}),
+    ...(needsMonthReset ? { monthCost: 0, monthKey: month } : {}),
+    ...(needsMonthInit ? { monthKey: month } : {}),
+    ...(needsWeekReset ? { weekCost: 0, weekKey: week } : {}),
+    ...(needsWeekInit ? { weekKey: week } : {}),
   };
 }
 
@@ -327,8 +333,7 @@ function buildConnectionMessage(providerId: string): ChatMessage | null {
 }
 
 const initialProjects = [
-  createProject("meter", "Meter"),
-  createProject("keypass", "Keypass"),
+  createProject("default", "My Workspace"),
 ];
 
 export const useMeterStore = create<MeterState>()(
@@ -350,7 +355,7 @@ export const useMeterStore = create<MeterState>()(
       spendingCap: 10,
 
       projects: initialProjects,
-      activeProjectId: "meter",
+      activeProjectId: "default",
 
       pendingCharges: [],
       autoSettleThreshold: 25,
@@ -532,7 +537,7 @@ export const useMeterStore = create<MeterState>()(
           cardBrand: null,
           stripeCustomerId: null,
           projects: initialProjects,
-          activeProjectId: "meter",
+          activeProjectId: "default",
           inspectorOpen: false,
           pendingCharges: [],
           isSettling: false,
@@ -600,7 +605,7 @@ export const useMeterStore = create<MeterState>()(
           const remaining = s.projects.filter((p) => p.id !== id);
           const nextActiveId =
             s.activeProjectId === id
-              ? remaining[0]?.id ?? "meter"
+              ? remaining[0]?.id ?? "default"
               : s.activeProjectId;
           return { projects: remaining, activeProjectId: nextActiveId };
         }),
@@ -1297,13 +1302,38 @@ export const useMeterStore = create<MeterState>()(
         activeProjectId: s.activeProjectId,
         spendLimits: s.spendLimits,
       }),
-      // No stream survives a page load — reset any stale isStreaming flags
       onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.projects = state.projects.map((p) =>
-            p.isStreaming ? { ...p, isStreaming: false } : p
-          );
-        }
+        if (!state) return;
+        const now = new Date();
+        const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const day = now.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        const mon = new Date(now);
+        mon.setDate(now.getDate() + diff);
+        mon.setHours(0, 0, 0, 0);
+        const curWeek = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`;
+        const weekStart = mon.getTime();
+
+        state.projects = state.projects.map((p) => {
+          let proj = p.isStreaming ? { ...p, isStreaming: false } : p;
+
+          // Migrate: seed monthCost/weekCost from messages for old-format projects
+          if (proj.monthKey == null) {
+            const cost = proj.messages
+              .filter((m) => m.role === "assistant" && m.cost != null && (m.timestamp ?? 0) >= monthStart)
+              .reduce((sum, m) => sum + (m.cost ?? 0), 0);
+            proj = { ...proj, monthCost: Math.max(cost, proj.todayCost ?? 0), monthKey: curMonth };
+          }
+          if (proj.weekKey == null) {
+            const cost = proj.messages
+              .filter((m) => m.role === "assistant" && m.cost != null && (m.timestamp ?? 0) >= weekStart)
+              .reduce((sum, m) => sum + (m.cost ?? 0), 0);
+            proj = { ...proj, weekCost: Math.max(cost, proj.todayCost ?? 0), weekKey: curWeek };
+          }
+
+          return proj;
+        });
       },
     }
   )
