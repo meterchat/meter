@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import crypto from "crypto";
 import { TOOL_DEFINITIONS, SYSTEM_PROMPT, executeTool } from "@/lib/tools";
 import { serverTrackApiV1Request } from "@/lib/analytics-server";
+import { resolveEndUser } from "@/lib/sdk-users";
 
 function getOpenRouterClient() {
   return new OpenAI({
@@ -62,13 +63,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { messages, model } = await req.json();
+  const body = await req.json();
+  const { messages, model, endUserId } = body;
   const resolvedModel = model || "anthropic/claude-opus-4.6";
   const openrouter = getOpenRouterClient();
   const encoder = new TextEncoder();
   const supabase = getSupabaseServer();
-  const userId = keyRecord.user_id;
+  const developerId = keyRecord.user_id;
   const keyId = keyRecord.id;
+
+  // If endUserId is provided, resolve to internal SDK user (for embedded SDK)
+  // Otherwise fall back to the developer's own user ID (direct API usage)
+  const userId = endUserId
+    ? await resolveEndUser(developerId, endUserId)
+    : developerId;
 
   const conversation: Message[] = [
     { role: "system", content: SYSTEM_PROMPT },

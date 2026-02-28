@@ -175,6 +175,19 @@ create table if not exists usage_records (
   created_at timestamptz default now()
 );
 
+-- SDK end-users (maps developer's external user IDs to internal Meter users)
+create table if not exists sdk_end_users (
+  id text primary key,
+  developer_id uuid not null references users(id) on delete cascade,
+  external_user_id text not null,
+  stripe_customer_id text,
+  card_last4 text,
+  card_brand text,
+  markup_multiplier numeric not null default 1,
+  created_at timestamptz default now(),
+  unique(developer_id, external_user_id)
+);
+
 -- =============================================
 -- SETTLEMENT HISTORY
 -- =============================================
@@ -208,6 +221,9 @@ create table if not exists settlement_history (
 -- Workspace id on settlement history
 -- alter table settlement_history add column if not exists workspace_id text;
 
+-- SDK: developer scoping on chat sessions
+-- alter table chat_sessions add column if not exists developer_id uuid;
+
 -- =============================================
 -- INDEXES
 -- =============================================
@@ -225,6 +241,8 @@ create index if not exists idx_workspace_projects_workspace on workspace_project
 create index if not exists idx_decisions_user on decisions(user_id);
 create index if not exists idx_settlement_history_user on settlement_history(user_id);
 create index if not exists idx_settlement_history_workspace on settlement_history(workspace_id);
+create index if not exists idx_sdk_end_users_developer on sdk_end_users(developer_id);
+create index if not exists idx_sdk_end_users_lookup on sdk_end_users(developer_id, external_user_id);
 
 -- =============================================
 -- AUTH SESSIONS (server-side session tokens)
