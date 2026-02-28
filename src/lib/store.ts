@@ -95,6 +95,10 @@ interface ProjectThread {
   todayMessageCount: number;
   todayByModel: Record<string, { cost: number; count: number }>;
   todayDate: string;
+  weekCost: number;
+  weekKey: string;    // "YYYY-MM-DD" of Monday
+  monthCost: number;
+  monthKey: string;   // "YYYY-MM"
   totalCost: number;
   currentMessageCost: number;
   connectedServices: Record<string, boolean>;
@@ -222,6 +226,22 @@ function todayStr() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function monthStr() {
+  return todayStr().slice(0, 7); // "YYYY-MM"
+}
+
+function mondayStr() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diff);
+  const yyyy = monday.getFullYear();
+  const mm = String(monday.getMonth() + 1).padStart(2, "0");
+  const dd = String(monday.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function createProject(id: string, name: string): ProjectThread {
   return {
     id,
@@ -236,6 +256,10 @@ function createProject(id: string, name: string): ProjectThread {
     todayMessageCount: 0,
     todayByModel: {},
     todayDate: todayStr(),
+    weekCost: 0,
+    weekKey: mondayStr(),
+    monthCost: 0,
+    monthKey: monthStr(),
     totalCost: 0,
     currentMessageCost: 0,
     connectedServices: {},
@@ -243,17 +267,26 @@ function createProject(id: string, name: string): ProjectThread {
   };
 }
 
+/** Reset daily/weekly/monthly counters when period boundaries are crossed. */
 function ensureDaily(project: ProjectThread): ProjectThread {
   const today = todayStr();
-  if (project.todayDate === today) return project;
+  const month = monthStr();
+  const week = mondayStr();
+
+  const needsDaily = project.todayDate !== today;
+  const needsMonth = (project.monthKey ?? "") !== month;
+  const needsWeek = (project.weekKey ?? "") !== week;
+
+  if (!needsDaily && !needsMonth && !needsWeek) return project;
+
   return {
     ...project,
-    todayCost: 0,
-    todayTokensIn: 0,
-    todayTokensOut: 0,
-    todayMessageCount: 0,
-    todayByModel: {},
-    todayDate: today,
+    ...(needsDaily ? {
+      todayCost: 0, todayTokensIn: 0, todayTokensOut: 0,
+      todayMessageCount: 0, todayByModel: {}, todayDate: today,
+    } : {}),
+    ...(needsMonth ? { monthCost: 0, monthKey: month } : {}),
+    ...(needsWeek ? { weekCost: 0, weekKey: week } : {}),
   };
 }
 
@@ -616,6 +649,8 @@ export const useMeterStore = create<MeterState>()(
             messages: msgs,
             todayTokensOut: active.todayTokensOut + deltaOut,
             todayCost: active.todayCost + costDelta,
+            weekCost: (active.weekCost ?? 0) + costDelta,
+            monthCost: (active.monthCost ?? 0) + costDelta,
             totalCost: active.totalCost + costDelta,
             currentMessageCost: active.currentMessageCost + costDelta,
           };
@@ -714,6 +749,8 @@ export const useMeterStore = create<MeterState>()(
             todayMessageCount: active.todayMessageCount + 1,
             todayByModel: byModel,
             todayCost: active.todayCost + costAdjustment,
+            weekCost: (active.weekCost ?? 0) + costAdjustment,
+            monthCost: (active.monthCost ?? 0) + costAdjustment,
             totalCost: active.totalCost + costAdjustment,
             currentMessageCost: totalMsgCost,
           };
@@ -1012,6 +1049,8 @@ export const useMeterStore = create<MeterState>()(
               projects: replaceActiveProject(prev, {
                 ...proj,
                 todayCost: proj.todayCost + purchaseCost,
+                weekCost: (proj.weekCost ?? 0) + purchaseCost,
+                monthCost: (proj.monthCost ?? 0) + purchaseCost,
                 totalCost: proj.totalCost + purchaseCost,
               }),
             };
@@ -1215,6 +1254,8 @@ export const useMeterStore = create<MeterState>()(
               ...active,
               currentMessageCost: active.currentMessageCost + scaled,
               todayCost: active.todayCost + scaled,
+              weekCost: (active.weekCost ?? 0) + scaled,
+              monthCost: (active.monthCost ?? 0) + scaled,
               totalCost: active.totalCost + scaled,
             }),
           };
