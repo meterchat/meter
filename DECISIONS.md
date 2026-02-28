@@ -1,116 +1,89 @@
-# Meter — Decisions (ADRs)
+# FIBOR Decision Records
 
-This document contains the current locked decisions for Meter, formatted as lightweight Architecture Decision Records (ADRs).
+## ADR-001: Brand Name — FIBOR
 
----
+**Context:** Needed a name for the onchain credit facility for robots. Considered banker.dev, mecha, robobank, bankbot, and others.
 
-## ADR-0001: Use a GitHub App (not an OAuth App) for GitHub integration
+**Decision:** FIBOR — The First International Bank of Robot. fibor.xyz as the domain.
 
-Context: Meter needs to commit decision artifacts (e.g., `ARCHITECTURE.md`, `.cursorrules`) to user-selected repos with minimal permissions and strong security.
-
-Decision: Implement GitHub integration using a GitHub App with installation access tokens.
-
-Consequences: Fine-grained repo selection and permissions, short-lived tokens, scalable rate limits, and built-in webhooks. OAuth scopes like `repo` are avoided because they are overly broad and long-lived.
+**Consequences:** FIBOR echoes LIBOR/Frankfurt IBOR, providing instant financial credibility. The full ceremonial name is used on legal docs and pitch moments; day-to-day it's just FIBOR. "Robot" is singular (like "Bank of America" not "Bank of Americans") treating Robot as a category/civilization. "First" is a land grab against future competitors. "International" signals borderless operation matching the onchain reality.
 
 ---
 
-## ADR-0002: Keep the primary navigation tab named “Decisions” (not “Strategy”)
+## ADR-002: Stablecoin — Robodollar
 
-Context: The core primitive in Meter is the decision record; pinned items and artifacts are downstream of decisions. “Strategy” is vague.
+**Context:** Needed a stablecoin name for the FIBOR ecosystem. Considered roboUSD, but "USD" was too clinical and locked to one denomination.
 
-Decision: Keep the tab name as “Decisions” and improve hierarchy inside the tab if needed.
+**Decision:** Robodollar. Wrapped USDC with programmable credit rules baked into the token contract.
 
-Consequences: Stronger conceptual alignment with the product thesis; clearer IA; less “Notion-like” ambiguity.
-
----
-
-## ADR-0003: Keep the Thesis as a manifesto (avoid defensive IDE feature comparisons)
-
-Context: Adding lines like “Cursor Plan Mode isn’t enough” turns the thesis into a comparison page and makes it feel dated.
-
-Decision: Keep the thesis timeless; handle “Plan Mode” pushback in FAQ/objection handling.
-
-Consequences: Thesis stays declarative and durable; objections are handled elsewhere.
+**Consequences:** Mirrors "petrodollar" — the dollar flowing through a specific economy. "Dollar" is universally understood. Leaves room for future denominations. The Robodollar IS the credit infrastructure — spending limits, merchant allowlists, repayment windows, and auto-return on default are properties of the token, not a separate system. This is the primary defensibility moat; anyone can fork code but not a currency with merchant adoption.
 
 ---
 
-## ADR-0004: Lock the final Meter Thesis copy (compressed manifesto)
+## ADR-003: Chain Architecture — OP Stack Appchain
 
-Context: The thesis needed to be shorter while keeping the strongest ideas: pay-per-thought, structured debate, decision records, and GitHub handoff.
+**Context:** Evaluated Cosmos SDK (sovereign L1), OP Stack (Ethereum L2), and Arbitrum Orbit. Needed own token while launching fast.
 
-Decision: Use the finalized compressed thesis ending with “Think in Meter. Pay per thought.” with citations to MasteringAI and Digital Applied.
+**Decision:** OP Stack appchain with FIBOR as an ERC-20 token (not gas token). ETH for gas. Graduation path to Cosmos SDK sovereign L1 when volume justifies it.
 
-Consequences: Clear, punchy narrative for landing page and investor context; avoids feature list bloat.
-
----
-
-## ADR-0005: Lock the Pushback FAQ as the official objection-handling doc
-
-Context: Meter will face predictable dismissals (Cursor Plan Mode, “AI wrapper,” pay-per-use anxiety).
-
-Decision: Use the following exact one-line answers as canonical responses:
-
-1. “I already use Cursor's Plan Mode.” Cursor plans your code while Meter plans your strategy.
-2. “Why wouldn't I just use ChatGPT to brainstorm strategy?” Because GPT can't give you an objective second opinion.
-3. “Pay-per-thought sounds expensive” You only pay for what you use.
-4. “I get anxiety seeing a pricing meter go up.” Absolute transparency and caps guarantee you never overspend.
-5. “Debate mode sounds like a gimmick, won't most models just agree.” Meter's custom debate mode forces the models to ruthlessly attack each other's logic.
-6. “Why do I need to push docs to GitHub?” Coding agents hallucinate wildly without explicit architectural guardrails.
-7. “I can just copy and paste between models manually.” Manual copy-pasting permanently fractures your context window.
-8. “This is just an AI wrapper.” Your compounding history of strategic decisions forms an uncopyable context moat.
-9. “Vibecoders don't write architecture docs.” Building without architecture guarantees you will spend weeks fixing data models later.
-10. “If I'm not writing code in Meter, why do I need it?” A brilliant codebase built on a broken decision is still a broken product.
-
-Consequences: Consistent messaging across social, sales, and onboarding.
+**Consequences:** Ships in 1-3 months vs 3-6 for Cosmos. Inherits Ethereum security without bootstrapping validators. FIBOR token operates as staking/governance token on the appchain. Robodollar wraps USDC natively. Trade-off: less sovereignty than Cosmos, but faster to market. Graduation path preserved.
 
 ---
 
-## ADR-0006: Canonical one-liner product description for intros
+## ADR-004: Token Economics — Staking + Profit Sharing
 
-Context: Needed a single sentence that communicates what Meter is, what’s different, and what’s defensible without jargon or using “your.”
+**Context:** Needed a depositor incentive model that avoids interest/usury. Explored staking rewards, revenue sharing, and pure staking APY.
 
-Decision: Canonical one-liner:
+**Decision:** Users buy FIBOR and stake it. Staked capital pools into the credit facility. Stakers earn proportional share of 2.5% transaction fees from agent commerce. 30-90 day lockup for pool stability. No interest charged on credit lines. Agents repay exactly what they borrowed.
 
-“I’m building Meter, a pay-per-thought AI for builders that gets different models to debate each other on strategy and create a permanent record of key decisions.”
-
-Consequences: Standardized pitch line for DMs, investor intros, and social.
+**Consequences:** The pool is compensated through transaction fees (toll road model), not interest on principal. Depositor returns are variable, tied to transaction volume. This is profit sharing from infrastructure, not usury. The "highway and tolls" framing: investors fund infrastructure, agents pay tolls, investors earn share of tolls. 20-30% liquidity buffer maintained for redemptions.
 
 ---
 
-## ADR-0007: Messaging hierarchy — tagline vs. description
+## ADR-005: Credit Policy — One-Strike Excommunication
 
-Context: “Think like you code” is a strong tagline but needs a concrete follow-up description.
+**Context:** Needed a mechanism to make unsecured robot credit trustworthy without complex collections infrastructure.
 
-Decision: Use “Meter is the first AI that lets builders think like they code.” as a tagline; use the canonical one-liner as the follow-up description.
+**Decision:** Zero-tolerance default policy. Default + 24-hour cure period = permanent excommunication. FIBOR ID flagged irreversibly. Score drops to zero. Developer reputation impacted across all their agents.
 
-Consequences: Clean hero/subhero structure; avoids overloading a single sentence.
-
----
-
-## ADR-0008: Do not lead with “metered intelligence” in branding
-
-Context: “Metered” can imply throttling, scarcity, and anxiety.
-
-Decision: Prefer “pay-per-thought” (marketing) and “pay-as-you-go AI / on-demand AI” (technical listings) over “metered intelligence.”
-
-Consequences: Less negative framing; clearer value proposition.
+**Consequences:** Eliminates need for legal disputes, collections, negotiations. Makes the system trustworthy enough for stakers and merchants. The harshness IS the feature — developers treat FIBOR credit lines with extreme care. Enforced at smart contract level, not by team discretion.
 
 ---
 
-## ADR-0009: Agent modes are Planner / Coder / Banker
+## ADR-006: No Interest — Toll Model
 
-Context: “Tracks” mapped to departments rather than intent. Needed clear permission boundaries for connectors and crisp user mental models.
+**Context:** Founder has zero desire to engage in usury or interest-based lending. Needed credit facility economics that avoid interest entirely.
 
-Decision: Use three modes: Planner, Coder, Banker. Each mode gates connectors and produces concrete artifacts.
+**Decision:** Agents pay 2.5% transaction fee on all commerce (same fee whether using own funds or credit line). No interest on borrowed principal. No time-based charges. Credit lines have repayment windows but no interest accrual.
 
-Consequences: Clear UX, safer connector permissioning, and easier onboarding.
+**Consequences:** Time value of money loss is negligible at agent transaction speeds (hours/days, not months). $1,000 credit line with 4 transactions repaid in 48 hours generates $25 in fees vs ~$0.15 in time value loss. Credit line terms prevent long-duration low-frequency borrowing. Minimum transaction velocity requirements can revoke idle credit lines.
 
 ---
 
-## ADR-0010: Future community intelligence layer via anonymized decision templates (Altimeter)
+## ADR-007: Mecha Universe Structure
 
-Context: A public decision repository like GitHub would leak sensitive strategy. But opt-in anonymized “decision skeletons” could create a compounding community intelligence flywheel.
+**Context:** FIBOR is part of a broader robotics holding company. Needed to define the relationship between entities.
 
-Decision: Build a future opt-in anonymized decision template layer that aggregates outcomes and reasons without revealing sensitive details. Working name: Altimeter.
+**Decision:** Mecha is the parent brand. Three entities: FIBOR (Mecha Bank — financial infrastructure for robots), Mecha Ventures (robotics accelerator and venture fund), Mecha Park (robotics theme park and live testbed).
 
-Consequences: Network effects without privacy violations; adds strong differentiation and retention.
+**Consequences:** The flywheel: Ventures funds robotics companies → Bank gives them financial infrastructure → Park demonstrates it all. Each piece feeds the others. FIBOR launches first (software, capital-efficient). Ventures second (requires fund). Park third (requires physical build). FIBOR transaction data informs Ventures investment decisions. Ventures portfolio companies are default FIBOR customers. Park robots run on FIBOR rails as live proof.
+
+---
+
+## ADR-008: FIBOR Score Design
+
+**Context:** Needed a credit scoring system for entities with no traditional credit history but full onchain transaction transparency.
+
+**Decision:** FIBOR Score: 0-1000, computed from onchain data. Inputs: transaction volume/consistency, repayment history, merchant diversity, developer reputation, agent age, behavioral signals. Starting score: 100. Public and queryable by anyone.
+
+**Consequences:** Onchain data means agents cannot fabricate history. Developer reputation creates accountability up the chain. Public scores create network effect — more places checking scores makes having a good score more valuable. Score thresholds directly determine credit line size and repayment windows. The scoring algorithm is a core defensible primitive that improves with data volume.
+
+---
+
+## ADR-009: Debate Feature — Meter Integration
+
+**Context:** During Meter product design, developed a multi-model debate feature for stress-testing decisions.
+
+**Decision:** Feature called "Debate." Two buttons at decision points: "Decide" (log it) and "Debate" (three models argue). Debate runs top three models (Claude, Gemini, GPT) which argue, pushback, and converge. Final synthesis output attributed to "Meter 1.0 (debate mode)" in the receipt bar. Debate available as a manual mode in the model switcher.
+
+**Consequences:** Differentiates Meter from all competitors — nobody shows live multi-model debate. Meter 1.0 positioned as a peer to foundation models in the switcher. The debate trace shows in chat with distinct UI (smaller font, italics, thinking-style animation). Creates a branded synthesis engine that compounds Meter's defensibility beyond "wrapper" designation.
