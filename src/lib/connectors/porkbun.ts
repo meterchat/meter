@@ -91,18 +91,20 @@ export async function checkDomain(domain: string): Promise<DomainCheckResult> {
     porkbunPost(`/domain/checkDomain/${clean}`)
   );
 
-  const additional = (data.additional ?? {}) as Record<string, string>;
+  // Porkbun nests the check result inside a "response" key
+  const resp = ((data as Record<string, unknown>).response ?? data) as Record<string, unknown>;
+  const additional = (resp.additional ?? {}) as Record<string, Record<string, string>>;
 
   return {
     domain: clean,
     tld,
-    available: data.avail === true || data.avail === "yes",
-    price: String(data.price ?? "0"),
-    regularPrice: String(data.regularPrice ?? data.price ?? "0"),
-    premium: data.premium === true || data.premium === "yes",
-    renewalPrice: additional.renewalPrice ?? null,
-    transferPrice: additional.transferPrice ?? null,
-    minDuration: Number(data.minDuration ?? 1),
+    available: resp.avail === true || resp.avail === "yes",
+    price: String(resp.price ?? "0"),
+    regularPrice: String(resp.regularPrice ?? resp.price ?? "0"),
+    premium: resp.premium === true || resp.premium === "yes",
+    renewalPrice: additional.renewal?.price ?? null,
+    transferPrice: additional.transfer?.price ?? null,
+    minDuration: Number(resp.minDuration ?? 1),
   };
 }
 
