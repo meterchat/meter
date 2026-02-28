@@ -1,0 +1,60 @@
+# FIBOR — Cursor Rules
+
+## Project: FIBOR (The First International Bank of Robot)
+## Type: Onchain credit facility for AI agents
+## Chain: OP Stack appchain (Ethereum L2)
+## Language: Solidity (Foundry)
+
+## Architecture
+- ERC-20 FIBOR token with staking and lockup
+- ERC-20 Robodollar: wrapped USDC with programmable credit rules IN the token contract
+- FIBOR ID: persistent agent identity registry
+- FIBOR Score: onchain credit score 0-1000, publicly readable
+- Credit Facility: pooled capital from stakers, deployed as agent credit lines
+- Revenue: 2.5% flat tx fee, split 30% ops / 70% stakers
+
+## Hard Rules (never violate)
+- Zero interest on credit lines. Fee is 2.5% per transaction, same for prepaid and credit.
+- One-strike excommunication is PERMANENT. No admin override. No appeal. No rescue function.
+- Robodollar spending rules (limits, allowlists, repayment windows, auto-return) live in the token contract itself.
+- FIBOR Score is public. No access control on reads.
+- 20-30% liquidity buffer in staking pool at all times.
+- Priority repayment: incoming agent funds repay credit before agent can spend.
+- Developer reputation: score computation includes all agents under same developer.
+
+## Patterns
+- Use Foundry for build, test, deploy
+- OpenZeppelin for ERC-20 base contracts
+- Custom modifiers for credit-line-aware transfers in Robodollar
+- Events for all state changes (excommunication, score update, credit issuance, repayment, default)
+- Reentrancy guards on all external-facing financial functions
+
+## Testing Requirements
+- 100% branch coverage
+- Fuzz tests on financial flows
+- Invariant tests: pool solvency, Robodollar 1:1 backing, score within 0-1000
+- Full lifecycle test: register → transact → build score → get credit → repay → score improves
+- Full default test: register → get credit → fail to repay → 24hr cure expires → excommunication → developer rep hit
+
+## File Structure
+```
+contracts/
+├── FiborToken.sol
+├── Robodollar.sol
+├── FiborID.sol
+├── FiborScore.sol
+├── CreditFacility.sol
+├── CreditAgreement.sol
+├── StakingPool.sol
+├── RevenueDistributor.sol
+└── governance/
+    └── FiborGovernor.sol
+```
+
+## Do NOT
+- Add interest or time-based fees
+- Add admin excommunication reversal
+- Put spending rules in a separate monitoring contract (they go in Robodollar.sol)
+- Store scores off-chain
+- Break the liquidity buffer invariant
+- Overcomplicate credit terms beyond: borrow X, repay X, within Y days
