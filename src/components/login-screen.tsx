@@ -66,6 +66,18 @@ export function LoginScreen() {
     setStatus("Checking for passkey...");
 
     try {
+      // Pre-check: does this device have a platform authenticator at all?
+      // If not, skip WebAuthn entirely — no dialog, no QR code.
+      if (
+        typeof PublicKeyCredential === "undefined" ||
+        !(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())
+      ) {
+        setStep("no-account");
+        setLoading(false);
+        setStatus(null);
+        return;
+      }
+
       // 1. Get auth options from server (no email, no allowCredentials)
       const optRes = await fetch("/api/auth/passkey", {
         method: "POST",
@@ -75,14 +87,18 @@ export function LoginScreen() {
       const optData = await optRes.json();
       if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
 
-      // 2. Call navigator.credentials.get() DIRECTLY with platform-only hint
-      //    This prevents the browser from showing a QR code modal
+      // 2. Platform-only credential request.
+      //    hints: ["client-device"] prevents QR code / cross-device modal.
+      //    Empty allowCredentials → browser uses discoverable credentials:
+      //      - 1 passkey  → straight to Face ID / Touch ID
+      //      - N passkeys → account picker then biometric
+      //      - 0 passkeys → throws NotAllowedError (caught below)
       setStatus("Authenticating...");
       const credential = await navigator.credentials.get({
         publicKey: {
           challenge: base64URLStringToBuffer(optData.options.challenge),
           rpId: optData.options.rpId,
-          timeout: optData.options.timeout ?? 60000,
+          timeout: 15000,
           userVerification: optData.options.userVerification ?? "preferred",
           allowCredentials: [],
         },
@@ -117,6 +133,7 @@ export function LoginScreen() {
       const msg = err instanceof Error ? err.message : "Something went wrong";
 
       // NotAllowedError / AbortError = no passkey on this device, or user cancelled
+      // Go straight to fallback — no error shown, no QR code
       if (
         msg.includes("NotAllowedError") ||
         msg.includes("not allowed") ||
