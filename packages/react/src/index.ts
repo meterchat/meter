@@ -2,7 +2,7 @@
 export { MeterProvider } from "./provider";
 export { MeterChat } from "./meter-chat";
 export { CostCounter } from "./cost-counter";
-export { ModelPicker } from "./model-picker";
+export { ModelSelectorBar, ModelPicker } from "./model-picker";
 
 // Hooks
 export { useMeterChat } from "./use-meter-chat";
