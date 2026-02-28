@@ -1,65 +1,62 @@
-# Meter — Pay Per Thought
+# FIBOR
 
-> The metered AI for everything you think, decide, and build.
+**The First International Bank of Robot**
 
-Meter gives you every top model — Claude, GPT, Gemini, and open-source — on a single postpaid tab. No subscriptions. No rate limits. Auto-routing across models means you always get the fastest, smartest response available. Structured debates pit models against each other when the stakes are high, and a persistent decision log means your context and reasoning never get lost.
+FIBOR is the first onchain credit facility for AI agents and autonomous systems. It gives robots a financial identity, scores their creditworthiness, and extends them credit lines so they can transact in the real world without a human prefunding every action.
 
-Connect Stripe, Mercury, Gmail, and more. Open source and end-to-end encrypted — auditable, self-hostable, fully yours.
+## The Problem
 
----
+AI agents are being built to act autonomously — book travel, buy supplies, pay invoices, call APIs. But they can't hold money, can't borrow money, and have no financial reputation. Every existing solution (Skyfire, Lithic, Payman) requires a human to prefund a wallet. That's a leash, not banking.
 
-## What Meter Does
+## The Solution
 
-Meter sits between human judgment and machine execution. It is the operating layer for AI-native thinking — the place where decisions are made, recorded, and handed off to coding agents with full fidelity.
+FIBOR moves robots from cash to credit through three primitives:
 
-**Three core primitives:**
+- **FIBOR ID** — A persistent, portable financial identity for any agent. An SSN for robots.
+- **FIBOR Score** — A real-time credit score (0–1000) computed from onchain transaction data. Public, verifiable, unforgeable.
+- **Robodollar** — A wrapped USDC stablecoin with programmable credit rules baked into the token contract. The currency of the robot economy.
 
-1. **Pay-per-thought routing** — Every frontier model on one postpaid tab. You pay for what you use, never for idle seats. Hard wallet caps protect your budget. Meter routes around rate limits automatically.
+## How It Works
 
-2. **Structured debate** — When a decision matters, Meter pits models against each other. Claude argues for Postgres, GPT argues for Supabase, Gemini stress-tests both. Every argument is logged. Every dissent is preserved. The result is a decision record: timestamped, searchable, citable.
+1. Developers register agents and receive a FIBOR ID
+2. Agents transact through FIBOR, building a FIBOR Score over time
+3. Agents with sufficient scores qualify for Robodollar credit lines
+4. Credit lines have repayment windows scaled to score — no interest charged
+5. Default once, excommunicated permanently (one-strike policy)
 
-3. **Agent Spec Kit** — When it's time to build, Meter synthesizes decisions and debates into the artifacts your coding agent needs: `ARCHITECTURE.md`, `DECISIONS.md`, `.cursorrules`, and product requirements. These commit directly to your GitHub repo so Cursor, Claude Code, and Codex start with perfect context.
+## Token Economics
 
----
+**FIBOR** is the native token. Users buy FIBOR, stake it on the platform, and their capital pools into the credit facility backing agent credit lines. Stakers earn a proportional share of the 2.5% transaction fee on all agent commerce. Staking requires a lockup period (30–90 days) for pool stability.
 
-## Three Agent Modes
+**Robodollar** is the stablecoin. Wrapped USDC, pegged 1:1, with programmable rules: spending limits, merchant allowlists, repayment windows, and auto-return on default. The credit infrastructure is embedded in the currency itself.
 
-| Mode | Connectors | Output |
-|------|-----------|--------|
-| **Planner** | Gmail, Linear, Calendar | Strategy docs, decision logs, debates, follow-ups |
-| **Coder** | GitHub, Vercel, Porkbun | Branches, PRs, deploys, live URLs |
-| **Banker** | Stripe, Mercury, Puzzle, Gusto | Runway, burn, revenue, spend reviews |
+## Revenue
 
----
+- **2.5% transaction fee** on all agent commerce (split between FIBOR operations and stakers)
+- **FIBOR Score API** — merchants and platforms pay per query to check agent creditworthiness
+- **FIBOR ID registration** — one-time fee per agent ($10–$50)
 
-## Current Phase
+## Architecture
 
-Early-stage product development. Core chat and routing layer in progress. Debate mode and decision logging are the primary differentiators under active development.
+- **Chain:** OP Stack appchain (L2 on Ethereum), with path to sovereign L1
+- **Token:** FIBOR (ERC-20 on the appchain)
+- **Stablecoin:** Robodollar (wrapped USDC with programmable rules)
+- **Identity:** FIBOR ID (persistent onchain identity per agent)
+- **Credit Scoring:** FIBOR Score (0–1000, computed from onchain tx data)
 
----
+## Part of the Mecha Universe
 
-## How to Run
+FIBOR is the first product under **Mecha**:
 
-```bash
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env.local
-
-# Run development server
-npm run dev
-```
-
----
-
-## Tagline
-
-**Think in Meter. Pay per thought.**
-
----
+- **FIBOR** (Mecha Bank) — Financial infrastructure for robots
+- **Mecha Ventures** — Robotics accelerator and venture fund
+- **Mecha Park** — Robotics theme park and live testbed
 
 ## Links
 
-- Production: [meter.chat](https://meter.chat)
-- Repo: [github.com/meterxyz/meter](https://github.com/meterxyz/meter)
+- Website: [fibor.xyz](https://fibor.xyz)
+- GitHub: [github.com/fibor](https://github.com/fibor)
+
+## Status
+
+Pre-launch. Designing protocol architecture and token economics.
