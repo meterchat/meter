@@ -527,13 +527,29 @@ export function ChatView() {
     return source?.name ?? null;
   }, [workspaceCardReady, cardOnFile, projects, activeProjectId]);
 
-  // Onboarding state: first-time users go workspace name → card → chat
-  const [onboardingWorkspaceName, setOnboardingWorkspaceName] = useState("");
-  const [onboardingStep, setOnboardingStep] = useState<"workspace" | "card">("workspace");
+  // Onboarding state: first-time users go name → card → explainer
+  const [onboardingWorkspaceName, setOnboardingWorkspaceName] = useState(
+    activeProject?.name ?? "My Workspace"
+  );
+  const [onboardingStep, setOnboardingStep] = useState<"name" | "card">("name");
+  const [showExplainer, setShowExplainer] = useState(false);
   const createCompany = useWorkspaceStore((s) => s.createCompany);
+  const renameProject = useMeterStore((s) => s.renameProject);
   const addProject = useMeterStore((s) => s.addProject);
   const setActiveProjectChat = useMeterStore((s) => s.setActiveProject);
 
+  // First-workspace onboarding: rename existing default workspace
+  const handleOnboardingRenameWorkspace = () => {
+    const name = onboardingWorkspaceName.trim() || "My Workspace";
+    renameProject(activeProjectId, name);
+    // Create company in workspace store to link with this project
+    createCompany(name, activeProjectId);
+    trackWorkspaceCreated({ name, source: "chat_onboarding" });
+    trackOnboardingStepViewed({ step: "card" });
+    setOnboardingStep("card");
+  };
+
+  // Legacy: create new workspace (for non-first workspaces added later)
   const handleOnboardingCreateWorkspace = () => {
     const name = onboardingWorkspaceName.trim();
     if (!name) return;
@@ -542,8 +558,6 @@ export function ChatView() {
     addProject(name, sessionId);
     setActiveProjectChat(sessionId);
     trackWorkspaceCreated({ name, source: "chat_onboarding" });
-    trackOnboardingStepViewed({ step: "card" });
-    setOnboardingStep("card");
   };
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1364,32 +1378,29 @@ export function ChatView() {
             <ChatSkeleton />
           ) : (
           <div className="mx-auto max-w-2xl px-4 py-6 max-md:px-3">
-            {/* First-time onboarding — workspace name then card */}
-            {messages.length === 0 && !workspaceCardReady && !cardOnFile && onboardingStep === "workspace" && (
+            {/* ── First-workspace onboarding: name → card → explainer ── */}
+            {messages.length === 0 && !workspaceCardReady && !cardOnFile && onboardingStep === "name" && (
               <div className="mb-4">
                 <div className="flex gap-3 justify-start">
                   <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
                     <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
-                      <p>Hi, I&apos;m <strong>Meter</strong> — your AI assistant with access to every frontier model.</p>
-                      <p>I can help you write code, analyze data, search the web, manage your databases, and more. Every response shows the exact cost in real time.</p>
-                      <p>Name your first workspace to get started.</p>
+                      <p>Welcome to <strong>Meter</strong>. Name your workspace to get started.</p>
                     </div>
                     <div className="mt-3 max-w-sm">
                       <input
                         type="text"
                         value={onboardingWorkspaceName}
                         onChange={(e) => setOnboardingWorkspaceName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleOnboardingCreateWorkspace(); }}
-                        placeholder="e.g. My Project, Research, Startup..."
+                        onKeyDown={(e) => { if (e.key === "Enter") handleOnboardingRenameWorkspace(); }}
+                        placeholder="e.g. Acme, Personal, Side Project..."
                         className="w-full rounded-lg border border-border bg-card/50 px-3 py-2.5 font-mono text-[13px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20"
                         autoFocus
                       />
                       <button
-                        onClick={handleOnboardingCreateWorkspace}
-                        disabled={!onboardingWorkspaceName.trim()}
-                        className="mt-2 w-full rounded-lg bg-foreground py-2.5 font-mono text-xs text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
+                        onClick={handleOnboardingRenameWorkspace}
+                        className="mt-2 w-full rounded-lg bg-foreground py-2.5 font-mono text-xs text-background transition-colors hover:bg-foreground/90"
                       >
-                        Create Workspace
+                        Continue
                       </button>
                     </div>
                   </div>
@@ -1397,28 +1408,26 @@ export function ChatView() {
               </div>
             )}
 
-            {/* First-time onboarding — card step (after workspace created) */}
             {messages.length === 0 && !workspaceCardReady && !cardOnFile && onboardingStep === "card" && (
               <div className="mb-4">
                 <div className="flex gap-3 justify-start">
                   <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
                     <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
-                      <p>Great — <strong>{activeProject?.name ?? "your workspace"}</strong> is ready.</p>
-                      <p>Add a payment method to start chatting. You won&apos;t be charged now — usage settles automatically once per day at midnight.</p>
+                      <p>Add a payment card to start chatting. You won&apos;t be charged now — usage settles daily at midnight.</p>
                     </div>
-                    <InlineCardForm />
+                    <InlineCardForm onComplete={() => setShowExplainer(true)} />
                   </div>
                 </div>
               </div>
             )}
 
-            {/* New workspace — has card globally but not assigned here yet */}
+            {/* ── New workspace — has card globally but not assigned here ── */}
             {messages.length === 0 && !workspaceCardReady && cardOnFile && (
               <div className="mb-4">
                 <div className="flex gap-3 justify-start">
                   <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
                     <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
-                      <p>Welcome to <strong>{activeProject?.name ?? "this workspace"}</strong>. Add a payment method to get started, or use your existing card.</p>
+                      <p>Welcome to <strong>{activeProject?.name ?? "this workspace"}</strong>. Use your existing card or add a new one.</p>
                     </div>
                     <button
                       onClick={() => { trackCardAssignedToWorkspace({ projectId: activeProjectId }); setCardAssigned(activeProjectId); }}
@@ -1437,8 +1446,22 @@ export function ChatView() {
               </div>
             )}
 
-            {/* Workspace ready — can chat */}
-            {messages.length === 0 && workspaceCardReady && (
+            {/* ── Workspace ready — explainer or standard prompt ── */}
+            {messages.length === 0 && workspaceCardReady && showExplainer && (
+              <div className="mb-4">
+                <div className="flex gap-3 justify-start">
+                  <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
+                      <p>You&apos;re all set. Here&apos;s how Meter works:</p>
+                      <p><strong>Pay per thought.</strong> Every response costs a few cents. The exact price shows in real time — no subscriptions, no surprises.</p>
+                      <p><strong>Pick your model.</strong> Choose from Claude, GPT, Gemini, Grok, DeepSeek and more. Each has its own per-token price.</p>
+                      <p><strong>Billed daily.</strong> Usage settles automatically at midnight. You only pay for what you use.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {messages.length === 0 && workspaceCardReady && !showExplainer && (
               <div className="flex flex-col items-center justify-center gap-3 py-24">
                 <p className="text-sm text-muted-foreground">What are you building in {activeProject?.name ?? "this workspace"}?</p>
                 <p className="font-mono text-[10px] text-muted-foreground/40">Every model available. The meter runs in dollars.</p>

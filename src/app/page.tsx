@@ -11,7 +11,6 @@ function HomeInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const authenticated = useMeterStore((s) => s.authenticated);
-  const cardOnFile = useMeterStore((s) => s.cardOnFile);
   const connectService = useMeterStore((s) => s.connectService);
   const fetchConnectionStatus = useMeterStore((s) => s.fetchConnectionStatus);
   // Handle OAuth callback redirect (still needed for Connections page)
@@ -33,13 +32,9 @@ function HomeInner() {
     }
   }, [authenticated, fetchConnectionStatus]);
 
-  // Onboarding gate: need auth + at least one workspace + card on file.
-  // For returning users (auth + card), skip straight to ChatView even if
-  // companies haven't loaded yet — useSessionSync inside ChatView will
-  // populate them from the server.  Requiring companies.length > 0 here
-  // caused a race condition where the "create workspace" screen flashed
-  // on every login.
-  const onboardingComplete = authenticated && cardOnFile;
+  // After passkey auth, go straight to ChatView — onboarding (workspace
+  // name, card, explainer) is handled in-chat on the default workspace.
+  const onboardingComplete = authenticated;
 
   if (!onboardingComplete) {
     return <LoginScreen />;

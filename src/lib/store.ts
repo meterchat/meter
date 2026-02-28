@@ -165,6 +165,7 @@ interface MeterState {
   logout: () => Promise<void>;
 
   addProject: (name: string, id?: string) => void;
+  renameProject: (projectId: string, newName: string) => void;
   removeProject: (id: string) => void;
   setActiveProject: (id: string) => void;
   setCardAssigned: (projectId: string) => void;
@@ -585,6 +586,13 @@ export const useMeterStore = create<MeterState>()(
           if (s.projects.some((p) => p.id === id)) return s;
           return { projects: [...s.projects, createProject(id, cleanName)] };
         }),
+
+      renameProject: (projectId, newName) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId ? { ...p, name: newName } : p
+          ),
+        })),
 
       togglePinMessage: (messageId) =>
         set((s) => ({

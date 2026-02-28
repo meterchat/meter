@@ -15,7 +15,7 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
 
-function CardFormInner({ clientSecret }: { clientSecret: string }) {
+function CardFormInner({ clientSecret, onComplete }: { clientSecret: string; onComplete?: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const setCardOnFile = useMeterStore((s) => s.setCardOnFile);
@@ -47,6 +47,7 @@ function CardFormInner({ clientSecret }: { clientSecret: string }) {
         if (!res.ok) throw new Error(data.error || "Failed to confirm");
         trackCardAdded({ brand: data.cardBrand, last4: data.cardLast4, source: "inline_form" });
         setCardOnFile(true, data.cardLast4, data.cardBrand);
+        onComplete?.();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -91,7 +92,7 @@ function CardFormInner({ clientSecret }: { clientSecret: string }) {
   );
 }
 
-export function InlineCardForm() {
+export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {}) {
   const userId = useMeterStore((s) => s.userId);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +149,7 @@ export function InlineCardForm() {
         },
       }}
     >
-      <CardFormInner clientSecret={clientSecret} />
+      <CardFormInner clientSecret={clientSecret} onComplete={onComplete} />
     </Elements>
   );
 }
