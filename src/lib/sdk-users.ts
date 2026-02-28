@@ -3,7 +3,7 @@ import crypto from "crypto";
 
 /**
  * Resolve an SDK end-user to an internal Meter user ID.
- * Creates the record on first use (upsert pattern).
+ * Creates the record on first use via upsert (single round-trip).
  *
  * @param developerId - UUID of the developer (from api_keys.user_id)
  * @param externalUserId - The developer's user ID (opaque string)
@@ -14,38 +14,31 @@ export async function resolveEndUser(
   externalUserId: string
 ): Promise<string> {
   const supabase = getSupabaseServer();
+  const id = `seu_${crypto.randomBytes(12).toString("hex")}`;
 
-  // Try to find existing mapping
-  const { data: existing } = await supabase
+  const { data, error } = await supabase
     .from("sdk_end_users")
+    .upsert(
+      { id, developer_id: developerId, external_user_id: externalUserId },
+      { onConflict: "developer_id,external_user_id", ignoreDuplicates: true }
+    )
     .select("id")
-    .eq("developer_id", developerId)
-    .eq("external_user_id", externalUserId)
     .single();
 
-  if (existing) return existing.id;
+  if (data) return data.id;
 
-  // Create new mapping
-  const id = `seu_${crypto.randomBytes(12).toString("hex")}`;
-  const { error } = await supabase.from("sdk_end_users").insert({
-    id,
-    developer_id: developerId,
-    external_user_id: externalUserId,
-  });
-
-  // Handle race condition: another request created the record first
-  if (error?.code === "23505") {
-    const { data: raced } = await supabase
+  // If upsert returned no rows (ignoreDuplicates), fetch existing
+  if (!data) {
+    const { data: existing } = await supabase
       .from("sdk_end_users")
       .select("id")
       .eq("developer_id", developerId)
       .eq("external_user_id", externalUserId)
       .single();
-    if (raced) return raced.id;
+    if (existing) return existing.id;
   }
 
-  if (error) throw new Error(`Failed to create SDK end-user: ${error.message}`);
-  return id;
+  throw new Error(`Failed to resolve SDK end-user: ${error?.message ?? "unknown"}`);
 }
 
 /**

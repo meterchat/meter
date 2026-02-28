@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMeterContext } from "./provider";
 import type { MeterChatMessage } from "./types";
 import type { MeterEvent } from "@meterxyz/sdk";
@@ -25,11 +25,23 @@ export function useMeterChat(options: UseMeterChatOptions): UseMeterChatReturn {
   const { client, config, models } = useMeterContext();
   const [messages, setMessages] = useState<MeterChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [sessionCost, setSessionCost] = useState(0);
   const [currentMessageCost, setCurrentMessageCost] = useState(0);
   const [model, setModel] = useState(options.model ?? config.defaultModel ?? "auto");
   const [error, setError] = useState<string | null>(null);
   const historyLoaded = useRef(false);
+
+  // Refs to avoid stale closures in sendMessage
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+  const streamingRef = useRef(false);
+
+  // Derive sessionCost from messages — no separate state needed
+  const sessionCost = useMemo(
+    () => messages.reduce((sum, m) => sum + (m.cost ?? 0), 0),
+    [messages]
+  );
 
   // Load history on mount if sessionId provided
   useEffect(() => {
@@ -51,7 +63,6 @@ export function useMeterChat(options: UseMeterChatOptions): UseMeterChatReturn {
             timestamp: m.timestamp,
           }));
           setMessages(msgs);
-          setSessionCost(msgs.reduce((sum, m) => sum + (m.cost ?? 0), 0));
         }
       })
       .catch(() => {
@@ -61,9 +72,10 @@ export function useMeterChat(options: UseMeterChatOptions): UseMeterChatReturn {
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (isStreaming || !content.trim()) return;
+      if (streamingRef.current || !content.trim()) return;
       setError(null);
       setIsStreaming(true);
+      streamingRef.current = true;
       setCurrentMessageCost(0);
 
       const userMsg: MeterChatMessage = {
@@ -74,10 +86,10 @@ export function useMeterChat(options: UseMeterChatOptions): UseMeterChatReturn {
       };
 
       setMessages((prev) => [...prev, userMsg]);
-      options.onMessage?.(userMsg);
+      optionsRef.current.onMessage?.(userMsg);
 
-      // Build conversation for API
-      const apiMessages = [...messages, userMsg].map((m) => ({
+      // Build conversation from ref (always current)
+      const apiMessages = [...messagesRef.current, userMsg].map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       }));
@@ -97,8 +109,8 @@ export function useMeterChat(options: UseMeterChatOptions): UseMeterChatReturn {
         const stream = await client.chat({
           messages: apiMessages,
           model,
-          endUserId: options.userId,
-          sessionId: options.sessionId,
+          endUserId: optionsRef.current.userId,
+          sessionId: optionsRef.current.sessionId,
         });
 
         let fullContent = "";
@@ -152,7 +164,6 @@ export function useMeterChat(options: UseMeterChatOptions): UseMeterChatReturn {
           return updated;
         });
 
-        setSessionCost((prev) => prev + finalCost);
         setCurrentMessageCost(0);
 
         const finalMsg: MeterChatMessage = {
@@ -162,7 +173,7 @@ export function useMeterChat(options: UseMeterChatOptions): UseMeterChatReturn {
           tokensOut,
           cost: finalCost,
         };
-        options.onMessage?.(finalMsg);
+        optionsRef.current.onMessage?.(finalMsg);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Chat failed");
         // Remove empty assistant message on error
@@ -173,9 +184,10 @@ export function useMeterChat(options: UseMeterChatOptions): UseMeterChatReturn {
         });
       } finally {
         setIsStreaming(false);
+        streamingRef.current = false;
       }
     },
-    [client, messages, model, models, isStreaming, options]
+    [client, model, models]
   );
 
   return {
