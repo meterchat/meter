@@ -1145,7 +1145,7 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
           </>
         ) : (
           <p className="font-mono text-[10px] text-muted-foreground/50 text-center py-1">
-            Settles automatically at $25
+            Settles automatically at $10
           </p>
         )}
 
