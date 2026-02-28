@@ -90,7 +90,7 @@ function AddCardForm({ clientSecret, onSuccess }: { clientSecret: string; onSucc
       <div className="rounded-lg border border-border/50 bg-card/50 px-4 py-3">
         <p className="font-mono text-[11px] text-muted-foreground/60 leading-relaxed">
           A small hold verifies your card. Usage settles automatically
-          when your balance reaches $25, or you can settle anytime.
+          when your balance reaches $10, or you can settle anytime.
         </p>
       </div>
 

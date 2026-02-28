@@ -359,7 +359,7 @@ export const useMeterStore = create<MeterState>()(
       activeProjectId: "default",
 
       pendingCharges: [],
-      autoSettleThreshold: 25,
+      autoSettleThreshold: 10,
       lastAutoSettleDate: null,
       isSettling: false,
 
