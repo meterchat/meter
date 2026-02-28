@@ -2,7 +2,7 @@
 
 ## The Billing Layer for AI
 
-Intelligence is a utility. It should be metered like compute, not sold like software.
+Intelligence is a utility. It should be metered like electricity.
 
 Every week, thousands of builders ship AI apps with Cursor, Claude Code, and Lovable. They can generate a full-stack product in a weekend. But on Monday, they face the same unsolved problem: how do I charge my users for AI?
 
