@@ -1,24 +1,24 @@
 {
-  "name": "@getmeter/sdk",
+  "name": "@getmeter/react",
   "version": "0.1.0",
-  "description": "Official SDK for the Meter AI billing and routing API",
+  "description": "Embeddable AI chat with built-in billing — drop in <MeterChat /> and go",
   "author": "Meter <hello@getmeter.dev>",
   "license": "MIT",
   "homepage": "https://getmeter.dev",
   "repository": {
     "type": "git",
     "url": "https://github.com/meterdev/meter.git",
-    "directory": "packages/sdk"
+    "directory": "packages/react"
   },
   "keywords": [
     "meter",
     "ai",
-    "llm",
-    "openrouter",
-    "streaming",
-    "sse",
-    "crypto",
-    "web3"
+    "chat",
+    "embeddable",
+    "sdk",
+    "react",
+    "pay-per-use",
+    "metered"
   ],
   "type": "module",
   "main": "./dist/index.js",
@@ -27,7 +27,8 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./styles.css": "./dist/styles.css"
   },
   "files": [
     "dist",
@@ -37,7 +38,17 @@
     "build": "tsc",
     "prepublishOnly": "npm run build"
   },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "@getmeter/sdk": "workspace:*",
+    "zustand": "^5.0.0"
+  },
   "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
     "typescript": "^5.0.0"
   }
 }
