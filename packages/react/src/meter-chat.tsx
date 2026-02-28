@@ -223,28 +223,25 @@ export function MeterChat({
           {showFileUpload && (
             <button
               onClick={handleFileClick}
+              title="Add file"
               style={{
                 background: "none",
-                border: "1px solid var(--meter-border, #333)",
-                borderRadius: "6px",
-                padding: "4px 10px",
-                fontSize: "11px",
+                border: "none",
+                borderRadius: "8px",
+                width: "32px",
+                height: "32px",
                 color: "var(--meter-text-secondary, #888)",
                 cursor: "pointer",
-                fontFamily: "inherit",
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
+                justifyContent: "center",
                 flexShrink: 0,
-                whiteSpace: "nowrap",
               }}
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              Add file
             </button>
           )}
 

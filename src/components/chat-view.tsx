@@ -1692,14 +1692,13 @@ export function ChatView() {
                 <div className="flex items-end gap-2 border-t border-border/50 p-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground shrink-0"
+                    className="flex items-center justify-center rounded-lg h-8 w-8 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground shrink-0"
+                    title="Add file"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    <span>Add file</span>
                   </button>
                 <textarea
                   ref={inputRef}
