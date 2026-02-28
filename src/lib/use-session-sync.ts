@@ -137,6 +137,10 @@ export function useSessionSync() {
           }),
         });
         if (!res.ok) {
+          if (res.status === 401) {
+            useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+            return;
+          }
           console.warn(`[meter] Session sync failed for "${project.name}": ${res.status}`);
           allOk = false;
         }
@@ -245,6 +249,11 @@ export function useSessionSync() {
       try {
         const res = await fetch("/api/sessions");
         if (!res.ok) {
+          // Server session expired — clear client auth so user re-authenticates
+          if (res.status === 401) {
+            useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+            return;
+          }
           useMeterStore.getState().setSessionsLoaded(true);
           return;
         }

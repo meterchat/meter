@@ -105,8 +105,16 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 401) {
+          // Session expired — clear auth to trigger re-login
+          useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
+        if (!data) return;
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
         } else {
