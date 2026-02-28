@@ -73,7 +73,7 @@ function extractDebateContext(conversation: Message[]): {
 interface DebateUsage {
   tokensIn: number;
   tokensOut: number;
-  /** Actual dollar cost summed across all models (includes markup) */
+  /** Actual dollar cost summed across all models (at base rate; account markup applied client-side) */
   actualCost: number;
 }
 

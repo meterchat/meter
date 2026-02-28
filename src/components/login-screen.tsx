@@ -41,6 +41,7 @@ interface PendingUser {
   cardBrand?: string;
   gmailConnected: boolean;
   accountType?: string;
+  markupMultiplier?: number;
   hasWorkspaces?: boolean;
 }
 
@@ -486,7 +487,7 @@ export function LoginScreen() {
     }
 
     // Set auth immediately so session cookie is active for card setup-intent
-    setAuth(user.id, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard");
+    setAuth(user.id, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard", user.markupMultiplier ?? 1);
 
     identifyUser(user.id, {
       email: user.email,
