@@ -74,7 +74,7 @@ function CardFormInner({ clientSecret, onComplete }: { clientSecret: string; onC
       </div>
 
       <p className="mt-2 font-mono text-[10px] text-muted-foreground/50 leading-relaxed">
-        No charge now. Usage settles daily at midnight.
+        A small hold verifies your card. Usage settles at $25 or when you choose.
       </p>
 
       {error && (
