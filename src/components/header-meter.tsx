@@ -65,12 +65,6 @@ function startOfWeek(): number {
   return monday.getTime();
 }
 
-function startOfMonth(): number {
-  const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  return first.getTime();
-}
-
 export function HeaderMeter() {
   const [open, setOpen] = useState(false);
   const [remaining, setRemaining] = useState(getMsUntilMidnight);
@@ -88,25 +82,14 @@ export function HeaderMeter() {
   );
 
   const usage = useMemo(() => {
-    const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const startOfDayTs = startOfDay.getTime();
-    const weekStart = startOfWeek();
-    const monthStart = startOfMonth();
-
     const today = activeProject?.todayCost ?? 0;
-    const week = assistantMsgs
-      .filter((m) => (m.timestamp ?? 0) >= weekStart)
-      .reduce((sum, m) => sum + (m.cost ?? 0), 0);
-    const month = assistantMsgs
-      .filter((m) => (m.timestamp ?? 0) >= monthStart)
-      .reduce((sum, m) => sum + (m.cost ?? 0), 0);
-    const lifetimeFromMessages = assistantMsgs.reduce((sum, m) => sum + (m.cost ?? 0), 0);
-    const lifetime = Math.max(lifetimeFromMessages, activeProject?.totalCost ?? 0);
+    const week = activeProject?.weekCost ?? 0;
+    const month = activeProject?.monthCost ?? 0;
+    const lifetime = activeProject?.totalCost ?? 0;
 
-    const daysIntoWeek = Math.max(1, Math.floor((startOfDayTs - weekStart) / dayMs) + 1);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const startOfDayTs = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+    const daysIntoWeek = Math.max(1, Math.floor((startOfDayTs - startOfWeek()) / dayMs) + 1);
     const daysIntoMonth = Math.max(1, new Date().getDate());
     const weekAvg = week / daysIntoWeek;
     const monthAvg = month / daysIntoMonth;
@@ -138,7 +121,7 @@ export function HeaderMeter() {
       pendingCount,
       byModel,
     };
-  }, [assistantMsgs, activeProject?.totalCost, activeProject?.todayCost]);
+  }, [assistantMsgs, activeProject]);
 
   const animatedToday = useAnimatedNumber(usage.today, !isStreaming);
   const costStr = isStreaming
