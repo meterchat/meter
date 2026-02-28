@@ -11,10 +11,6 @@ export interface ModelConfig {
   speed?: number;
 }
 
-/** Default multiplier applied on top of provider costs. 1 = at-cost (no markup).
- *  Can be overridden per account via meter_users.markup_multiplier. */
-export const DEFAULT_MARKUP_MULTIPLIER = 1;
-
 /** Models used in Meter 1.0 debate mode (fixed roster) */
 export const DEBATE_MODELS = [
   "anthropic/claude-opus-4.6",
@@ -28,8 +24,8 @@ export const MODELS: ModelConfig[] = [
     name: "Auto",
     provider: "Meter",
     color: "#A1A1AA",
-    inputPrice: (1.75 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
-    outputPrice: (14.0 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
+    inputPrice: (1.75 / 1_000_000),
+    outputPrice: (14.0 / 1_000_000),
     quality: 90,  // GPQA Diamond — routes to GPT-5.2
     speed: 84,
   },
@@ -40,8 +36,8 @@ export const MODELS: ModelConfig[] = [
     color: "#F59E0B",
     // Display-only blended rate (NOT used for billing — debate cost is
     // computed per-model in debate.ts and sent as actualCost).
-    inputPrice: (6.95 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
-    outputPrice: (39.50 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
+    inputPrice: (6.95 / 1_000_000),
+    outputPrice: (39.50 / 1_000_000),
     quality: 93,  // GPQA Diamond — multi-model ensemble exceeds best individual
     speed: 30,
   },
@@ -50,8 +46,8 @@ export const MODELS: ModelConfig[] = [
     name: "Sonnet 4.6",
     provider: "Anthropic",
     color: "#D97757",
-    inputPrice: (3.0 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
-    outputPrice: (15.0 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
+    inputPrice: (3.0 / 1_000_000),
+    outputPrice: (15.0 / 1_000_000),
     quality: 74,  // GPQA Diamond
     speed: 60,
   },
@@ -60,8 +56,8 @@ export const MODELS: ModelConfig[] = [
     name: "Opus 4.6",
     provider: "Anthropic",
     color: "#D97757",
-    inputPrice: (5.0 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
-    outputPrice: (25.0 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
+    inputPrice: (5.0 / 1_000_000),
+    outputPrice: (25.0 / 1_000_000),
     quality: 91,  // GPQA Diamond
     speed: 70,
   },
@@ -70,8 +66,8 @@ export const MODELS: ModelConfig[] = [
     name: "GPT-5.2",
     provider: "OpenAI",
     color: "#10A37F",
-    inputPrice: (1.75 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
-    outputPrice: (14.0 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
+    inputPrice: (1.75 / 1_000_000),
+    outputPrice: (14.0 / 1_000_000),
     quality: 90,  // GPQA Diamond
     speed: 84,
   },
@@ -80,8 +76,8 @@ export const MODELS: ModelConfig[] = [
     name: "Gemini 3.1 Pro",
     provider: "Google",
     color: "#4285F4",
-    inputPrice: (2.0 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
-    outputPrice: (12.0 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
+    inputPrice: (2.0 / 1_000_000),
+    outputPrice: (12.0 / 1_000_000),
     quality: 92,  // GPQA Diamond
     speed: 138,
   },
@@ -90,8 +86,8 @@ export const MODELS: ModelConfig[] = [
     name: "Grok 4.1 Fast",
     provider: "xAI",
     color: "#A0A0A0",
-    inputPrice: (0.20 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
-    outputPrice: (0.50 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
+    inputPrice: (0.20 / 1_000_000),
+    outputPrice: (0.50 / 1_000_000),
     quality: 86,  // GPQA Diamond (est. from Grok 4 Fast 85.7%)
     speed: 129,
   },
@@ -100,8 +96,8 @@ export const MODELS: ModelConfig[] = [
     name: "DeepSeek V3",
     provider: "DeepSeek",
     color: "#4D6BFE",
-    inputPrice: (0.27 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
-    outputPrice: (1.10 / 1_000_000) * DEFAULT_MARKUP_MULTIPLIER,
+    inputPrice: (0.27 / 1_000_000),
+    outputPrice: (1.10 / 1_000_000),
     quality: 59,  // GPQA Diamond
     speed: 50,
   },

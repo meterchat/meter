@@ -1,27 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { resolveEndUser } from "@/lib/sdk-users";
-import Stripe from "stripe";
-import crypto from "crypto";
-
-function hashKey(key: string): string {
-  return crypto.createHash("sha256").update(key).digest("hex");
-}
-
-async function authenticateApiKey(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (!auth?.startsWith("Bearer mk_")) return null;
-  const apiKey = auth.slice(7);
-  const keyHash = hashKey(apiKey);
-  const supabase = getSupabaseServer();
-  const { data } = await supabase
-    .from("api_keys")
-    .select("id, user_id, active")
-    .eq("key_hash", keyHash)
-    .single();
-  if (!data || !data.active) return null;
-  return data;
-}
+import { authenticateApiKey } from "@/lib/api-auth";
+import { stripe } from "@/lib/stripe";
 
 // POST /api/v1/billing/setup — create Stripe SetupIntent for end-user card
 export async function POST(req: NextRequest) {
@@ -36,11 +17,9 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
 
+  // resolveEndUser already has the stripe_customer_id — but we need it here
   const internalId = await resolveEndUser(keyRecord.user_id, endUserId);
   const supabase = getSupabaseServer();
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2025-04-30.basil",
-  });
 
   // Get or create Stripe customer for this end-user
   const { data: endUser } = await supabase

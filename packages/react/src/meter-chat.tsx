@@ -5,6 +5,8 @@ import { CostCounter } from "./cost-counter";
 import { ModelPicker } from "./model-picker";
 import type { MeterChatProps } from "./types";
 
+const BLINK_STYLE = `@keyframes meter-blink { 50% { opacity: 0; } }`;
+
 export function MeterChat({
   userId,
   sessionId,
@@ -279,12 +281,7 @@ export function MeterChat({
         </div>
       </div>
 
-      {/* Cursor blink animation */}
-      <style>{`
-        @keyframes meter-blink {
-          50% { opacity: 0; }
-        }
-      `}</style>
+      <style>{BLINK_STYLE}</style>
     </div>
   );
 }
