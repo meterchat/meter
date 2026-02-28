@@ -4,7 +4,6 @@ import { requireAuth } from "@/lib/auth";
 import { serverTrackSessionCreated, serverTrackSessionDeleted } from "@/lib/analytics-server";
 
 // Namespace session IDs per user to prevent collisions
-// (e.g. all users start with session id "meter")
 function scopedId(userId: string, localId: string): string {
   // Already scoped — don't double-prefix
   if (localId.startsWith(`${userId}:`)) return localId;

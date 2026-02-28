@@ -495,21 +495,21 @@ export function ChatView() {
   const decisions = useDecisionsStore((s) => s.decisions);
   const updateDecision = useDecisionsStore((s) => s.updateDecision);
 
-  const meterProjectId = useMemo(() => {
-    const meterProject = projects.find(
-      (p) => p.id === "meter" || p.name?.toLowerCase() === "meter"
+  const defaultProjectId = useMemo(() => {
+    const match = projects.find(
+      (p) => p.id === "default" || p.id === "meter" || p.name?.toLowerCase() === "meter"
     );
-    return meterProject?.id ?? null;
+    return match?.id ?? projects[0]?.id ?? null;
   }, [projects]);
 
   useEffect(() => {
-    if (!meterProjectId) return;
+    if (!defaultProjectId) return;
     const unassigned = decisions.filter((d) => !d.projectId);
     if (unassigned.length === 0) return;
     unassigned.forEach((d) => {
-      updateDecision(d.id, { projectId: meterProjectId });
+      updateDecision(d.id, { projectId: defaultProjectId });
     });
-  }, [decisions, meterProjectId, updateDecision]);
+  }, [decisions, defaultProjectId, updateDecision]);
 
   const userId = useMeterStore((s) => s.userId);
   const cardOnFile = useMeterStore((s) => s.cardOnFile);
