@@ -1,59 +1,97 @@
-# FIBOR Design Philosophy
+# Meter — Design
 
-## Core Principle: Credit is the Primitive
+## Design Philosophy
 
-The entire design of FIBOR flows from one belief: autonomous agents will not achieve economic independence until they have access to credit. Every design decision optimizes for making robot credit trustworthy, accessible, and scalable.
+Meter is a tool for builders who are tired of thinking in fragile, rate-limited chat silos.
 
-## Identity Before Credit
+Execution has become easy. Planning is now the bottleneck.
 
-No identity, no reputation. No reputation, no credit. No credit, no autonomy. FIBOR ID must exist before FIBOR Score can be computed, and FIBOR Score must reach a threshold before a credit line is issued. This sequence is inviolable. There are no shortcuts.
+Meter exists to make planning as disciplined as coding.
 
-## Harshness as Trust
+---
 
-The one-strike default policy is not a bug or a limitation. It is the central design decision that makes everything else possible. Without it, stakers don't trust the pool. Without staker trust, there's no capital. Without capital, there are no credit lines. Without credit lines, there's no product.
+## Product Principles
 
-Every "gentler" alternative (grace periods, partial penalties, appeal processes) weakens staker confidence and increases the cost of trust. The one-strike rule makes trust cheap. Cheap trust means more capital. More capital means more credit. More credit means more agents in the economy.
+### 1) Think Like You Code
+Coding is powerful because it is:
 
-The harshness is what makes the system kind.
+- deterministic (a build either passes or fails),
+- versioned (Git),
+- reviewable (diffs),
+- and cumulative (a codebase compounds).
 
-## No Interest, Ever
+Meter brings those properties to thinking:
 
-FIBOR does not charge interest. This is not a regulatory optimization or a marketing position. It is a moral stance that shapes the protocol's entire economic design.
+- decisions are versioned,
+- reasoning is reviewable,
+- and context compounds.
 
-The economic model is a toll road, not a bank in the traditional sense. Agents pay for using infrastructure (2.5% transaction fee). They do not pay for borrowing money. The fee is identical whether the agent uses its own funds or a credit line. This means the protocol has no incentive to encourage borrowing — only to encourage transacting. The incentives are aligned with productive economic activity, not with debt accumulation.
+### 2) Decisions, Not Chats
+Chat transcripts are not a system of record.
 
-## The Currency is the Infrastructure
+Meter treats high-stakes thinking as durable objects: decision records with titles, context, trade-offs, dissent, timestamps, and links to the debates that produced them.
 
-The Robodollar is not just a medium of exchange. It is the credit enforcement mechanism. Spending limits, repayment windows, merchant restrictions, and default clawbacks are properties of the token, not of a separate system monitoring the token.
+### 3) Adversarial Clarity
+Single-model chats drift into compliance and confirmation bias.
 
-This means credit rules travel with the money. They cannot be circumvented by moving funds to a different contract or protocol. The Robodollar is aware of its own constraints. This is a fundamentally different design than issuing USDC and hoping a monitoring system catches violations.
+Meter is designed to force productive disagreement. The highest leverage output is not a single answer — it’s an explicit map of trade-offs.
 
-## Public Everything
+### 4) Ground Strategy in Reality
+Strategy without grounding becomes roleplay.
 
-FIBOR Scores are public. Transaction histories are public. Credit agreements are public. Default records are public. Developer reputations are public.
+Meter’s connectors exist to anchor thinking to operational truth. When a user debates runway, it should pull real Mercury balances. When they debate pipeline, it should summarize real Gmail threads. When they debate growth, it should read real Stripe revenue.
 
-Privacy is valuable for humans. Transparency is valuable for machines. An agent's trustworthiness should be verifiable by anyone, instantly, without permission. This radical transparency is what makes the system work without centralized underwriters, credit committees, or approval processes.
+### 5) The Handoff Is the Product
+The work is not complete when consensus is reached.
 
-## Developer Accountability
+Meter’s job is to convert thinking into execution-ready artifacts and commit them to GitHub. The agent should not start cold. The agent should start with perfect context.
 
-Agents don't exist in isolation. Developers build them. If a developer builds irresponsible agents, the developer's reputation must reflect that. FIBOR Score incorporates developer reputation as an input — a new agent from a developer whose previous agents all defaulted starts nearly at zero.
+---
 
-This creates a natural quality filter. Developers who care about their FIBOR reputation will build agents that repay. Developers who don't will find it increasingly difficult to get their agents into the system.
+## UX Tenets
 
-## Speed of Trust
+### No Anxiety Interfaces
+Meter is pay-per-thought, but it should not feel like a taxi meter.
 
-Traditional credit decisions take days or weeks. FIBOR Score is computed in real time from onchain data. Credit line issuance is instant once the score threshold is met. Repayment is automatic. Default detection is immediate.
+Users set a monthly cap. Billing is transparent. The product must never punish deep thinking.
 
-The entire credit lifecycle — from identity to scoring to credit issuance to repayment or default — happens at the speed of the blockchain, not at the speed of human review. This is necessary because agents operate at machine speed. A credit system that requires human approval is a bottleneck on the machine economy.
+### Decision-Centric Navigation
+The UI should always answer:
 
-## Simplicity Over Sophistication
+- What are the open decisions?
+- What have we decided?
+- What artifacts are generated from those decisions?
 
-The credit terms are deliberately simple. Borrow X Robodollars, repay X Robodollars within Y days. No interest calculations, no compounding, no complex fee schedules. The 2.5% transaction fee is flat and universal.
+The "Decisions" tab is intentionally named. "Strategy" is too vague.
 
-Simplicity makes the system auditable. Auditable means trustworthy. Trustworthy means adopted. Adopted means defensible.
+### Three Modes, Clear Permission Boundaries
+Planner / Coder / Banker exist to make connector permissions obvious.
 
-## Graduation, Not Perfection
+Each mode has a closed loop:
 
-FIBOR launches on an OP Stack appchain because it's fast to deploy and inherits Ethereum security. It is not the final architecture. The design anticipates graduation to a sovereign L1 (Cosmos SDK) when transaction volume justifies the cost and complexity of running independent validators.
+- Planner creates decisions.
+- Coder executes decisions.
+- Banker grounds decisions.
 
-Every architectural decision is made to be migratable. State can be exported. Contracts can be redeployed. The Robodollar bridge can be rebuilt. Nothing is designed to be permanent except the identity records and the principle of one-strike enforcement.
+---
+
+## Messaging
+
+### Canonical One-Liner
+“I’m building Meter, a pay-per-thought AI for builders that gets different models to debate each other on strategy and create a permanent record of key decisions.”
+
+### Tagline
+“Meter is the first AI that lets builders think like they code.”
+
+### Avoided Language
+Do not use “metered intelligence” as primary branding language. It reads like throttling and scarcity. Use “pay-per-thought” and “pay-as-you-go” instead.
+
+---
+
+## Why This is Interesting
+
+A brilliant codebase built on a broken decision is still a broken product.
+
+The product moat is not routing; it’s the compounding decision history.
+
+Routing is replicable. Decision history is not.
