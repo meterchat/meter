@@ -14,11 +14,12 @@
     "meter",
     "ai",
     "llm",
-    "openrouter",
+    "billing",
+    "pay-per-use",
+    "postpaid",
+    "metered",
     "streaming",
-    "sse",
-    "crypto",
-    "web3"
+    "sse"
   ],
   "type": "module",
   "main": "./dist/index.js",

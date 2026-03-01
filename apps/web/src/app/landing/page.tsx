@@ -113,7 +113,7 @@ export default function LandingPage() {
                     <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-xs font-mono font-bold text-primary">1</span>
                     </div>
-                    <p>Install <code className="text-foreground font-mono text-xs bg-muted px-1.5 py-0.5 rounded">@getmeter/sdk</code> and drop in your app ID.</p>
+                    <p>Install <code className="text-foreground font-mono text-xs bg-muted px-1.5 py-0.5 rounded">@getmeter/react</code> and drop in your API key.</p>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
@@ -133,22 +133,18 @@ export default function LandingPage() {
               <motion.div variants={staggerItemVariants}>
                 <CodeBlock filename="app.tsx">
                   <pre className="text-muted-foreground leading-relaxed">
-                    <code>{`import { MeterChat } from '@getmeter/sdk'
+                    <code>{`import { MeterProvider, MeterChat }
+  from '@getmeter/react'
 
 function App() {
   return (
-    <MeterChat
-      appId="app_xxxxx"
-      theme={{
-        mode: 'dark',
-        radius: 'md',
-      }}
-      models={[
-        'claude-4-sonnet',
-        'gpt-5',
-        'gemini-2.5-pro',
-      ]}
-    />
+    <MeterProvider apiKey="mk_xxxxx">
+      <MeterChat
+        userId="user_123"
+        showModelPicker
+        showCostCounter
+      />
+    </MeterProvider>
   )
 }`}</code>
                   </pre>

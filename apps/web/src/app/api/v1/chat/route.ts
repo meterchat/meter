@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import OpenAI from "openai";
-import crypto from "crypto";
 import { TOOL_DEFINITIONS, SYSTEM_PROMPT, executeTool } from "@/lib/tools";
 import { serverTrackApiV1Request } from "@/lib/analytics-server";
+import { resolveEndUser } from "@/lib/sdk-users";
+import { authenticateApiKey } from "@/lib/api-auth";
 
 function getOpenRouterClient() {
   return new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
     baseURL: "https://openrouter.ai/api/v1",
   });
-}
-
-function hashKey(key: string): string {
-  return crypto.createHash("sha256").update(key).digest("hex");
 }
 
 function estimateTokens(text: string): number {
@@ -24,35 +21,6 @@ type Message = OpenAI.Chat.ChatCompletionMessageParam;
 
 const MAX_TOOL_ROUNDS = 5;
 
-async function authenticateApiKey(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (!auth?.startsWith("Bearer mk_")) {
-    return null;
-  }
-
-  const apiKey = auth.slice(7); // strip "Bearer "
-  const keyHash = hashKey(apiKey);
-  const supabase = getSupabaseServer();
-
-  const { data: keyRecord } = await supabase
-    .from("api_keys")
-    .select("id, user_id, active")
-    .eq("key_hash", keyHash)
-    .single();
-
-  if (!keyRecord || !keyRecord.active) {
-    return null;
-  }
-
-  // Update last_used_at
-  await supabase
-    .from("api_keys")
-    .update({ last_used_at: new Date().toISOString() })
-    .eq("id", keyRecord.id);
-
-  return keyRecord;
-}
-
 export async function POST(req: NextRequest) {
   const keyRecord = await authenticateApiKey(req);
   if (!keyRecord) {
@@ -62,13 +30,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { messages, model } = await req.json();
+  const body = await req.json();
+  const { messages, model, endUserId } = body;
   const resolvedModel = model || "anthropic/claude-opus-4.6";
   const openrouter = getOpenRouterClient();
   const encoder = new TextEncoder();
   const supabase = getSupabaseServer();
-  const userId = keyRecord.user_id;
+  const developerId = keyRecord.user_id;
   const keyId = keyRecord.id;
+
+  // If endUserId is provided, resolve to internal SDK user (for embedded SDK)
+  // Otherwise fall back to the developer's own user ID (direct API usage)
+  const userId = endUserId
+    ? await resolveEndUser(developerId, endUserId)
+    : developerId;
 
   const conversation: Message[] = [
     { role: "system", content: SYSTEM_PROMPT },
