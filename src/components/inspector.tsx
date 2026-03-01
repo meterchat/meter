@@ -2,14 +2,13 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { useMeterStore, selectConnectedServices, ChatMessage, PaymentCard } from "@/lib/store";
+import { useMeterStore, selectConnectedServices, ChatMessage } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
 import { CONNECTORS } from "@/lib/connectors";
 import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
 import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
-import { AddCardModal } from "@/components/add-card-modal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import {
@@ -23,13 +22,9 @@ import {
   trackArtifactGenerated,
   trackArtifactRegenerated,
   trackArtifactPushed,
-  trackCardRemoved,
-  trackCardDefaultChanged,
-  trackCardAdded,
   trackSettlementInitiated,
   trackSettlementCompleted,
   trackSettlementFailed,
-  trackSpendLimitUpdated,
   trackInspectorToggled,
   trackInspectorTabChanged,
   trackThemeChanged,
@@ -963,65 +958,8 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
   );
 }
 
-/* ─── CARD VISUAL ─── */
-const CARD_BACKGROUND = "from-zinc-950 via-zinc-900 to-zinc-800";
-
-function CardVisual({ card, index, isTop, isSwitching, onClick, onRemove, canRemove }: {
-  card: PaymentCard;
-  index: number;
-  isTop: boolean;
-  isSwitching: boolean;
-  onClick: () => void;
-  onRemove?: () => void;
-  canRemove: boolean;
-}) {
-  const brandLabel = card.brand.charAt(0).toUpperCase() + card.brand.slice(1);
-  return (
-    <div
-      onClick={onClick}
-      className={`relative w-full max-w-[320px] aspect-[1.586/1] mx-auto rounded-2xl p-4 bg-gradient-to-br ${CARD_BACKGROUND} border border-white/10 cursor-pointer transition-all duration-200 ${
-        isTop ? "shadow-lg" : "hover:-translate-y-1 shadow-md"
-      } ${isSwitching ? "ring-2 ring-emerald-400/60 scale-[1.02]" : ""}`}
-      style={{
-        marginTop: index > 0 ? "-60px" : undefined,
-        zIndex: isTop ? 10 : 10 - index,
-      }}
-    >
-      {card.isDefault && (
-        <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-400" />
-      )}
-      <div className="flex items-center justify-between mb-6">
-        <svg width="28" height="20" viewBox="0 0 24 16" fill="none" className="text-white/60">
-          <rect x="1" y="1" width="22" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
-          <line x1="1" y1="5" x2="23" y2="5" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
-        <span className="font-mono text-[11px] text-white/50 uppercase">{brandLabel}</span>
-      </div>
-      <div className="flex items-end justify-between">
-        <span className="font-mono text-[12px] text-white/80 tracking-widest">{card.last4}</span>
-        <span className="font-mono text-[11px] text-white/50">
-          {String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}
-        </span>
-      </div>
-      {isTop && canRemove && onRemove && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="absolute bottom-2 right-2 rounded px-1.5 py-0.5 font-mono text-[10px] text-white/40 hover:text-white/70 hover:bg-white/10 transition-colors"
-        >
-          remove
-        </button>
-      )}
-    </div>
-  );
-}
-
 /* ─── PAYMENTS TAB ─── */
 function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
-  const cards = useMeterStore((s) => s.cards);
-  const cardsLoading = useMeterStore((s) => s.cardsLoading);
-  const fetchCards = useMeterStore((s) => s.fetchCards);
-  const setDefaultCard = useMeterStore((s) => s.setDefaultCard);
-  const removeCard = useMeterStore((s) => s.removeCard);
   const settlementHistory = useMeterStore((s) => s.settlementHistory);
   const settlementHistoryLoading = useMeterStore((s) => s.settlementHistoryLoading);
   const fetchSettlementHistory = useMeterStore((s) => s.fetchSettlementHistory);
@@ -1032,62 +970,16 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
   const cardLast4 = useMeterStore((s) => s.cardLast4);
   const cardBrand = useMeterStore((s) => s.cardBrand);
 
-  // Spend limits (moved from controls tab)
-  const spendLimits = useMeterStore((s) => s.spendLimits);
-  const fetchSpendLimits = useMeterStore((s) => s.fetchSpendLimits);
-  const updateSpendLimits = useMeterStore((s) => s.updateSpendLimits);
-  const [dailyInput, setDailyInput] = useState("");
-  const [monthlyInput, setMonthlyInput] = useState("");
-  const [perTxnInput, setPerTxnInput] = useState("");
-
-  const activeProjectId = activeProject?.id ?? null;
-  useEffect(() => {
-    if (!activeProjectId) return;
-    fetchSpendLimits(activeProjectId);
-  }, [activeProjectId, fetchSpendLimits]);
-
-  useEffect(() => {
-    setDailyInput(spendLimits.dailyLimit != null ? String(spendLimits.dailyLimit) : "");
-    setMonthlyInput(spendLimits.monthlyLimit != null ? String(spendLimits.monthlyLimit) : "");
-    setPerTxnInput(spendLimits.perTxnLimit != null ? String(spendLimits.perTxnLimit) : "");
-  }, [spendLimits]);
-
-  const saveLimitOnBlur = (field: keyof typeof spendLimits, raw: string) => {
-    const val = raw.trim() === "" ? null : Number(raw);
-    if (val !== null && isNaN(val)) return;
-    trackSpendLimitUpdated({ field, value: val, projectId: activeProjectId ?? undefined });
-    updateSpendLimits({ [field]: val }, activeProjectId ?? undefined);
-  };
-
   const settlementError = activeProject?.settlementError ?? null;
 
-  const [addCardOpen, setAddCardOpen] = useState(false);
-  const [removeError, setRemoveError] = useState<string | null>(null);
   const [settleSuccess, setSettleSuccess] = useState(false);
-  const [switchingCardId, setSwitchingCardId] = useState<string | null>(null);
   const workspaceId = activeProject?.id ?? null;
 
   useEffect(() => {
-    fetchCards();
     if (workspaceId) {
       fetchSettlementHistory(workspaceId);
     }
-  }, [fetchCards, fetchSettlementHistory, workspaceId]);
-
-  const sorted = useMemo(() => {
-    return [...cards].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
-  }, [cards]);
-
-  const handleRemove = async (pmId: string) => {
-    setRemoveError(null);
-    trackCardRemoved({ cardId: pmId });
-    const result = await removeCard(pmId);
-    if (!result.success) {
-      setRemoveError(result.error ?? "Failed to remove card");
-    }
-  };
-
-  const canRemoveCards = cards.length > 1;
+  }, [fetchSettlementHistory, workspaceId]);
 
   const pendingBalance = getPendingBalance();
   const brandLabel = cardBrand ? cardBrand.charAt(0).toUpperCase() + cardBrand.slice(1) : "Card";
@@ -1103,14 +995,6 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
     } else {
       trackSettlementFailed({ amount: pendingBalance, projectId: workspaceId ?? undefined });
     }
-  };
-
-  const handleSetDefault = async (cardId: string) => {
-    if (!cardId) return;
-    trackCardDefaultChanged({ cardId });
-    setSwitchingCardId(cardId);
-    await setDefaultCard(cardId);
-    setTimeout(() => setSwitchingCardId(null), 1200);
   };
 
   return (
@@ -1158,85 +1042,6 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
 
       <div className="h-px bg-border" />
 
-      {/* Spend Limits */}
-      {activeProjectId && (
-        <div>
-          <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-            Spend Limits
-          </div>
-          <div className="space-y-2">
-            <LimitRow
-              label="Daily Limit"
-              value={dailyInput}
-              onChange={setDailyInput}
-              onBlur={() => saveLimitOnBlur("dailyLimit", dailyInput)}
-            />
-            <LimitRow
-              label="Monthly Limit"
-              value={monthlyInput}
-              onChange={setMonthlyInput}
-              onBlur={() => saveLimitOnBlur("monthlyLimit", monthlyInput)}
-            />
-            <LimitRow
-              label="Per-Txn Max"
-              value={perTxnInput}
-              onChange={setPerTxnInput}
-              onBlur={() => saveLimitOnBlur("perTxnLimit", perTxnInput)}
-            />
-          </div>
-          <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
-            Leave blank for no limit. Limits are enforced server-side.
-          </p>
-        </div>
-      )}
-
-      <div className="h-px bg-border" />
-
-      {/* Payment Cards — Apple Wallet stack */}
-      <div>
-        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Payment Cards
-        </div>
-        {cardsLoading && cards.length === 0 ? (
-          <div className="py-6 text-center font-mono text-[12px] text-muted-foreground/40">Loading cards...</div>
-        ) : sorted.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 gap-3 rounded-lg border border-dashed border-border">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30">
-              <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-              <line x1="1" y1="10" x2="23" y2="10" />
-            </svg>
-            <span className="font-mono text-[12px] text-muted-foreground/40">No cards yet</span>
-          </div>
-        ) : (
-          <div className="relative pb-2 flex flex-col items-center">
-            {sorted.map((card, i) => (
-              <CardVisual
-                key={card.id}
-                card={card}
-                index={i}
-                isTop={i === 0}
-                isSwitching={switchingCardId === card.id}
-                onClick={() => { if (!card.isDefault) handleSetDefault(card.id); }}
-                onRemove={() => handleRemove(card.id)}
-                canRemove={canRemoveCards}
-              />
-            ))}
-          </div>
-        )}
-        {removeError && (
-          <p className="mt-1 font-mono text-[11px] text-red-400">{removeError}</p>
-        )}
-        <button
-          onClick={() => setAddCardOpen(true)}
-          disabled={addCardOpen}
-          className="mt-2 w-full rounded-lg border border-border py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5 disabled:opacity-40"
-        >
-          + Add Card
-        </button>
-      </div>
-
-      <div className="h-px bg-border" />
-
       {/* Settlement History */}
       <div>
         <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
@@ -1279,7 +1084,6 @@ function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
           </div>
         )}
       </div>
-      <AddCardModal open={addCardOpen} onClose={() => setAddCardOpen(false)} />
     </div>
   );
 }
@@ -1329,28 +1133,3 @@ function ThemeToggle() {
   );
 }
 
-function LimitRow({ label, value, onChange, onBlur }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  onBlur: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-1">
-        <span className="font-mono text-xs text-muted-foreground/50">$</span>
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          min={0}
-          step={1}
-          placeholder="—"
-          className="w-16 border-b border-border bg-transparent py-0.5 text-right font-mono text-xs text-foreground placeholder:text-muted-foreground/30 focus:border-foreground focus:outline-none"
-        />
-      </div>
-    </div>
-  );
-}

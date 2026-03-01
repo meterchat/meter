@@ -3,7 +3,13 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useMeterStore } from "@/lib/store";
 import { MeterIcon } from "./meter-icon";
+import { AddCardModal } from "./add-card-modal";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  trackCardRemoved,
+  trackCardDefaultChanged,
+  trackSpendLimitUpdated,
+} from "@/lib/analytics";
 
 function useAnimatedNumber(value: number, enabled = true, duration = 350) {
   const [display, setDisplay] = useState(value);
@@ -76,6 +82,25 @@ export function HeaderMeter() {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
   const isStreaming = activeProject?.isStreaming ?? false;
 
+  // Payment cards
+  const cards = useMeterStore((s) => s.cards);
+  const cardsLoading = useMeterStore((s) => s.cardsLoading);
+  const fetchCards = useMeterStore((s) => s.fetchCards);
+  const setDefaultCard = useMeterStore((s) => s.setDefaultCard);
+  const removeCard = useMeterStore((s) => s.removeCard);
+
+  // Spend limits
+  const spendLimits = useMeterStore((s) => s.spendLimits);
+  const fetchSpendLimits = useMeterStore((s) => s.fetchSpendLimits);
+  const updateSpendLimits = useMeterStore((s) => s.updateSpendLimits);
+  const [dailyInput, setDailyInput] = useState("");
+  const [monthlyInput, setMonthlyInput] = useState("");
+  const [perTxnInput, setPerTxnInput] = useState("");
+
+  const [addCardOpen, setAddCardOpen] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [switchingCardId, setSwitchingCardId] = useState<string | null>(null);
+
   const assistantMsgs = useMemo(
     () => (activeProject?.messages ?? []).filter((m) => m.role === "assistant" && m.cost != null),
     [activeProject]
@@ -145,6 +170,48 @@ export function HeaderMeter() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  // Fetch cards and spend limits when dropdown opens
+  useEffect(() => {
+    if (!open) return;
+    fetchCards();
+    if (activeProjectId) fetchSpendLimits(activeProjectId);
+  }, [open, fetchCards, fetchSpendLimits, activeProjectId]);
+
+  // Sync limit inputs when store changes
+  useEffect(() => {
+    setDailyInput(spendLimits.dailyLimit != null ? String(spendLimits.dailyLimit) : "");
+    setMonthlyInput(spendLimits.monthlyLimit != null ? String(spendLimits.monthlyLimit) : "");
+    setPerTxnInput(spendLimits.perTxnLimit != null ? String(spendLimits.perTxnLimit) : "");
+  }, [spendLimits]);
+
+  const sortedCards = useMemo(
+    () => [...cards].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0)),
+    [cards]
+  );
+
+  const saveLimitOnBlur = (field: keyof typeof spendLimits, raw: string) => {
+    const val = raw.trim() === "" ? null : Number(raw);
+    if (val !== null && isNaN(val)) return;
+    trackSpendLimitUpdated({ field, value: val, projectId: activeProjectId ?? undefined });
+    updateSpendLimits({ [field]: val }, activeProjectId ?? undefined);
+  };
+
+  const handleSetDefault = async (cardId: string) => {
+    trackCardDefaultChanged({ cardId });
+    setSwitchingCardId(cardId);
+    await setDefaultCard(cardId);
+    setTimeout(() => setSwitchingCardId(null), 1200);
+  };
+
+  const handleRemoveCard = async (pmId: string) => {
+    setRemoveError(null);
+    trackCardRemoved({ cardId: pmId });
+    const result = await removeCard(pmId);
+    if (!result.success) {
+      setRemoveError(result.error ?? "Failed to remove card");
+    }
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -210,6 +277,94 @@ export function HeaderMeter() {
 
           <div className="h-px bg-border" />
 
+          {/* Payment Cards */}
+          <div className="px-4 py-3">
+            <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
+              Payment Cards
+            </div>
+            {cardsLoading && cards.length === 0 ? (
+              <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">Loading cards...</div>
+            ) : sortedCards.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 gap-2 rounded-lg border border-dashed border-border">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30">
+                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                  <line x1="1" y1="10" x2="23" y2="10" />
+                </svg>
+                <span className="font-mono text-[11px] text-muted-foreground/40">No cards yet</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {sortedCards.map((card) => {
+                  const brandLabel = card.brand.charAt(0).toUpperCase() + card.brand.slice(1);
+                  return (
+                    <div
+                      key={card.id}
+                      className={`flex items-center justify-between rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${
+                        card.isDefault ? "bg-foreground/5 border border-foreground/10" : "border border-transparent"
+                      } ${switchingCardId === card.id ? "ring-1 ring-emerald-400/40" : ""}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`h-1.5 w-1.5 rounded-full ${card.isDefault ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                        <span className="text-foreground">{brandLabel} •••• {card.last4}</span>
+                        <span className="text-[10px] text-muted-foreground/50">
+                          {String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {!card.isDefault && (
+                          <button
+                            onClick={() => handleSetDefault(card.id)}
+                            className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                          >
+                            Default
+                          </button>
+                        )}
+                        {cards.length > 1 && (
+                          <button
+                            onClick={() => handleRemoveCard(card.id)}
+                            className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-red-400 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {removeError && (
+              <p className="mt-1 font-mono text-[10px] text-red-400">{removeError}</p>
+            )}
+            <button
+              onClick={() => setAddCardOpen(true)}
+              className="mt-2 w-full rounded-lg border border-border py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5"
+            >
+              + Add Card
+            </button>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          {/* Spend Limits */}
+          {activeProjectId && (
+            <div className="px-4 py-3">
+              <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
+                Spend Limits
+              </div>
+              <div className="space-y-2">
+                <LimitRow label="Daily Limit" value={dailyInput} onChange={setDailyInput} onBlur={() => saveLimitOnBlur("dailyLimit", dailyInput)} />
+                <LimitRow label="Monthly Limit" value={monthlyInput} onChange={setMonthlyInput} onBlur={() => saveLimitOnBlur("monthlyLimit", monthlyInput)} />
+                <LimitRow label="Per-Txn Max" value={perTxnInput} onChange={setPerTxnInput} onBlur={() => saveLimitOnBlur("perTxnLimit", perTxnInput)} />
+              </div>
+              <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
+                Leave blank for no limit. Limits are enforced server-side.
+              </p>
+            </div>
+          )}
+
+          <div className="h-px bg-border" />
+
           <div className="px-4 py-3">
             <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
               Activity
@@ -241,6 +396,33 @@ export function HeaderMeter() {
           )}
         </div>
       )}
+      <AddCardModal open={addCardOpen} onClose={() => setAddCardOpen(false)} />
+    </div>
+  );
+}
+
+function LimitRow({ label, value, onChange, onBlur }: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-1">
+        <span className="font-mono text-xs text-muted-foreground/50">$</span>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          min={0}
+          step={1}
+          placeholder="—"
+          className="w-16 border-b border-border bg-transparent py-0.5 text-right font-mono text-xs text-foreground placeholder:text-muted-foreground/30 focus:border-foreground focus:outline-none"
+        />
+      </div>
     </div>
   );
 }
