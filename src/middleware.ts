@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const DEV_HOSTS = ["dev.getmeter.xyz", "getmeter.dev"];
-const PROD_HOST = "getmeter.xyz";
-
-function isDevHost(hostname: string) {
-  return DEV_HOSTS.some((h) => hostname.startsWith(h.split(".")[0]));
-}
+const DEV_HOSTS = new Set(["dev.getmeter.xyz", "getmeter.dev", "www.getmeter.dev"]);
+const PROD_HOSTS = new Set(["getmeter.xyz", "meter.chat", "www.meter.chat"]);
 
 export function middleware(req: NextRequest) {
   const hostname = req.headers.get("host") ?? "";
@@ -13,7 +9,10 @@ export function middleware(req: NextRequest) {
 
   // ── getmeter.dev routing ──────────────────────────────────────
   // Root → landing page. Console, docs, api, etc. pass through.
-  if (isDevHost(hostname)) {
+  // Strip port for local dev (e.g. "localhost:3000" → "localhost")
+  const host = hostname.split(":")[0];
+
+  if (DEV_HOSTS.has(host)) {
     if (pathname === "/") {
       const url = req.nextUrl.clone();
       url.pathname = "/landing";
@@ -25,7 +24,7 @@ export function middleware(req: NextRequest) {
 
   // ── Production domain (getmeter.xyz / meter.chat) ─────────────
   // Block /console and /landing on production domain
-  if (hostname === PROD_HOST || hostname === "meter.chat") {
+  if (PROD_HOSTS.has(host)) {
     if (pathname.startsWith("/console") || pathname.startsWith("/landing")) {
       const url = req.nextUrl.clone();
       url.pathname = "/";
