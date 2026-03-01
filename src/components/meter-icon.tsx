@@ -73,6 +73,7 @@ export const MeterIcon = memo(function MeterIcon({ active, size = 20 }: MeterIco
       ref={canvasRef}
       width={size}
       height={size}
+      className="meter-icon-canvas"
       style={{ width: size, height: size, imageRendering: "pixelated" }}
     />
   );
