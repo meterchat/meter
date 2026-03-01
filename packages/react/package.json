@@ -43,7 +43,7 @@
     "react-dom": ">=18.0.0"
   },
   "dependencies": {
-    "@getmeter/sdk": "workspace:*",
+    "@getmeter/sdk": "*",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
