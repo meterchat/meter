@@ -95,7 +95,20 @@ export async function POST(req: NextRequest) {
         }
         for (const att of parsedAttachments) {
           if (att.mimeType.startsWith("image/")) {
-            contentParts.push({ type: "image_url", image_url: { url: att.url } });
+            // Fetch and encode as base64 data URL so all providers can see it
+            // (some providers can't fetch arbitrary URLs server-side)
+            try {
+              const imgRes = await fetch(att.url);
+              const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+              const imgB64 = imgBuf.toString("base64");
+              contentParts.push({
+                type: "image_url",
+                image_url: { url: `data:${att.mimeType};base64,${imgB64}` },
+              });
+            } catch {
+              // Fall back to direct URL if fetch fails
+              contentParts.push({ type: "image_url", image_url: { url: att.url } });
+            }
           } else if (att.mimeType === "application/pdf") {
             // For PDF: fetch and encode as base64 data URL for providers that support it.
             // Include a text fallback description for providers that don't.

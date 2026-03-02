@@ -48,6 +48,7 @@ import { useArtifactsStore } from "@/lib/artifacts-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const DRAFT_KEY = (id: string) => `meter:draft:${id}`;
 
@@ -242,6 +243,20 @@ function stripDecisionPoint(content: string): string {
 const mdComponents = {
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
     <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+  ),
+  table: ({ children }: { children?: React.ReactNode }) => (
+    <div className="my-2 overflow-x-auto rounded-lg border border-border">
+      <table className="min-w-full text-sm">{children}</table>
+    </div>
+  ),
+  thead: ({ children }: { children?: React.ReactNode }) => (
+    <thead className="bg-foreground/5 text-left text-xs font-medium text-muted-foreground">{children}</thead>
+  ),
+  th: ({ children }: { children?: React.ReactNode }) => (
+    <th className="px-3 py-2 font-medium">{children}</th>
+  ),
+  td: ({ children }: { children?: React.ReactNode }) => (
+    <td className="border-t border-border px-3 py-2">{children}</td>
   ),
 };
 
@@ -1537,7 +1552,7 @@ export function ChatView() {
                         <ErrorCard payload={displayContent.slice("__error__".length)} />
                       ) : msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-a:text-blue-400 dark:prose-a:text-blue-400 prose-a:text-blue-600">
-                          <ReactMarkdown components={mdComponents}>{displayContent}</ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{displayContent}</ReactMarkdown>
                         </div>
                       ) : (
                         <div className="whitespace-pre-wrap">{msg.content}</div>
