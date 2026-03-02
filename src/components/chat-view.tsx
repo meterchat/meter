@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type Attachment } from "@/lib/store";
+import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type Attachment, type DocumentPreview } from "@/lib/store";
 import {
   trackMessageSent,
   trackMessageCopied,
@@ -27,7 +27,7 @@ import {
 } from "@/lib/analytics";
 import { MeterPill } from "@/components/meter-pill";
 import { HeaderMeter } from "@/components/header-meter";
-import { CommitButton } from "@/components/commit-button";
+// CommitButton removed from header — decisions now log directly
 import { ModelSelectorBar, ModelPickerPanel } from "@/components/model-picker";
 import { Inspector } from "@/components/inspector";
 import { ProfileSettings } from "@/components/profile-settings";
@@ -168,29 +168,15 @@ function PinButton({ messageId, pinned }: { messageId: string; pinned?: boolean 
 }
 
 function DecisionPill({ decisionId, onOpen }: { decisionId: string; onOpen: () => void }) {
-  const isCommitted = useDecisionsStore((s) => s.decisions.some((d) => d.id === decisionId));
-
   return (
     <button
       onClick={onOpen}
-      className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] transition-colors ${
-        isCommitted
-          ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10"
-          : "border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10"
-      }`}
+      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 font-mono text-[10px] text-emerald-400 transition-colors hover:bg-emerald-500/10"
     >
-      {isCommitted ? (
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      ) : (
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="4" />
-          <line x1="1.05" y1="12" x2="7" y2="12" />
-          <line x1="17.01" y1="12" x2="22.96" y2="12" />
-        </svg>
-      )}
-      {isCommitted ? "Decision logged" : "Decision staged"}
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      Decision logged
     </button>
   );
 }
@@ -238,6 +224,90 @@ function hasDecisionPoint(content: string): boolean {
 /** Strip the [decision-point] tag from content for display */
 function stripDecisionPoint(content: string): string {
   return content.replace(/\s*\[decision-point\]\s*/g, "").trim();
+}
+
+/* ─── Document preview card (shown inline in chat) ─── */
+
+const CATEGORY_COLORS: Record<string, string> = {
+  strategy: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+  technical: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+  business: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+  design: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+  notes: "text-muted-foreground bg-foreground/5 border-foreground/10",
+  other: "text-muted-foreground bg-foreground/5 border-foreground/10",
+};
+
+function DocumentPreviewCard({
+  doc,
+  messageId,
+  onSave,
+}: {
+  doc: DocumentPreview;
+  messageId: string;
+  onSave: (messageId: string, docId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const lines = doc.content.split("\n");
+  const preview = lines.slice(0, 6).join("\n") + (lines.length > 6 ? "\n…" : "");
+  const colors = CATEGORY_COLORS[doc.category] ?? CATEGORY_COLORS.other;
+
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-card overflow-hidden">
+      {/* Header row */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-foreground/5"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+        <span className="flex-1 truncate font-mono text-xs text-foreground">{doc.filePath}</span>
+        <span className={`rounded-full border px-1.5 py-0.5 font-mono text-[9px] ${colors}`}>
+          {doc.category}
+        </span>
+        <svg
+          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          className={`shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {/* Preview / expanded content */}
+      <div className="border-t border-border">
+        <pre className={`overflow-x-auto px-3 py-2 font-mono text-[11px] leading-relaxed text-muted-foreground ${expanded ? "max-h-80" : "max-h-32"} overflow-y-auto whitespace-pre-wrap`}>
+          {expanded ? doc.content : preview}
+        </pre>
+      </div>
+
+      {/* Save button */}
+      {!doc.saved ? (
+        <div className="border-t border-border px-3 py-2">
+          <button
+            onClick={() => onSave(messageId, doc.id)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[11px] text-emerald-400 transition-colors hover:bg-emerald-500/20"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            Save to Documents
+          </button>
+        </div>
+      ) : (
+        <div className="border-t border-border px-3 py-2">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-emerald-400/70">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Saved to Documents
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const mdComponents = {
@@ -1005,9 +1075,12 @@ export function ChatView() {
             } else if (data.type === "tool_result") {
               if (data.name === "save_decision" && data.decision) {
                 const d = data.decision as { id?: string; title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
-                const decId = useStagingStore.getState().stageDecision({
-                  id: d.id || undefined,
+                const decId = d.id || Math.random().toString(36).slice(2, 10);
+                // Log directly to decisions store (no staging step)
+                useDecisionsStore.getState().addDecision({
+                  id: decId,
                   title: d.title,
+                  status: "decided",
                   choice: d.choice,
                   alternatives: d.alternatives,
                   reasoning: d.reasoning ?? undefined,
@@ -1017,13 +1090,25 @@ export function ChatView() {
                 trackDecisionStaged({ decisionId: decId, title: d.title, projectId: streamProjectId });
               }
               if (data.name === "save_artifact" && data.artifact) {
-                const a = data.artifact as { id?: string; filePath: string; status: string };
+                const a = data.artifact as { id?: string; filePath: string; content?: string; category?: string; status: string };
+                const artId = a.id || `temp_${Date.now()}`;
                 useArtifactsStore.getState().upsertArtifact({
-                  id: a.id || `temp_${Date.now()}`,
+                  id: artId,
                   filePath: a.filePath,
+                  content: a.content || "",
+                  category: a.category || "other",
                   status: (a.status as "draft" | "synced") || "draft",
                   lastGeneratedAt: Date.now(),
                 });
+                // Add preview card to the current message
+                if (a.content) {
+                  useMeterStore.getState().addDocumentToLastMessage({
+                    id: artId,
+                    filePath: a.filePath,
+                    content: a.content,
+                    category: a.category || "other",
+                  }, streamProjectId);
+                }
               }
               if (data.name === "porkbun_check_domain" && data.domainCard) {
                 const dc = data.domainCard as {
@@ -1196,6 +1281,12 @@ export function ChatView() {
     trackDecideClicked({ projectId: activeProjectId });
     await streamResponse("Yes, log that as a decision.");
   };
+
+  /** Save a document preview to the Documents folder (commit the artifact) */
+  const handleSaveDocument = useCallback((messageId: string, docId: string) => {
+    useArtifactsStore.getState().commitArtifact(docId);
+    useMeterStore.getState().markDocumentSaved(messageId, docId);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // When slash popover is open, forward navigation keys
@@ -1372,7 +1463,6 @@ export function ChatView() {
           </div>
           <div className="relative flex items-center gap-2">
             <HeaderMeter />
-            <CommitButton />
             <button
               onClick={toggleInspector}
               className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 transition-colors hover:bg-foreground/5"
@@ -1587,6 +1677,20 @@ export function ChatView() {
                               />
                             )
                           )}
+                        </div>
+                      )}
+
+                      {/* Document previews */}
+                      {msg.documents && msg.documents.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {msg.documents.map((doc) => (
+                            <DocumentPreviewCard
+                              key={doc.id}
+                              doc={doc}
+                              messageId={msg.id}
+                              onSave={handleSaveDocument}
+                            />
+                          ))}
                         </div>
                       )}
 

@@ -84,17 +84,22 @@ export const BUILTIN_TOOLS: ToolDef[] = [
     function: {
       name: "save_artifact",
       description:
-        "Save a strategy artifact (markdown spec file) for the project. Use when generating strategy documents like ARCHITECTURE.md, DECISIONS.md, CLAUDE.md, .cursorrules, README.md, or DESIGN.md from the conversation's decisions and context.",
+        "Save a document for the project. Use for any document the user asks you to create — strategy specs, technical docs, proposals, guides, plans, briefs, notes, or any other structured document. The document will appear as a preview in chat and be saved to the user's Documents folder.",
       parameters: {
         type: "object",
         properties: {
           file_path: {
             type: "string",
-            description: "File name (e.g. 'ARCHITECTURE.md', 'CLAUDE.md', '.cursorrules', 'DECISIONS.md', 'README.md', 'DESIGN.md')",
+            description: "File name with extension (e.g. 'ARCHITECTURE.md', 'product-brief.md', 'api-spec.md', 'meeting-notes.md')",
           },
           content: {
             type: "string",
-            description: "Full markdown content of the artifact",
+            description: "Full markdown content of the document",
+          },
+          category: {
+            type: "string",
+            enum: ["strategy", "technical", "business", "design", "notes", "other"],
+            description: "Category for auto-classification in the documents folder",
           },
         },
         required: ["file_path", "content"],
@@ -173,7 +178,7 @@ You have tools. Use them:
 - web_search: Search the web for anything current — news, docs, prices, APIs, etc. Use this proactively when questions touch on recent events or data you're unsure about.
 - save_decision: Log important decisions when the user makes a choice or asks you to recommend something. This helps them track what was decided and why.
 - list_decisions: Recall past decisions when the user asks "what did we decide" or references earlier choices.
-- save_artifact: Save strategy/spec documents that coding agents will read. Use when the user asks to generate artifacts, export strategy, or prepare specs for their coding tools.
+- save_artifact: Save any document — strategy specs, technical docs, proposals, guides, meeting notes, plans, or briefs. Use whenever the user asks you to write, draft, or generate a document. Each document gets a preview in chat and is saved to their Documents folder.
 - get_current_datetime: Know what day/time it is.
 - porkbun_check_domain: Check if a domain is available and get its price. Use when the user picks a brand name or asks about domains. A purchase card will appear in chat for available domains.
 - porkbun_get_pricing: Get pricing for popular TLDs (.com, .io, .dev, etc.).${connectorSection}
@@ -191,6 +196,8 @@ When the user asks to generate strategy artifacts or prepare specs for their cod
 6. BRAND.md — brand voice, tone, visual identity guidelines, and naming conventions
 7. .cursorrules — agent instructions optimized for Cursor
 Base all content on the locked decisions and conversation context. Be specific and actionable — these files are read by coding agents, not just humans.
+
+You can also create any other document the user asks for — proposals, briefs, plans, meeting notes, guides, specs. Always use save_artifact so the document appears as a preview in chat and is saved to their Documents folder. Choose an appropriate category: strategy, technical, business, design, notes, or other.
 
 Review items: When you identify actionable items from the conversation, emails, or connected services, tag them with markers so they appear in the user's Review panel:
 - Follow-ups from email or chat: wrap in [follow-up]...[/follow-up] tags. Example: [follow-up]Reply to Sarah about the contract by Friday[/follow-up]
@@ -450,6 +457,16 @@ async function saveDecision(
 
 /* ── save_artifact ─────────────────────────────────────────────── */
 
+function inferCategory(filePath: string): string {
+  const lower = filePath.toLowerCase();
+  if (/readme|architecture|decisions|claude|cursorrules/.test(lower)) return "strategy";
+  if (/api|schema|spec|config|setup/.test(lower)) return "technical";
+  if (/design|brand|style|ui|ux/.test(lower)) return "design";
+  if (/budget|revenue|runway|pitch|investor|business/.test(lower)) return "business";
+  if (/notes|meeting|standup|retro|log/.test(lower)) return "notes";
+  return "other";
+}
+
 async function saveArtifact(
   args: Record<string, unknown>,
   ctx: ToolContext
@@ -483,14 +500,17 @@ async function saveArtifact(
       existingId = data?.id;
     }
 
+    const category = (args.category as string) || inferCategory(filePath);
+
     if (existingId) {
       await supabase.from("artifacts").update({
         content,
         status: "draft",
+        category,
         last_generated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }).eq("id", existingId);
-      return JSON.stringify({ id: existingId, message: `Updated artifact: ${filePath}` });
+      return JSON.stringify({ id: existingId, filePath, content, category, message: `Updated document: ${filePath}` });
     } else {
       const id = `art_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       await supabase.from("artifacts").insert({
@@ -500,9 +520,10 @@ async function saveArtifact(
         file_path: filePath,
         content,
         status: "draft",
+        category,
         last_generated_at: new Date().toISOString(),
       });
-      return JSON.stringify({ id, message: `Created artifact: ${filePath}` });
+      return JSON.stringify({ id, filePath, content, category, message: `Created document: ${filePath}` });
     }
   } catch (err) {
     return `Failed to save artifact: ${(err as Error).message}`;

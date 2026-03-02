@@ -271,11 +271,13 @@ export async function POST(req: NextRequest) {
                 }
               }
               if (tc.name === "save_artifact") {
-                let artifactData: { id?: string } | undefined;
+                let artifactData: { id?: string; content?: string; category?: string } | undefined;
                 try { artifactData = JSON.parse(toolResult); } catch { /* plain text fallback */ }
                 toolResultEvent.artifact = {
                   id: artifactData?.id,
                   filePath: args.file_path,
+                  content: args.content,
+                  category: artifactData?.category || args.category || "other",
                   status: "draft",
                 };
               }
