@@ -126,12 +126,9 @@ First Principles: "${firstPrinciplesOutput}"
 Inversion: "${inversionOutput}"
 Pre-mortem: "${preMortemOutput}"
 
-Write the verdict. One paragraph, no hedging. Given everything above, what is the honest assessment? Is this worth pursuing, and under what conditions?
+Output EXACTLY this structure, in this order:
 
-End with a conviction score: **Conviction: X/10** — one sentence.
-Calibration: most ideas land 3-7. An 8+ means you'd bet real money. A 2 or below means almost certainly dead.
-
-Then output this summary table (use the actual findings, not placeholders):
+1. The summary table FIRST (use the actual findings, not placeholders):
 
 | Dimension | Finding |
 |---|---|
@@ -141,10 +138,17 @@ Then output this summary table (use the actual findings, not placeholders):
 | Pre-mortem | [the specific reason it failed in the narrative] |
 | Verdict | [one-sentence honest assessment] |
 
+2. Then a horizontal rule: ---
+
+3. Then ONE closing paragraph — the honest verdict. No hedging, no preamble. 2-4 sentences that synthesize everything above into a clear recommendation. End the paragraph with **Conviction: X/10** inline.
+
+Calibration: most ideas land 3-7. An 8+ means you'd bet real money. A 2 or below means almost certainly dead.
+
 Rules:
-- The verdict paragraph should be 2-3 sentences max, direct and honest
-- The table findings should be specific and self-explanatory — no labels like "High Risk", just state the finding
-- Do NOT reference the dissection format`;
+- Table findings must be specific and self-explanatory — no vague labels like "High Risk", state the actual finding
+- The closing paragraph should feel like a sharp advisor giving you the truth, not a report summary
+- Do NOT output any text before the table — the table is the first thing the user sees
+- Do NOT reference the dissection format or label sections`;
 }
 
 // ── Clarifying question tool ───────────────────────────────────────────
