@@ -45,6 +45,11 @@ export interface SimulatorQuestion {
   answer?: string;
 }
 
+export interface SimulatorTurn {
+  persona: "optimist" | "pessimist" | "realist";
+  content: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -68,6 +73,7 @@ export interface ChatMessage {
   documents?: DocumentPreview[];
   hidden?: boolean;
   simulatorQuestions?: SimulatorQuestion[];
+  simulatorTrace?: SimulatorTurn[];
 }
 
 export interface PaymentCard {
@@ -209,6 +215,7 @@ interface MeterState {
   setDebateTrace: (trace: DebateTurn[], forProjectId?: string) => void;
   addSimulatorQuestionsToMessage: (questions: SimulatorQuestion[], forProjectId?: string) => void;
   updateSimulatorAnswer: (messageId: string, questionId: string, answer: string) => void;
+  setSimulatorTrace: (trace: SimulatorTurn[], forProjectId?: string) => void;
 
   setPendingInput: (v: string | null) => void;
 
@@ -1187,6 +1194,17 @@ export const useMeterStore = create<MeterState>()(
               ),
             };
           });
+          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+        }),
+
+      setSimulatorTrace: (trace, forProjectId?) =>
+        set((s) => {
+          const active = getProjectByIdOrActive(s, forProjectId);
+          const msgs = [...active.messages];
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === "assistant") {
+            msgs[msgs.length - 1] = { ...last, simulatorTrace: trace };
+          }
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 

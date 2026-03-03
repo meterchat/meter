@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type Attachment, type DocumentPreview, type SimulatorQuestion } from "@/lib/store";
+import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type SimulatorTurn, type Attachment, type DocumentPreview, type SimulatorQuestion } from "@/lib/store";
 import {
   trackMessageSent,
   trackMessageCopied,
@@ -49,6 +49,7 @@ import { useArtifactsStore } from "@/lib/artifacts-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
 import { SimulatorCard } from "@/components/simulator-card";
+import { SimulatorTrace } from "@/components/simulator-trace";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -676,6 +677,10 @@ export function ChatView() {
   const [debateTrace, setDebateTraceLocal] = useState<DebateTurn[]>([]);
   const [activeDebateTurn, setActiveDebateTurn] = useState<{ model: string; phase: string; content: string } | null>(null);
   const [debatePhase, setDebatePhase] = useState<"debating" | "synthesizing" | null>(null);
+  // Simulator mode state
+  const [simulatorTraceLocal, setSimulatorTraceLocal] = useState<SimulatorTurn[]>([]);
+  const [activeSimulatorTurn, setActiveSimulatorTurn] = useState<{ persona: string; content: string } | null>(null);
+  const [simulatorPhase, setSimulatorPhase] = useState<"simulating" | "synthesizing" | null>(null);
   const slashRef = useRef<SlashCommandHandle>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isNearBottomRef = useRef(true);
@@ -919,8 +924,17 @@ export function ChatView() {
       setDebatePhase("debating");
     }
 
-    // Track debate trace locally during streaming
+    // Reset simulator state
+    if (isSimulatorMode) {
+      setSimulatorTraceLocal([]);
+      setActiveSimulatorTurn(null);
+      setSimulatorPhase("simulating");
+    }
+
+    // Track traces locally during streaming
     const localTrace: DebateTurn[] = [];
+    const localSimTrace: SimulatorTurn[] = [];
+    let currentSimTurn: { persona: string; content: string } | null = null;
     let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number; actualCost?: number } | null = null;
     let actualModelUsed: string | null = null;
 
@@ -1073,14 +1087,43 @@ export function ChatView() {
 
             // ── Simulator events ──────────────────────────────
             } else if (data.type === "simulator_start") {
-              // Simulator started — no special state needed
+              // Simulator started — state already reset above
             } else if (data.type === "simulator_questions") {
               const rawQuestions = data.questions as string[];
               const questions: SimulatorQuestion[] = rawQuestions.map((q, i) => ({
                 id: `sq_${i}`,
                 question: q,
               }));
+              // Questions phase — no multi-pass trace, just the card
+              setSimulatorPhase(null);
               useMeterStore.getState().addSimulatorQuestionsToMessage(questions, streamProjectId);
+            } else if (data.type === "simulator_turn_start") {
+              currentSimTurn = { persona: data.persona as string, content: "" };
+              setActiveSimulatorTurn(currentSimTurn);
+            } else if (data.type === "simulator_turn_delta") {
+              if (currentSimTurn) {
+                currentSimTurn = { persona: currentSimTurn.persona, content: currentSimTurn.content + (data.content as string) };
+                setActiveSimulatorTurn(currentSimTurn);
+                // Track output cost using Opus rate
+                const deltaText = data.content as string;
+                const estTokens = Math.ceil(deltaText.length / 4);
+                const simModel = getModel("simulator-1.0");
+                incrementCurrentMessageCost(estTokens * simModel.outputPrice, streamProjectId);
+                if (checkSpendLimits()) break;
+              }
+            } else if (data.type === "simulator_turn_end") {
+              if (currentSimTurn) {
+                localSimTrace.push({
+                  persona: currentSimTurn.persona as "optimist" | "pessimist" | "realist",
+                  content: currentSimTurn.content,
+                });
+                setSimulatorTraceLocal([...localSimTrace]);
+                setActiveSimulatorTurn(null);
+                currentSimTurn = null;
+              }
+            } else if (data.type === "simulator_synthesis_start") {
+              setSimulatorPhase("synthesizing");
+              setActiveSimulatorTurn(null);
 
             // ── Standard events ───────────────────────────────
             } else if (data.type === "thinking_delta") {
@@ -1185,6 +1228,10 @@ export function ChatView() {
         useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
         trackDebateCompleted({ projectId: streamProjectId, turnCount: localTrace.length });
       }
+      // Persist simulator trace to the message
+      if (isSimulatorMode && localSimTrace.length > 0) {
+        useMeterStore.getState().setSimulatorTrace(localSimTrace, streamProjectId);
+      }
 
       if (finalUsage) {
         finalizeResponse(
@@ -1205,6 +1252,9 @@ export function ChatView() {
       if (isDebateMode && localTrace.length > 0) {
         useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
       }
+      if (isSimulatorMode && localSimTrace.length > 0) {
+        useMeterStore.getState().setSimulatorTrace(localSimTrace, streamProjectId);
+      }
       if (finalUsage) {
         finalizeResponse(
           finalUsage.tokensIn,
@@ -1223,6 +1273,8 @@ export function ChatView() {
       setActiveTool(null);
       setDebatePhase(null);
       setActiveDebateTurn(null);
+      setSimulatorPhase(null);
+      setActiveSimulatorTurn(null);
       // Delay setStreaming(false) so the meter pill slot animation has
       // time to roll to the final cost value before locking.
       setTimeout(() => setStreaming(false, streamProjectId), 350);
@@ -1637,6 +1689,10 @@ export function ChatView() {
               const showLiveDebate = isLastAssistant && isStreaming && debatePhase;
               // Show persisted debate trace on any message that has one
               const showPersistedDebate = msg.debateTrace && msg.debateTrace.length > 0 && !showLiveDebate;
+              // Show live simulator trace on the last assistant message while streaming
+              const showLiveSimulator = isLastAssistant && isStreaming && simulatorPhase;
+              // Show persisted simulator trace on any message that has one
+              const showPersistedSimulator = msg.simulatorTrace && msg.simulatorTrace.length > 0 && !showLiveSimulator;
 
               return (
                 <div key={msg.id} id={`msg-${msg.id}`} className="group/msg relative mb-4 transition-all duration-300">
@@ -1659,6 +1715,18 @@ export function ChatView() {
                       )}
                       {showPersistedDebate && (
                         <DebateTrace trace={msg.debateTrace!} />
+                      )}
+
+                      {/* Simulator trace — live or persisted */}
+                      {showLiveSimulator && (
+                        <SimulatorTrace
+                          trace={simulatorTraceLocal}
+                          activeTurn={activeSimulatorTurn}
+                          phase={simulatorPhase}
+                        />
+                      )}
+                      {showPersistedSimulator && (
+                        <SimulatorTrace trace={msg.simulatorTrace!} />
                       )}
 
                       {/* Inline attachment viewers */}
@@ -1777,7 +1845,7 @@ export function ChatView() {
               );
             })}
 
-            {showThinking && !debatePhase && (
+            {showThinking && !debatePhase && !simulatorPhase && (
               <ThinkingIndicator
                 toolName={activeTool}
                 rerouting={rerouting}
