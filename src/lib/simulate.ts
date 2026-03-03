@@ -163,8 +163,15 @@ export async function runSimulation(
     ...context,
   ];
 
-  // Include the clarifying questions tool alongside standard tools
-  const allTools: ToolDef[] = [ASK_CLARIFYING_QUESTIONS_TOOL, ...tools];
+  // Only offer clarifying questions tool on the first turn.
+  // If conversation already has assistant messages (from a prior simulator
+  // turn that asked questions), skip the tool — model should analyze now.
+  const hasSimulatorHistory = context.some(
+    (m) => m.role === "assistant" && context.indexOf(m) > 0
+  );
+  const allTools: ToolDef[] = hasSimulatorHistory
+    ? tools
+    : [ASK_CLARIFYING_QUESTIONS_TOOL, ...tools];
 
   const totalOut = { value: 0 };
 
@@ -223,16 +230,22 @@ export async function runSimulation(
       }
 
       if (tc.name === "ask_clarifying_questions") {
-        // Intercepted — emit as a simulator event, not a real tool execution
+        // Intercepted — emit questions to UI and STOP.
+        // The user will answer in the card, which triggers a new request
+        // with the full conversation + answers → the next runSimulation()
+        // call will have enough context to run the analysis.
         const questions = (args.questions as string[]) || [];
         send({ type: "simulator_questions", questions });
 
-        // Push a synthetic tool result so the model can continue
-        messages.push({
-          role: "tool",
-          tool_call_id: tc.id,
-          content: "Questions displayed to user. Waiting for their answers.",
+        // Send usage for this turn and close the stream
+        send({
+          type: "usage",
+          tokensIn: usage.tokensIn,
+          tokensOut: usage.tokensOut,
+          actualCost: usage.actualCost,
         });
+        send({ type: "done", actualModel: "simulator-1.0" });
+        return;
       } else {
         // Standard tool execution (save_artifact, etc.)
         send({ type: "tool_call", name: tc.name });
