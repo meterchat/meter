@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToolsForConnectors, buildSystemPrompt, executeTool } from "@/lib/tools";
 import { streamWithFallback, type Send } from "@/lib/fallback";
 import { runDebate } from "@/lib/debate";
+import { runSimulation } from "@/lib/simulate";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
 import {
@@ -149,6 +150,23 @@ export async function POST(req: NextRequest) {
             console.error("[chat] debate failed:", (err as Error).message);
             send({ type: "error", code: "debate_failed", model: "meter-1.0" });
             send({ type: "done", actualModel: "meter-1.0" });
+          }
+          controller.close();
+          return;
+        }
+
+        // ── Simulator 1.0 ──────────────────────────────────────────
+        if (resolvedModel === "simulator-1.0") {
+          try {
+            await runSimulation(conversation, send, tools, {
+              userId,
+              projectId,
+              workspaceId: projectId,
+            });
+          } catch (err) {
+            console.error("[chat] simulation failed:", (err as Error).message);
+            send({ type: "error", code: "simulation_failed", model: "simulator-1.0" });
+            send({ type: "done", actualModel: "simulator-1.0" });
           }
           controller.close();
           return;
