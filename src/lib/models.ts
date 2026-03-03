@@ -56,6 +56,17 @@ export const MODELS: ModelConfig[] = [
     speed: 70,
   },
   {
+    id: "dissector-1.0",
+    name: "Dissector 1.0",
+    provider: "Meter",
+    color: "#3B82F6",
+    // Display-only rate (actual cost computed per-call in dissect.ts using Opus pricing)
+    inputPrice: (5.0 / 1_000_000),
+    outputPrice: (25.0 / 1_000_000),
+    quality: 91,  // GPQA Diamond — routes to Claude Opus
+    speed: 70,
+  },
+  {
     id: "anthropic/claude-sonnet-4.6",
     name: "Sonnet 4.6",
     provider: "Anthropic",

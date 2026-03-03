@@ -155,6 +155,10 @@ export function trackSimulateClicked(properties: { projectId: string }) {
   capture("simulate_clicked", properties);
 }
 
+export function trackDissectClicked(properties: { projectId: string }) {
+  capture("dissect_clicked", properties);
+}
+
 // ─── Billing & Payments ─────────────────────────────────────────────────
 
 export function trackCardAdded(properties: { brand?: string; last4?: string; source: string }) {

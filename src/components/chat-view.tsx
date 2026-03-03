@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type SimulatorTurn, type Attachment, type DocumentPreview, type SimulatorQuestion } from "@/lib/store";
+import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type SimulatorTurn, type DissectorTurn, type Attachment, type DocumentPreview, type SimulatorQuestion } from "@/lib/store";
 import {
   trackMessageSent,
   trackMessageCopied,
@@ -14,6 +14,7 @@ import {
   trackDebateCompleted,
   trackDecideClicked,
   trackSimulateClicked,
+  trackDissectClicked,
   trackDecisionCreated,
   trackDecisionResolved,
   trackDecisionStaged,
@@ -50,6 +51,7 @@ import { useStagingStore } from "@/lib/staging-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
 import { SimulatorCard } from "@/components/simulator-card";
 import { SimulatorTrace } from "@/components/simulator-trace";
+import { DissectorTrace } from "@/components/dissector-trace";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -190,11 +192,13 @@ function DecisionPointButtons({
   onDecide,
   onDebate,
   onSimulate,
+  onDissect,
   disabled,
 }: {
   onDecide: () => void;
   onDebate: () => void;
   onSimulate: () => void;
+  onDissect: () => void;
   disabled?: boolean;
 }) {
   return (
@@ -227,6 +231,16 @@ function DecisionPointButtons({
           <path d="M12 6v6l4 2" />
         </svg>
         Simulate
+      </button>
+      <button
+        onClick={onDissect}
+        disabled={disabled}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-blue-500/40 hover:bg-blue-500/10 hover:text-blue-400 active:bg-blue-500/20 active:text-blue-400 disabled:opacity-40"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 4h-4l-2 4 4 4-4 4 2 4h4l2-4-4-4 4-4z" />
+        </svg>
+        Dissect
       </button>
     </div>
   );
@@ -681,6 +695,10 @@ export function ChatView() {
   const [simulatorTraceLocal, setSimulatorTraceLocal] = useState<SimulatorTurn[]>([]);
   const [activeSimulatorTurn, setActiveSimulatorTurn] = useState<{ persona: string; content: string } | null>(null);
   const [simulatorPhase, setSimulatorPhase] = useState<"simulating" | "synthesizing" | null>(null);
+  // Dissector mode state
+  const [dissectorTraceLocal, setDissectorTraceLocal] = useState<DissectorTurn[]>([]);
+  const [activeDissectorTurn, setActiveDissectorTurn] = useState<{ persona: string; content: string } | null>(null);
+  const [dissectorPhase, setDissectorPhase] = useState<"dissecting" | "synthesizing" | null>(null);
   const slashRef = useRef<SlashCommandHandle>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isNearBottomRef = useRef(true);
@@ -916,6 +934,7 @@ export function ChatView() {
     const effectiveModel = modelOverride ?? selectedModelId;
     const isDebateMode = effectiveModel === "meter-1.0";
     const isSimulatorMode = effectiveModel === "simulator-1.0";
+    const isDissectorMode = effectiveModel === "dissector-1.0";
 
     // Reset debate state
     if (isDebateMode) {
@@ -931,10 +950,19 @@ export function ChatView() {
       setSimulatorPhase("simulating");
     }
 
+    // Reset dissector state
+    if (isDissectorMode) {
+      setDissectorTraceLocal([]);
+      setActiveDissectorTurn(null);
+      setDissectorPhase("dissecting");
+    }
+
     // Track traces locally during streaming
     const localTrace: DebateTurn[] = [];
     const localSimTrace: SimulatorTurn[] = [];
+    const localDissTrace: DissectorTurn[] = [];
     let currentSimTurn: { persona: string; content: string } | null = null;
+    let currentDissTurn: { persona: string; content: string } | null = null;
     let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number; actualCost?: number } | null = null;
     let actualModelUsed: string | null = null;
 
@@ -1125,6 +1153,44 @@ export function ChatView() {
               setSimulatorPhase("synthesizing");
               setActiveSimulatorTurn(null);
 
+            // ── Dissector events ──────────────────────────────
+            } else if (data.type === "dissector_start") {
+              // Dissector started — state already reset above
+            } else if (data.type === "dissector_questions") {
+              const rawQuestions = data.questions as string[];
+              const questions: SimulatorQuestion[] = rawQuestions.map((q, i) => ({
+                id: `dq_${i}`,
+                question: q,
+              }));
+              setDissectorPhase(null);
+              useMeterStore.getState().addSimulatorQuestionsToMessage(questions, streamProjectId);
+            } else if (data.type === "dissector_turn_start") {
+              currentDissTurn = { persona: data.persona as string, content: "" };
+              setActiveDissectorTurn(currentDissTurn);
+            } else if (data.type === "dissector_turn_delta") {
+              if (currentDissTurn) {
+                currentDissTurn = { persona: currentDissTurn.persona, content: currentDissTurn.content + (data.content as string) };
+                setActiveDissectorTurn(currentDissTurn);
+                const deltaText = data.content as string;
+                const estTokens = Math.ceil(deltaText.length / 4);
+                const dissModel = getModel("dissector-1.0");
+                incrementCurrentMessageCost(estTokens * dissModel.outputPrice, streamProjectId);
+                if (checkSpendLimits()) break;
+              }
+            } else if (data.type === "dissector_turn_end") {
+              if (currentDissTurn) {
+                localDissTrace.push({
+                  persona: currentDissTurn.persona as "first-principles" | "inversion" | "pre-mortem" | "verdict",
+                  content: currentDissTurn.content,
+                });
+                setDissectorTraceLocal([...localDissTrace]);
+                setActiveDissectorTurn(null);
+                currentDissTurn = null;
+              }
+            } else if (data.type === "dissector_synthesis_start") {
+              setDissectorPhase("synthesizing");
+              setActiveDissectorTurn(null);
+
             // ── Standard events ───────────────────────────────
             } else if (data.type === "thinking_delta") {
               thinkingContent += data.content;
@@ -1232,6 +1298,10 @@ export function ChatView() {
       if (isSimulatorMode && localSimTrace.length > 0) {
         useMeterStore.getState().setSimulatorTrace(localSimTrace, streamProjectId);
       }
+      // Persist dissector trace to the message
+      if (isDissectorMode && localDissTrace.length > 0) {
+        useMeterStore.getState().setDissectorTrace(localDissTrace, streamProjectId);
+      }
 
       if (finalUsage) {
         finalizeResponse(
@@ -1255,6 +1325,9 @@ export function ChatView() {
       if (isSimulatorMode && localSimTrace.length > 0) {
         useMeterStore.getState().setSimulatorTrace(localSimTrace, streamProjectId);
       }
+      if (isDissectorMode && localDissTrace.length > 0) {
+        useMeterStore.getState().setDissectorTrace(localDissTrace, streamProjectId);
+      }
       if (finalUsage) {
         finalizeResponse(
           finalUsage.tokensIn,
@@ -1275,6 +1348,8 @@ export function ChatView() {
       setActiveDebateTurn(null);
       setSimulatorPhase(null);
       setActiveSimulatorTurn(null);
+      setDissectorPhase(null);
+      setActiveDissectorTurn(null);
       // Delay setStreaming(false) so the meter pill slot animation has
       // time to roll to the final cost value before locking.
       setTimeout(() => setStreaming(false, streamProjectId), 350);
@@ -1357,6 +1432,14 @@ export function ChatView() {
     await streamResponse("Simulate this.", "simulator-1.0");
   };
 
+  /** Triggered by the "Dissect" button on a decision-point message */
+  const handleDissect = async () => {
+    if (isStreaming || !workspaceCardReady) return;
+    trackDissectClicked({ projectId: activeProjectId });
+    setSelectedModelId("dissector-1.0");
+    await streamResponse("Dissect this.", "dissector-1.0");
+  };
+
   /** Triggered when user submits answers in the SimulatorQACard */
   const handleSimulatorSubmit = async (answers: Record<string, string>) => {
     if (isStreaming) return;
@@ -1374,7 +1457,9 @@ export function ChatView() {
       .map(([, a], i) => `${i + 1}. ${a}`)
       .join("\n");
     const answersContent = `Here are my answers to your clarifying questions:\n${formatted}`;
-    await streamResponse(answersContent, "simulator-1.0", undefined, { hiddenUser: true });
+    // Use the currently selected model — covers both simulator and dissector Q&A
+    const qaModel = selectedModelId === "dissector-1.0" ? "dissector-1.0" : "simulator-1.0";
+    await streamResponse(answersContent, qaModel, undefined, { hiddenUser: true });
   };
 
   /** Triggered by the "Decide" button on a decision-point message */
@@ -1693,6 +1778,10 @@ export function ChatView() {
               const showLiveSimulator = isLastAssistant && isStreaming && simulatorPhase;
               // Show persisted simulator trace on any message that has one
               const showPersistedSimulator = msg.simulatorTrace && msg.simulatorTrace.length > 0 && !showLiveSimulator;
+              // Show live dissector trace on the last assistant message while streaming
+              const showLiveDissector = isLastAssistant && isStreaming && dissectorPhase;
+              // Show persisted dissector trace on any message that has one
+              const showPersistedDissector = msg.dissectorTrace && msg.dissectorTrace.length > 0 && !showLiveDissector;
 
               return (
                 <div key={msg.id} id={`msg-${msg.id}`} className="group/msg relative mb-4 transition-all duration-300">
@@ -1727,6 +1816,18 @@ export function ChatView() {
                       )}
                       {showPersistedSimulator && (
                         <SimulatorTrace trace={msg.simulatorTrace!} />
+                      )}
+
+                      {/* Dissector trace — live or persisted */}
+                      {showLiveDissector && (
+                        <DissectorTrace
+                          trace={dissectorTraceLocal}
+                          activeTurn={activeDissectorTurn}
+                          phase={dissectorPhase}
+                        />
+                      )}
+                      {showPersistedDissector && (
+                        <DissectorTrace trace={msg.dissectorTrace!} />
                       )}
 
                       {/* Inline attachment viewers */}
@@ -1831,6 +1932,7 @@ export function ChatView() {
                           onDecide={handleDecide}
                           onDebate={handleDebate}
                           onSimulate={handleSimulate}
+                          onDissect={handleDissect}
                           disabled={isStreaming}
                         />
                       )}
@@ -1845,7 +1947,7 @@ export function ChatView() {
               );
             })}
 
-            {showThinking && !debatePhase && !simulatorPhase && (
+            {showThinking && !debatePhase && !simulatorPhase && !dissectorPhase && (
               <ThinkingIndicator
                 toolName={activeTool}
                 rerouting={rerouting}
