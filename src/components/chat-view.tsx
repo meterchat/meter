@@ -228,15 +228,6 @@ function stripDecisionPoint(content: string): string {
 
 /* ─── Document preview card (shown inline in chat) ─── */
 
-const CATEGORY_COLORS: Record<string, string> = {
-  strategy: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-  technical: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-  business: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-  design: "text-purple-400 bg-purple-500/10 border-purple-500/20",
-  notes: "text-muted-foreground bg-foreground/5 border-foreground/10",
-  other: "text-muted-foreground bg-foreground/5 border-foreground/10",
-};
-
 function DocumentPreviewCard({
   doc,
   messageId,
@@ -247,46 +238,47 @@ function DocumentPreviewCard({
   onSave: (messageId: string, docId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const lines = doc.content.split("\n");
-  const preview = lines.slice(0, 6).join("\n") + (lines.length > 6 ? "\n…" : "");
-  const colors = CATEGORY_COLORS[doc.category] ?? CATEGORY_COLORS.other;
 
   return (
-    <div className="mt-2 rounded-lg border border-border bg-card overflow-hidden">
-      {/* Header row */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-foreground/5"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground">
+    <div className="mt-3 w-full max-w-[440px] rounded-lg border border-border overflow-hidden">
+      {/* Title bar — matches the PDF attachment header style */}
+      <div className="flex items-center gap-2 bg-foreground/5 px-3 py-1.5 border-b border-border">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400 shrink-0">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
         </svg>
-        <span className="flex-1 truncate font-mono text-xs text-foreground">{doc.filePath}</span>
-        <span className={`rounded-full border px-1.5 py-0.5 font-mono text-[9px] ${colors}`}>
-          {doc.category}
-        </span>
-        <svg
-          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          className={`shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
+        <span className="flex-1 truncate text-[11px] text-foreground/70">{doc.filePath}</span>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="shrink-0 font-mono text-[9px] text-muted-foreground/50 hover:text-foreground transition-colors"
         >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-
-      {/* Preview / expanded content */}
-      <div className="border-t border-border">
-        <pre className={`overflow-x-auto px-3 py-2 font-mono text-[11px] leading-relaxed text-muted-foreground ${expanded ? "max-h-80" : "max-h-32"} overflow-y-auto whitespace-pre-wrap`}>
-          {expanded ? doc.content : preview}
-        </pre>
+          {expanded ? "collapse" : "expand"}
+        </button>
       </div>
 
-      {/* Save button */}
-      {!doc.saved ? (
-        <div className="border-t border-border px-3 py-2">
+      {/* Document body — white background, rendered markdown */}
+      <div
+        className={`relative bg-white dark:bg-[#fafafa] overflow-y-auto transition-[max-height] duration-200 ${expanded ? "max-h-[480px]" : "max-h-[180px]"}`}
+        onClick={() => !expanded && setExpanded(true)}
+        style={{ cursor: expanded ? "default" : "pointer" }}
+      >
+        <div className="px-5 py-4 prose prose-sm max-w-none text-[#1c1917] prose-headings:text-[#1c1917] prose-headings:font-semibold prose-h1:text-base prose-h2:text-sm prose-h3:text-xs prose-p:text-[12px] prose-p:leading-relaxed prose-p:text-[#44403c] prose-li:text-[12px] prose-li:text-[#44403c] prose-strong:text-[#1c1917] prose-a:text-blue-600 prose-pre:bg-[#f5f5f4] prose-pre:text-[11px] prose-code:text-[11px] prose-code:text-[#c2410c]">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{doc.content}</ReactMarkdown>
+        </div>
+        {/* Fade overlay when collapsed */}
+        {!expanded && (
+          <div className="pointer-events-none sticky bottom-0 left-0 right-0 h-10 -mt-10 bg-gradient-to-t from-white dark:from-[#fafafa] to-transparent" />
+        )}
+      </div>
+
+      {/* Footer — save action */}
+      <div className="flex items-center gap-2 border-t border-border bg-foreground/[0.02] px-3 py-1.5">
+        {!doc.saved ? (
           <button
             onClick={() => onSave(messageId, doc.id)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[11px] text-emerald-400 transition-colors hover:bg-emerald-500/20"
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] text-emerald-500 transition-colors hover:bg-emerald-500/10"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -295,17 +287,15 @@ function DocumentPreviewCard({
             </svg>
             Save to Documents
           </button>
-        </div>
-      ) : (
-        <div className="border-t border-border px-3 py-2">
-          <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-emerald-400/70">
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-500/70">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            Saved to Documents
+            Saved
           </span>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -373,6 +363,7 @@ function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string
 const TOOL_LABELS: Record<string, string> = {
   web_search: "Searching the web",
   save_decision: "Saving decision",
+  save_artifact: "Writing document",
   list_decisions: "Recalling decisions",
   get_current_datetime: "Checking date",
   search_emails: "Searching emails",
@@ -407,6 +398,7 @@ function getHintPool(
       read_email: ["Parsing email content"],
       supabase_query: ["Executing query", "Fetching rows"],
       save_decision: ["Writing to memory"],
+      save_artifact: ["Drafting document", "Formatting content"],
       list_decisions: ["Recalling past decisions"],
     };
     return toolHints[toolName] ?? ["Processing"];
@@ -1284,9 +1276,12 @@ export function ChatView() {
 
   /** Save a document preview to the Documents folder (commit the artifact) */
   const handleSaveDocument = useCallback((messageId: string, docId: string) => {
-    useArtifactsStore.getState().commitArtifact(docId);
+    const store = useArtifactsStore.getState();
+    store.commitArtifact(docId);
     useMeterStore.getState().markDocumentSaved(messageId, docId);
-  }, []);
+    // Refresh artifacts so the Documents tab picks up the change
+    store.fetchArtifacts(activeProjectId);
+  }, [activeProjectId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // When slash popover is open, forward navigation keys

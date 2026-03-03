@@ -984,12 +984,6 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
               </button>
             </>
           )}
-          <button
-            onClick={handleGenerate}
-            className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
-          >
-            Generate
-          </button>
         </div>
       </div>
 
@@ -1057,8 +1051,8 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
           <span className="font-mono text-[12px] text-muted-foreground/40">
             No documents yet
           </span>
-          <span className="font-mono text-[11px] text-muted-foreground/30">
-            Ask Meter to write any doc, or generate strategy specs
+          <span className="font-mono text-[11px] text-muted-foreground/30 text-center">
+            Ask Meter to write a doc — specs, proposals, notes, anything
           </span>
         </div>
       ) : (

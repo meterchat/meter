@@ -47,13 +47,21 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
         return;
       }
       const data = await res.json();
-      // Server-stored artifacts are already "committed" — initialise
-      // lastCommittedContent so they don't appear as new in the commit dropdown.
       const fetched = (data.artifacts ?? []).map((a: Artifact) => ({
         ...a,
         lastCommittedContent: a.lastCommittedContent ?? a.content,
       }));
-      set({ artifacts: fetched, loading: false });
+      // Merge: server data wins for existing artifacts, but preserve
+      // any client-only artifacts (upserted during streaming) that
+      // the server hasn't returned yet.
+      set((s) => {
+        const serverIds = new Set(fetched.map((a: Artifact) => a.id));
+        const serverPaths = new Set(fetched.map((a: Artifact) => a.filePath));
+        const clientOnly = s.artifacts.filter(
+          (a) => !serverIds.has(a.id) && !serverPaths.has(a.filePath)
+        );
+        return { artifacts: [...fetched, ...clientOnly], loading: false };
+      });
     } catch {
       set({ loading: false });
     }
