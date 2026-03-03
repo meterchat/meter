@@ -39,15 +39,10 @@ export interface DocumentPreview {
   saved?: boolean;
 }
 
-export interface SimulatorQuestion {
+export interface ClarifyingQuestion {
   id: string;
   question: string;
   answer?: string;
-}
-
-export interface SimulatorTurn {
-  persona: "optimist" | "pessimist" | "realist";
-  content: string;
 }
 
 export interface DissectorTurn {
@@ -77,8 +72,7 @@ export interface ChatMessage {
   thinking?: string;
   documents?: DocumentPreview[];
   hidden?: boolean;
-  simulatorQuestions?: SimulatorQuestion[];
-  simulatorTrace?: SimulatorTurn[];
+  clarifyingQuestions?: ClarifyingQuestion[];
   dissectorTrace?: DissectorTurn[];
 }
 
@@ -219,9 +213,8 @@ interface MeterState {
   addDocumentToLastMessage: (doc: DocumentPreview, forProjectId?: string) => void;
   markDocumentSaved: (messageId: string, docId: string) => void;
   setDebateTrace: (trace: DebateTurn[], forProjectId?: string) => void;
-  addSimulatorQuestionsToMessage: (questions: SimulatorQuestion[], forProjectId?: string) => void;
-  updateSimulatorAnswer: (messageId: string, questionId: string, answer: string) => void;
-  setSimulatorTrace: (trace: SimulatorTurn[], forProjectId?: string) => void;
+  addClarifyingQuestions: (questions: ClarifyingQuestion[], forProjectId?: string) => void;
+  updateClarifyingAnswer: (messageId: string, questionId: string, answer: string) => void;
   setDissectorTrace: (trace: DissectorTurn[], forProjectId?: string) => void;
 
   setPendingInput: (v: string | null) => void;
@@ -1177,41 +1170,30 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
-      addSimulatorQuestionsToMessage: (questions, forProjectId?) =>
+      addClarifyingQuestions: (questions, forProjectId?) =>
         set((s) => {
           const active = getProjectByIdOrActive(s, forProjectId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
-            msgs[msgs.length - 1] = { ...last, simulatorQuestions: questions };
+            msgs[msgs.length - 1] = { ...last, clarifyingQuestions: questions };
           }
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
-      updateSimulatorAnswer: (messageId, questionId, answer) =>
+      updateClarifyingAnswer: (messageId, questionId, answer) =>
         set((s) => {
           const active = getActiveProject(s);
           if (!active) return s;
           const msgs = active.messages.map((m) => {
-            if (m.id !== messageId || !m.simulatorQuestions) return m;
+            if (m.id !== messageId || !m.clarifyingQuestions) return m;
             return {
               ...m,
-              simulatorQuestions: m.simulatorQuestions.map((q) =>
+              clarifyingQuestions: m.clarifyingQuestions.map((q) =>
                 q.id === questionId ? { ...q, answer } : q
               ),
             };
           });
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
-        }),
-
-      setSimulatorTrace: (trace, forProjectId?) =>
-        set((s) => {
-          const active = getProjectByIdOrActive(s, forProjectId);
-          const msgs = [...active.messages];
-          const last = msgs[msgs.length - 1];
-          if (last && last.role === "assistant") {
-            msgs[msgs.length - 1] = { ...last, simulatorTrace: trace };
-          }
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 

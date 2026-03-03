@@ -151,10 +151,6 @@ export function trackDecideClicked(properties: { projectId: string }) {
   capture("decide_clicked", properties);
 }
 
-export function trackSimulateClicked(properties: { projectId: string }) {
-  capture("simulate_clicked", properties);
-}
-
 export function trackDissectClicked(properties: { projectId: string }) {
   capture("dissect_clicked", properties);
 }

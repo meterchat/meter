@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import type { SimulatorQuestion } from "@/lib/store";
+import type { ClarifyingQuestion } from "@/lib/store";
 
-interface SimulatorCardProps {
-  questions: SimulatorQuestion[];
+interface ClarifyingCardProps {
+  questions: ClarifyingQuestion[];
   messageId: string;
   onSubmit: (answers: Record<string, string>) => void;
   disabled?: boolean;
 }
 
-export function SimulatorCard({ questions, messageId, onSubmit, disabled }: SimulatorCardProps) {
+export function ClarifyingCard({ questions, messageId, onSubmit, disabled }: ClarifyingCardProps) {
   const question = questions[0];
   if (!question) return null;
 
@@ -25,7 +25,7 @@ export function SimulatorCard({ questions, messageId, onSubmit, disabled }: Simu
   }
 
   return (
-    <div className="my-3 rounded-lg border border-purple-500/20 bg-purple-500/[0.03] overflow-hidden">
+    <div className="my-3 rounded-lg border border-blue-500/20 bg-blue-500/[0.03] overflow-hidden">
       <div className="px-3 py-3">
         {/* Question */}
         <p className="text-[12px] text-foreground/80 mb-2">
@@ -48,12 +48,12 @@ export function SimulatorCard({ questions, messageId, onSubmit, disabled }: Simu
               disabled={disabled}
               placeholder="Your answer..."
               autoFocus
-              className="flex-1 rounded border border-foreground/10 bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/40 focus:border-purple-500/40 focus:outline-none focus:ring-1 focus:ring-purple-500/20 disabled:opacity-50"
+              className="flex-1 rounded border border-foreground/10 bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/40 focus:border-blue-500/40 focus:outline-none focus:ring-1 focus:ring-blue-500/20 disabled:opacity-50"
             />
             <button
               onClick={handleSubmit}
               disabled={!canSubmit || disabled}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 font-mono text-[11px] text-purple-400 transition-colors hover:bg-purple-500/20 hover:text-purple-300 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 font-mono text-[11px] text-blue-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <svg
                 width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
