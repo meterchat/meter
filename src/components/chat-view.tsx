@@ -1753,7 +1753,7 @@ export function ChatView() {
                           questions={msg.simulatorQuestions}
                           messageId={msg.id}
                           onSubmit={handleSimulatorSubmit}
-                          disabled={isStreaming || msg.simulatorQuestions.every((q) => !!q.answer)}
+                          disabled={msg.simulatorQuestions.every((q) => !!q.answer)}
                         />
                       )}
 
