@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type SimulatorTurn, type DissectorTurn, type Attachment, type DocumentPreview, type SimulatorQuestion } from "@/lib/store";
+import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type DissectorTurn, type Attachment, type DocumentPreview, type ClarifyingQuestion } from "@/lib/store";
 import {
   trackMessageSent,
   trackMessageCopied,
@@ -13,7 +13,6 @@ import {
   trackDebateStarted,
   trackDebateCompleted,
   trackDecideClicked,
-  trackSimulateClicked,
   trackDissectClicked,
   trackDecisionCreated,
   trackDecisionResolved,
@@ -49,8 +48,7 @@ import { useDecisionsStore } from "@/lib/decisions-store";
 import { useArtifactsStore } from "@/lib/artifacts-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
-import { SimulatorCard } from "@/components/simulator-card";
-import { SimulatorTrace } from "@/components/simulator-trace";
+import { ClarifyingCard } from "@/components/clarifying-card";
 import { DissectorTrace } from "@/components/dissector-trace";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -186,18 +184,16 @@ function DecisionPill({ decisionId, onOpen }: { decisionId: string; onOpen: () =
   );
 }
 
-/* ─── Decision-point buttons (Decide / Debate) ─── */
+/* ─── Decision-point buttons (Decide / Debate / Dissect) ─── */
 
 function DecisionPointButtons({
   onDecide,
   onDebate,
-  onSimulate,
   onDissect,
   disabled,
 }: {
   onDecide: () => void;
   onDebate: () => void;
-  onSimulate: () => void;
   onDissect: () => void;
   disabled?: boolean;
 }) {
@@ -220,17 +216,6 @@ function DecisionPointButtons({
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
         Debate
-      </button>
-      <button
-        onClick={onSimulate}
-        disabled={disabled}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-purple-400 active:bg-purple-500/20 active:text-purple-400 disabled:opacity-40"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 6v6l4 2" />
-        </svg>
-        Simulate
       </button>
       <button
         onClick={onDissect}
@@ -691,10 +676,6 @@ export function ChatView() {
   const [debateTrace, setDebateTraceLocal] = useState<DebateTurn[]>([]);
   const [activeDebateTurn, setActiveDebateTurn] = useState<{ model: string; phase: string; content: string } | null>(null);
   const [debatePhase, setDebatePhase] = useState<"debating" | "synthesizing" | null>(null);
-  // Simulator mode state
-  const [simulatorTraceLocal, setSimulatorTraceLocal] = useState<SimulatorTurn[]>([]);
-  const [activeSimulatorTurn, setActiveSimulatorTurn] = useState<{ persona: string; content: string } | null>(null);
-  const [simulatorPhase, setSimulatorPhase] = useState<"simulating" | "synthesizing" | null>(null);
   // Dissector mode state
   const [dissectorTraceLocal, setDissectorTraceLocal] = useState<DissectorTurn[]>([]);
   const [activeDissectorTurn, setActiveDissectorTurn] = useState<{ persona: string; content: string } | null>(null);
@@ -881,7 +862,7 @@ export function ChatView() {
     setScrollToMessageId(null);
   }, [scrollToMessageId, setScrollToMessageId]);
 
-  /** Core streaming function shared by handleSend, handleDebate, and handleSimulate */
+  /** Core streaming function shared by handleSend, handleDebate, and handleDissect */
   const streamResponse = async (userContent: string, modelOverride?: string, userAttachments?: Attachment[], options?: { hiddenUser?: boolean }) => {
     // Pin the project ID at stream start so all mutations target the correct
     // workspace even if the user switches workspaces mid-stream.
@@ -933,7 +914,6 @@ export function ChatView() {
 
     const effectiveModel = modelOverride ?? selectedModelId;
     const isDebateMode = effectiveModel === "meter-1.0";
-    const isSimulatorMode = effectiveModel === "simulator-1.0";
     const isDissectorMode = effectiveModel === "dissector-1.0";
 
     // Reset debate state
@@ -941,13 +921,6 @@ export function ChatView() {
       setDebateTraceLocal([]);
       setActiveDebateTurn(null);
       setDebatePhase("debating");
-    }
-
-    // Reset simulator state
-    if (isSimulatorMode) {
-      setSimulatorTraceLocal([]);
-      setActiveSimulatorTurn(null);
-      setSimulatorPhase("simulating");
     }
 
     // Reset dissector state
@@ -959,9 +932,7 @@ export function ChatView() {
 
     // Track traces locally during streaming
     const localTrace: DebateTurn[] = [];
-    const localSimTrace: SimulatorTurn[] = [];
     const localDissTrace: DissectorTurn[] = [];
-    let currentSimTurn: { persona: string; content: string } | null = null;
     let currentDissTurn: { persona: string; content: string } | null = null;
     let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number; actualCost?: number } | null = null;
     let actualModelUsed: string | null = null;
@@ -1113,57 +1084,17 @@ export function ChatView() {
               setDebatePhase("synthesizing");
               setActiveDebateTurn(null);
 
-            // ── Simulator events ──────────────────────────────
-            } else if (data.type === "simulator_start") {
-              // Simulator started — state already reset above
-            } else if (data.type === "simulator_questions") {
-              const rawQuestions = data.questions as string[];
-              const questions: SimulatorQuestion[] = rawQuestions.map((q, i) => ({
-                id: `sq_${i}`,
-                question: q,
-              }));
-              // Questions phase — no multi-pass trace, just the card
-              setSimulatorPhase(null);
-              useMeterStore.getState().addSimulatorQuestionsToMessage(questions, streamProjectId);
-            } else if (data.type === "simulator_turn_start") {
-              currentSimTurn = { persona: data.persona as string, content: "" };
-              setActiveSimulatorTurn(currentSimTurn);
-            } else if (data.type === "simulator_turn_delta") {
-              if (currentSimTurn) {
-                currentSimTurn = { persona: currentSimTurn.persona, content: currentSimTurn.content + (data.content as string) };
-                setActiveSimulatorTurn(currentSimTurn);
-                // Track output cost using Opus rate
-                const deltaText = data.content as string;
-                const estTokens = Math.ceil(deltaText.length / 4);
-                const simModel = getModel("simulator-1.0");
-                incrementCurrentMessageCost(estTokens * simModel.outputPrice, streamProjectId);
-                if (checkSpendLimits()) break;
-              }
-            } else if (data.type === "simulator_turn_end") {
-              if (currentSimTurn) {
-                localSimTrace.push({
-                  persona: currentSimTurn.persona as "optimist" | "pessimist" | "realist",
-                  content: currentSimTurn.content,
-                });
-                setSimulatorTraceLocal([...localSimTrace]);
-                setActiveSimulatorTurn(null);
-                currentSimTurn = null;
-              }
-            } else if (data.type === "simulator_synthesis_start") {
-              setSimulatorPhase("synthesizing");
-              setActiveSimulatorTurn(null);
-
             // ── Dissector events ──────────────────────────────
             } else if (data.type === "dissector_start") {
               // Dissector started — state already reset above
             } else if (data.type === "dissector_questions") {
               const rawQuestions = data.questions as string[];
-              const questions: SimulatorQuestion[] = rawQuestions.map((q, i) => ({
+              const questions: ClarifyingQuestion[] = rawQuestions.map((q, i) => ({
                 id: `dq_${i}`,
                 question: q,
               }));
               setDissectorPhase(null);
-              useMeterStore.getState().addSimulatorQuestionsToMessage(questions, streamProjectId);
+              useMeterStore.getState().addClarifyingQuestions(questions, streamProjectId);
             } else if (data.type === "dissector_turn_start") {
               currentDissTurn = { persona: data.persona as string, content: "" };
               setActiveDissectorTurn(currentDissTurn);
@@ -1294,10 +1225,6 @@ export function ChatView() {
         useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
         trackDebateCompleted({ projectId: streamProjectId, turnCount: localTrace.length });
       }
-      // Persist simulator trace to the message
-      if (isSimulatorMode && localSimTrace.length > 0) {
-        useMeterStore.getState().setSimulatorTrace(localSimTrace, streamProjectId);
-      }
       // Persist dissector trace to the message
       if (isDissectorMode && localDissTrace.length > 0) {
         useMeterStore.getState().setDissectorTrace(localDissTrace, streamProjectId);
@@ -1322,9 +1249,6 @@ export function ChatView() {
       if (isDebateMode && localTrace.length > 0) {
         useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
       }
-      if (isSimulatorMode && localSimTrace.length > 0) {
-        useMeterStore.getState().setSimulatorTrace(localSimTrace, streamProjectId);
-      }
       if (isDissectorMode && localDissTrace.length > 0) {
         useMeterStore.getState().setDissectorTrace(localDissTrace, streamProjectId);
       }
@@ -1346,8 +1270,6 @@ export function ChatView() {
       setActiveTool(null);
       setDebatePhase(null);
       setActiveDebateTurn(null);
-      setSimulatorPhase(null);
-      setActiveSimulatorTurn(null);
       setDissectorPhase(null);
       setActiveDissectorTurn(null);
       // Delay setStreaming(false) so the meter pill slot animation has
@@ -1424,14 +1346,6 @@ export function ChatView() {
     await streamResponse("Debate this.", "meter-1.0");
   };
 
-  /** Triggered by the "Simulate" button on a decision-point message */
-  const handleSimulate = async () => {
-    if (isStreaming || !workspaceCardReady) return;
-    trackSimulateClicked({ projectId: activeProjectId });
-    setSelectedModelId("simulator-1.0");
-    await streamResponse("Simulate this.", "simulator-1.0");
-  };
-
   /** Triggered by the "Dissect" button on a decision-point message */
   const handleDissect = async () => {
     if (isStreaming || !workspaceCardReady) return;
@@ -1440,15 +1354,15 @@ export function ChatView() {
     await streamResponse("Dissect this.", "dissector-1.0");
   };
 
-  /** Triggered when user submits answers in the SimulatorQACard */
-  const handleSimulatorSubmit = async (answers: Record<string, string>) => {
+  /** Triggered when user submits answers to a clarifying question (dissector Q&A) */
+  const handleClarifyingSubmit = async (answers: Record<string, string>) => {
     if (isStreaming) return;
     // Update the card to show answered state
     const lastAssistant = messages.filter((m) => m.role === "assistant").pop();
-    if (lastAssistant?.simulatorQuestions) {
-      for (const q of lastAssistant.simulatorQuestions) {
+    if (lastAssistant?.clarifyingQuestions) {
+      for (const q of lastAssistant.clarifyingQuestions) {
         if (answers[q.id]) {
-          useMeterStore.getState().updateSimulatorAnswer(lastAssistant.id, q.id, answers[q.id]);
+          useMeterStore.getState().updateClarifyingAnswer(lastAssistant.id, q.id, answers[q.id]);
         }
       }
     }
@@ -1457,9 +1371,7 @@ export function ChatView() {
       .map(([, a], i) => `${i + 1}. ${a}`)
       .join("\n");
     const answersContent = `Here are my answers to your clarifying questions:\n${formatted}`;
-    // Use the currently selected model — covers both simulator and dissector Q&A
-    const qaModel = selectedModelId === "dissector-1.0" ? "dissector-1.0" : "simulator-1.0";
-    await streamResponse(answersContent, qaModel, undefined, { hiddenUser: true });
+    await streamResponse(answersContent, "dissector-1.0", undefined, { hiddenUser: true });
   };
 
   /** Triggered by the "Decide" button on a decision-point message */
@@ -1774,10 +1686,6 @@ export function ChatView() {
               const showLiveDebate = isLastAssistant && isStreaming && debatePhase;
               // Show persisted debate trace on any message that has one
               const showPersistedDebate = msg.debateTrace && msg.debateTrace.length > 0 && !showLiveDebate;
-              // Show live simulator trace on the last assistant message while streaming
-              const showLiveSimulator = isLastAssistant && isStreaming && simulatorPhase;
-              // Show persisted simulator trace on any message that has one
-              const showPersistedSimulator = msg.simulatorTrace && msg.simulatorTrace.length > 0 && !showLiveSimulator;
               // Show live dissector trace on the last assistant message while streaming
               const showLiveDissector = isLastAssistant && isStreaming && dissectorPhase;
               // Show persisted dissector trace on any message that has one
@@ -1804,18 +1712,6 @@ export function ChatView() {
                       )}
                       {showPersistedDebate && (
                         <DebateTrace trace={msg.debateTrace!} />
-                      )}
-
-                      {/* Simulator trace — live or persisted */}
-                      {showLiveSimulator && (
-                        <SimulatorTrace
-                          trace={simulatorTraceLocal}
-                          activeTurn={activeSimulatorTurn}
-                          phase={simulatorPhase}
-                        />
-                      )}
-                      {showPersistedSimulator && (
-                        <SimulatorTrace trace={msg.simulatorTrace!} />
                       )}
 
                       {/* Dissector trace — live or persisted */}
@@ -1916,22 +1812,21 @@ export function ChatView() {
                         </div>
                       )}
 
-                      {/* Simulator Q&A card */}
-                      {msg.simulatorQuestions && msg.simulatorQuestions.length > 0 && (
-                        <SimulatorCard
-                          questions={msg.simulatorQuestions}
+                      {/* Clarifying question card (dissector Q&A) */}
+                      {msg.clarifyingQuestions && msg.clarifyingQuestions.length > 0 && (
+                        <ClarifyingCard
+                          questions={msg.clarifyingQuestions}
                           messageId={msg.id}
-                          onSubmit={handleSimulatorSubmit}
-                          disabled={msg.simulatorQuestions.every((q) => !!q.answer)}
+                          onSubmit={handleClarifyingSubmit}
+                          disabled={msg.clarifyingQuestions.every((q) => !!q.answer)}
                         />
                       )}
 
-                      {/* Decision point buttons: Decide / Debate / Simulate */}
+                      {/* Decision point buttons: Decide / Debate / Dissect */}
                       {showDecisionButtons && (
                         <DecisionPointButtons
                           onDecide={handleDecide}
                           onDebate={handleDebate}
-                          onSimulate={handleSimulate}
                           onDissect={handleDissect}
                           disabled={isStreaming}
                         />
@@ -1947,7 +1842,7 @@ export function ChatView() {
               );
             })}
 
-            {showThinking && !debatePhase && !simulatorPhase && !dissectorPhase && (
+            {showThinking && !debatePhase && !dissectorPhase && (
               <ThinkingIndicator
                 toolName={activeTool}
                 rerouting={rerouting}

@@ -16,7 +16,7 @@
  */
 
 import { streamWithFallback, type Send } from "./fallback";
-import { SIMULATOR_MODEL, getModel } from "./models";
+import { META_MODEL, getModel } from "./models";
 import type { ToolDef } from "./tools";
 import type OpenAI from "openai";
 
@@ -234,7 +234,7 @@ async function runPass(
   send: Send,
   usage: DissectionUsage,
 ): Promise<string> {
-  const model = getModel(SIMULATOR_MODEL);
+  const model = getModel(META_MODEL);
 
   send({ type: "dissector_turn_start", persona });
 
@@ -255,7 +255,7 @@ async function runPass(
 
   const totalOut = { value: 0 };
   try {
-    await streamWithFallback(SIMULATOR_MODEL, messages, [], passSend, estimateTokens, totalOut);
+    await streamWithFallback(META_MODEL, messages, [], passSend, estimateTokens, totalOut);
   } catch {
     content = "(This pass encountered an error.)";
   }
@@ -277,7 +277,7 @@ export async function runDissection(
 ) {
   const usage: DissectionUsage = { tokensIn: 0, tokensOut: 0, actualCost: 0 };
   const { topic, context } = extractDissectorContext(conversation);
-  const model = getModel(SIMULATOR_MODEL);
+  const model = getModel(META_MODEL);
 
   send({ type: "dissector_start" });
 
@@ -308,7 +308,7 @@ export async function runDissection(
 
     const totalOut = { value: 0 };
     const result = await streamWithFallback(
-      SIMULATOR_MODEL,
+      META_MODEL,
       clarifyMessages,
       [ASK_CLARIFYING_QUESTION_TOOL],
       clarifySend,
@@ -398,7 +398,7 @@ export async function runDissection(
 
   const totalOut = { value: 0 };
   await streamWithFallback(
-    SIMULATOR_MODEL,
+    META_MODEL,
     verdictMessages,
     [],
     verdictSend,
