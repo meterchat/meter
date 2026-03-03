@@ -30,7 +30,7 @@ import {
   trackThemeChanged,
 } from "@/lib/analytics";
 
-const INSPECTOR_TABS = ["decisions", "blueprints", "payments", "connections"] as const;
+const INSPECTOR_TABS = ["decisions", "documents", "payments", "connections"] as const;
 
 export function Inspector() {
   const {
@@ -165,7 +165,7 @@ export function Inspector() {
 
       <div className="flex-1 overflow-y-auto p-4">
         {inspectorTab === "decisions" && <DecisionsTab activeProjectId={activeProject?.id ?? null} />}
-        {inspectorTab === "blueprints" && <BlueprintTab activeProjectId={activeProject?.id ?? null} />}
+        {inspectorTab === "documents" && <BlueprintTab activeProjectId={activeProject?.id ?? null} />}
         {inspectorTab === "payments" && <PaymentsTab activeProject={activeProject} />}
         {inspectorTab === "connections" && <ConnectionsTab />}
       </div>
@@ -648,6 +648,137 @@ function formatArtifactTime(ts?: number) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  strategy: "Strategy",
+  technical: "Technical",
+  business: "Business",
+  design: "Design",
+  notes: "Notes",
+  other: "Other",
+};
+
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  strategy: (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-blue-400/60">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  ),
+  technical: (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400/60">
+      <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
+    </svg>
+  ),
+  business: (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-400/60">
+      <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
+  design: (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-purple-400/60">
+      <circle cx="13.5" cy="6.5" r="0.5" fill="currentColor" /><circle cx="17.5" cy="10.5" r="0.5" fill="currentColor" /><circle cx="8.5" cy="7.5" r="0.5" fill="currentColor" /><circle cx="6.5" cy="12.5" r="0.5" fill="currentColor" />
+      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+    </svg>
+  ),
+  notes: (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  ),
+  other: (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" />
+    </svg>
+  ),
+};
+
+function inferCategoryFromPath(filePath: string): string {
+  const lower = filePath.toLowerCase();
+  if (/readme|architecture|decisions|claude|cursorrules/.test(lower)) return "strategy";
+  if (/api|schema|spec|config|setup/.test(lower)) return "technical";
+  if (/design|brand|style|ui|ux/.test(lower)) return "design";
+  if (/budget|revenue|runway|pitch|investor|business/.test(lower)) return "business";
+  if (/notes|meeting|standup|retro|log/.test(lower)) return "notes";
+  return "other";
+}
+
+function DocumentTree({ artifacts, onRegenerate, onPush, pushing }: {
+  artifacts: Artifact[];
+  onRegenerate: (filePath: string) => void;
+  onPush: (id: string) => void;
+  pushing: boolean;
+}) {
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
+  // Group artifacts by category
+  const grouped = useMemo(() => {
+    const groups: Record<string, Artifact[]> = {};
+    for (const a of artifacts) {
+      const cat = a.category || inferCategoryFromPath(a.filePath);
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(a);
+    }
+    // Sort: strategy first, then alphabetical
+    const order = ["strategy", "technical", "design", "business", "notes", "other"];
+    return order
+      .filter((cat) => groups[cat]?.length)
+      .map((cat) => ({ category: cat, items: groups[cat] }));
+  }, [artifacts]);
+
+  const toggleCategory = (cat: string) => {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      {grouped.map(({ category, items }) => {
+        const collapsed = collapsedCategories.has(category);
+        return (
+          <div key={category}>
+            {/* Category folder header */}
+            <button
+              onClick={() => toggleCategory(category)}
+              className="flex w-full items-center gap-1.5 py-1 px-1 rounded hover:bg-foreground/[0.03] transition-colors"
+            >
+              <svg
+                width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className={`shrink-0 text-muted-foreground/40 transition-transform ${collapsed ? "" : "rotate-90"}`}
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+              {CATEGORY_ICONS[category] ?? CATEGORY_ICONS.other}
+              <span className="font-mono text-[11px] text-muted-foreground/70 uppercase tracking-wider">
+                {CATEGORY_LABELS[category] ?? category}
+              </span>
+              <span className="font-mono text-[10px] text-muted-foreground/30">
+                {items.length}
+              </span>
+            </button>
+
+            {/* Files under this category */}
+            {!collapsed && (
+              <div className="ml-3 border-l border-border/40 pl-1.5">
+                {items.map((a) => (
+                  <ArtifactRow
+                    key={a.id}
+                    artifact={a}
+                    onRegenerate={onRegenerate}
+                    onPush={onPush}
+                    pushing={pushing}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
   artifact: Artifact;
   onRegenerate: (filePath: string) => void;
@@ -822,7 +953,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `blueprint-${activeProjectId ?? "project"}.txt`;
+    link.download = `documents-${activeProjectId ?? "project"}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -832,7 +963,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
       {/* Header with actions */}
       <div className="flex items-center justify-between">
         <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">
-          Blueprints
+          Documents
         </div>
         <div className="flex items-center gap-1.5">
           {artifacts.length > 0 && (
@@ -910,7 +1041,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
         </div>
       )}
 
-      {/* Artifact list */}
+      {/* Document tree */}
       {loading ? (
         <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">
           Loading...
@@ -924,24 +1055,19 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
             <line x1="16" y1="17" x2="8" y2="17" />
           </svg>
           <span className="font-mono text-[12px] text-muted-foreground/40">
-            No artifacts yet
+            No documents yet
           </span>
           <span className="font-mono text-[11px] text-muted-foreground/30">
-            Generate strategy docs for your coding agents
+            Ask Meter to write any doc, or generate strategy specs
           </span>
         </div>
       ) : (
-        <div className="flex flex-col gap-0.5">
-          {artifacts.map((a) => (
-            <ArtifactRow
-              key={a.id}
-              artifact={a}
-              onRegenerate={handleRegenerate}
-              onPush={(id) => handlePush([id])}
-              pushing={pushing}
-            />
-          ))}
-        </div>
+        <DocumentTree
+          artifacts={artifacts}
+          onRegenerate={handleRegenerate}
+          onPush={(id) => handlePush([id])}
+          pushing={pushing}
+        />
       )}
 
       {!githubConnected && artifacts.length > 0 && (

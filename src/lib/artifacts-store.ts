@@ -5,6 +5,7 @@ export interface Artifact {
   filePath: string;
   content: string;
   status: "draft" | "synced";
+  category?: string;
   githubRepo?: string;
   githubSha?: string;
   lastGeneratedAt?: number;

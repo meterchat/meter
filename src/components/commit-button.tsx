@@ -49,7 +49,7 @@ export function CommitButton() {
   }, [artifacts]);
 
   // Also show blueprint files that exist but have no changes
-  const unchangedBlueprints = useMemo(() => {
+  const unchangedDocuments = useMemo(() => {
     const modifiedPaths = new Set(modifiedArtifacts.map((a) => a.filePath));
     return artifacts
       .filter((a) => BLUEPRINT_FILES.includes(a.filePath) && !modifiedPaths.has(a.filePath))
@@ -222,7 +222,7 @@ export function CommitButton() {
               {/* Blueprint changes */}
               <div className="px-4 py-3">
                 <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
-                  Blueprints
+                  Documents
                 </div>
                 <div className="flex flex-col gap-0.5">
                   {modifiedArtifacts.map((a) => (
@@ -255,7 +255,7 @@ export function CommitButton() {
                       </span>
                     </div>
                   ))}
-                  {unchangedBlueprints.map((a) => (
+                  {unchangedDocuments.map((a) => (
                     <div key={a.filePath} className="flex items-center gap-2 py-1 opacity-40">
                       <svg
                         width="12"
@@ -279,7 +279,7 @@ export function CommitButton() {
                       </span>
                     </div>
                   ))}
-                  {modifiedArtifacts.length === 0 && unchangedBlueprints.length === 0 && (
+                  {modifiedArtifacts.length === 0 && unchangedDocuments.length === 0 && (
                     <div className="py-1 font-mono text-[11px] text-muted-foreground/30">
                       No blueprint files yet
                     </div>

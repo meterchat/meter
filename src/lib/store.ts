@@ -31,6 +31,14 @@ export interface Attachment {
   size: number;
 }
 
+export interface DocumentPreview {
+  id: string;
+  filePath: string;
+  content: string;
+  category: string;
+  saved?: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -51,6 +59,7 @@ export interface ChatMessage {
   pinned?: boolean;
   attachments?: Attachment[];
   thinking?: string;
+  documents?: DocumentPreview[];
 }
 
 export interface PaymentCard {
@@ -187,6 +196,8 @@ interface MeterState {
   addCardToLastMessage: (card: ActionCard, forProjectId?: string) => void;
   purchaseDomain: (messageId: string, cardId: string) => Promise<{ success: boolean; error?: string }>;
   setMessageDecisionId: (decisionId: string, forProjectId?: string) => void;
+  addDocumentToLastMessage: (doc: DocumentPreview, forProjectId?: string) => void;
+  markDocumentSaved: (messageId: string, docId: string) => void;
   setDebateTrace: (trace: DebateTurn[], forProjectId?: string) => void;
 
   setPendingInput: (v: string | null) => void;
@@ -1100,6 +1111,34 @@ export const useMeterStore = create<MeterState>()(
           if (last && last.role === "assistant") {
             msgs[msgs.length - 1] = { ...last, decisionId };
           }
+          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+        }),
+
+      addDocumentToLastMessage: (doc, forProjectId?) =>
+        set((s) => {
+          const active = getProjectByIdOrActive(s, forProjectId);
+          const msgs = [...active.messages];
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === "assistant") {
+            const existing = last.documents ?? [];
+            msgs[msgs.length - 1] = { ...last, documents: [...existing, doc] };
+          }
+          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+        }),
+
+      markDocumentSaved: (messageId, docId) =>
+        set((s) => {
+          const active = getActiveProject(s);
+          if (!active) return s;
+          const msgs = active.messages.map((m) => {
+            if (m.id !== messageId || !m.documents) return m;
+            return {
+              ...m,
+              documents: m.documents.map((d) =>
+                d.id === docId ? { ...d, saved: true } : d
+              ),
+            };
+          });
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
