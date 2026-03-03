@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type Attachment, type DocumentPreview } from "@/lib/store";
+import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type Attachment, type DocumentPreview, type SimulatorQuestion } from "@/lib/store";
 import {
   trackMessageSent,
   trackMessageCopied,
@@ -13,6 +13,7 @@ import {
   trackDebateStarted,
   trackDebateCompleted,
   trackDecideClicked,
+  trackSimulateClicked,
   trackDecisionCreated,
   trackDecisionResolved,
   trackDecisionStaged,
@@ -47,6 +48,7 @@ import { useDecisionsStore } from "@/lib/decisions-store";
 import { useArtifactsStore } from "@/lib/artifacts-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
+import { SimulatorCard } from "@/components/simulator-card";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -186,10 +188,12 @@ function DecisionPill({ decisionId, onOpen }: { decisionId: string; onOpen: () =
 function DecisionPointButtons({
   onDecide,
   onDebate,
+  onSimulate,
   disabled,
 }: {
   onDecide: () => void;
   onDebate: () => void;
+  onSimulate: () => void;
   disabled?: boolean;
 }) {
   return (
@@ -211,6 +215,17 @@ function DecisionPointButtons({
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
         Debate
+      </button>
+      <button
+        onClick={onSimulate}
+        disabled={disabled}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-purple-400 active:bg-purple-500/20 active:text-purple-400 disabled:opacity-40"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+        Simulate
       </button>
     </div>
   );
@@ -549,6 +564,7 @@ export function ChatView() {
     spendingCap,
     spendingCapEnabled,
     selectedModelId,
+    setSelectedModelId,
     approveCard,
     rejectCard,
     spendLimits,
@@ -557,6 +573,7 @@ export function ChatView() {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
   const messages = activeProject?.messages ?? [];
+  const visibleMessages = useMemo(() => messages.filter((m) => !m.hidden), [messages]);
   const isStreaming = activeProject?.isStreaming ?? false;
   const todayCost = activeProject?.todayCost ?? 0;
   const todayMessageCount = activeProject?.todayMessageCount ?? 0;
@@ -841,8 +858,8 @@ export function ChatView() {
     setScrollToMessageId(null);
   }, [scrollToMessageId, setScrollToMessageId]);
 
-  /** Core streaming function shared by handleSend and handleDebate */
-  const streamResponse = async (userContent: string, modelOverride?: string, userAttachments?: Attachment[]) => {
+  /** Core streaming function shared by handleSend, handleDebate, and handleSimulate */
+  const streamResponse = async (userContent: string, modelOverride?: string, userAttachments?: Attachment[], options?: { hiddenUser?: boolean }) => {
     // Pin the project ID at stream start so all mutations target the correct
     // workspace even if the user switches workspaces mid-stream.
     const streamProjectId = activeProjectId;
@@ -875,6 +892,7 @@ export function ChatView() {
       content: userContent,
       timestamp: Date.now(),
       ...(userAttachments?.length ? { attachments: userAttachments } : {}),
+      ...(options?.hiddenUser ? { hidden: true } : {}),
     };
     addMessage(userMsg, streamProjectId);
 
@@ -892,6 +910,7 @@ export function ChatView() {
 
     const effectiveModel = modelOverride ?? selectedModelId;
     const isDebateMode = effectiveModel === "meter-1.0";
+    const isSimulatorMode = effectiveModel === "simulator-1.0";
 
     // Reset debate state
     if (isDebateMode) {
@@ -1051,6 +1070,17 @@ export function ChatView() {
             } else if (data.type === "debate_synthesis_start") {
               setDebatePhase("synthesizing");
               setActiveDebateTurn(null);
+
+            // ── Simulator events ──────────────────────────────
+            } else if (data.type === "simulator_start") {
+              // Simulator started — no special state needed
+            } else if (data.type === "simulator_questions") {
+              const rawQuestions = data.questions as string[];
+              const questions: SimulatorQuestion[] = rawQuestions.map((q, i) => ({
+                id: `sq_${i}`,
+                question: q,
+              }));
+              useMeterStore.getState().addSimulatorQuestionsToMessage(questions, streamProjectId);
 
             // ── Standard events ───────────────────────────────
             } else if (data.type === "thinking_delta") {
@@ -1265,6 +1295,34 @@ export function ChatView() {
     if (isStreaming || !workspaceCardReady) return;
     trackDebateStarted({ projectId: activeProjectId });
     await streamResponse("Debate this.", "meter-1.0");
+  };
+
+  /** Triggered by the "Simulate" button on a decision-point message */
+  const handleSimulate = async () => {
+    if (isStreaming || !workspaceCardReady) return;
+    trackSimulateClicked({ projectId: activeProjectId });
+    setSelectedModelId("simulator-1.0");
+    await streamResponse("Simulate this.", "simulator-1.0");
+  };
+
+  /** Triggered when user submits answers in the SimulatorQACard */
+  const handleSimulatorSubmit = async (answers: Record<string, string>) => {
+    if (isStreaming) return;
+    // Update the card to show answered state
+    const lastAssistant = messages.filter((m) => m.role === "assistant").pop();
+    if (lastAssistant?.simulatorQuestions) {
+      for (const q of lastAssistant.simulatorQuestions) {
+        if (answers[q.id]) {
+          useMeterStore.getState().updateSimulatorAnswer(lastAssistant.id, q.id, answers[q.id]);
+        }
+      }
+    }
+    // Format answers as a hidden user message → triggers analysis
+    const formatted = Object.entries(answers)
+      .map(([, a], i) => `${i + 1}. ${a}`)
+      .join("\n");
+    const answersContent = `Here are my answers to your clarifying questions:\n${formatted}`;
+    await streamResponse(answersContent, "simulator-1.0", undefined, { hiddenUser: true });
   };
 
   /** Triggered by the "Decide" button on a decision-point message */
@@ -1568,8 +1626,8 @@ export function ChatView() {
               </div>
             )}
 
-            {messages.map((msg, msgIdx) => {
-              const isLastAssistant = msg.role === "assistant" && msgIdx === messages.length - 1;
+            {visibleMessages.map((msg, msgIdx) => {
+              const isLastAssistant = msg.role === "assistant" && msgIdx === visibleMessages.length - 1;
               const displayContent = msg.role === "assistant" ? stripDecisionPoint(msg.content) : msg.content;
               const showDecisionButtons = msg.role === "assistant"
                 && hasDecisionPoint(msg.content)
@@ -1689,11 +1747,22 @@ export function ChatView() {
                         </div>
                       )}
 
-                      {/* Decision point buttons: Decide / Debate */}
+                      {/* Simulator Q&A card */}
+                      {msg.simulatorQuestions && msg.simulatorQuestions.length > 0 && (
+                        <SimulatorCard
+                          questions={msg.simulatorQuestions}
+                          messageId={msg.id}
+                          onSubmit={handleSimulatorSubmit}
+                          disabled={isStreaming || msg.simulatorQuestions.every((q) => !!q.answer)}
+                        />
+                      )}
+
+                      {/* Decision point buttons: Decide / Debate / Simulate */}
                       {showDecisionButtons && (
                         <DecisionPointButtons
                           onDecide={handleDecide}
                           onDebate={handleDebate}
+                          onSimulate={handleSimulate}
                           disabled={isStreaming}
                         />
                       )}

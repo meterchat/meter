@@ -18,6 +18,9 @@ export const DEBATE_MODELS = [
   "x-ai/grok-4.1-fast",
 ] as const;
 
+/** Underlying model for Simulator 1.0 */
+export const SIMULATOR_MODEL = "anthropic/claude-opus-4.6";
+
 export const MODELS: ModelConfig[] = [
   {
     id: "auto",
@@ -31,7 +34,7 @@ export const MODELS: ModelConfig[] = [
   },
   {
     id: "meter-1.0",
-    name: "Meter 1.0",
+    name: "Debater 1.0",
     provider: "Meter",
     color: "#F59E0B",
     // Display-only blended rate (NOT used for billing — debate cost is
@@ -40,6 +43,17 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (39.50 / 1_000_000),
     quality: 93,  // GPQA Diamond — multi-model ensemble exceeds best individual
     speed: 30,
+  },
+  {
+    id: "simulator-1.0",
+    name: "Simulator 1.0",
+    provider: "Meter",
+    color: "#8B5CF6",
+    // Display-only rate (actual cost computed per-call in simulate.ts using Opus pricing)
+    inputPrice: (5.0 / 1_000_000),
+    outputPrice: (25.0 / 1_000_000),
+    quality: 91,  // GPQA Diamond — routes to Claude Opus
+    speed: 70,
   },
   {
     id: "anthropic/claude-sonnet-4.6",

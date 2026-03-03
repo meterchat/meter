@@ -39,6 +39,12 @@ export interface DocumentPreview {
   saved?: boolean;
 }
 
+export interface SimulatorQuestion {
+  id: string;
+  question: string;
+  answer?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -60,6 +66,8 @@ export interface ChatMessage {
   attachments?: Attachment[];
   thinking?: string;
   documents?: DocumentPreview[];
+  hidden?: boolean;
+  simulatorQuestions?: SimulatorQuestion[];
 }
 
 export interface PaymentCard {
@@ -199,6 +207,8 @@ interface MeterState {
   addDocumentToLastMessage: (doc: DocumentPreview, forProjectId?: string) => void;
   markDocumentSaved: (messageId: string, docId: string) => void;
   setDebateTrace: (trace: DebateTurn[], forProjectId?: string) => void;
+  addSimulatorQuestionsToMessage: (questions: SimulatorQuestion[], forProjectId?: string) => void;
+  updateSimulatorAnswer: (messageId: string, questionId: string, answer: string) => void;
 
   setPendingInput: (v: string | null) => void;
 
@@ -1150,6 +1160,33 @@ export const useMeterStore = create<MeterState>()(
           if (last && last.role === "assistant") {
             msgs[msgs.length - 1] = { ...last, debateTrace: trace };
           }
+          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+        }),
+
+      addSimulatorQuestionsToMessage: (questions, forProjectId?) =>
+        set((s) => {
+          const active = getProjectByIdOrActive(s, forProjectId);
+          const msgs = [...active.messages];
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === "assistant") {
+            msgs[msgs.length - 1] = { ...last, simulatorQuestions: questions };
+          }
+          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+        }),
+
+      updateSimulatorAnswer: (messageId, questionId, answer) =>
+        set((s) => {
+          const active = getActiveProject(s);
+          if (!active) return s;
+          const msgs = active.messages.map((m) => {
+            if (m.id !== messageId || !m.simulatorQuestions) return m;
+            return {
+              ...m,
+              simulatorQuestions: m.simulatorQuestions.map((q) =>
+                q.id === questionId ? { ...q, answer } : q
+              ),
+            };
+          });
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),
 
