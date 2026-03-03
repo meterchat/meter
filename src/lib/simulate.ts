@@ -19,17 +19,10 @@
 
 import { streamWithFallback, type Send } from "./fallback";
 import { SIMULATOR_MODEL, getModel } from "./models";
-import { executeTool } from "./tools";
 import type { ToolDef } from "./tools";
 import type OpenAI from "openai";
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
-
-interface ToolContext {
-  userId?: string;
-  projectId?: string;
-  workspaceId?: string;
-}
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
@@ -40,8 +33,6 @@ const SIMULATE_TRIGGER = "Simulate this.";
 
 /** Max recent conversation messages to include as context */
 const MAX_CONTEXT_MESSAGES = 6;
-
-const MAX_TOOL_ROUNDS = 3;
 
 // ── Persona definitions ────────────────────────────────────────────────
 
@@ -140,15 +131,13 @@ Optimist: "${optimistOutput}"
 Pessimist: "${pessimistOutput}"
 Realist: "${realistOutput}"
 
-Give a conviction score and save the full simulation as a document.
+Give a conviction score.
 
 Output EXACTLY this format (nothing else before the score):
 
 **Conviction: X/10** — [one sentence explaining what this score means for the idea]
 
-Calibration: most ideas land 3-7. An 8+ means you'd bet real money. A 2 or below means almost certainly dead.
-
-Then call the save_artifact tool to save the complete simulation as a strategy document. Format the document with all three perspectives clearly labeled, followed by the conviction score.`;
+Calibration: most ideas land 3-7. An 8+ means you'd bet real money. A 2 or below means almost certainly dead.`;
 }
 
 // ── Clarifying question tool ───────────────────────────────────────────
@@ -274,8 +263,6 @@ async function runPass(
 export async function runSimulation(
   conversation: Message[],
   send: Send,
-  tools: ToolDef[],
-  toolContext: ToolContext,
 ) {
   const usage: SimulationUsage = { tokensIn: 0, tokensOut: 0, actualCost: 0 };
   const { topic, context } = extractSimulatorContext(conversation);
@@ -378,7 +365,7 @@ export async function runSimulation(
 
   const realistOutput = await runPass("realist", realistMessages, send, usage);
 
-  // ── Conviction Score + save artifact ──────────────────────────────────
+  // ── Conviction Score ────────────────────────────────────────────────
 
   send({ type: "simulator_synthesis_start" });
 
@@ -390,11 +377,6 @@ export async function runSimulation(
     { role: "user", content: topic },
   ];
 
-  // Run conviction with save_artifact tool so it auto-saves
-  const convictionTools = tools.filter(
-    (t) => t.function.name === "save_artifact",
-  );
-
   let roundIn = 0;
   let roundOut = 0;
 
@@ -404,74 +386,22 @@ export async function runSimulation(
       roundOut = (data.tokensOut as number) || 0;
       return;
     }
-    // Forward deltas as standard deltas (streams into the message bubble)
     send(data);
   };
 
   const totalOut = { value: 0 };
+  await streamWithFallback(
+    SIMULATOR_MODEL,
+    convictionMessages,
+    [],
+    convictionSend,
+    estimateTokens,
+    totalOut,
+  );
 
-  // Tool loop for conviction (handles save_artifact)
-  for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-    roundIn = 0;
-    roundOut = 0;
-
-    const result = await streamWithFallback(
-      SIMULATOR_MODEL,
-      convictionMessages,
-      convictionTools,
-      convictionSend,
-      estimateTokens,
-      totalOut,
-    );
-
-    usage.tokensIn += roundIn;
-    usage.tokensOut += roundOut;
-    usage.actualCost += roundIn * model.inputPrice + roundOut * model.outputPrice;
-
-    if (!result.hasToolCalls || result.toolCalls.size === 0) break;
-
-    // Add assistant message with tool calls
-    convictionMessages.push({
-      role: "assistant",
-      content: result.textContent || null,
-      tool_calls: Array.from(result.toolCalls.values()).map((tc) => ({
-        id: tc.id,
-        type: "function" as const,
-        function: { name: tc.name, arguments: tc.arguments },
-      })),
-    });
-
-    for (const tc of result.toolCalls.values()) {
-      let args: Record<string, unknown> = {};
-      try { args = JSON.parse(tc.arguments); } catch { /* */ }
-
-      send({ type: "tool_call", name: tc.name });
-      const toolResult = await executeTool(tc.name, args, toolContext);
-
-      const toolResultEvent: Record<string, unknown> = {
-        type: "tool_result",
-        name: tc.name,
-      };
-      if (tc.name === "save_artifact") {
-        let artifactData: { id?: string; content?: string; category?: string } | undefined;
-        try { artifactData = JSON.parse(toolResult); } catch { /* */ }
-        toolResultEvent.artifact = {
-          id: artifactData?.id,
-          filePath: args.file_path,
-          content: args.content,
-          category: artifactData?.category || args.category || "other",
-          status: "draft",
-        };
-      }
-      send(toolResultEvent);
-
-      convictionMessages.push({
-        role: "tool",
-        tool_call_id: tc.id,
-        content: toolResult,
-      });
-    }
-  }
+  usage.tokensIn += roundIn;
+  usage.tokensOut += roundOut;
+  usage.actualCost += roundIn * model.inputPrice + roundOut * model.outputPrice;
 
   // ── Done ──────────────────────────────────────────────────────────────
 

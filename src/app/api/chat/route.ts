@@ -3,6 +3,7 @@ import { getToolsForConnectors, buildSystemPrompt, executeTool } from "@/lib/too
 import { streamWithFallback, type Send } from "@/lib/fallback";
 import { runDebate } from "@/lib/debate";
 import { runSimulation } from "@/lib/simulate";
+import { runDissection } from "@/lib/dissect";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
 import {
@@ -158,15 +159,24 @@ export async function POST(req: NextRequest) {
         // ── Simulator 1.0 ──────────────────────────────────────────
         if (resolvedModel === "simulator-1.0") {
           try {
-            await runSimulation(conversation, send, tools, {
-              userId,
-              projectId,
-              workspaceId: projectId,
-            });
+            await runSimulation(conversation, send);
           } catch (err) {
             console.error("[chat] simulation failed:", (err as Error).message);
             send({ type: "error", code: "simulation_failed", model: "simulator-1.0" });
             send({ type: "done", actualModel: "simulator-1.0" });
+          }
+          controller.close();
+          return;
+        }
+
+        // ── Dissector 1.0 ──────────────────────────────────────────
+        if (resolvedModel === "dissector-1.0") {
+          try {
+            await runDissection(conversation, send);
+          } catch (err) {
+            console.error("[chat] dissection failed:", (err as Error).message);
+            send({ type: "error", code: "dissection_failed", model: "dissector-1.0" });
+            send({ type: "done", actualModel: "dissector-1.0" });
           }
           controller.close();
           return;

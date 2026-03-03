@@ -50,6 +50,11 @@ export interface SimulatorTurn {
   content: string;
 }
 
+export interface DissectorTurn {
+  persona: "first-principles" | "inversion" | "pre-mortem" | "verdict";
+  content: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -74,6 +79,7 @@ export interface ChatMessage {
   hidden?: boolean;
   simulatorQuestions?: SimulatorQuestion[];
   simulatorTrace?: SimulatorTurn[];
+  dissectorTrace?: DissectorTurn[];
 }
 
 export interface PaymentCard {
@@ -216,6 +222,7 @@ interface MeterState {
   addSimulatorQuestionsToMessage: (questions: SimulatorQuestion[], forProjectId?: string) => void;
   updateSimulatorAnswer: (messageId: string, questionId: string, answer: string) => void;
   setSimulatorTrace: (trace: SimulatorTurn[], forProjectId?: string) => void;
+  setDissectorTrace: (trace: DissectorTurn[], forProjectId?: string) => void;
 
   setPendingInput: (v: string | null) => void;
 
@@ -1204,6 +1211,17 @@ export const useMeterStore = create<MeterState>()(
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
             msgs[msgs.length - 1] = { ...last, simulatorTrace: trace };
+          }
+          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+        }),
+
+      setDissectorTrace: (trace, forProjectId?) =>
+        set((s) => {
+          const active = getProjectByIdOrActive(s, forProjectId);
+          const msgs = [...active.messages];
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === "assistant") {
+            msgs[msgs.length - 1] = { ...last, dissectorTrace: trace };
           }
           return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
         }),

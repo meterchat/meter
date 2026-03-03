@@ -119,6 +119,7 @@ export function ModelSelectorBar({
       </span>
       {displayId === "meter-1.0" && <span className="text-muted-foreground/40 normal-case tracking-normal">(Debate)</span>}
       {displayId === "simulator-1.0" && <span className="text-muted-foreground/40 normal-case tracking-normal">(Simulate)</span>}
+      {displayId === "dissector-1.0" && <span className="text-muted-foreground/40 normal-case tracking-normal">(Dissect)</span>}
       <svg
         width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
@@ -163,9 +164,10 @@ export function ModelPickerPanel({
                 {m.name}
                 {m.id === "meter-1.0" && <span className="text-muted-foreground/50 font-normal ml-1">(Debate Mode)</span>}
                 {m.id === "simulator-1.0" && <span className="text-muted-foreground/50 font-normal ml-1">(Simulate Mode)</span>}
+                {m.id === "dissector-1.0" && <span className="text-muted-foreground/50 font-normal ml-1">(Dissect Mode)</span>}
               </div>
               <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 flex-wrap">
-                {m.id === "simulator-1.0" ? (
+                {m.id === "simulator-1.0" || m.id === "dissector-1.0" ? (
                   <span className="inline-flex items-center gap-0.5">
                     <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#D97757" }} />
                     <span>Claude Opus</span>
