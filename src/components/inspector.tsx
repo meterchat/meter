@@ -4,10 +4,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useMeterStore, selectConnectedServices } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
-import { CONNECTORS } from "@/lib/connectors";
-import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
+import { initiateOAuthFlow } from "@/lib/oauth-client";
 import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
-import { ApiKeyDialog } from "@/components/api-key-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import {
@@ -16,8 +14,6 @@ import {
   trackDecisionArchived,
   trackDecisionReopened,
   trackDecisionRevisited,
-  trackConnectorInitiated,
-  trackConnectorDisconnected,
   trackArtifactGenerated,
   trackArtifactRegenerated,
   trackArtifactPushed,
@@ -25,7 +21,7 @@ import {
   trackInspectorTabChanged,
 } from "@/lib/analytics";
 
-const INSPECTOR_TABS = ["decisions", "documents", "connections"] as const;
+const INSPECTOR_TABS = ["decisions", "documents", "timeline"] as const;
 
 export function Inspector() {
   const {
@@ -161,7 +157,7 @@ export function Inspector() {
       <div className="flex-1 overflow-y-auto p-4">
         {inspectorTab === "decisions" && <DecisionsTab activeProjectId={activeProject?.id ?? null} />}
         {inspectorTab === "documents" && <BlueprintTab activeProjectId={activeProject?.id ?? null} />}
-        {inspectorTab === "connections" && <ConnectionsTab />}
+        {inspectorTab === "timeline" && <TimelineTab activeProjectId={activeProject?.id ?? null} />}
       </div>
 
       {activeCompany && (
@@ -276,103 +272,6 @@ export function Inspector() {
       </div>
       {manageDialog}
     </>
-  );
-}
-
-/* ─── CONNECTIONS TAB ─── */
-function ConnectionsTab() {
-  const connectedServices = useMeterStore(selectConnectedServices);
-  const userId = useMeterStore((s) => s.userId);
-  const activeProjectId = useMeterStore((s) => s.activeProjectId);
-  const disconnectServiceRemote = useMeterStore((s) => s.disconnectServiceRemote);
-  const connectionsLoading = useMeterStore((s) => s.connectionsLoading);
-  const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
-
-  const handleConnect = (providerId: string) => {
-    if (!userId) return;
-    trackConnectorInitiated({ provider: providerId, method: isApiKeyProvider(providerId) ? "api_key" : "oauth" });
-    if (isApiKeyProvider(providerId)) {
-      setApiKeyProvider(providerId);
-    } else {
-      initiateOAuthFlow(providerId, activeProjectId);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-3">
-      {connectionsLoading && (
-        <div className="rounded-lg border border-border/50 bg-foreground/[0.03] px-3 py-2 font-mono text-[11px] text-muted-foreground/60">
-          Syncing connections...
-        </div>
-      )}
-      <div className="space-y-1.5">
-        {CONNECTORS.map((connector) => {
-          const connected = !!connectedServices[connector.id];
-          return (
-            <div
-              key={connector.id}
-              className="flex items-center gap-2.5 rounded-lg border border-border/50 px-3 py-2 hover:bg-foreground/[0.03] transition-colors"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="text-muted-foreground shrink-0"
-              >
-                <path d={connector.iconPath} />
-              </svg>
-              <div className="min-w-0">
-                <div className="text-[12px] text-foreground">{connector.name}</div>
-                <div className="font-mono text-[10px] text-muted-foreground/50">
-                  {connector.description}
-                </div>
-              </div>
-              <div className="ml-auto shrink-0">
-                {connected ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[10px] text-emerald-500">
-                      Connected
-                    </span>
-                    <button
-                      onClick={() => { trackConnectorDisconnected({ provider: connector.id }); disconnectServiceRemote(connector.id); }}
-                      className="text-muted-foreground/40 hover:text-red-400 transition-colors"
-                      title="Disconnect"
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleConnect(connector.id)}
-                    className="rounded-md border border-border px-2.5 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
-                  >
-                    Connect
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {apiKeyProvider && (
-        <ApiKeyDialog
-          provider={apiKeyProvider}
-          onClose={() => setApiKeyProvider(null)}
-        />
-      )}
-    </div>
   );
 }
 
@@ -1052,5 +951,350 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
   );
 }
 
+/* ─── TIMELINE TAB ─── */
+
+interface TimelineEvent {
+  id: string;
+  type: "decision" | "debate" | "dissection" | "document" | "artifact";
+  title: string;
+  subtitle?: string;
+  timestamp: number;
+  data: unknown;
+}
+
+function formatTimelineDate(ts: number) {
+  const d = new Date(ts);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatTimelineTime(ts: number) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+const EVENT_ICONS: Record<TimelineEvent["type"], { color: string; path: string }> = {
+  decision: {
+    color: "text-emerald-500",
+    path: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
+  },
+  debate: {
+    color: "text-amber-500",
+    path: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
+  },
+  dissection: {
+    color: "text-violet-500",
+    path: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
+  },
+  document: {
+    color: "text-blue-400",
+    path: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+  },
+  artifact: {
+    color: "text-blue-400",
+    path: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+  },
+};
+
+function TimelineTab({ activeProjectId }: { activeProjectId: string | null }) {
+  const projects = useMeterStore((s) => s.projects);
+  const { decisions } = useDecisionsStore();
+  const { artifacts } = useArtifactsStore();
+  const setScrollToMessageId = useMeterStore((s) => s.setScrollToMessageId);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const project = projects.find((p) => p.id === activeProjectId);
+  const messages = project?.messages ?? [];
+
+  const events = useMemo(() => {
+    const items: TimelineEvent[] = [];
+
+    // Decisions
+    for (const d of decisions) {
+      if (d.archived) continue;
+      if (d.projectId && d.projectId !== activeProjectId) continue;
+      items.push({
+        id: `decision-${d.id}`,
+        type: "decision",
+        title: d.title,
+        subtitle: d.status === "decided" ? d.choice : "Open",
+        timestamp: d.updatedAt || d.createdAt,
+        data: d,
+      });
+    }
+
+    // Debates, dissections, documents — from messages
+    for (const m of messages) {
+      if (m.debateTrace && m.debateTrace.length > 0) {
+        const models = [...new Set(m.debateTrace.map((t) => t.model))];
+        items.push({
+          id: `debate-${m.id}`,
+          type: "debate",
+          title: "Debate",
+          subtitle: `${models.length} model${models.length !== 1 ? "s" : ""}, ${m.debateTrace.length} turns`,
+          timestamp: m.timestamp,
+          data: m,
+        });
+      }
+
+      if (m.dissectorTrace && m.dissectorTrace.length > 0) {
+        items.push({
+          id: `dissection-${m.id}`,
+          type: "dissection",
+          title: "Dissection",
+          subtitle: `${m.dissectorTrace.length} passes`,
+          timestamp: m.timestamp,
+          data: m,
+        });
+      }
+
+      if (m.documents && m.documents.length > 0) {
+        for (const doc of m.documents) {
+          items.push({
+            id: `document-${m.id}-${doc.id}`,
+            type: "document",
+            title: doc.filePath,
+            subtitle: "Generated",
+            timestamp: m.timestamp,
+            data: { message: m, doc },
+          });
+        }
+      }
+    }
+
+    // Artifacts (generated spec kit files)
+    for (const a of artifacts) {
+      if (a.projectId && a.projectId !== activeProjectId) continue;
+      if (a.lastGeneratedAt) {
+        items.push({
+          id: `artifact-${a.id}`,
+          type: "artifact",
+          title: a.filePath,
+          subtitle: a.status === "synced" ? "Pushed to GitHub" : "Draft",
+          timestamp: a.lastGeneratedAt,
+          data: a,
+        });
+      }
+    }
+
+    items.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Deduplicate: if a document and artifact have the same filePath, keep the most recent
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      if (item.type === "document" || item.type === "artifact") {
+        const key = `file:${item.title}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+      }
+      return true;
+    });
+  }, [decisions, messages, artifacts, activeProjectId]);
+
+  // Group by date
+  const grouped = useMemo(() => {
+    const map = new Map<string, TimelineEvent[]>();
+    for (const e of events) {
+      const key = formatTimelineDate(e.timestamp);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    return Array.from(map.entries());
+  }, [events]);
+
+  const handleClick = (event: TimelineEvent) => {
+    setExpandedId(expandedId === event.id ? null : event.id);
+  };
+
+  const handleJumpToMessage = (messageId: string) => {
+    setScrollToMessageId(messageId);
+  };
+
+  if (events.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+        <span className="font-mono text-xs text-muted-foreground/40">No activity yet</span>
+        <span className="font-mono text-[11px] text-muted-foreground/30">
+          Decisions, debates, and documents appear here
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {grouped.map(([date, dayEvents]) => (
+        <div key={date}>
+          <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/40 mb-2 sticky top-0 bg-card py-1 z-10">
+            {date}
+          </div>
+          <div className="relative">
+            {/* Vertical line */}
+            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+
+            <div className="flex flex-col gap-0.5">
+              {dayEvents.map((event) => {
+                const icon = EVENT_ICONS[event.type];
+                const isExpanded = expandedId === event.id;
+                return (
+                  <div key={event.id}>
+                    <button
+                      onClick={() => handleClick(event)}
+                      className="relative w-full text-left flex items-start gap-2.5 py-1.5 px-1 rounded-md hover:bg-foreground/[0.03] transition-colors group"
+                    >
+                      {/* Dot */}
+                      <div className="relative z-10 mt-0.5">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={`${icon.color} shrink-0`}>
+                          <path d={icon.path} />
+                        </svg>
+                      </div>
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate font-mono text-[12px] text-foreground/80">
+                            {event.title}
+                          </span>
+                        </div>
+                        {event.subtitle && (
+                          <span className="font-mono text-[10px] text-muted-foreground/50">
+                            {event.subtitle}
+                          </span>
+                        )}
+                      </div>
+                      {/* Time */}
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground/30 mt-0.5">
+                        {formatTimelineTime(event.timestamp)}
+                      </span>
+                    </button>
+
+                    {/* Expanded detail */}
+                    {isExpanded && (
+                      <TimelineDetail event={event} onJump={handleJumpToMessage} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: string) => void }) {
+  if (event.type === "decision") {
+    const d = event.data as Decision;
+    return (
+      <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-1.5">
+        {d.choice && (
+          <div>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Choice</span>
+            <p className="font-mono text-[12px] text-foreground/70 mt-0.5">{d.choice}</p>
+          </div>
+        )}
+        {Array.isArray(d.alternatives) && d.alternatives.length > 0 && (
+          <div>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Alternatives</span>
+            <ul className="mt-0.5">
+              {d.alternatives.map((alt, i) => (
+                <li key={i} className="font-mono text-[12px] text-foreground/50 flex items-start gap-1.5">
+                  <span className="text-muted-foreground/30 mt-px">-</span>{alt}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {d.reasoning && (
+          <div>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Reasoning</span>
+            <p className="font-mono text-[12px] text-foreground/50 mt-0.5">{d.reasoning}</p>
+          </div>
+        )}
+        {d.chatMessageId && (
+          <button onClick={() => onJump(d.chatMessageId!)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
+            Jump to message
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (event.type === "debate") {
+    const m = event.data as { id: string; debateTrace: { model: string; phase: string; content: string }[] };
+    const turns = m.debateTrace;
+    return (
+      <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-2">
+        {turns.slice(0, 4).map((t, i) => (
+          <div key={i}>
+            <span className="font-mono text-[10px] text-muted-foreground/50">{t.model} — {t.phase}</span>
+            <p className="font-mono text-[11px] text-foreground/60 mt-0.5 line-clamp-3">{t.content}</p>
+          </div>
+        ))}
+        {turns.length > 4 && (
+          <span className="font-mono text-[10px] text-muted-foreground/30">+{turns.length - 4} more turns</span>
+        )}
+        <button onClick={() => onJump(m.id)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
+          Jump to message
+        </button>
+      </div>
+    );
+  }
+
+  if (event.type === "dissection") {
+    const m = event.data as { id: string; dissectorTrace: { persona: string; content: string }[] };
+    const passes = m.dissectorTrace;
+    return (
+      <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-2">
+        {passes.slice(0, 3).map((p, i) => (
+          <div key={i}>
+            <span className="font-mono text-[10px] text-muted-foreground/50">{p.persona}</span>
+            <p className="font-mono text-[11px] text-foreground/60 mt-0.5 line-clamp-3">{p.content}</p>
+          </div>
+        ))}
+        {passes.length > 3 && (
+          <span className="font-mono text-[10px] text-muted-foreground/30">+{passes.length - 3} more passes</span>
+        )}
+        <button onClick={() => onJump(m.id)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
+          Jump to message
+        </button>
+      </div>
+    );
+  }
+
+  if (event.type === "document") {
+    const { message, doc } = event.data as { message: { id: string }; doc: { filePath: string; content: string } };
+    return (
+      <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-1">
+        <p className="font-mono text-[11px] text-foreground/50 line-clamp-4 whitespace-pre-wrap">{doc.content.slice(0, 300)}{doc.content.length > 300 ? "..." : ""}</p>
+        <button onClick={() => onJump(message.id)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
+          Jump to message
+        </button>
+      </div>
+    );
+  }
+
+  if (event.type === "artifact") {
+    const a = event.data as Artifact;
+    return (
+      <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className={`font-mono text-[10px] rounded-full px-1.5 py-0.5 ${a.status === "synced" ? "text-emerald-500 bg-emerald-500/10" : "text-muted-foreground/50 bg-foreground/5"}`}>
+            {a.status}
+          </span>
+          {a.category && (
+            <span className="font-mono text-[10px] text-muted-foreground/40">{a.category}</span>
+          )}
+        </div>
+        <p className="font-mono text-[11px] text-foreground/50 line-clamp-3 whitespace-pre-wrap">{a.content.slice(0, 200)}{a.content.length > 200 ? "..." : ""}</p>
+      </div>
+    );
+  }
+
+  return null;
+}
 
 
