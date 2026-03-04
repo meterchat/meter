@@ -261,10 +261,10 @@ function DiscussDebateToggle() {
       title={debateMode ? "Switch to single-model chat" : "Switch to multi-model debate"}
     >
       {debateMode ? (
-        /* Two overlapping chat bubbles */
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M16 8h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2l-3 3v-3H9a2 2 0 0 1-2-2v-1" />
-          <path d="M18 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2l3 3v-3h6a2 2 0 0 0 2-2z" />
+        /* Lucide messages-square — two overlapping square bubbles */
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2z" />
+          <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
         </svg>
       ) : (
         /* Single chat bubble */
