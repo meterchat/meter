@@ -130,7 +130,7 @@ Parse "delta" events for streamed text. "usage" has final token counts and confi
               <span className="font-mono text-xs text-foreground">{email}</span>
             </button>
             {dropdownOpen && (
-              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-background shadow-lg overflow-hidden z-50">
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-[#1a1a1a] shadow-lg overflow-hidden z-50">
                 <button
                   onClick={() => { logout(); setDropdownOpen(false); }}
                   className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-400/10 transition-colors"
@@ -264,7 +264,7 @@ Parse "delta" events for streamed text. "usage" has final token counts and confi
             </pre>
             <button
               onClick={() => copyText(activeSnippet)}
-              className="absolute top-3 right-3 rounded-md border border-white/[0.06] bg-background px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute top-3 right-3 rounded-md border border-white/[0.06] bg-[#1a1a1a] px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors"
             >
               Copy
             </button>
