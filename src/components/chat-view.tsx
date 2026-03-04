@@ -2055,6 +2055,7 @@ export function ChatView() {
                     onKeyDown={handleKeyDown}
                     onChange={handleInputChange}
                     onPaste={handlePaste}
+                    onFocus={() => { if (modelPickerOpen) setModelPickerOpen(false); }}
                     placeholder={!sessionsLoaded ? "Loading chat..." : workspaceCardReady ? "Say something... (type / for commands)" : "Add a card to start chatting..."}
                     disabled={!workspaceCardReady || !sessionsLoaded}
                     rows={1}
