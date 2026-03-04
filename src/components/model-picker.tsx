@@ -161,6 +161,9 @@ export function ModelPickerPanel({
 }) {
   const selectedModelId = useMeterStore((s) => s.selectedModelId);
   const setSelectedModelId = useMeterStore((s) => s.setSelectedModelId);
+  const debateMode = useMeterStore((s) => s.debateMode);
+  const setDebateMode = useMeterStore((s) => s.setDebateMode);
+  const setDebateRoster = useMeterStore((s) => s.setDebateRoster);
   const debateRoster = useMeterStore((s) => s.debateRoster);
   const toggleDebateRosterModel = useMeterStore((s) => s.toggleDebateRosterModel);
 
@@ -184,6 +187,10 @@ export function ModelPickerPanel({
                 className="flex flex-1 items-start gap-2.5 min-w-0 text-left"
                 onClick={() => {
                   trackModelSelected({ model: m.id, previousModel: selectedModelId });
+                  if (debateMode) {
+                    setDebateMode(false);
+                    setDebateRoster([]);
+                  }
                   setSelectedModelId(m.id);
                   onClose();
                 }}
