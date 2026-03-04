@@ -1376,6 +1376,10 @@ export const useMeterStore = create<MeterState>()(
         const next = has
           ? s.debateRoster.filter((id) => id !== modelId)
           : [...s.debateRoster, modelId];
+        // When roster drops to 1, exit debate and select the remaining model
+        if (next.length === 1) {
+          return { debateRoster: next, debateMode: false, selectedModelId: next[0] };
+        }
         return { debateRoster: next, debateMode: next.length >= 2 };
       }),
       setSpendingCapEnabled: (v) => set({ spendingCapEnabled: v }),
