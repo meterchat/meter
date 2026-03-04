@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meter — Explainer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    color: #fff;
+    font-family: 'Inter', -apple-system, sans-serif;
+    overflow: hidden;
+    width: 1920px;
+    height: 1080px;
+  }
+
+  canvas#bg {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  .scene {
+    position: fixed;
+    top: 0; left: 0;
+    width: 1920px;
+    height: 1080px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 1;
+    opacity: 0;
+    transform: scale(0.97);
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+  }
+
+  .scene.active {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+
+  .scene.exit {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+
+  /* ── Scene 1: Electricity Meter ── */
+  .meter-icon {
+    width: 200px;
+    height: 200px;
+    margin-bottom: 48px;
+    position: relative;
+  }
+
+  .meter-dial {
+    width: 200px;
+    height: 200px;
+    border: 3px solid rgba(255,255,255,0.15);
+    border-radius: 50%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .meter-dial::before {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .meter-needle {
+    width: 3px;
+    height: 80px;
+    background: linear-gradient(to top, #fff, rgba(255,255,255,0.2));
+    position: absolute;
+    bottom: 50%;
+    left: 50%;
+    transform-origin: bottom center;
+    transform: translateX(-50%) rotate(-60deg);
+    border-radius: 2px;
+    animation: needleSweep 3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .meter-dot {
+    width: 10px; height: 10px;
+    background: #fff;
+    border-radius: 50%;
+    position: absolute;
+    z-index: 2;
+  }
+
+  @keyframes needleSweep {
+    0% { transform: translateX(-50%) rotate(-60deg); }
+    100% { transform: translateX(-50%) rotate(60deg); }
+  }
+
+  .scene-text {
+    text-align: center;
+    max-width: 900px;
+    padding: 0 40px;
+  }
+
+  .headline {
+    font-size: 64px;
+    font-weight: 800;
+    letter-spacing: -2.5px;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtext {
+    font-size: 24px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.5;
+    letter-spacing: -0.3px;
+  }
+
+  /* ── Scene 2: Four Tools ── */
+  .tools-grid {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 56px;
+  }
+
+  .tool-card {
+    width: 180px;
+    height: 220px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    opacity: 0;
+    transform: translateY(30px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tool-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,60,60,0.08) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.6s;
+  }
+
+  .tool-card.strikethrough::before { opacity: 1; }
+
+  .tool-card .price {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -1px;
+  }
+
+  .tool-card .label {
+    font-size: 14px;
+    color: rgba(255,255,255,0.4);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .tool-card .strike-line {
+    position: absolute;
+    width: 0;
+    height: 2px;
+    background: #ff4444;
+    top: 50%;
+    left: 10%;
+    transform: rotate(-45deg);
+    transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .tool-card.strikethrough .strike-line {
+    width: 80%;
+  }
+
+  .total-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  .total-amount {
+    font-size: 48px;
+    font-weight: 800;
+    color: #ff4444;
+    letter-spacing: -2px;
+    text-decoration: line-through;
+    text-decoration-thickness: 3px;
+  }
+
+  .total-label {
+    font-size: 20px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ── Scene 3: Pay Per Thought ── */
+  .thought-bubbles {
+    position: relative;
+    width: 400px;
+    height: 200px;
+    margin-bottom: 48px;
+  }
+
+  .thought-bubble {
+    position: absolute;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    padding: 16px 24px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.6);
+    opacity: 0;
+    backdrop-filter: blur(10px);
+  }
+
+  .thought-bubble .cost {
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 6px;
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  }
+
+  .model-badges {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+
+  .model-badge {
+    padding: 10px 24px;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.7);
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  /* ── Scene 4: Introducing Meter ── */
+  .meter-logo-large {
+    margin-bottom: 32px;
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  .meter-logo-large .logo-text {
+    font-size: 120px;
+    font-weight: 900;
+    letter-spacing: -6px;
+    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .tagline-intro {
+    font-size: 28px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: -0.5px;
+  }
+
+  /* ── Scene 5: Think First Pay Later ── */
+  .cost-stream {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    margin-bottom: 56px;
+  }
+
+  .message-bubble {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 24px 32px;
+    max-width: 400px;
+    font-size: 16px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.8);
+  }
+
+  .cost-ticker {
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    font-size: 56px;
+    font-weight: 700;
+    color: #4ade80;
+    letter-spacing: -2px;
+    position: relative;
+  }
+
+  .cost-ticker .cent {
+    font-size: 32px;
+    color: rgba(74, 222, 128, 0.6);
+    vertical-align: super;
+  }
+
+  .cost-ticker .label {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  /* ── Scene 6: Debate Mode ── */
+  .debate-arena {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    margin-bottom: 56px;
+  }
+
+  .debater {
+    width: 280px;
+    padding: 32px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    text-align: center;
+    opacity: 0;
+    transform: translateX(0);
+  }
+
+  .debater.left { transform: translateX(-60px); }
+  .debater.right { transform: translateX(60px); }
+
+  .debater .model-name {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: rgba(255,255,255,0.9);
+  }
+
+  .debater .position {
+    font-size: 14px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.6;
+  }
+
+  .vs-badge {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 18px;
+    color: rgba(255,255,255,0.6);
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  .spark-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    top: 50%;
+    left: 0;
+  }
+
+  /* ── Scene 7: Decision Logging ── */
+  .decision-card {
+    width: 520px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    padding: 40px;
+    margin-bottom: 48px;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .decision-card .dc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .decision-card .dc-title {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  .decision-card .dc-status {
+    padding: 6px 16px;
+    border-radius: 100px;
+    background: rgba(74, 222, 128, 0.1);
+    color: #4ade80;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .decision-card .dc-decision {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    letter-spacing: -0.5px;
+  }
+
+  .decision-card .dc-meta {
+    font-size: 14px;
+    color: rgba(255,255,255,0.35);
+    line-height: 1.7;
+  }
+
+  .tap-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+  }
+
+  .tap-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: tapPulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes tapPulse {
+    0%, 100% { transform: scale(1); border-color: rgba(255,255,255,0.2); }
+    50% { transform: scale(0.92); border-color: rgba(255,255,255,0.5); }
+  }
+
+  .tap-label {
+    font-size: 16px;
+    color: rgba(255,255,255,0.4);
+    font-weight: 500;
+  }
+
+  /* ── Scene 8: Future ── */
+  .future-text {
+    max-width: 800px;
+    text-align: center;
+  }
+
+  .future-text .big {
+    font-size: 52px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1.2;
+    margin-bottom: 24px;
+    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.6) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .future-text .comparison {
+    font-size: 22px;
+    color: rgba(255,255,255,0.35);
+    font-weight: 300;
+  }
+
+  .gym-icon {
+    font-size: 80px;
+    margin-bottom: 40px;
+    opacity: 0.15;
+  }
+
+  /* ── Scene 9: CTA ── */
+  .cta-container { text-align: center; }
+
+  .beta-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 100px;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    background: rgba(74, 222, 128, 0.08);
+    color: #4ade80;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+    opacity: 0;
+  }
+
+  .cta-url {
+    font-size: 72px;
+    font-weight: 800;
+    letter-spacing: -3px;
+    margin-bottom: 16px;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  .cta-url a {
+    color: #fff;
+    text-decoration: none;
+    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ── Scene 10: Closing ── */
+  .closing-logo {
+    font-size: 80px;
+    font-weight: 900;
+    letter-spacing: -4px;
+    margin-bottom: 32px;
+    opacity: 0;
+  }
+
+  .closing-tagline {
+    font-size: 28px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: -0.5px;
+    opacity: 0;
+  }
+
+  .closing-tagline em {
+    font-style: normal;
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* ── Progress Bar ── */
+  .progress-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+    z-index: 100;
+    transition: width 0.3s ease;
+  }
+
+  /* ── Controls ── */
+  .controls {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    z-index: 100;
+    display: flex;
+    gap: 12px;
+  }
+
+  .controls button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    transition: all 0.2s;
+  }
+
+  .controls button:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.3);
+  }
+
+  .scene-counter {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 3px;
+    z-index: 100;
+    font-weight: 500;
+  }
+
+  /* ── Particle / Glow Effects ── */
+  .glow-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .glow-1 {
+    width: 600px; height: 600px;
+    background: rgba(99, 102, 241, 0.08);
+    top: -200px; right: -200px;
+  }
+
+  .glow-2 {
+    width: 500px; height: 500px;
+    background: rgba(74, 222, 128, 0.05);
+    bottom: -200px; left: -100px;
+  }
+
+  .glow-3 {
+    width: 400px; height: 400px;
+    background: rgba(251, 191, 36, 0.04);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<div class="glow-orb glow-1"></div>
+<div class="glow-orb glow-2"></div>
+<div class="glow-orb glow-3"></div>
+
+<!-- Scene 1: Intelligence needs to be metered -->
+<div class="scene" id="scene1">
+  <div class="meter-icon">
+    <div class="meter-dial">
+      <div class="meter-needle"></div>
+      <div class="meter-dot"></div>
+    </div>
+  </div>
+  <div class="scene-text">
+    <div class="headline">Intelligence needs to be metered like electricity.</div>
+  </div>
+</div>
+
+<!-- Scene 2: Why pay hundreds -->
+<div class="scene" id="scene2">
+  <div class="tools-grid">
+    <div class="tool-card" data-delay="0">
+      <div class="label">Chat AI</div>
+      <div class="price">$20</div>
+      <div class="strike-line"></div>
+    </div>
+    <div class="tool-card" data-delay="150">
+      <div class="label">Code AI</div>
+      <div class="price">$20</div>
+      <div class="strike-line"></div>
+    </div>
+    <div class="tool-card" data-delay="300">
+      <div class="label">Image AI</div>
+      <div class="price">$30</div>
+      <div class="strike-line"></div>
+    </div>
+    <div class="tool-card" data-delay="450">
+      <div class="label">Search AI</div>
+      <div class="price">$20</div>
+      <div class="strike-line"></div>
+    </div>
+  </div>
+  <div class="total-bar">
+    <div class="total-amount">$90/mo</div>
+    <div class="total-label">for tools you barely use</div>
+  </div>
+</div>
+
+<!-- Scene 3: Pay per thought, all top models -->
+<div class="scene" id="scene3">
+  <div class="model-badges">
+    <div class="model-badge" data-delay="0">GPT-4o</div>
+    <div class="model-badge" data-delay="100">Claude</div>
+    <div class="model-badge" data-delay="200">Gemini</div>
+    <div class="model-badge" data-delay="300">DeepSeek</div>
+    <div class="model-badge" data-delay="400">Grok</div>
+  </div>
+  <div class="scene-text">
+    <div class="headline">Pay per thought.</div>
+    <div class="subtext">All top models debating your ideas in real time.</div>
+  </div>
+</div>
+
+<!-- Scene 4: Introducing Meter -->
+<div class="scene" id="scene4">
+  <div class="meter-logo-large">
+    <div class="logo-text">meter</div>
+  </div>
+  <div class="tagline-intro">The first pay-per-thought AI.</div>
+</div>
+
+<!-- Scene 5: Think first, pay later -->
+<div class="scene" id="scene5">
+  <div class="cost-stream">
+    <div class="message-bubble">
+      Should we use Postgres or DynamoDB for our event sourcing backend?
+    </div>
+    <div class="cost-ticker">
+      <span class="cent">$</span><span id="costValue">0.00</span>
+      <span class="label">streaming cost</span>
+    </div>
+  </div>
+  <div class="scene-text">
+    <div class="headline">Think first. Pay later.</div>
+    <div class="subtext">Cost streams per message. Auto-settles to your card.</div>
+  </div>
+</div>
+
+<!-- Scene 6: Debate Mode -->
+<div class="scene" id="scene6">
+  <div class="debate-arena">
+    <div class="debater left">
+      <div class="model-name">Claude</div>
+      <div class="position">"Postgres gives you ACID guarantees and rich querying out of the box."</div>
+    </div>
+    <div class="vs-badge">VS</div>
+    <div class="debater right">
+      <div class="model-name">GPT-4o</div>
+      <div class="position">"DynamoDB scales horizontally with zero operational overhead."</div>
+    </div>
+  </div>
+  <div class="scene-text">
+    <div class="headline">Stress-test your ideas.</div>
+    <div class="subtext">Debate mode puts frontier models head to head.</div>
+  </div>
+</div>
+
+<!-- Scene 7: Decision Logging -->
+<div class="scene" id="scene7">
+  <div class="decision-card">
+    <div class="dc-header">
+      <div class="dc-title">Decision Record</div>
+      <div class="dc-status">Locked</div>
+    </div>
+    <div class="dc-decision">Use Postgres with JSONB columns</div>
+    <div class="dc-meta">
+      Trade-off: Less horizontal scale, but ACID + rich queries outweigh for current traffic.<br>
+      Debated by Claude &amp; GPT-4o &bull; March 4, 2026
+    </div>
+  </div>
+  <div class="tap-indicator">
+    <div class="tap-circle">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </div>
+    <div class="tap-label">One tap to log your conviction</div>
+  </div>
+</div>
+
+<!-- Scene 8: Future -->
+<div class="scene" id="scene8">
+  <div class="future-text">
+    <div class="big">In the future, everyone will wonder why they ever bought the ability to think like they do gym memberships.</div>
+  </div>
+</div>
+
+<!-- Scene 9: CTA -->
+<div class="scene" id="scene9">
+  <div class="cta-container">
+    <div class="beta-badge">Public Beta</div>
+    <div class="cta-url">meter.chat</div>
+    <div class="subtext" style="opacity:0" id="ctaSub">Meter is now live. Sign up today.</div>
+  </div>
+</div>
+
+<!-- Scene 10: Closing -->
+<div class="scene" id="scene10">
+  <div class="closing-logo">meter</div>
+  <div class="closing-tagline">Think in <em>Meter</em>. Pay per thought.</div>
+</div>
+
+<div class="progress-bar" id="progress"></div>
+<div class="scene-counter" id="counter">01 / 10</div>
+
+<div class="controls">
+  <button id="prevBtn" title="Previous">&#8249;</button>
+  <button id="playBtn" title="Play/Pause">&#9654;</button>
+  <button id="nextBtn" title="Next">&#8250;</button>
+</div>
+
+<script>
+// ── Background Grid Canvas ──
+const canvas = document.getElementById('bg');
+const ctx = canvas.getContext('2d');
+canvas.width = 1920;
+canvas.height = 1080;
+
+function drawGrid() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+  ctx.lineWidth = 1;
+  const size = 80;
+  for (let x = 0; x < canvas.width; x += size) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += size) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
+}
+drawGrid();
+
+// ── Scene Management ──
+const scenes = document.querySelectorAll('.scene');
+const totalScenes = scenes.length;
+let current = 0;
+let playing = false;
+let autoTimer = null;
+
+const sceneDurations = [4500, 5500, 5000, 4000, 5500, 6000, 5500, 6000, 5000, 5000];
+
+function showScene(index) {
+  scenes.forEach((s, i) => {
+    s.classList.remove('active', 'exit');
+    if (i === index) {
+      s.classList.add('active');
+      animateScene(i);
+    }
+  });
+  document.getElementById('counter').textContent =
+    String(index + 1).padStart(2, '0') + ' / ' + String(totalScenes).padStart(2, '0');
+  document.getElementById('progress').style.width =
+    ((index + 1) / totalScenes * 100) + '%';
+}
+
+function animateScene(i) {
+  if (i === 1) animateToolCards();
+  if (i === 2) animateModelBadges();
+  if (i === 3) animateLogoReveal();
+  if (i === 4) animateCostTicker();
+  if (i === 5) animateDebate();
+  if (i === 6) animateDecision();
+  if (i === 8) animateCTA();
+  if (i === 9) animateClosing();
+}
+
+function animateToolCards() {
+  const cards = document.querySelectorAll('.tool-card');
+  cards.forEach((card, i) => {
+    const delay = parseInt(card.dataset.delay) || 0;
+    setTimeout(() => {
+      card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    }, 300 + delay);
+    setTimeout(() => {
+      card.classList.add('strikethrough');
+    }, 1800 + delay);
+  });
+  const total = document.querySelector('.total-bar');
+  setTimeout(() => {
+    total.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    total.style.opacity = '1';
+    total.style.transform = 'translateY(0)';
+  }, 2800);
+}
+
+function animateModelBadges() {
+  const badges = document.querySelectorAll('.model-badge');
+  badges.forEach((b, i) => {
+    const delay = parseInt(b.dataset.delay) || 0;
+    setTimeout(() => {
+      b.style.transition = 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      b.style.opacity = '1';
+      b.style.transform = 'scale(1)';
+    }, 400 + delay);
+  });
+}
+
+function animateLogoReveal() {
+  const logo = document.querySelector('.meter-logo-large');
+  setTimeout(() => {
+    logo.style.transition = 'opacity 1s ease, transform 1s cubic-bezier(0.16, 1, 0.3, 1)';
+    logo.style.opacity = '1';
+    logo.style.transform = 'scale(1)';
+  }, 200);
+}
+
+let costInterval;
+function animateCostTicker() {
+  const el = document.getElementById('costValue');
+  let val = 0;
+  clearInterval(costInterval);
+  el.textContent = '0.00';
+  costInterval = setInterval(() => {
+    val += 0.001 + Math.random() * 0.002;
+    if (val > 0.04) { clearInterval(costInterval); return; }
+    el.textContent = val.toFixed(3);
+  }, 80);
+}
+
+function animateDebate() {
+  const left = document.querySelector('.debater.left');
+  const right = document.querySelector('.debater.right');
+  const vs = document.querySelector('.vs-badge');
+  setTimeout(() => {
+    left.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    left.style.opacity = '1';
+    left.style.transform = 'translateX(0)';
+  }, 300);
+  setTimeout(() => {
+    vs.style.transition = 'opacity 0.4s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    vs.style.opacity = '1';
+    vs.style.transform = 'scale(1)';
+  }, 700);
+  setTimeout(() => {
+    right.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    right.style.opacity = '1';
+    right.style.transform = 'translateX(0)';
+  }, 1100);
+}
+
+function animateDecision() {
+  const card = document.querySelector('.decision-card');
+  const tap = document.querySelector('.tap-indicator');
+  setTimeout(() => {
+    card.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
+    card.style.opacity = '1';
+    card.style.transform = 'translateY(0)';
+  }, 300);
+  setTimeout(() => {
+    tap.style.transition = 'opacity 0.5s ease';
+    tap.style.opacity = '1';
+  }, 1500);
+}
+
+function animateCTA() {
+  const badge = document.querySelector('.beta-badge');
+  const url = document.querySelector('.cta-url');
+  const sub = document.getElementById('ctaSub');
+  setTimeout(() => {
+    badge.style.transition = 'opacity 0.5s ease';
+    badge.style.opacity = '1';
+  }, 200);
+  setTimeout(() => {
+    url.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
+    url.style.opacity = '1';
+    url.style.transform = 'translateY(0)';
+  }, 600);
+  setTimeout(() => {
+    sub.style.transition = 'opacity 0.5s ease';
+    sub.style.opacity = '1';
+  }, 1200);
+}
+
+function animateClosing() {
+  const logo = document.querySelector('.closing-logo');
+  const tag = document.querySelector('.closing-tagline');
+  setTimeout(() => {
+    logo.style.transition = 'opacity 1s ease';
+    logo.style.opacity = '1';
+  }, 300);
+  setTimeout(() => {
+    tag.style.transition = 'opacity 0.8s ease';
+    tag.style.opacity = '1';
+  }, 1000);
+}
+
+function resetSceneAnimations() {
+  // Reset cards
+  document.querySelectorAll('.tool-card').forEach(c => {
+    c.style.opacity = '0';
+    c.style.transform = 'translateY(30px)';
+    c.classList.remove('strikethrough');
+  });
+  document.querySelector('.total-bar').style.opacity = '0';
+  document.querySelector('.total-bar').style.transform = 'translateY(20px)';
+
+  // Reset badges
+  document.querySelectorAll('.model-badge').forEach(b => {
+    b.style.opacity = '0';
+    b.style.transform = 'scale(0.8)';
+  });
+
+  // Reset logo
+  const logo = document.querySelector('.meter-logo-large');
+  logo.style.opacity = '0';
+  logo.style.transform = 'scale(0.5)';
+
+  // Reset cost
+  clearInterval(costInterval);
+  document.getElementById('costValue').textContent = '0.00';
+
+  // Reset debate
+  document.querySelector('.debater.left').style.opacity = '0';
+  document.querySelector('.debater.left').style.transform = 'translateX(-60px)';
+  document.querySelector('.debater.right').style.opacity = '0';
+  document.querySelector('.debater.right').style.transform = 'translateX(60px)';
+  document.querySelector('.vs-badge').style.opacity = '0';
+  document.querySelector('.vs-badge').style.transform = 'scale(0)';
+
+  // Reset decision
+  document.querySelector('.decision-card').style.opacity = '0';
+  document.querySelector('.decision-card').style.transform = 'translateY(30px)';
+  document.querySelector('.tap-indicator').style.opacity = '0';
+
+  // Reset CTA
+  document.querySelector('.beta-badge').style.opacity = '0';
+  document.querySelector('.cta-url').style.opacity = '0';
+  document.querySelector('.cta-url').style.transform = 'translateY(20px)';
+  document.getElementById('ctaSub').style.opacity = '0';
+
+  // Reset closing
+  document.querySelector('.closing-logo').style.opacity = '0';
+  document.querySelector('.closing-tagline').style.opacity = '0';
+}
+
+function next() {
+  if (current < totalScenes - 1) {
+    resetSceneAnimations();
+    current++;
+    showScene(current);
+  } else if (playing) {
+    stopAutoplay();
+  }
+}
+
+function prev() {
+  if (current > 0) {
+    resetSceneAnimations();
+    current--;
+    showScene(current);
+  }
+}
+
+function startAutoplay() {
+  playing = true;
+  document.getElementById('playBtn').innerHTML = '&#9646;&#9646;';
+  scheduleNext();
+}
+
+function stopAutoplay() {
+  playing = false;
+  clearTimeout(autoTimer);
+  document.getElementById('playBtn').innerHTML = '&#9654;';
+}
+
+function scheduleNext() {
+  if (!playing) return;
+  autoTimer = setTimeout(() => {
+    next();
+    if (playing && current < totalScenes - 1) {
+      scheduleNext();
+    } else {
+      stopAutoplay();
+    }
+  }, sceneDurations[current]);
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  if (playing) { stopAutoplay(); } else { startAutoplay(); }
+});
+document.getElementById('nextBtn').addEventListener('click', () => { stopAutoplay(); next(); });
+document.getElementById('prevBtn').addEventListener('click', () => { stopAutoplay(); prev(); });
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); stopAutoplay(); next(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); stopAutoplay(); prev(); }
+  if (e.key === 'p' || e.key === 'P') {
+    if (playing) stopAutoplay(); else startAutoplay();
+  }
+});
+
+// ── Init ──
+showScene(0);
+</script>
+</body>
+</html>
