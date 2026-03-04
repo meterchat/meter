@@ -168,10 +168,12 @@ export async function streamOpenRouter(
   send: Send,
   estimateTokens: (text: string) => number,
   totalTokensOut: { value: number },
+  timeoutMs?: number,
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
   const client = new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
     baseURL: "https://openrouter.ai/api/v1",
+    timeout: timeoutMs ?? 45_000,
   });
 
   // Add cache_control breakpoints for Anthropic/Gemini models on OpenRouter
@@ -510,8 +512,9 @@ async function streamAnthropic(
   send: Send,
   estimateTokens: (text: string) => number,
   totalTokensOut: { value: number },
+  timeoutMs?: number,
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, timeout: timeoutMs ?? 45_000 });
   return _streamAnthropicProtocol(client, nativeModel, conversation, tools, send, estimateTokens, totalTokensOut);
 }
 
@@ -685,8 +688,9 @@ async function streamOpenAIDirect(
   totalTokensOut: { value: number },
   baseURL?: string,
   cacheReadRate?: number,
+  timeoutMs?: number,
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
-  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}), timeout: timeoutMs ?? 45_000 });
 
   const response = await client.chat.completions.create({
     model: nativeModel,
@@ -778,6 +782,7 @@ async function streamGemini(
   send: Send,
   estimateTokens: (text: string) => number,
   totalTokensOut: { value: number },
+  timeoutMs?: number,
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
   const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -795,7 +800,7 @@ async function streamGemini(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     generationConfig: { maxOutputTokens: 16384, thinkingConfig: { thinkingBudget: 4096 } } as any,
     ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
-  });
+  }, { timeout: timeoutMs ?? 45_000 });
 
   // Build a map of tool_call_id → function name for converting tool results
   const toolCallIdToName = new Map<string, string>();
@@ -975,18 +980,29 @@ function streamDirect(
   send: Send,
   estimateTokens: (text: string) => number,
   totalTokensOut: { value: number },
+  timeoutMs?: number,
 ) {
   switch (provider.sdk) {
     case "anthropic":
-      return streamAnthropic(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut);
+      return streamAnthropic(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
     case "openai":
-      return streamOpenAIDirect(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut, provider.baseURL, provider.cacheReadRate);
+      return streamOpenAIDirect(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut, provider.baseURL, provider.cacheReadRate, timeoutMs);
     case "gemini":
-      return streamGemini(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut);
+      return streamGemini(provider.nativeModel, apiKey, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
   }
 }
 
 /* ─── Main fallback orchestrator ────────────────────────────────── */
+
+/** Options for streamWithFallback — timeouts, silent mode, exclusions */
+export interface StreamOptions {
+  /** Per-request timeout in ms (default 45_000). Applied to all SDK clients. */
+  timeoutMs?: number;
+  /** When true, suppress rerouting events in Tier 4 (e.g. during debate). */
+  silent?: boolean;
+  /** Models to skip in Tier 4 auto-route (e.g. other debate roster models). */
+  excludeModels?: string[];
+}
 
 export interface FallbackResult {
   textContent: string;
@@ -1016,7 +1032,10 @@ export async function streamWithFallback(
   send: Send,
   estimateTokens: (text: string) => number,
   totalTokensOut: { value: number },
+  options?: StreamOptions,
 ): Promise<FallbackResult> {
+  const timeoutMs = options?.timeoutMs;
+  const silent = options?.silent ?? false;
   const errors: { tier: number; model: string; error: string }[] = [];
 
   const directProvider = DIRECT_PROVIDERS[requestedModel];
@@ -1027,7 +1046,7 @@ export async function streamWithFallback(
   if (preferDirect) {
     try {
       console.log("[fallback] tier 1 (direct, preferred for caching):", requestedModel);
-      const result = await streamDirect(directProvider, directKey!, conversation, tools, send, estimateTokens, totalTokensOut);
+      const result = await streamDirect(directProvider, directKey!, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
       return { ...result, actualModel: requestedModel, tier: 2 };
     } catch (err) {
       const e = err as Error;
@@ -1039,7 +1058,7 @@ export async function streamWithFallback(
   // ── Tier 1: OpenRouter ──────────────────────────────────────────
   if (process.env.OPENROUTER_API_KEY) {
     try {
-      const result = await streamOpenRouter(requestedModel, conversation, tools, send, estimateTokens, totalTokensOut);
+      const result = await streamOpenRouter(requestedModel, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
       return { ...result, actualModel: requestedModel, tier: 1 };
     } catch (err) {
       const e = err as Error;
@@ -1053,7 +1072,7 @@ export async function streamWithFallback(
   if (!preferDirect && directProvider && directKey) {
     try {
       console.log("[fallback] tier 2 (direct key, same model):", requestedModel);
-      const result = await streamDirect(directProvider, directKey, conversation, tools, send, estimateTokens, totalTokensOut);
+      const result = await streamDirect(directProvider, directKey, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
       return { ...result, actualModel: requestedModel, tier: 2 };
     } catch (err) {
       const e = err as Error;
@@ -1079,7 +1098,8 @@ export async function streamWithFallback(
   // ── Tier 4: Auto-route to a different model ─────────────────────
   // For each candidate, try OpenRouter → direct key → Bedrock (if Claude).
   // GPT 5.2 serves as the final fallback for all models.
-  const candidates = AUTO_ROUTE_ORDER.filter((m) => m !== requestedModel);
+  const excluded = options?.excludeModels ?? [];
+  const candidates = AUTO_ROUTE_ORDER.filter((m) => m !== requestedModel && !excluded.includes(m));
 
   for (const candidateModel of candidates) {
     const candidateProvider = DIRECT_PROVIDERS[candidateModel];
@@ -1092,8 +1112,8 @@ export async function streamWithFallback(
     if (process.env.OPENROUTER_API_KEY) {
       try {
         console.log("[fallback] tier 4 (openrouter, auto-route):", candidateModel);
-        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
-        const result = await streamOpenRouter(candidateModel, conversation, tools, send, estimateTokens, totalTokensOut);
+        if (!silent) send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
+        const result = await streamOpenRouter(candidateModel, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
         return { ...result, actualModel: candidateModel, tier: 4 };
       } catch (err) {
         const e = err as Error;
@@ -1106,8 +1126,8 @@ export async function streamWithFallback(
     if (candidateProvider && candidateKey) {
       try {
         console.log("[fallback] tier 4 (direct, auto-route):", candidateModel);
-        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
-        const result = await streamDirect(candidateProvider, candidateKey, conversation, tools, send, estimateTokens, totalTokensOut);
+        if (!silent) send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
+        const result = await streamDirect(candidateProvider, candidateKey, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
         return { ...result, actualModel: candidateModel, tier: 4 };
       } catch (err) {
         const e = err as Error;
@@ -1121,7 +1141,7 @@ export async function streamWithFallback(
     if (candidateBedrockId && isBedrockAvailable()) {
       try {
         console.log("[fallback] tier 4 (bedrock, auto-route):", candidateModel, "→", candidateBedrockId);
-        send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
+        if (!silent) send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
         const result = await streamBedrock(candidateBedrockId, conversation, tools, send, estimateTokens, totalTokensOut);
         return { ...result, actualModel: candidateModel, tier: 4 };
       } catch (err) {

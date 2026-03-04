@@ -15,7 +15,7 @@
  *   - Summary table at the end as actionable output
  */
 
-import { streamWithFallback, type Send } from "./fallback";
+import { streamWithFallback, type Send, type StreamOptions } from "./fallback";
 import { META_MODEL, getModel } from "./models";
 import type { ToolDef } from "./tools";
 import type OpenAI from "openai";
@@ -255,7 +255,7 @@ async function runPass(
 
   const totalOut = { value: 0 };
   try {
-    await streamWithFallback(META_MODEL, messages, [], passSend, estimateTokens, totalOut);
+    await streamWithFallback(META_MODEL, messages, [], passSend, estimateTokens, totalOut, { timeoutMs: 45_000, silent: true });
   } catch {
     content = "(This pass encountered an error.)";
   }
@@ -314,6 +314,7 @@ export async function runDissection(
       clarifySend,
       estimateTokens,
       totalOut,
+      { timeoutMs: 45_000, silent: true },
     );
 
     usage.tokensIn += roundIn;
@@ -404,6 +405,7 @@ export async function runDissection(
     verdictSend,
     estimateTokens,
     totalOut,
+    { timeoutMs: 45_000, silent: true },
   );
 
   usage.tokensIn += roundIn;
