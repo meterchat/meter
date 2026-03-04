@@ -89,6 +89,13 @@ export function HeaderMeter() {
   const setDefaultCard = useMeterStore((s) => s.setDefaultCard);
   const removeCard = useMeterStore((s) => s.removeCard);
 
+  // Settlement
+  const getPendingBalance = useMeterStore((s) => s.getPendingBalance);
+  const settleAll = useMeterStore((s) => s.settleAll);
+  const isSettling = useMeterStore((s) => s.isSettling);
+  const cardLast4 = useMeterStore((s) => s.cardLast4);
+  const cardBrand = useMeterStore((s) => s.cardBrand);
+
   // Spend limits
   const spendLimits = useMeterStore((s) => s.spendLimits);
   const fetchSpendLimits = useMeterStore((s) => s.fetchSpendLimits);
@@ -346,6 +353,17 @@ export function HeaderMeter() {
 
           <div className="h-px bg-border" />
 
+          {/* Settlement */}
+          <SettlementRow
+            getPendingBalance={getPendingBalance}
+            settleAll={settleAll}
+            isSettling={isSettling}
+            cardLast4={cardLast4}
+            cardBrand={cardBrand}
+          />
+
+          <div className="h-px bg-border" />
+
           {/* Spend Limits */}
           {activeProjectId && (
             <div className="px-4 py-3">
@@ -432,6 +450,58 @@ function StatRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between py-1.5">
       <span className="text-[12px] text-muted-foreground">{label}</span>
       <span className="text-[12px] text-foreground font-mono">{value}</span>
+    </div>
+  );
+}
+
+function SettlementRow({ getPendingBalance, settleAll, isSettling, cardLast4, cardBrand }: {
+  getPendingBalance: () => number;
+  settleAll: () => Promise<{ success: boolean }>;
+  isSettling: boolean;
+  cardLast4: string | null;
+  cardBrand: string | null;
+}) {
+  const [success, setSuccess] = useState(false);
+  const pending = getPendingBalance();
+  const brand = cardBrand ? cardBrand.charAt(0).toUpperCase() + cardBrand.slice(1) : "Card";
+
+  const handleSettle = async () => {
+    const result = await settleAll();
+    if (result.success) {
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    }
+  };
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Outstanding</div>
+          {cardLast4 && pending > 0 && (
+            <span className="font-mono text-[10px] text-muted-foreground/40">{brand} {cardLast4}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[13px] font-medium tabular-nums text-foreground">${pending.toFixed(2)}</span>
+          {pending > 0 && (
+            <button
+              onClick={handleSettle}
+              disabled={isSettling}
+              className={`rounded-md px-2 py-1 font-mono text-[10px] transition-colors ${
+                success
+                  ? "text-emerald-500 bg-emerald-500/10"
+                  : "text-foreground bg-foreground/10 hover:bg-foreground/15 disabled:opacity-40"
+              }`}
+            >
+              {success ? "Settled" : isSettling ? "..." : "Settle"}
+            </button>
+          )}
+        </div>
+      </div>
+      {pending === 0 && (
+        <p className="font-mono text-[10px] text-muted-foreground/30 mt-0.5">Auto-settles at $10</p>
+      )}
     </div>
   );
 }

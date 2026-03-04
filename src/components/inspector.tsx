@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useTheme } from "next-themes";
-import { useMeterStore, selectConnectedServices, ChatMessage } from "@/lib/store";
+import { useMeterStore, selectConnectedServices } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
 import { CONNECTORS } from "@/lib/connectors";
@@ -22,15 +21,11 @@ import {
   trackArtifactGenerated,
   trackArtifactRegenerated,
   trackArtifactPushed,
-  trackSettlementInitiated,
-  trackSettlementCompleted,
-  trackSettlementFailed,
   trackInspectorToggled,
   trackInspectorTabChanged,
-  trackThemeChanged,
 } from "@/lib/analytics";
 
-const INSPECTOR_TABS = ["decisions", "documents", "payments", "connections"] as const;
+const INSPECTOR_TABS = ["decisions", "documents", "connections"] as const;
 
 export function Inspector() {
   const {
@@ -166,7 +161,6 @@ export function Inspector() {
       <div className="flex-1 overflow-y-auto p-4">
         {inspectorTab === "decisions" && <DecisionsTab activeProjectId={activeProject?.id ?? null} />}
         {inspectorTab === "documents" && <BlueprintTab activeProjectId={activeProject?.id ?? null} />}
-        {inspectorTab === "payments" && <PaymentsTab activeProject={activeProject} />}
         {inspectorTab === "connections" && <ConnectionsTab />}
       </div>
 
@@ -178,12 +172,6 @@ export function Inspector() {
           >
             Manage workspace
           </button>
-          <ThemeToggle />
-        </div>
-      )}
-      {!activeCompany && (
-        <div className="border-t border-border px-4 py-3 flex items-center justify-end" style={{ paddingBottom: isMobile ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
-          <ThemeToggle />
         </div>
       )}
     </>
@@ -289,20 +277,6 @@ export function Inspector() {
       {manageDialog}
     </>
   );
-}
-
-/* ─── SHARED TYPES ─── */
-interface ProjectLike {
-  id: string;
-  messages: ChatMessage[];
-  todayCost: number;
-  todayTokensIn: number;
-  todayTokensOut: number;
-  todayMessageCount: number;
-  todayByModel: Record<string, { cost: number; count: number }>;
-  totalCost: number;
-  settlementError?: string | null;
-  chatBlocked?: boolean;
 }
 
 /* ─── CONNECTIONS TAB ─── */
@@ -1078,178 +1052,5 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
   );
 }
 
-/* ─── PAYMENTS TAB ─── */
-function PaymentsTab({ activeProject }: { activeProject: ProjectLike | null }) {
-  const settlementHistory = useMeterStore((s) => s.settlementHistory);
-  const settlementHistoryLoading = useMeterStore((s) => s.settlementHistoryLoading);
-  const fetchSettlementHistory = useMeterStore((s) => s.fetchSettlementHistory);
-  const getPendingBalance = useMeterStore((s) => s.getPendingBalance);
-  const settleAll = useMeterStore((s) => s.settleAll);
-  const isSettling = useMeterStore((s) => s.isSettling);
-  const clearSettlementError = useMeterStore((s) => s.clearSettlementError);
-  const cardLast4 = useMeterStore((s) => s.cardLast4);
-  const cardBrand = useMeterStore((s) => s.cardBrand);
 
-  const settlementError = activeProject?.settlementError ?? null;
-
-  const [settleSuccess, setSettleSuccess] = useState(false);
-  const workspaceId = activeProject?.id ?? null;
-
-  useEffect(() => {
-    if (workspaceId) {
-      fetchSettlementHistory(workspaceId);
-    }
-  }, [fetchSettlementHistory, workspaceId]);
-
-  const pendingBalance = getPendingBalance();
-  const brandLabel = cardBrand ? cardBrand.charAt(0).toUpperCase() + cardBrand.slice(1) : "Card";
-
-  const handleSettle = async () => {
-    if (settlementError) clearSettlementError();
-    trackSettlementInitiated({ amount: pendingBalance, projectId: workspaceId ?? undefined });
-    const result = await settleAll();
-    if (result.success) {
-      trackSettlementCompleted({ amount: pendingBalance, projectId: workspaceId ?? undefined });
-      setSettleSuccess(true);
-      setTimeout(() => setSettleSuccess(false), 2000);
-    } else {
-      trackSettlementFailed({ amount: pendingBalance, projectId: workspaceId ?? undefined });
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Settle */}
-      <div className="rounded-lg border border-border p-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">Outstanding</span>
-          <span className="font-mono text-[13px] font-medium tabular-nums text-foreground">
-            ${pendingBalance.toFixed(2)}
-          </span>
-        </div>
-
-        {settlementError ? (
-          <>
-            <div className="mb-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
-              <span className="font-mono text-[11px] text-red-400">{settlementError}</span>
-              <p className="mt-0.5 font-mono text-[10px] text-red-400/60">Please update your card or try again.</p>
-            </div>
-
-            <button
-              onClick={handleSettle}
-              disabled={isSettling || pendingBalance <= 0}
-              className={`w-full rounded-lg py-2.5 font-mono text-[12px] transition-colors ${
-                settleSuccess
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40"
-              }`}
-            >
-              {settleSuccess ? "Settled" : isSettling ? "Processing..." : `Pay & Settle $${pendingBalance.toFixed(2)}`}
-            </button>
-          </>
-        ) : (
-          <p className="font-mono text-[10px] text-muted-foreground/50 text-center py-1">
-            Settles automatically at $10
-          </p>
-        )}
-
-        {cardLast4 && pendingBalance > 0 && (
-          <p className="mt-1.5 text-center font-mono text-[10px] text-muted-foreground/40">
-            Charged to {brandLabel} {cardLast4}
-          </p>
-        )}
-      </div>
-
-      <div className="h-px bg-border" />
-
-      {/* Settlement History */}
-      <div>
-        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Settlement History
-        </div>
-        {settlementHistoryLoading && settlementHistory.length === 0 ? (
-          <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">Loading...</div>
-        ) : settlementHistory.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-6 gap-2">
-            <span className="font-mono text-[12px] text-muted-foreground/40">No settlements yet</span>
-            <span className="font-mono text-[11px] text-muted-foreground/30">
-              Settlements appear here as they happen
-            </span>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {settlementHistory.map((s) => {
-              const brandLabel = s.cardBrand
-                ? s.cardBrand.charAt(0).toUpperCase() + s.cardBrand.slice(1)
-                : "";
-              return (
-                <div key={s.id} className="flex items-center justify-between py-1.5 font-mono text-[12px]">
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="text-foreground/80">
-                      ${s.amount.toFixed(2)}
-                      <span className="text-muted-foreground/40 ml-1.5">
-                        {new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </span>
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/40">
-                      {brandLabel} {s.cardLast4 ?? ""} &middot; {s.messageCount} msgs
-                    </span>
-                  </div>
-                  <span className={`shrink-0 text-[10px] ${s.status === "succeeded" ? "text-emerald-500/60" : "text-red-400/60"}`}>
-                    {s.status}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ─── THEME TOGGLE ─── */
-function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  if (!mounted) return <div className="w-[52px] h-[26px]" />;
-
-  const isDark = resolvedTheme === "dark";
-
-  return (
-    <button
-      onClick={() => { const next = isDark ? "light" : "dark"; trackThemeChanged({ theme: next }); setTheme(next); }}
-      className="relative h-[26px] w-[52px] rounded-full border border-border bg-background transition-colors hover:border-foreground/20"
-      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-    >
-      <div
-        className={`absolute top-[2px] h-[20px] w-[20px] rounded-full transition-all duration-200 flex items-center justify-center ${
-          isDark
-            ? "left-[2px] bg-foreground/15"
-            : "left-[28px] bg-foreground/15"
-        }`}
-      >
-        {isDark ? (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        ) : (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
-            <circle cx="12" cy="12" r="5" />
-            <line x1="12" y1="1" x2="12" y2="3" />
-            <line x1="12" y1="21" x2="12" y2="23" />
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-            <line x1="1" y1="12" x2="3" y2="12" />
-            <line x1="21" y1="12" x2="23" y2="12" />
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-          </svg>
-        )}
-      </div>
-    </button>
-  );
-}
 
