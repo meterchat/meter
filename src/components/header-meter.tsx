@@ -115,8 +115,8 @@ export function HeaderMeter() {
 
   const usage = useMemo(() => {
     const today = activeProject?.todayCost ?? 0;
-    const week = activeProject?.weekCost ?? 0;
-    const month = activeProject?.monthCost ?? 0;
+    const week = Math.max(activeProject?.weekCost ?? 0, today);
+    const month = Math.max(activeProject?.monthCost ?? 0, today);
     const lifetime = activeProject?.totalCost ?? 0;
 
     const dayMs = 24 * 60 * 60 * 1000;
