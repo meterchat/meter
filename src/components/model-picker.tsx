@@ -126,7 +126,7 @@ export function ModelSelectorBar({
               );
             })}
           </span>
-          <span className="text-amber-500/60 text-[10px] normal-case tracking-normal">(Debate)</span>
+          <span className="text-muted-foreground/50 text-[10px] normal-case tracking-normal">(Debate)</span>
         </>
       ) : (
         <>
@@ -179,29 +179,6 @@ export function ModelPickerPanel({
                 isSelected ? "bg-foreground/[0.07]" : ""
               }`}
             >
-              {/* Checkbox for debate roster (not on Auto) */}
-              {!isAuto ? (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleDebateRosterModel(m.id);
-                  }}
-                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                    isInRoster
-                      ? "border-amber-500/60 bg-amber-500/20"
-                      : "border-foreground/20 hover:border-foreground/40"
-                  }`}
-                  title={isInRoster ? "Remove from debate" : "Add to debate"}
-                >
-                  {isInRoster && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </button>
-              ) : (
-                <span className="w-4 shrink-0" />
-              )}
               {/* Click model name to select as primary */}
               <button
                 className="flex flex-1 items-center gap-2.5 min-w-0"
@@ -235,7 +212,29 @@ export function ModelPickerPanel({
                   </div>
                 </div>
               </button>
-              {isSelected && (
+              {/* Right side: checkbox (debate roster) for non-Auto, or selected tick for Auto */}
+              {!isAuto ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleDebateRosterModel(m.id);
+                  }}
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                    isInRoster
+                      ? "border-foreground/60 bg-foreground/10"
+                      : isSelected
+                        ? "border-foreground/40 bg-transparent"
+                        : "border-foreground/20 hover:border-foreground/40"
+                  }`}
+                  title={isInRoster ? "Remove from debate" : "Add to debate"}
+                >
+                  {(isInRoster || isSelected) && (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              ) : isSelected ? (
                 <svg
                   width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -243,7 +242,7 @@ export function ModelPickerPanel({
                 >
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-              )}
+              ) : null}
             </div>
           );
         })}
