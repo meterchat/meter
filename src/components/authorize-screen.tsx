@@ -236,7 +236,7 @@ export function AuthorizeScreen() {
             theme: "night",
             variables: {
               colorPrimary: "#ffffff",
-              colorBackground: "#0a0a0a",
+              colorBackground: "#212121",
               colorText: "#ffffff",
               colorTextPlaceholder: "#666666",
               fontFamily: "ui-monospace, monospace",

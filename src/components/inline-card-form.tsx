@@ -150,7 +150,7 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
           theme: "night",
           variables: {
             colorPrimary: "#ffffff",
-            colorBackground: "#0a0a0a",
+            colorBackground: "#212121",
             colorText: "#ffffff",
             fontFamily: "ui-monospace, monospace",
           },
