@@ -168,7 +168,7 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">
                 {query ? `/${query}` : "/ Commands"}
               </span>
-              <span className="ml-auto font-mono text-[9px] text-muted-foreground/50">
+              <span className="ml-auto font-mono text-[9px] text-muted-foreground/30">
                 {filtered.length} command{filtered.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -241,7 +241,7 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
                     <span className="font-mono text-[11px] text-foreground/80 shrink-0">
                       {cmd.commandLabel}
                     </span>
-                    <span className="font-mono text-[10px] text-muted-foreground/50 shrink-0">
+                    <span className="font-mono text-[10px] text-muted-foreground/30 shrink-0">
                       {cmd.connectorName}
                     </span>
                     <div className="ml-auto shrink-0">

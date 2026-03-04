@@ -53,11 +53,11 @@ export default function DocsPage() {
             </p>
             <div className="rounded-lg border border-border bg-card p-4 font-mono text-sm text-muted-foreground mb-3">
               <span className="text-[#D97757]">Sonnet 4</span>
-              <span className="text-muted-foreground/50 mx-2">&middot;</span>
+              <span className="text-muted-foreground/30 mx-2">&middot;</span>
               <span>$0.03</span>
-              <span className="text-muted-foreground/50 mx-2">&middot;</span>
+              <span className="text-muted-foreground/30 mx-2">&middot;</span>
               <span>82%</span>
-              <span className="text-muted-foreground/50 mx-2">&middot;</span>
+              <span className="text-muted-foreground/30 mx-2">&middot;</span>
               <span className="text-emerald-500/70">settled</span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -171,7 +171,7 @@ data: {"type":"done"}`}
 function Section({ label, items }: { label: string; items: string[] }) {
   return (
     <div>
-      <p className="font-mono text-[9px] text-muted-foreground/70 uppercase tracking-widest mb-2">{label}</p>
+      <p className="font-mono text-[9px] text-muted-foreground/50 uppercase tracking-widest mb-2">{label}</p>
       <div className="flex flex-col gap-1">
         {items.map((item) => (
           <a

@@ -197,7 +197,7 @@ export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => 
                   theme: "night",
                   variables: {
                     colorPrimary: "#ffffff",
-                    colorBackground: "#212121",
+                    colorBackground: "#0a0a0a",
                     colorText: "#ffffff",
                     fontFamily: "ui-monospace, monospace",
                   },

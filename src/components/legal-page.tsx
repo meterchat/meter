@@ -60,7 +60,7 @@ export function LegalPage({ markdown }: { markdown: string }) {
         </Link>
         <div dangerouslySetInnerHTML={{ __html: renderMarkdown(markdown) }} />
         <div className="mt-12 pt-6 border-t border-border">
-          <Link href="/" className="text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors font-mono">
+          <Link href="/" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors font-mono">
             &larr; Back to Meter
           </Link>
         </div>

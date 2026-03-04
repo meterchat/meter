@@ -85,7 +85,7 @@ export function MeterChat({
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "var(--meter-bg, #212121)",
+        background: "var(--meter-bg, #0a0a0a)",
         color: "var(--meter-text-primary, #e5e5e5)",
         fontFamily: "var(--meter-font, system-ui, -apple-system, sans-serif)",
         borderRadius: "var(--meter-radius, 12px)",
