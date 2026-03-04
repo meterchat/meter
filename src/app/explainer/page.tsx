@@ -381,7 +381,7 @@ export default function ExplainerPage() {
 }
 
 const explainerStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
   body { margin: 0; padding: 0; background: #000; overflow: hidden; }
@@ -389,7 +389,7 @@ const explainerStyles = `
   .explainer-root {
     width: 100vw; height: 100vh;
     background: #000; color: #fff;
-    font-family: 'Space Grotesk', -apple-system, sans-serif;
+    font-family: 'Inter', -apple-system, sans-serif;
     overflow: hidden; position: relative;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -411,7 +411,7 @@ const explainerStyles = `
 
   .headline {
     font-size: clamp(32px, 3.5vw, 56px);
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: -1.5px;
     line-height: 1.15;
     margin-bottom: 16px;
@@ -465,7 +465,7 @@ const explainerStyles = `
   .tool-logo { margin-bottom: 4px; opacity: 0.8; }
   .tool-name { font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.85); letter-spacing: -0.3px; }
   .tool-tier { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1.5px; }
-  .tool-card .price { font-size: 28px; font-weight: 600; letter-spacing: -1px; color: #fff; }
+  .tool-card .price { font-size: 28px; font-weight: 500; letter-spacing: -1px; color: #fff; }
   .price-period { font-size: 14px; font-weight: 300; color: rgba(255,255,255,0.35); }
 
   .tool-card .strike-line {
@@ -477,7 +477,7 @@ const explainerStyles = `
 
   .total-bar { display: flex; align-items: center; gap: 20px; opacity: 0; transform: translateY(20px); }
   .total-amount {
-    font-size: 44px; font-weight: 600; color: #ff4444; letter-spacing: -2px;
+    font-size: 44px; font-weight: 500; color: #ff4444; letter-spacing: -2px;
     text-decoration: line-through; text-decoration-thickness: 2px;
     text-decoration-color: rgba(255,68,68,0.6);
   }
@@ -497,7 +497,7 @@ const explainerStyles = `
   /* ── Scene 4: Logo reveal ── */
   .meter-logo-large { margin-bottom: 28px; opacity: 0; transform: scale(0.5); }
   .meter-logo-large .logo-text {
-    font-size: clamp(64px, 8vw, 120px); font-weight: 700; letter-spacing: -5px;
+    font-size: clamp(64px, 8vw, 120px); font-weight: 500; letter-spacing: -5px;
     color: #fff;
   }
   .tagline-intro {
@@ -513,12 +513,12 @@ const explainerStyles = `
     font-size: 15px; line-height: 1.6; color: rgba(255,255,255,0.7); font-weight: 300;
   }
   .cost-ticker {
-    font-family: 'JetBrains Mono', monospace; font-size: 48px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; font-size: 48px; font-weight: 500;
     color: #4ade80; letter-spacing: -2px; position: relative;
   }
   .cost-ticker .cent { font-size: 28px; color: rgba(74,222,128,0.5); vertical-align: super; }
   .cost-ticker .label {
-    display: block; font-family: 'Space Grotesk', sans-serif;
+    display: block; font-family: 'Inter', sans-serif;
     font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.25);
     letter-spacing: 2px; text-transform: uppercase; margin-top: 8px;
   }
@@ -533,13 +533,13 @@ const explainerStyles = `
   }
   .debater.left { transform: translateX(-60px); }
   .debater.right { transform: translateX(60px); }
-  .debater .model-name { font-size: 16px; font-weight: 600; margin-bottom: 14px; color: rgba(255,255,255,0.85); letter-spacing: -0.3px; }
+  .debater .model-name { font-size: 16px; font-weight: 500; margin-bottom: 14px; color: rgba(255,255,255,0.85); letter-spacing: -0.3px; }
   .debater .position { font-size: 14px; color: rgba(255,255,255,0.35); line-height: 1.6; font-weight: 300; }
   .vs-badge {
     width: 56px; height: 56px; border-radius: 50%;
     border: 1.5px solid rgba(255,255,255,0.15);
     display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 14px; color: rgba(255,255,255,0.5);
+    font-weight: 600; font-size: 14px; color: rgba(255,255,255,0.5);
     letter-spacing: 1px;
     opacity: 0; transform: scale(0);
   }
@@ -558,7 +558,7 @@ const explainerStyles = `
     background: rgba(74,222,128,0.08); color: #4ade80;
     font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
   }
-  .decision-card .dc-decision { font-size: 22px; font-weight: 600; margin-bottom: 14px; letter-spacing: -0.5px; color: #fff; }
+  .decision-card .dc-decision { font-size: 22px; font-weight: 500; margin-bottom: 14px; letter-spacing: -0.5px; color: #fff; }
   .decision-card .dc-meta { font-size: 13px; color: rgba(255,255,255,0.3); line-height: 1.7; font-weight: 300; }
 
   .tap-indicator { display: flex; align-items: center; gap: 12px; opacity: 0; }
@@ -574,7 +574,7 @@ const explainerStyles = `
   /* ── Scene 8: Future ── */
   .future-text { max-width: 780px; text-align: center; padding: 0 40px; }
   .future-text .big {
-    font-size: clamp(28px, 3vw, 46px); font-weight: 500; letter-spacing: -1.5px; line-height: 1.3;
+    font-size: clamp(28px, 3vw, 46px); font-weight: 400; letter-spacing: -1.5px; line-height: 1.3;
     color: rgba(255,255,255,0.85);
   }
 
@@ -587,12 +587,12 @@ const explainerStyles = `
     text-transform: uppercase; margin-bottom: 36px; opacity: 0;
   }
   .cta-url {
-    font-size: clamp(40px, 5vw, 68px); font-weight: 700; letter-spacing: -3px;
+    font-size: clamp(40px, 5vw, 68px); font-weight: 500; letter-spacing: -3px;
     margin-bottom: 16px; opacity: 0; transform: translateY(20px); color: #fff;
   }
 
   /* ── Scene 10: Closing ── */
-  .closing-logo { font-size: clamp(48px, 5vw, 76px); font-weight: 700; letter-spacing: -3px; margin-bottom: 28px; opacity: 0; color: #fff; }
+  .closing-logo { font-size: clamp(48px, 5vw, 76px); font-weight: 500; letter-spacing: -3px; margin-bottom: 28px; opacity: 0; color: #fff; }
   .closing-tagline { font-size: clamp(18px, 1.8vw, 26px); font-weight: 300; color: rgba(255,255,255,0.35); letter-spacing: -0.3px; opacity: 0; }
   .closing-tagline em { font-style: normal; color: rgba(255,255,255,0.7); font-weight: 500; }
 
