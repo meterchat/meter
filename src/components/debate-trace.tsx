@@ -41,7 +41,7 @@ export function DebateTrace({ trace, activeTurn, phase }: DebateTraceProps) {
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
-        <span className="font-mono text-[10px] text-amber-500/70 uppercase tracking-wider">
+        <span className="font-mono text-[11px] text-amber-500/70 uppercase tracking-wider">
           {isLive ? (
             <span className="thinking-shimmer">
               {phase === "synthesizing" ? "Synthesizing" : "Debating"}
@@ -70,15 +70,15 @@ export function DebateTrace({ trace, activeTurn, phase }: DebateTraceProps) {
             const model = getModel(turn.model);
             const isActive = activeTurn && i === allTurns.length - 1;
             return (
-              <div key={`${turn.model}-${turn.phase}-${i}`} className="text-xs text-muted-foreground/70">
+              <div key={`${turn.model}-${turn.phase}-${i}`} className="text-[13px] text-muted-foreground/70">
                 {/* Model label */}
                 <span
-                  className={`font-mono text-[10px] font-medium ${isActive ? "thinking-shimmer" : ""}`}
+                  className={`font-mono text-[11px] font-medium ${isActive ? "thinking-shimmer" : ""}`}
                   style={{ color: model.color }}
                 >
                   {shortModelName(turn.model)}
                 </span>
-                <span className="font-mono text-[10px] text-muted-foreground/40 ml-1.5">
+                <span className="font-mono text-[11px] text-muted-foreground/40 ml-1.5">
                   {PHASE_LABELS[turn.phase] ?? turn.phase}
                 </span>
                 {/* Content */}
@@ -95,7 +95,7 @@ export function DebateTrace({ trace, activeTurn, phase }: DebateTraceProps) {
           {/* Synthesizing indicator */}
           {phase === "synthesizing" && (
             <div className="text-xs">
-              <span className="font-mono text-[10px] text-amber-500/70 thinking-shimmer">
+              <span className="font-mono text-[11px] text-amber-500/70 thinking-shimmer">
                 Meter 1.0 — Synthesizing consensus
               </span>
             </div>
