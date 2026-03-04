@@ -255,7 +255,7 @@ function DiscussDebateToggle() {
       onClick={toggleDebateMode}
       className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors ${
         debateMode
-          ? "bg-amber-500/15 text-amber-500 border border-amber-500/30 hover:bg-amber-500/25"
+          ? "text-foreground/70 hover:bg-foreground/5 hover:text-foreground"
           : "text-muted-foreground/60 hover:bg-foreground/5 hover:text-muted-foreground"
       }`}
       title={debateMode ? "Switch to single-model chat" : "Switch to multi-model debate"}
@@ -2026,33 +2026,10 @@ export function ChatView() {
                       t.style.height = Math.min(t.scrollHeight, 120) + "px";
                     }}
                   />
-                  <MeterPill />
-                  {isStreaming ? (
-                    <button
-                      onClick={handleStop}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/80"
-                      title="Stop generating"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <rect x="4" y="4" width="16" height="16" rx="2" />
-                      </svg>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleSend}
-                      disabled={!workspaceCardReady || !sessionsLoaded}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="12" y1="19" x2="12" y2="5" />
-                        <polyline points="5 12 12 5 19 12" />
-                      </svg>
-                    </button>
-                  )}
                 </div>
 
-                {/* Action bar — + button and Discuss/Debate toggle */}
-                <div className="flex items-center gap-1.5 border-t border-border/30 px-2 py-1.5">
+                {/* Action bar — +, Discuss/Debate, meter icon, send */}
+                <div className="flex items-center gap-1.5 border-t border-border/10 px-2 py-1.5">
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="flex items-center justify-center rounded-md h-7 w-7 text-muted-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground shrink-0"
@@ -2064,6 +2041,30 @@ export function ChatView() {
                     </svg>
                   </button>
                   <DiscussDebateToggle />
+                  <div className="flex-1" />
+                  <MeterPill />
+                  {isStreaming ? (
+                    <button
+                      onClick={handleStop}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/80"
+                      title="Stop generating"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="4" y="4" width="16" height="16" rx="2" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSend}
+                      disabled={!workspaceCardReady || !sessionsLoaded}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="19" x2="12" y2="5" />
+                        <polyline points="5 12 12 5 19 12" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

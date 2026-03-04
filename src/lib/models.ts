@@ -94,6 +94,26 @@ export const MODELS: ModelConfig[] = [
   },
 ];
 
+/** Virtual model entry for debate receipts — not in the picker */
+export const DEBATE_MODEL: ModelConfig = {
+  id: "debate",
+  name: "Meter 1.0",
+  provider: "Meter",
+  color: "#A1A1AA",
+  inputPrice: (3.0 / 1_000_000),
+  outputPrice: (15.0 / 1_000_000),
+};
+
+/** Virtual model entry for dissect receipts — not in the picker */
+export const DISSECT_MODEL: ModelConfig = {
+  id: "dissect",
+  name: "Meter 1.0",
+  provider: "Meter",
+  color: "#A1A1AA",
+  inputPrice: (5.0 / 1_000_000),
+  outputPrice: (25.0 / 1_000_000),
+};
+
 export const DEFAULT_MODEL = MODELS[0];
 
 /** Models the user can check in the model picker (everything except "auto") */
@@ -103,6 +123,8 @@ export const SELECTABLE_MODELS = MODELS.filter((m) => m.id !== "auto");
 export const DEBATE_MODELS = DEFAULT_DEBATE_MODELS;
 
 export function getModel(id: string): ModelConfig {
+  if (id === "debate") return DEBATE_MODEL;
+  if (id === "dissect") return DISSECT_MODEL;
   return MODELS.find((m) => m.id === id) ?? DEFAULT_MODEL;
 }
 
