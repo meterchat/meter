@@ -15,7 +15,7 @@
  *   - Forced convergence: final vote requires picking a winner
  */
 
-import { streamWithFallback, type Send } from "./fallback";
+import { streamWithFallback, type Send, type StreamOptions } from "./fallback";
 import { DEFAULT_DEBATE_MODELS, shortModelName, getModel } from "./models";
 import type OpenAI from "openai";
 
@@ -77,6 +77,14 @@ interface DebateUsage {
   actualCost: number;
 }
 
+/** Timeout per debate phase (ms) */
+const PHASE_TIMEOUT: Record<string, number> = {
+  opening: 30_000,
+  challenge: 30_000,
+  vote: 20_000,
+  synthesis: 45_000,
+};
+
 /** Run a single model turn — stream to client, collect text + usage */
 async function runModelTurn(
   modelId: string,
@@ -84,6 +92,7 @@ async function runModelTurn(
   phase: string,
   send: Send,
   usage: DebateUsage,
+  streamOpts?: StreamOptions,
 ): Promise<string> {
   send({ type: "debate_turn_start", model: modelId, phase });
 
@@ -103,8 +112,13 @@ async function runModelTurn(
   };
 
   const totalOut = { value: 0 };
+  const opts: StreamOptions = {
+    timeoutMs: PHASE_TIMEOUT[phase] ?? 30_000,
+    silent: true,
+    ...streamOpts,
+  };
   try {
-    await streamWithFallback(modelId, messages, [], turnSend, estimateTokens, totalOut);
+    await streamWithFallback(modelId, messages, [], turnSend, estimateTokens, totalOut, opts);
   } catch {
     content = "(This model was unavailable for this round.)";
   }
@@ -144,7 +158,8 @@ export async function runDebate(conversation: Message[], send: Send, roster?: st
       },
     ];
 
-    openings[modelId] = await runModelTurn(modelId, messages, "opening", send, usage);
+    const exclude = models.filter((m) => m !== modelId);
+    openings[modelId] = await runModelTurn(modelId, messages, "opening", send, usage, { excludeModels: exclude });
   }
 
   // ── Phase 2: Cross-examination — actual engagement ──────────────
@@ -173,7 +188,8 @@ export async function runDebate(conversation: Message[], send: Send, roster?: st
       },
     ];
 
-    challenges[modelId] = await runModelTurn(modelId, messages, "challenge", send, usage);
+    const excludeChallenge = models.filter((m) => m !== modelId);
+    challenges[modelId] = await runModelTurn(modelId, messages, "challenge", send, usage, { excludeModels: excludeChallenge });
   }
 
   // ── Phase 3: Final vote — forced convergence ────────────────────
@@ -198,7 +214,8 @@ export async function runDebate(conversation: Message[], send: Send, roster?: st
       },
     ];
 
-    const voteText = await runModelTurn(modelId, messages, "vote", send, usage);
+    const excludeVote = models.filter((m) => m !== modelId);
+    const voteText = await runModelTurn(modelId, messages, "vote", send, usage, { excludeModels: excludeVote });
     votes[modelId] = voteText;
 
     // Parse which model they voted for
@@ -276,6 +293,7 @@ Write the definitive answer. Lead with the conclusion, then briefly note why the
     synthSend,
     estimateTokens,
     totalOut,
+    { timeoutMs: PHASE_TIMEOUT.synthesis, silent: true },
   );
 
   const synthModel = getModel("anthropic/claude-sonnet-4.6");
