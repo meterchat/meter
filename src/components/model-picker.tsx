@@ -235,11 +235,11 @@ export function ModelPickerPanel({
                   title={isInRoster ? "Remove from debate" : "Add to debate"}
                 >
                   <span className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors ${
-                    isInRoster
+                    isInRoster || isSelected
                       ? "border-foreground/60 bg-foreground/10"
                       : "border-foreground/20 hover:border-foreground/40"
                   }`}>
-                    {isInRoster && (
+                    {(isInRoster || isSelected) && (
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
