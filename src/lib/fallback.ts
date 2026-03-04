@@ -173,7 +173,7 @@ export async function streamOpenRouter(
   const client = new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
     baseURL: "https://openrouter.ai/api/v1",
-    timeout: timeoutMs ?? 45_000,
+    timeout: timeoutMs ?? 600_000,
   });
 
   // Add cache_control breakpoints for Anthropic/Gemini models on OpenRouter
@@ -514,7 +514,7 @@ async function streamAnthropic(
   totalTokensOut: { value: number },
   timeoutMs?: number,
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
-  const client = new Anthropic({ apiKey, timeout: timeoutMs ?? 45_000 });
+  const client = new Anthropic({ apiKey, timeout: timeoutMs ?? 600_000 });
   return _streamAnthropicProtocol(client, nativeModel, conversation, tools, send, estimateTokens, totalTokensOut);
 }
 
@@ -690,7 +690,7 @@ async function streamOpenAIDirect(
   cacheReadRate?: number,
   timeoutMs?: number,
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
-  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}), timeout: timeoutMs ?? 45_000 });
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}), timeout: timeoutMs ?? 600_000 });
 
   const response = await client.chat.completions.create({
     model: nativeModel,
@@ -800,7 +800,7 @@ async function streamGemini(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     generationConfig: { maxOutputTokens: 16384, thinkingConfig: { thinkingBudget: 4096 } } as any,
     ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
-  }, { timeout: timeoutMs ?? 45_000 });
+  }, { timeout: timeoutMs ?? 600_000 });
 
   // Build a map of tool_call_id → function name for converting tool results
   const toolCallIdToName = new Map<string, string>();
@@ -996,7 +996,7 @@ function streamDirect(
 
 /** Options for streamWithFallback — timeouts, silent mode, exclusions */
 export interface StreamOptions {
-  /** Per-request timeout in ms (default 45_000). Applied to all SDK clients. */
+  /** Per-request timeout in ms (default 600_000). Applied to all SDK clients. */
   timeoutMs?: number;
   /** When true, suppress rerouting events in Tier 4 (e.g. during debate). */
   silent?: boolean;

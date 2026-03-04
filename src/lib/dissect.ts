@@ -255,7 +255,7 @@ async function runPass(
 
   const totalOut = { value: 0 };
   try {
-    await streamWithFallback(META_MODEL, messages, [], passSend, estimateTokens, totalOut, { timeoutMs: 45_000, silent: true });
+    await streamWithFallback(META_MODEL, messages, [], passSend, estimateTokens, totalOut, { timeoutMs: 180_000, silent: true });
   } catch {
     content = "(This pass encountered an error.)";
   }
@@ -314,7 +314,7 @@ export async function runDissection(
       clarifySend,
       estimateTokens,
       totalOut,
-      { timeoutMs: 45_000, silent: true },
+      { timeoutMs: 180_000, silent: true },
     );
 
     usage.tokensIn += roundIn;
@@ -405,7 +405,7 @@ export async function runDissection(
     verdictSend,
     estimateTokens,
     totalOut,
-    { timeoutMs: 45_000, silent: true },
+    { timeoutMs: 180_000, silent: true },
   );
 
   usage.tokensIn += roundIn;
