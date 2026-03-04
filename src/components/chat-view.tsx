@@ -115,7 +115,7 @@ function ChatSkeleton() {
         </div>
       </div>
       <div className="flex justify-center pt-4">
-        <span className="font-mono text-[10px] text-muted-foreground/50">Loading chat history...</span>
+        <span className="font-mono text-[10px] text-muted-foreground/30">Loading chat history...</span>
       </div>
     </div>
   );
@@ -133,7 +133,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="mobile-sm-ok absolute right-2 top-2 rounded-md p-1 text-muted-foreground/0 transition-all group-hover/msg:text-muted-foreground/60 hover:!text-muted-foreground hover:bg-foreground/5 max-md:text-muted-foreground/50"
+      className="mobile-sm-ok absolute right-2 top-2 rounded-md p-1 text-muted-foreground/0 transition-all group-hover/msg:text-muted-foreground/40 hover:!text-muted-foreground hover:bg-foreground/5 max-md:text-muted-foreground/30"
       title={copied ? "Copied!" : "Copy message"}
     >
       {copied ? (
@@ -158,7 +158,7 @@ function PinButton({ messageId, pinned }: { messageId: string; pinned?: boolean 
       className={`mobile-sm-ok absolute right-2 top-9 rounded-md p-1 transition-all ${
         pinned
           ? "text-amber-500/70 hover:text-amber-500"
-          : "text-muted-foreground/0 group-hover/msg:text-muted-foreground/60 hover:!text-muted-foreground hover:bg-foreground/5 max-md:text-muted-foreground/50"
+          : "text-muted-foreground/0 group-hover/msg:text-muted-foreground/40 hover:!text-muted-foreground hover:bg-foreground/5 max-md:text-muted-foreground/30"
       }`}
       title={pinned ? "Unpin" : "Pin"}
     >
@@ -318,7 +318,7 @@ function DocumentPreviewCard({
         <span className="flex-1 truncate text-[11px] text-foreground/70">{doc.filePath}</span>
         <button
           onClick={() => setExpanded(!expanded)}
-          className="shrink-0 font-mono text-[9px] text-muted-foreground/70 hover:text-foreground transition-colors"
+          className="shrink-0 font-mono text-[9px] text-muted-foreground/50 hover:text-foreground transition-colors"
         >
           {expanded ? "collapse" : "expand"}
         </button>
@@ -365,7 +365,7 @@ function DocumentPreviewCard({
         {/* Copy content */}
         <button
           onClick={() => navigator.clipboard.writeText(doc.content)}
-          className="inline-flex items-center justify-center rounded-md h-7 w-7 text-muted-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+          className="inline-flex items-center justify-center rounded-md h-7 w-7 text-muted-foreground/50 transition-colors hover:bg-foreground/5 hover:text-foreground"
           title="Copy content"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -384,7 +384,7 @@ function DocumentPreviewCard({
             a.click();
             URL.revokeObjectURL(url);
           }}
-          className="inline-flex items-center justify-center rounded-md h-7 w-7 text-muted-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+          className="inline-flex items-center justify-center rounded-md h-7 w-7 text-muted-foreground/50 transition-colors hover:bg-foreground/5 hover:text-foreground"
           title="Download file"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -434,11 +434,11 @@ function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string
         {modelName}
         {msg.model === "debate" && <DebateModelDots />}
       </span>
-      <span className="text-muted-foreground/50">&middot;</span>
+      <span className="text-muted-foreground/30">&middot;</span>
       <span>{totalTokens.toLocaleString()} tokens</span>
-      <span className="text-muted-foreground/50">&middot;</span>
+      <span className="text-muted-foreground/30">&middot;</span>
       <span>${cost.toFixed(cost < 0.01 ? 4 : 3)}</span>
-      <span className="text-muted-foreground/50">&middot;</span>
+      <span className="text-muted-foreground/30">&middot;</span>
       {isSigned ? (
         <a
           href={`/receipt/${msg.id}?project=${projectId}`}
@@ -607,7 +607,7 @@ function ThinkingIndicator({
         height="14"
         viewBox="0 0 14 14"
         fill="none"
-        className="meter-spinning text-muted-foreground/70"
+        className="meter-spinning text-muted-foreground/50"
       >
         <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="20 14" />
       </svg>
@@ -616,7 +616,7 @@ function ThinkingIndicator({
           {label}
         </span>
         {displaySublabel && (
-          <span className={`text-[10px] font-mono text-muted-foreground/70 truncate max-w-[300px] max-md:max-w-[200px] sublabel-fade ${hasRealThinking || visible ? "" : "sublabel-fade-hidden"}`}>
+          <span className={`text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px] max-md:max-w-[200px] sublabel-fade ${hasRealThinking || visible ? "" : "sublabel-fade-hidden"}`}>
             {displaySublabel}
           </span>
         )}
@@ -1617,7 +1617,7 @@ export function ChatView() {
               <svg
                 width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                className="text-muted-foreground/60"
+                className="text-muted-foreground/40"
               >
                 <polyline points="7 10 12 5 17 10" />
                 <polyline points="7 14 12 19 17 14" />
@@ -1729,7 +1729,7 @@ export function ChatView() {
                     </button>
                     <div className="my-3 flex items-center gap-3">
                       <div className="h-px flex-1 bg-border" />
-                      <span className="font-mono text-[10px] text-muted-foreground/60">or add a new card</span>
+                      <span className="font-mono text-[10px] text-muted-foreground/40">or add a new card</span>
                       <div className="h-px flex-1 bg-border" />
                     </div>
                     <InlineCardForm />
@@ -1756,7 +1756,7 @@ export function ChatView() {
             {messages.length === 0 && workspaceCardReady && !showExplainer && (
               <div className="flex flex-col items-center justify-center gap-3 py-24">
                 <p className="text-sm text-muted-foreground">What are you building in {activeProject?.name ?? "this workspace"}?</p>
-                <p className="font-mono text-[10px] text-muted-foreground/60">Every model available. The meter runs in dollars.</p>
+                <p className="font-mono text-[10px] text-muted-foreground/40">Every model available. The meter runs in dollars.</p>
               </div>
             )}
 
@@ -1833,7 +1833,7 @@ export function ChatView() {
                                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
                                   </svg>
                                   <span className="font-mono text-[11px] text-foreground/70 truncate">{att.name}</span>
-                                  <a href={att.url} target="_blank" rel="noopener noreferrer" className="ml-auto shrink-0 font-mono text-[9px] text-muted-foreground/70 hover:text-foreground transition-colors">
+                                  <a href={att.url} target="_blank" rel="noopener noreferrer" className="ml-auto shrink-0 font-mono text-[9px] text-muted-foreground/50 hover:text-foreground transition-colors">
                                     open
                                   </a>
                                 </div>
@@ -1859,7 +1859,7 @@ export function ChatView() {
                           <summary className="cursor-pointer font-mono hover:text-muted-foreground transition-colors">
                             Show thinking
                           </summary>
-                          <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] text-muted-foreground/60 leading-relaxed">
+                          <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
                             {msg.thinking}
                           </pre>
                         </details>

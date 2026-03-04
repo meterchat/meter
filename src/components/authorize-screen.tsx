@@ -159,12 +159,12 @@ function CardForm() {
 
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full bg-emerald-500" />
-        <span className="font-mono text-[10px] text-muted-foreground/60">
+        <span className="font-mono text-[10px] text-muted-foreground/40">
           {email ?? "—"}
         </span>
         <button
           onClick={logout}
-          className="text-muted-foreground/60 hover:text-foreground transition-colors ml-1"
+          className="text-muted-foreground/40 hover:text-foreground transition-colors ml-1"
           title="Sign out"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -78,7 +78,7 @@ export function DebateTrace({ trace, activeTurn, phase }: DebateTraceProps) {
                 >
                   {shortModelName(turn.model)}
                 </span>
-                <span className="font-mono text-[11px] text-muted-foreground/60 ml-1.5">
+                <span className="font-mono text-[11px] text-muted-foreground/40 ml-1.5">
                   {PHASE_LABELS[turn.phase] ?? turn.phase}
                 </span>
                 {/* Content */}

@@ -98,7 +98,7 @@ export function CommitButton() {
         className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 font-mono text-[11px] transition-all ${
           hasChanges
             ? "border-emerald-500/30 text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-500/5"
-            : "border-border text-muted-foreground/70 hover:border-foreground/20 hover:text-muted-foreground"
+            : "border-border text-muted-foreground/50 hover:border-foreground/20 hover:text-muted-foreground"
         }`}
         title={hasChanges ? `${stagedDecisions.length} decisions staged` : "Nothing to commit"}
       >
@@ -156,16 +156,16 @@ export function CommitButton() {
                 strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="mx-auto mb-2 text-muted-foreground/40"
+                className="mx-auto mb-2 text-muted-foreground/20"
               >
                 <circle cx="12" cy="12" r="4" />
                 <line x1="1.05" y1="12" x2="7" y2="12" />
                 <line x1="17.01" y1="12" x2="22.96" y2="12" />
               </svg>
-              <p className="font-mono text-[12px] text-muted-foreground/70">
+              <p className="font-mono text-[12px] text-muted-foreground/50">
                 Nothing to commit
               </p>
-              <p className="mt-1 font-mono text-[10px] text-muted-foreground/50">
+              <p className="mt-1 font-mono text-[10px] text-muted-foreground/30">
                 Decisions will appear here as you chat
               </p>
             </div>
@@ -189,14 +189,14 @@ export function CommitButton() {
                             {d.title}
                           </div>
                           {d.choice && (
-                            <div className="font-mono text-[10px] text-muted-foreground/70 truncate mt-0.5">
+                            <div className="font-mono text-[10px] text-muted-foreground/50 truncate mt-0.5">
                               {d.choice}
                             </div>
                           )}
                         </div>
                         <button
                           onClick={() => handleUnstage(d.id)}
-                          className="shrink-0 mt-0.5 rounded p-0.5 text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-foreground/10 transition-all"
+                          className="shrink-0 mt-0.5 rounded p-0.5 text-muted-foreground/30 opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-foreground/10 transition-all"
                           title="Unstage"
                         >
                           <svg
@@ -236,7 +236,7 @@ export function CommitButton() {
                         strokeWidth="1.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="shrink-0 text-muted-foreground/70"
+                        className="shrink-0 text-muted-foreground/50"
                       >
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
@@ -266,7 +266,7 @@ export function CommitButton() {
                         strokeWidth="1.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="shrink-0 text-muted-foreground/70"
+                        className="shrink-0 text-muted-foreground/50"
                       >
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
@@ -274,13 +274,13 @@ export function CommitButton() {
                       <span className="flex-1 font-mono text-[12px] text-muted-foreground">
                         {a.filePath}
                       </span>
-                      <span className="font-mono text-[10px] text-muted-foreground/70">
+                      <span className="font-mono text-[10px] text-muted-foreground/50">
                         no changes
                       </span>
                     </div>
                   ))}
                   {modifiedArtifacts.length === 0 && unchangedDocuments.length === 0 && (
-                    <div className="py-1 font-mono text-[11px] text-muted-foreground/50">
+                    <div className="py-1 font-mono text-[11px] text-muted-foreground/30">
                       No blueprint files yet
                     </div>
                   )}
