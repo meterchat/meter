@@ -77,12 +77,12 @@ interface DebateUsage {
   actualCost: number;
 }
 
-/** Timeout per debate phase (ms) */
+/** Timeout per debate phase (ms) — generous to avoid cutting off long responses */
 const PHASE_TIMEOUT: Record<string, number> = {
-  opening: 30_000,
-  challenge: 30_000,
-  vote: 20_000,
-  synthesis: 45_000,
+  opening: 120_000,
+  challenge: 120_000,
+  vote: 60_000,
+  synthesis: 180_000,
 };
 
 /** Run a single model turn — stream to client, collect text + usage */
