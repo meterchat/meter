@@ -2,7 +2,7 @@
 
 import { useMeterStore } from "@/lib/store";
 import { trackModelSelected } from "@/lib/analytics";
-import { MODELS, DEBATE_MODELS, getModel, shortModelName, ModelConfig } from "@/lib/models";
+import { MODELS, getModel, shortModelName, ModelConfig } from "@/lib/models";
 
 /** Format a per-token price as a human-readable $/M string */
 function fmtPrice(pricePerToken: number): string {
@@ -78,7 +78,7 @@ function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number
   }
 }
 
-function ModelLogo({ model, size = 14 }: { model: ModelConfig; size?: number }) {
+export function ModelLogo({ model, size = 14 }: { model: ModelConfig; size?: number }) {
   return (
     <span style={{ color: model.color }}>
       <ProviderLogo provider={model.provider} size={size} />
@@ -86,7 +86,7 @@ function ModelLogo({ model, size = 14 }: { model: ModelConfig; size?: number }) 
   );
 }
 
-/* ─── Model Selector Bar (full-width top bar — replaces connections bar) ─── */
+/* ─── Model Selector Bar (full-width top bar) ─── */
 export function ModelSelectorBar({
   open,
   onToggle,
@@ -97,6 +97,8 @@ export function ModelSelectorBar({
   overrideModelId?: string | null;
 }) {
   const selectedModelId = useMeterStore((s) => s.selectedModelId);
+  const debateMode = useMeterStore((s) => s.debateMode);
+  const debateRoster = useMeterStore((s) => s.debateRoster);
   const isStreaming = useMeterStore((s) => {
     const project = s.projects.find((p) => p.id === s.activeProjectId) ?? s.projects[0];
     return project?.isStreaming ?? false;
@@ -110,15 +112,33 @@ export function ModelSelectorBar({
       disabled={isStreaming}
       className="flex w-full items-center gap-2 bg-foreground/[0.03] px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground/80 hover:bg-foreground/5 disabled:opacity-40"
     >
-      <ModelLogo model={model} size={12} />
-      <span className="text-[12px] text-foreground normal-case tracking-normal truncate">
-        {model.name}
-      </span>
-      <span className="text-[10px] text-muted-foreground/50 normal-case tracking-normal">
-        {model.provider}
-      </span>
-      {displayId === "meter-1.0" && <span className="text-muted-foreground/40 normal-case tracking-normal">(Debate)</span>}
-      {displayId === "dissector-1.0" && <span className="text-muted-foreground/40 normal-case tracking-normal">(Dissect)</span>}
+      {debateMode ? (
+        <>
+          {/* Show all debate roster models */}
+          <span className="inline-flex items-center gap-1.5">
+            {debateRoster.map((id) => {
+              const dm = getModel(id);
+              return (
+                <span key={id} className="inline-flex items-center gap-1" style={{ color: dm.color }}>
+                  <ProviderLogo provider={dm.provider} size={11} />
+                  <span className="text-[11px] text-foreground normal-case tracking-normal">{shortModelName(id)}</span>
+                </span>
+              );
+            })}
+          </span>
+          <span className="text-amber-500/60 text-[10px] normal-case tracking-normal">(Debate)</span>
+        </>
+      ) : (
+        <>
+          <ModelLogo model={model} size={12} />
+          <span className="text-[12px] text-foreground normal-case tracking-normal truncate">
+            {model.name}
+          </span>
+          <span className="text-[10px] text-muted-foreground/50 normal-case tracking-normal">
+            {model.provider}
+          </span>
+        </>
+      )}
       <svg
         width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
@@ -141,77 +161,92 @@ export function ModelPickerPanel({
 }) {
   const selectedModelId = useMeterStore((s) => s.selectedModelId);
   const setSelectedModelId = useMeterStore((s) => s.setSelectedModelId);
+  const debateRoster = useMeterStore((s) => s.debateRoster);
+  const toggleDebateRosterModel = useMeterStore((s) => s.toggleDebateRosterModel);
 
   return (
     <div className="p-1.5">
       <div className="space-y-0.5">
-        {MODELS.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => {
-              trackModelSelected({ model: m.id, previousModel: selectedModelId });
-              setSelectedModelId(m.id);
-              onClose();
-            }}
-            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-foreground/[0.08] ${
-              m.id === selectedModelId ? "bg-foreground/[0.07]" : ""
-            }`}
-          >
-            <ModelLogo model={m} size={16} />
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-foreground truncate">
-                {m.name}
-                {m.id === "meter-1.0" && <span className="text-muted-foreground/50 font-normal ml-1">(Debate Mode)</span>}
-                {m.id === "dissector-1.0" && <span className="text-muted-foreground/50 font-normal ml-1">(Dissect Mode)</span>}
-              </div>
-              <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 flex-wrap">
-                {m.id === "dissector-1.0" ? (
-                  <span className="inline-flex items-center gap-0.5">
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#D97757" }} />
-                    <span>Claude Opus</span>
-                  </span>
-                ) : m.id === "meter-1.0" ? (
-                  <span className="inline-flex items-center gap-1">
-                    {DEBATE_MODELS.map((id) => {
-                      const dm = getModel(id);
-                      return (
-                        <span key={id} className="inline-flex items-center gap-0.5">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dm.color }} />
-                          <span>{shortModelName(id)}</span>
-                        </span>
-                      );
-                    })}
-                  </span>
-                ) : (
-                  <span>{m.provider}</span>
-                )}
-                <span className="text-muted-foreground/40">·</span>
-                <span className="text-muted-foreground/50">{fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
-                {m.quality != null && (
-                  <>
-                    <span className="text-muted-foreground/40">·</span>
-                    <span>{m.quality}% GPQA</span>
-                  </>
-                )}
-                {m.speed != null && (
-                  <>
-                    <span className="text-muted-foreground/40">·</span>
-                    <SpeedBar speed={m.speed} />
-                  </>
-                )}
-              </div>
-            </div>
-            {m.id === selectedModelId && (
-              <svg
-                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                className="text-foreground shrink-0"
+        {MODELS.map((m) => {
+          const isAuto = m.id === "auto";
+          const isSelected = m.id === selectedModelId;
+          const isInRoster = debateRoster.includes(m.id);
+
+          return (
+            <div
+              key={m.id}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-foreground/[0.08] ${
+                isSelected ? "bg-foreground/[0.07]" : ""
+              }`}
+            >
+              {/* Checkbox for debate roster (not on Auto) */}
+              {!isAuto ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleDebateRosterModel(m.id);
+                  }}
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                    isInRoster
+                      ? "border-amber-500/60 bg-amber-500/20"
+                      : "border-foreground/20 hover:border-foreground/40"
+                  }`}
+                  title={isInRoster ? "Remove from debate" : "Add to debate"}
+                >
+                  {isInRoster && (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              ) : (
+                <span className="w-4 shrink-0" />
+              )}
+              {/* Click model name to select as primary */}
+              <button
+                className="flex flex-1 items-center gap-2.5 min-w-0"
+                onClick={() => {
+                  trackModelSelected({ model: m.id, previousModel: selectedModelId });
+                  setSelectedModelId(m.id);
+                  onClose();
+                }}
               >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            )}
-          </button>
-        ))}
+                <ModelLogo model={m} size={16} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-foreground truncate">
+                    {m.name}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 flex-wrap">
+                    <span>{m.provider}</span>
+                    <span className="text-muted-foreground/40">&middot;</span>
+                    <span className="text-muted-foreground/50">{fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
+                    {m.quality != null && (
+                      <>
+                        <span className="text-muted-foreground/40">&middot;</span>
+                        <span>{m.quality}% GPQA</span>
+                      </>
+                    )}
+                    {m.speed != null && (
+                      <>
+                        <span className="text-muted-foreground/40">&middot;</span>
+                        <SpeedBar speed={m.speed} />
+                      </>
+                    )}
+                  </div>
+                </div>
+              </button>
+              {isSelected && (
+                <svg
+                  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  className="text-foreground shrink-0"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

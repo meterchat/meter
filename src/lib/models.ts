@@ -11,8 +11,8 @@ export interface ModelConfig {
   speed?: number;
 }
 
-/** Models used in Meter 1.0 debate mode (fixed roster) */
-export const DEBATE_MODELS = [
+/** Default debate roster when user toggles debate mode without selecting models */
+export const DEFAULT_DEBATE_MODELS = [
   "anthropic/claude-opus-4.6",
   "openai/gpt-5.2",
   "x-ai/grok-4.1-fast",
@@ -31,29 +31,6 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (14.0 / 1_000_000),
     quality: 90,  // GPQA Diamond — routes to GPT-5.2
     speed: 84,
-  },
-  {
-    id: "meter-1.0",
-    name: "Debater 1.0",
-    provider: "Meter",
-    color: "#F59E0B",
-    // Display-only blended rate (NOT used for billing — debate cost is
-    // computed per-model in debate.ts and sent as actualCost).
-    inputPrice: (6.95 / 1_000_000),
-    outputPrice: (39.50 / 1_000_000),
-    quality: 93,  // GPQA Diamond — multi-model ensemble exceeds best individual
-    speed: 30,
-  },
-  {
-    id: "dissector-1.0",
-    name: "Dissector 1.0",
-    provider: "Meter",
-    color: "#3B82F6",
-    // Display-only rate (actual cost computed per-call in dissect.ts using Opus pricing)
-    inputPrice: (5.0 / 1_000_000),
-    outputPrice: (25.0 / 1_000_000),
-    quality: 91,  // GPQA Diamond — routes to Claude Opus
-    speed: 70,
   },
   {
     id: "anthropic/claude-sonnet-4.6",
@@ -118,6 +95,12 @@ export const MODELS: ModelConfig[] = [
 ];
 
 export const DEFAULT_MODEL = MODELS[0];
+
+/** Models the user can check in the model picker (everything except "auto") */
+export const SELECTABLE_MODELS = MODELS.filter((m) => m.id !== "auto");
+
+/** @deprecated — use DEFAULT_DEBATE_MODELS */
+export const DEBATE_MODELS = DEFAULT_DEBATE_MODELS;
 
 export function getModel(id: string): ModelConfig {
   return MODELS.find((m) => m.id === id) ?? DEFAULT_MODEL;

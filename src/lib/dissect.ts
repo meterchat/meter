@@ -334,7 +334,7 @@ export async function runDissection(
             tokensOut: usage.tokensOut,
             actualCost: usage.actualCost,
           });
-          send({ type: "done", actualModel: "dissector-1.0" });
+          send({ type: "done", actualModel: "dissect" });
           return;
         }
       }
@@ -418,5 +418,5 @@ export async function runDissection(
     tokensOut: usage.tokensOut,
     actualCost: usage.actualCost,
   });
-  send({ type: "done", actualModel: "dissector-1.0" });
+  send({ type: "done", actualModel: "dissect" });
 }

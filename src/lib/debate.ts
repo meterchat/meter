@@ -16,7 +16,7 @@
  */
 
 import { streamWithFallback, type Send } from "./fallback";
-import { DEBATE_MODELS, shortModelName, getModel } from "./models";
+import { DEFAULT_DEBATE_MODELS, shortModelName, getModel } from "./models";
 import type OpenAI from "openai";
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
@@ -119,17 +119,18 @@ async function runModelTurn(
   return content;
 }
 
-export async function runDebate(conversation: Message[], send: Send) {
+export async function runDebate(conversation: Message[], send: Send, roster?: string[]) {
+  const models = roster && roster.length >= 2 ? roster : [...DEFAULT_DEBATE_MODELS];
   const usage: DebateUsage = { tokensIn: 0, tokensOut: 0, actualCost: 0 };
   const { topic, context } = extractDebateContext(conversation);
-  const modelNames = DEBATE_MODELS.map(shortModelName);
+  const modelNames = models.map(shortModelName);
 
   send({ type: "debate_start" });
 
   // ── Phase 1: Opening — short, punchy positions ──────────────────
   const openings: Record<string, string> = {};
 
-  for (const modelId of DEBATE_MODELS) {
+  for (const modelId of models) {
     const name = shortModelName(modelId);
     const messages: Message[] = [
       {
@@ -149,9 +150,9 @@ export async function runDebate(conversation: Message[], send: Send) {
   // ── Phase 2: Cross-examination — actual engagement ──────────────
   const challenges: Record<string, string> = {};
 
-  for (const modelId of DEBATE_MODELS) {
+  for (const modelId of models) {
     const name = shortModelName(modelId);
-    const othersText = DEBATE_MODELS
+    const othersText = models
       .filter((id) => id !== modelId)
       .map((id) => `${shortModelName(id)}: "${openings[id]}"`)
       .join("\n\n");
@@ -179,12 +180,12 @@ export async function runDebate(conversation: Message[], send: Send) {
   const votes: Record<string, string> = {};
   const voteResults: Record<string, string> = {};
 
-  const fullDebateText = DEBATE_MODELS.map((id) => {
+  const fullDebateText = models.map((id) => {
     const name = shortModelName(id);
     return `${name} opening: "${openings[id]}"\n${name} challenge: "${challenges[id]}"`;
   }).join("\n\n");
 
-  for (const modelId of DEBATE_MODELS) {
+  for (const modelId of models) {
     const name = shortModelName(modelId);
     const messages: Message[] = [
       {
@@ -202,7 +203,7 @@ export async function runDebate(conversation: Message[], send: Send) {
 
     // Parse which model they voted for
     const voteLower = voteText.toLowerCase();
-    for (const candidateId of DEBATE_MODELS) {
+    for (const candidateId of models) {
       const candidateName = shortModelName(candidateId).toLowerCase();
       if (voteLower.startsWith(candidateName) || voteLower.includes(candidateName + ":")) {
         voteResults[modelId] = candidateId;
@@ -213,7 +214,7 @@ export async function runDebate(conversation: Message[], send: Send) {
 
   // Count votes — find who got the most
   const voteCounts: Record<string, number> = {};
-  for (const candidateId of DEBATE_MODELS) voteCounts[candidateId] = 0;
+  for (const candidateId of models) voteCounts[candidateId] = 0;
   for (const votedFor of Object.values(voteResults)) {
     if (votedFor) voteCounts[votedFor]++;
   }
@@ -229,7 +230,7 @@ export async function runDebate(conversation: Message[], send: Send) {
 
   // ── Phase 4: Verdict — synthesize with conviction ───────────────
   const winnerName = winnerModelId ? shortModelName(winnerModelId) : null;
-  const votesSummary = DEBATE_MODELS
+  const votesSummary = models
     .map((id) => `${shortModelName(id)} voted for: ${voteResults[id] ? shortModelName(voteResults[id]) : "unclear"}`)
     .join("\n");
 
@@ -244,7 +245,7 @@ Votes:
 ${votesSummary}
 
 ${winnerModelId
-    ? `The debate converged on ${winnerName}'s position (${maxVotes}/${DEBATE_MODELS.length} votes).`
+    ? `The debate converged on ${winnerName}'s position (${maxVotes}/${models.length} votes).`
     : `No clear majority. Pick the position that survived challenges best.`}
 
 Write the definitive answer. Lead with the conclusion, then briefly note why the losing positions were weaker (1 sentence each). Be direct and actionable. No meta-commentary about the debate process itself.`;
@@ -290,5 +291,5 @@ Write the definitive answer. Lead with the conclusion, then briefly note why the
     tokensOut: usage.tokensOut,
     actualCost: usage.actualCost,
   });
-  send({ type: "done", actualModel: "meter-1.0" });
+  send({ type: "done", actualModel: "debate" });
 }

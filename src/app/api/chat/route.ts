@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const { userId } = auth;
 
   try {
-    const { messages, model, projectId, connectedServices, attachments } = await req.json();
+    const { messages, model, projectId, connectedServices, attachments, debateRoster } = await req.json();
 
     // Server-side spend limit + exposure cap enforcement (skip for superadmin)
     if (projectId && !(await isSuperAdmin(userId))) {
@@ -142,27 +142,30 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         };
 
-        // ── Meter 1.0 Debate Mode ──────────────────────────────────
-        if (resolvedModel === "meter-1.0") {
+        // ── Debate Mode ──────────────────────────────────────────────
+        if (resolvedModel === "debate") {
           try {
-            await runDebate(conversation, send);
+            const roster = Array.isArray(debateRoster) && debateRoster.length >= 2
+              ? debateRoster as string[]
+              : undefined;
+            await runDebate(conversation, send, roster);
           } catch (err) {
             console.error("[chat] debate failed:", (err as Error).message);
-            send({ type: "error", code: "debate_failed", model: "meter-1.0" });
-            send({ type: "done", actualModel: "meter-1.0" });
+            send({ type: "error", code: "debate_failed", model: "debate" });
+            send({ type: "done", actualModel: "debate" });
           }
           controller.close();
           return;
         }
 
-        // ── Dissector 1.0 ──────────────────────────────────────────
-        if (resolvedModel === "dissector-1.0") {
+        // ── Dissect Mode ──────────────────────────────────────────
+        if (resolvedModel === "dissect") {
           try {
             await runDissection(conversation, send);
           } catch (err) {
             console.error("[chat] dissection failed:", (err as Error).message);
-            send({ type: "error", code: "dissection_failed", model: "dissector-1.0" });
-            send({ type: "done", actualModel: "dissector-1.0" });
+            send({ type: "error", code: "dissection_failed", model: "dissect" });
+            send({ type: "done", actualModel: "dissect" });
           }
           controller.close();
           return;
