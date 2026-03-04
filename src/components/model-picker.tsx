@@ -181,7 +181,7 @@ export function ModelPickerPanel({
             >
               {/* Click model name to select as primary */}
               <button
-                className="flex flex-1 items-center gap-2.5 min-w-0"
+                className="flex flex-1 items-start gap-2.5 min-w-0 text-left"
                 onClick={() => {
                   trackModelSelected({ model: m.id, previousModel: selectedModelId });
                   setSelectedModelId(m.id);
@@ -189,7 +189,7 @@ export function ModelPickerPanel({
                 }}
               >
                 <ModelLogo model={m} size={16} />
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0">
                   <div className="text-xs font-medium text-foreground truncate">
                     {m.name}
                   </div>
