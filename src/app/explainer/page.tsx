@@ -2,6 +2,49 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 
+/* ── Inline SVG logos for each AI product ── */
+const LogoGPT = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+    <circle cx="20" cy="20" r="18" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" />
+    <path d="M20 8 L20 32 M8 20 L32 20 M12 12 L28 28 M28 12 L12 28" stroke="rgba(255,255,255,0.5)" strokeWidth="1" strokeLinecap="round" />
+    <circle cx="20" cy="20" r="4" fill="rgba(255,255,255,0.6)" />
+  </svg>
+);
+
+const LogoClaude = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+    <circle cx="20" cy="20" r="5" fill="rgba(217,171,119,0.8)" />
+    <g stroke="rgba(217,171,119,0.6)" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="20" y1="6" x2="20" y2="12" /><line x1="20" y1="28" x2="20" y2="34" />
+      <line x1="6" y1="20" x2="12" y2="20" /><line x1="28" y1="20" x2="34" y2="20" />
+      <line x1="10" y1="10" x2="14.5" y2="14.5" /><line x1="25.5" y1="25.5" x2="30" y2="30" />
+      <line x1="30" y1="10" x2="25.5" y2="14.5" /><line x1="14.5" y1="25.5" x2="10" y2="30" />
+    </g>
+  </svg>
+);
+
+const LogoGemini = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+    <path d="M20 4 C20 20, 36 20, 36 20 C36 20, 20 20, 20 36 C20 36, 20 20, 4 20 C4 20, 20 20, 20 4Z" fill="url(#gem)" />
+    <defs><linearGradient id="gem" x1="4" y1="4" x2="36" y2="36"><stop offset="0%" stopColor="rgba(66,133,244,0.7)" /><stop offset="100%" stopColor="rgba(219,68,55,0.7)" /></linearGradient></defs>
+  </svg>
+);
+
+const LogoGrok = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+    <path d="M8 8 L20 20 M20 20 L32 8" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M8 32 L20 20" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M20 20 L32 32" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="2 4" />
+  </svg>
+);
+
+const AI_PRODUCTS = [
+  { name: "ChatGPT", tier: "Pro", price: "$200", logo: LogoGPT, delay: "0" },
+  { name: "Claude", tier: "Pro", price: "$20", logo: LogoClaude, delay: "150" },
+  { name: "Gemini", tier: "Pro", price: "$20", logo: LogoGemini, delay: "300" },
+  { name: "Grok", tier: "Super", price: "$30", logo: LogoGrok, delay: "450" },
+];
+
 export default function ExplainerPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [current, setCurrent] = useState(0);
@@ -10,7 +53,7 @@ export default function ExplainerPage() {
   const costIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalScenes = 10;
 
-  const sceneDurations = [4500, 5500, 5000, 4000, 5500, 6000, 5500, 6000, 5000, 5000];
+  const sceneDurations = [4500, 6000, 5500, 4000, 6000, 6000, 5500, 6000, 5000, 5000];
 
   // Draw background grid
   useEffect(() => {
@@ -25,16 +68,10 @@ export default function ExplainerPage() {
     ctx.lineWidth = 1;
     const size = 80;
     for (let x = 0; x < canvas.width; x += size) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     }
     for (let y = 0; y < canvas.height; y += size) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
     }
   }, []);
 
@@ -48,15 +85,12 @@ export default function ExplainerPage() {
 
   function resetAllAnimations() {
     document.querySelectorAll<HTMLElement>(".tool-card").forEach((c) => {
-      c.style.opacity = "0";
-      c.style.transform = "translateY(30px)";
-      c.classList.remove("strikethrough");
+      c.style.opacity = "0"; c.style.transform = "translateY(30px)"; c.classList.remove("strikethrough");
     });
     const totalBar = document.querySelector<HTMLElement>(".total-bar");
     if (totalBar) { totalBar.style.opacity = "0"; totalBar.style.transform = "translateY(20px)"; }
     document.querySelectorAll<HTMLElement>(".model-badge").forEach((b) => {
-      b.style.opacity = "0";
-      b.style.transform = "scale(0.8)";
+      b.style.opacity = "0"; b.style.transform = "scale(0.8)";
     });
     const logo = document.querySelector<HTMLElement>(".meter-logo-large");
     if (logo) { logo.style.opacity = "0"; logo.style.transform = "scale(0.5)"; }
@@ -90,10 +124,10 @@ export default function ExplainerPage() {
       document.querySelectorAll<HTMLElement>(".tool-card").forEach((card) => {
         const delay = parseInt(card.dataset.delay || "0");
         setTimeout(() => { card.style.transition = "opacity 0.6s ease, transform 0.6s ease"; card.style.opacity = "1"; card.style.transform = "translateY(0)"; }, 300 + delay);
-        setTimeout(() => { card.classList.add("strikethrough"); }, 1800 + delay);
+        setTimeout(() => { card.classList.add("strikethrough"); }, 2200 + delay);
       });
       const total = document.querySelector<HTMLElement>(".total-bar");
-      if (total) setTimeout(() => { total.style.transition = "opacity 0.6s ease, transform 0.6s ease"; total.style.opacity = "1"; total.style.transform = "translateY(0)"; }, 2800);
+      if (total) setTimeout(() => { total.style.transition = "opacity 0.6s ease, transform 0.6s ease"; total.style.opacity = "1"; total.style.transform = "translateY(0)"; }, 3200);
     }
     if (i === 2) {
       document.querySelectorAll<HTMLElement>(".model-badge").forEach((b) => {
@@ -102,8 +136,8 @@ export default function ExplainerPage() {
       });
     }
     if (i === 3) {
-      const logo = document.querySelector<HTMLElement>(".meter-logo-large");
-      if (logo) setTimeout(() => { logo.style.transition = "opacity 1s ease, transform 1s cubic-bezier(0.16,1,0.3,1)"; logo.style.opacity = "1"; logo.style.transform = "scale(1)"; }, 200);
+      const el = document.querySelector<HTMLElement>(".meter-logo-large");
+      if (el) setTimeout(() => { el.style.transition = "opacity 1s ease, transform 1s cubic-bezier(0.16,1,0.3,1)"; el.style.opacity = "1"; el.style.transform = "scale(1)"; }, 200);
     }
     if (i === 4) {
       const el = document.getElementById("costValue");
@@ -132,18 +166,18 @@ export default function ExplainerPage() {
       if (tapEl) setTimeout(() => { tapEl.style.transition = "opacity 0.5s ease"; tapEl.style.opacity = "1"; }, 1500);
     }
     if (i === 8) {
-      const badge = document.querySelector<HTMLElement>(".beta-badge");
+      const b = document.querySelector<HTMLElement>(".beta-badge");
       const url = document.querySelector<HTMLElement>(".cta-url");
       const sub = document.getElementById("ctaSub");
-      if (badge) setTimeout(() => { badge.style.transition = "opacity 0.5s ease"; badge.style.opacity = "1"; }, 200);
+      if (b) setTimeout(() => { b.style.transition = "opacity 0.5s ease"; b.style.opacity = "1"; }, 200);
       if (url) setTimeout(() => { url.style.transition = "opacity 0.7s ease, transform 0.7s ease"; url.style.opacity = "1"; url.style.transform = "translateY(0)"; }, 600);
       if (sub) setTimeout(() => { sub.style.transition = "opacity 0.5s ease"; sub.style.opacity = "1"; }, 1200);
     }
     if (i === 9) {
-      const closingLogo = document.querySelector<HTMLElement>(".closing-logo");
-      const closingTag = document.querySelector<HTMLElement>(".closing-tagline");
-      if (closingLogo) setTimeout(() => { closingLogo.style.transition = "opacity 1s ease"; closingLogo.style.opacity = "1"; }, 300);
-      if (closingTag) setTimeout(() => { closingTag.style.transition = "opacity 0.8s ease"; closingTag.style.opacity = "1"; }, 1000);
+      const cl = document.querySelector<HTMLElement>(".closing-logo");
+      const ct = document.querySelector<HTMLElement>(".closing-tagline");
+      if (cl) setTimeout(() => { cl.style.transition = "opacity 1s ease"; cl.style.opacity = "1"; }, 300);
+      if (ct) setTimeout(() => { ct.style.transition = "opacity 0.8s ease"; ct.style.opacity = "1"; }, 1000);
     }
   }
 
@@ -160,26 +194,23 @@ export default function ExplainerPage() {
     if (autoTimerRef.current) { clearTimeout(autoTimerRef.current); autoTimerRef.current = null; }
   }, []);
 
-  // Autoplay logic
+  // Autoplay
   useEffect(() => {
     if (!playing) return;
     autoTimerRef.current = setTimeout(() => {
-      if (current < totalScenes - 1) {
-        setCurrent((c) => c + 1);
-      } else {
-        setPlaying(false);
-      }
+      if (current < totalScenes - 1) setCurrent((c) => c + 1);
+      else setPlaying(false);
     }, sceneDurations[current]);
     return () => { if (autoTimerRef.current) clearTimeout(autoTimerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, current]);
 
-  // Keyboard nav
+  // Keyboard
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); stopAutoplay(); goNext(); }
       if (e.key === "ArrowLeft") { e.preventDefault(); stopAutoplay(); goPrev(); }
-      if (e.key === "p" || e.key === "P") { setPlaying((p) => !p); }
+      if (e.key === "p" || e.key === "P") setPlaying((p) => !p);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -197,7 +228,7 @@ export default function ExplainerPage() {
         <div className="glow-orb glow-2" />
         <div className="glow-orb glow-3" />
 
-        {/* Scene 1 */}
+        {/* Scene 1: Intelligence metered */}
         <div className={`scene ${current === 0 ? "active" : ""}`}>
           <div className="meter-icon">
             <div className="meter-dial">
@@ -210,27 +241,35 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* Scene 2 */}
+        {/* Scene 2: Four subscriptions */}
         <div className={`scene ${current === 1 ? "active" : ""}`}>
+          <div className="scene-text" style={{ marginBottom: 40 }}>
+            <div className="headline">Why pay hundreds a month for four separate AI tools?</div>
+          </div>
           <div className="tools-grid">
-            {[{ label: "Chat AI", price: "$20", delay: "0" }, { label: "Code AI", price: "$20", delay: "150" }, { label: "Image AI", price: "$30", delay: "300" }, { label: "Search AI", price: "$20", delay: "450" }].map((t) => (
-              <div key={t.label} className="tool-card" data-delay={t.delay}>
-                <div className="label">{t.label}</div>
-                <div className="price">{t.price}</div>
-                <div className="strike-line" />
-              </div>
-            ))}
+            {AI_PRODUCTS.map((t) => {
+              const Logo = t.logo;
+              return (
+                <div key={t.name} className="tool-card" data-delay={t.delay}>
+                  <div className="tool-logo"><Logo /></div>
+                  <div className="tool-name">{t.name}</div>
+                  <div className="tool-tier">{t.tier}</div>
+                  <div className="price">{t.price}<span className="price-period">/mo</span></div>
+                  <div className="strike-line" />
+                </div>
+              );
+            })}
           </div>
           <div className="total-bar">
-            <div className="total-amount">$90/mo</div>
-            <div className="total-label">for tools you barely use</div>
+            <div className="total-amount">$270/mo</div>
+            <div className="total-label">for tools you barely max out</div>
           </div>
         </div>
 
-        {/* Scene 3 */}
+        {/* Scene 3: Pay per thought */}
         <div className={`scene ${current === 2 ? "active" : ""}`}>
           <div className="model-badges">
-            {["GPT-4o", "Claude", "Gemini", "DeepSeek", "Grok"].map((m, i) => (
+            {["GPT-4o", "Claude Opus", "Gemini Pro", "DeepSeek R1", "Grok 4"].map((m, i) => (
               <div key={m} className="model-badge" data-delay={String(i * 100)}>{m}</div>
             ))}
           </div>
@@ -240,7 +279,7 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* Scene 4 */}
+        {/* Scene 4: Introducing Meter */}
         <div className={`scene ${current === 3 ? "active" : ""}`}>
           <div className="meter-logo-large">
             <div className="logo-text">meter</div>
@@ -248,7 +287,7 @@ export default function ExplainerPage() {
           <div className="tagline-intro">The first pay-per-thought AI.</div>
         </div>
 
-        {/* Scene 5 */}
+        {/* Scene 5: Think first, pay later */}
         <div className={`scene ${current === 4 ? "active" : ""}`}>
           <div className="cost-stream">
             <div className="message-bubble">
@@ -261,11 +300,11 @@ export default function ExplainerPage() {
           </div>
           <div className="scene-text">
             <div className="headline">Think first. Pay later.</div>
-            <div className="subtext">Cost streams per message. Auto-settles to your card.</div>
+            <div className="subtext">Streams cost per message. Auto-settles to your card.</div>
           </div>
         </div>
 
-        {/* Scene 6 */}
+        {/* Scene 6: Debate mode */}
         <div className={`scene ${current === 5 ? "active" : ""}`}>
           <div className="debate-arena">
             <div className="debater left">
@@ -279,12 +318,12 @@ export default function ExplainerPage() {
             </div>
           </div>
           <div className="scene-text">
-            <div className="headline">Stress-test your ideas.</div>
+            <div className="headline">Stress-test every idea.</div>
             <div className="subtext">Debate mode puts frontier models head to head.</div>
           </div>
         </div>
 
-        {/* Scene 7 */}
+        {/* Scene 7: Decision logging */}
         <div className={`scene ${current === 6 ? "active" : ""}`}>
           <div className="decision-card">
             <div className="dc-header">
@@ -303,18 +342,18 @@ export default function ExplainerPage() {
                 <path d="M12 19V5M5 12l7-7 7 7" />
               </svg>
             </div>
-            <div className="tap-label">One tap to log your conviction</div>
+            <div className="tap-label">When you have conviction, one tap logs your decision.</div>
           </div>
         </div>
 
-        {/* Scene 8 */}
+        {/* Scene 8: Future */}
         <div className={`scene ${current === 7 ? "active" : ""}`}>
           <div className="future-text">
             <div className="big">In the future, everyone will wonder why they ever bought the ability to think like they do gym memberships.</div>
           </div>
         </div>
 
-        {/* Scene 9 */}
+        {/* Scene 9: CTA */}
         <div className={`scene ${current === 8 ? "active" : ""}`}>
           <div className="cta-container">
             <div className="beta-badge">Public Beta</div>
@@ -323,7 +362,7 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* Scene 10 */}
+        {/* Scene 10: Closing */}
         <div className={`scene ${current === 9 ? "active" : ""}`}>
           <div className="closing-logo">meter</div>
           <div className="closing-tagline">Think in <em>Meter</em>. Pay per thought.</div>
@@ -342,15 +381,22 @@ export default function ExplainerPage() {
 }
 
 const explainerStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
   body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+
   .explainer-root {
     width: 100vw; height: 100vh;
     background: #000; color: #fff;
-    font-family: 'Inter', -apple-system, sans-serif;
+    font-family: 'Space Grotesk', -apple-system, sans-serif;
     overflow: hidden; position: relative;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
   canvas#bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+
   .scene {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center; flex-direction: column;
@@ -359,97 +405,218 @@ const explainerStyles = `
     pointer-events: none;
   }
   .scene.active { opacity: 1; transform: scale(1); pointer-events: auto; }
-  .meter-icon { width: 200px; height: 200px; margin-bottom: 48px; position: relative; }
+
+  /* ── Typography ── */
+  .scene-text { text-align: center; max-width: 900px; padding: 0 40px; }
+
+  .headline {
+    font-size: clamp(32px, 3.5vw, 56px);
+    font-weight: 600;
+    letter-spacing: -1.5px;
+    line-height: 1.15;
+    margin-bottom: 16px;
+    color: #fff;
+  }
+
+  .subtext {
+    font-size: clamp(15px, 1.3vw, 21px);
+    font-weight: 300;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.6;
+    letter-spacing: -0.2px;
+  }
+
+  /* ── Scene 1: Meter icon ── */
+  .meter-icon { width: 160px; height: 160px; margin-bottom: 48px; position: relative; }
   .meter-dial {
-    width: 200px; height: 200px; border: 3px solid rgba(255,255,255,0.15);
+    width: 160px; height: 160px; border: 2px solid rgba(255,255,255,0.12);
     border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center;
   }
-  .meter-dial::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.06); }
+  .meter-dial::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.04); }
   .meter-needle {
-    width: 3px; height: 80px; background: linear-gradient(to top, #fff, rgba(255,255,255,0.2));
+    width: 2px; height: 60px; background: linear-gradient(to top, #fff, rgba(255,255,255,0.15));
     position: absolute; bottom: 50%; left: 50%; transform-origin: bottom center;
     transform: translateX(-50%) rotate(-60deg); border-radius: 2px;
     animation: needleSweep 3s cubic-bezier(0.34,1.56,0.64,1) forwards;
   }
-  .meter-dot { width: 10px; height: 10px; background: #fff; border-radius: 50%; position: absolute; z-index: 2; }
+  .meter-dot { width: 8px; height: 8px; background: #fff; border-radius: 50%; position: absolute; z-index: 2; }
   @keyframes needleSweep { 0% { transform: translateX(-50%) rotate(-60deg); } 100% { transform: translateX(-50%) rotate(60deg); } }
-  .scene-text { text-align: center; max-width: 900px; padding: 0 40px; }
-  .headline {
-    font-size: clamp(36px, 4vw, 64px); font-weight: 800; letter-spacing: -2.5px; line-height: 1.1; margin-bottom: 16px;
-    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .subtext { font-size: clamp(16px, 1.5vw, 24px); font-weight: 300; color: rgba(255,255,255,0.5); line-height: 1.5; letter-spacing: -0.3px; }
-  .tools-grid { display: flex; gap: 24px; margin-bottom: 56px; }
+
+  /* ── Scene 2: Tool cards ── */
+  .tools-grid { display: flex; gap: 20px; margin-bottom: 48px; }
+
   .tool-card {
-    width: 180px; height: 220px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.03); backdrop-filter: blur(20px);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    width: 180px; height: 240px; border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
+    backdrop-filter: blur(20px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
     opacity: 0; transform: translateY(30px); position: relative; overflow: hidden;
+    transition: border-color 0.4s;
   }
-  .tool-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,60,60,0.08) 0%, transparent 60%); opacity: 0; transition: opacity 0.6s; }
+  .tool-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,50,50,0.06) 0%, transparent 60%);
+    opacity: 0; transition: opacity 0.6s;
+  }
+  .tool-card.strikethrough { border-color: rgba(255,68,68,0.2); }
   .tool-card.strikethrough::before { opacity: 1; }
-  .tool-card .price { font-size: 32px; font-weight: 700; letter-spacing: -1px; color: #fff; }
-  .tool-card .label { font-size: 14px; color: rgba(255,255,255,0.4); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
-  .tool-card .strike-line { position: absolute; width: 0; height: 2px; background: #ff4444; top: 50%; left: 10%; transform: rotate(-45deg); transition: width 0.4s cubic-bezier(0.16,1,0.3,1); }
+
+  .tool-logo { margin-bottom: 4px; opacity: 0.8; }
+  .tool-name { font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.85); letter-spacing: -0.3px; }
+  .tool-tier { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1.5px; }
+  .tool-card .price { font-size: 28px; font-weight: 600; letter-spacing: -1px; color: #fff; }
+  .price-period { font-size: 14px; font-weight: 300; color: rgba(255,255,255,0.35); }
+
+  .tool-card .strike-line {
+    position: absolute; width: 0; height: 1.5px; background: #ff4444;
+    top: 50%; left: 10%; transform: rotate(-45deg);
+    transition: width 0.4s cubic-bezier(0.16,1,0.3,1);
+  }
   .tool-card.strikethrough .strike-line { width: 80%; }
+
   .total-bar { display: flex; align-items: center; gap: 20px; opacity: 0; transform: translateY(20px); }
-  .total-amount { font-size: 48px; font-weight: 800; color: #ff4444; letter-spacing: -2px; text-decoration: line-through; text-decoration-thickness: 3px; }
-  .total-label { font-size: 20px; color: rgba(255,255,255,0.4); }
-  .model-badges { display: flex; gap: 12px; margin-bottom: 48px; }
+  .total-amount {
+    font-size: 44px; font-weight: 600; color: #ff4444; letter-spacing: -2px;
+    text-decoration: line-through; text-decoration-thickness: 2px;
+    text-decoration-color: rgba(255,68,68,0.6);
+  }
+  .total-label { font-size: 18px; color: rgba(255,255,255,0.35); font-weight: 300; }
+
+  /* ── Scene 3: Model badges ── */
+  .model-badges { display: flex; gap: 10px; margin-bottom: 48px; flex-wrap: wrap; justify-content: center; }
   .model-badge {
-    padding: 10px 24px; border-radius: 100px; border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04); font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.7);
+    padding: 10px 22px; border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.6);
+    letter-spacing: -0.2px;
     opacity: 0; transform: scale(0.8);
   }
-  .meter-logo-large { margin-bottom: 32px; opacity: 0; transform: scale(0.5); }
+
+  /* ── Scene 4: Logo reveal ── */
+  .meter-logo-large { margin-bottom: 28px; opacity: 0; transform: scale(0.5); }
   .meter-logo-large .logo-text {
-    font-size: clamp(64px, 8vw, 120px); font-weight: 900; letter-spacing: -6px;
-    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    font-size: clamp(64px, 8vw, 120px); font-weight: 700; letter-spacing: -5px;
+    color: #fff;
   }
-  .tagline-intro { font-size: 28px; font-weight: 400; color: rgba(255,255,255,0.5); letter-spacing: -0.5px; }
+  .tagline-intro {
+    font-size: clamp(18px, 1.8vw, 26px); font-weight: 300;
+    color: rgba(255,255,255,0.4); letter-spacing: -0.3px;
+  }
+
+  /* ── Scene 5: Cost stream ── */
   .cost-stream { display: flex; align-items: center; gap: 40px; margin-bottom: 56px; }
-  .message-bubble { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 24px 32px; max-width: 400px; font-size: 16px; line-height: 1.6; color: rgba(255,255,255,0.8); }
-  .cost-ticker { font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 56px; font-weight: 700; color: #4ade80; letter-spacing: -2px; position: relative; }
-  .cost-ticker .cent { font-size: 32px; color: rgba(74,222,128,0.6); vertical-align: super; }
-  .cost-ticker .label { display: block; font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.3); letter-spacing: 2px; text-transform: uppercase; margin-top: 8px; }
-  .debate-arena { display: flex; gap: 40px; align-items: center; margin-bottom: 56px; }
-  .debater { width: 280px; padding: 32px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); text-align: center; opacity: 0; }
+  .message-bubble {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 24px 28px; max-width: 380px;
+    font-size: 15px; line-height: 1.6; color: rgba(255,255,255,0.7); font-weight: 300;
+  }
+  .cost-ticker {
+    font-family: 'JetBrains Mono', monospace; font-size: 48px; font-weight: 600;
+    color: #4ade80; letter-spacing: -2px; position: relative;
+  }
+  .cost-ticker .cent { font-size: 28px; color: rgba(74,222,128,0.5); vertical-align: super; }
+  .cost-ticker .label {
+    display: block; font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.25);
+    letter-spacing: 2px; text-transform: uppercase; margin-top: 8px;
+  }
+
+  /* ── Scene 6: Debate ── */
+  .debate-arena { display: flex; gap: 32px; align-items: center; margin-bottom: 48px; }
+  .debater {
+    width: 280px; padding: 28px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
+    text-align: center; opacity: 0;
+  }
   .debater.left { transform: translateX(-60px); }
   .debater.right { transform: translateX(60px); }
-  .debater .model-name { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: rgba(255,255,255,0.9); }
-  .debater .position { font-size: 14px; color: rgba(255,255,255,0.4); line-height: 1.6; }
-  .vs-badge { width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; color: rgba(255,255,255,0.6); opacity: 0; transform: scale(0); }
-  .decision-card { width: 520px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); padding: 40px; margin-bottom: 48px; opacity: 0; transform: translateY(30px); }
-  .decision-card .dc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-  .decision-card .dc-title { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.3); }
-  .decision-card .dc-status { padding: 6px 16px; border-radius: 100px; background: rgba(74,222,128,0.1); color: #4ade80; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
-  .decision-card .dc-decision { font-size: 24px; font-weight: 700; margin-bottom: 16px; letter-spacing: -0.5px; color: #fff; }
-  .decision-card .dc-meta { font-size: 14px; color: rgba(255,255,255,0.35); line-height: 1.7; }
-  .tap-indicator { display: flex; align-items: center; gap: 12px; opacity: 0; }
-  .tap-circle { width: 48px; height: 48px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; animation: tapPulse 1.5s ease-in-out infinite; }
-  @keyframes tapPulse { 0%, 100% { transform: scale(1); border-color: rgba(255,255,255,0.2); } 50% { transform: scale(0.92); border-color: rgba(255,255,255,0.5); } }
-  .tap-label { font-size: 16px; color: rgba(255,255,255,0.4); font-weight: 500; }
-  .future-text { max-width: 800px; text-align: center; }
-  .future-text .big {
-    font-size: clamp(32px, 3.5vw, 52px); font-weight: 800; letter-spacing: -2px; line-height: 1.2; margin-bottom: 24px;
-    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.6) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  .debater .model-name { font-size: 16px; font-weight: 600; margin-bottom: 14px; color: rgba(255,255,255,0.85); letter-spacing: -0.3px; }
+  .debater .position { font-size: 14px; color: rgba(255,255,255,0.35); line-height: 1.6; font-weight: 300; }
+  .vs-badge {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: rgba(255,255,255,0.5);
+    letter-spacing: 1px;
+    opacity: 0; transform: scale(0);
   }
+
+  /* ── Scene 7: Decision card ── */
+  .decision-card {
+    width: 500px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
+    padding: 36px; margin-bottom: 40px; opacity: 0; transform: translateY(30px);
+  }
+  .decision-card .dc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .decision-card .dc-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.25); font-weight: 500; }
+  .decision-card .dc-status {
+    padding: 5px 14px; border-radius: 100px;
+    background: rgba(74,222,128,0.08); color: #4ade80;
+    font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  }
+  .decision-card .dc-decision { font-size: 22px; font-weight: 600; margin-bottom: 14px; letter-spacing: -0.5px; color: #fff; }
+  .decision-card .dc-meta { font-size: 13px; color: rgba(255,255,255,0.3); line-height: 1.7; font-weight: 300; }
+
+  .tap-indicator { display: flex; align-items: center; gap: 12px; opacity: 0; }
+  .tap-circle {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    animation: tapPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes tapPulse { 0%, 100% { transform: scale(1); border-color: rgba(255,255,255,0.15); } 50% { transform: scale(0.92); border-color: rgba(255,255,255,0.4); } }
+  .tap-label { font-size: 15px; color: rgba(255,255,255,0.35); font-weight: 300; }
+
+  /* ── Scene 8: Future ── */
+  .future-text { max-width: 780px; text-align: center; padding: 0 40px; }
+  .future-text .big {
+    font-size: clamp(28px, 3vw, 46px); font-weight: 500; letter-spacing: -1.5px; line-height: 1.3;
+    color: rgba(255,255,255,0.85);
+  }
+
+  /* ── Scene 9: CTA ── */
   .cta-container { text-align: center; }
-  .beta-badge { display: inline-block; padding: 8px 20px; border-radius: 100px; border: 1px solid rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); color: #4ade80; font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px; opacity: 0; }
-  .cta-url { font-size: clamp(40px, 5vw, 72px); font-weight: 800; letter-spacing: -3px; margin-bottom: 16px; opacity: 0; transform: translateY(20px); color: #fff; }
-  .closing-logo { font-size: clamp(48px, 5vw, 80px); font-weight: 900; letter-spacing: -4px; margin-bottom: 32px; opacity: 0; color: #fff; }
-  .closing-tagline { font-size: 28px; font-weight: 400; color: rgba(255,255,255,0.4); letter-spacing: -0.5px; opacity: 0; }
-  .closing-tagline em { font-style: normal; color: rgba(255,255,255,0.7); }
-  .progress-bar { position: fixed; bottom: 0; left: 0; height: 3px; background: linear-gradient(90deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2)); z-index: 100; transition: width 0.3s ease; }
-  .controls { position: fixed; bottom: 32px; right: 32px; z-index: 100; display: flex; gap: 12px; }
-  .controls button { width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); transition: all 0.2s; }
-  .controls button:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
-  .scene-counter { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); font-size: 12px; color: rgba(255,255,255,0.2); letter-spacing: 3px; z-index: 100; font-weight: 500; }
+  .beta-badge {
+    display: inline-block; padding: 7px 18px; border-radius: 100px;
+    border: 1px solid rgba(74,222,128,0.2); background: rgba(74,222,128,0.06);
+    color: #4ade80; font-size: 11px; font-weight: 600; letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 36px; opacity: 0;
+  }
+  .cta-url {
+    font-size: clamp(40px, 5vw, 68px); font-weight: 700; letter-spacing: -3px;
+    margin-bottom: 16px; opacity: 0; transform: translateY(20px); color: #fff;
+  }
+
+  /* ── Scene 10: Closing ── */
+  .closing-logo { font-size: clamp(48px, 5vw, 76px); font-weight: 700; letter-spacing: -3px; margin-bottom: 28px; opacity: 0; color: #fff; }
+  .closing-tagline { font-size: clamp(18px, 1.8vw, 26px); font-weight: 300; color: rgba(255,255,255,0.35); letter-spacing: -0.3px; opacity: 0; }
+  .closing-tagline em { font-style: normal; color: rgba(255,255,255,0.7); font-weight: 500; }
+
+  /* ── Chrome ── */
+  .progress-bar { position: fixed; bottom: 0; left: 0; height: 2px; background: linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.15)); z-index: 100; transition: width 0.3s ease; }
+
+  .controls { position: fixed; bottom: 32px; right: 32px; z-index: 100; display: flex; gap: 10px; }
+  .controls button {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.6); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(10px); transition: all 0.2s;
+  }
+  .controls button:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: #fff; }
+
+  .scene-counter {
+    position: fixed; bottom: 38px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: rgba(255,255,255,0.15); letter-spacing: 3px; z-index: 100; font-weight: 400;
+  }
+
   .glow-orb { position: fixed; border-radius: 50%; filter: blur(120px); z-index: 0; pointer-events: none; }
-  .glow-1 { width: 600px; height: 600px; background: rgba(99,102,241,0.08); top: -200px; right: -200px; }
-  .glow-2 { width: 500px; height: 500px; background: rgba(74,222,128,0.05); bottom: -200px; left: -100px; }
-  .glow-3 { width: 400px; height: 400px; background: rgba(251,191,36,0.04); top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .glow-1 { width: 600px; height: 600px; background: rgba(99,102,241,0.06); top: -200px; right: -200px; }
+  .glow-2 { width: 500px; height: 500px; background: rgba(74,222,128,0.04); bottom: -200px; left: -100px; }
+  .glow-3 { width: 400px; height: 400px; background: rgba(251,191,36,0.03); top: 50%; left: 50%; transform: translate(-50%,-50%); }
 `;
