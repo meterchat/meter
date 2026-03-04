@@ -186,12 +186,19 @@ function DecisionPill({ decisionId, onOpen }: { decisionId: string; onOpen: () =
 
 /* ─── Decision-point buttons (Decide / Debate / Dissect) ─── */
 
-function DecisionPointButtons({
+/**
+ * Context-aware action buttons:
+ * - [decision-point]: dual-nature / A-vs-B → Decide + Debate
+ * - [dissect-point]: singular idea under question → Dissect only
+ */
+function ActionPointButtons({
+  variant,
   onDecide,
   onDebate,
   onDissect,
   disabled,
 }: {
+  variant: "decision" | "dissect";
   onDecide: () => void;
   onDebate: () => void;
   onDissect: () => void;
@@ -199,46 +206,82 @@ function DecisionPointButtons({
 }) {
   return (
     <div className="mt-3 flex items-center gap-2">
-      <button
-        onClick={onDecide}
-        disabled={disabled}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 active:bg-emerald-500/20 active:text-emerald-400 disabled:opacity-40"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-        Decide
-      </button>
-      <button
-        onClick={onDebate}
-        disabled={disabled}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-400 active:bg-amber-500/20 active:text-amber-400 disabled:opacity-40"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-        Debate
-      </button>
-      <button
-        onClick={onDissect}
-        disabled={disabled}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-blue-500/40 hover:bg-blue-500/10 hover:text-blue-400 active:bg-blue-500/20 active:text-blue-400 disabled:opacity-40"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 4h-4l-2 4 4 4-4 4 2 4h4l2-4-4-4 4-4z" />
-        </svg>
-        Dissect
-      </button>
+      {variant === "decision" && (
+        <>
+          <button
+            onClick={onDecide}
+            disabled={disabled}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 active:bg-emerald-500/20 active:text-emerald-400 disabled:opacity-40"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            Decide
+          </button>
+          <button
+            onClick={onDebate}
+            disabled={disabled}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-400 active:bg-amber-500/20 active:text-amber-400 disabled:opacity-40"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            Debate
+          </button>
+        </>
+      )}
+      {variant === "dissect" && (
+        <button
+          onClick={onDissect}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-blue-500/40 hover:bg-blue-500/10 hover:text-blue-400 active:bg-blue-500/20 active:text-blue-400 disabled:opacity-40"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 4h-4l-2 4 4 4-4 4 2 4h4l2-4-4-4 4-4z" />
+          </svg>
+          Dissect
+        </button>
+      )}
     </div>
   );
 }
 
-/** Check if a message contains the [decision-point] tag */
+/* ─── Discuss / Debate toggle ─── */
+
+function DiscussDebateToggle() {
+  const debateMode = useMeterStore((s) => s.debateMode);
+  const toggleDebateMode = useMeterStore((s) => s.toggleDebateMode);
+
+  return (
+    <button
+      onClick={toggleDebateMode}
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors ${
+        debateMode
+          ? "bg-amber-500/15 text-amber-500 border border-amber-500/30 hover:bg-amber-500/25"
+          : "text-muted-foreground/60 hover:bg-foreground/5 hover:text-muted-foreground"
+      }`}
+      title={debateMode ? "Switch to single-model chat" : "Switch to multi-model debate"}
+    >
+      {/* Chat bubble icon */}
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+      {debateMode ? "Debate" : "Discuss"}
+    </button>
+  );
+}
+
+/** Check if a message contains the [decision-point] tag (dual-nature A-vs-B decisions) */
 function hasDecisionPoint(content: string): boolean {
   return content.includes("[decision-point]");
 }
 
-/** Strip the [decision-point] tag from content for display */
+/** Check if a message contains the [dissect-point] tag (singular idea to analyze) */
+function hasDissectPoint(content: string): boolean {
+  return content.includes("[dissect-point]");
+}
+
+/** Strip action-point tags from content for display */
 function stripDecisionPoint(content: string): string {
-  return content.replace(/\s*\[decision-point\]\s*/g, "").trim();
+  return content.replace(/\s*\[(decision|dissect)-point\]\s*/g, "").trim();
 }
 
 /* ─── Document preview card (shown inline in chat) ─── */
@@ -349,7 +392,7 @@ function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string
     <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground/70">
       <span className="inline-flex items-center" style={{ color: msg.model ? getModel(msg.model).color : undefined }}>
         {modelName}
-        {msg.model === "meter-1.0" && <DebateModelDots />}
+        {msg.model === "debate" && <DebateModelDots />}
       </span>
       <span className="text-muted-foreground/30">&middot;</span>
       <span>{totalTokens.toLocaleString()} tokens</span>
@@ -912,9 +955,11 @@ export function ChatView() {
     setStreaming(true, streamProjectId);
     setThinkingStartedAt(Date.now());
 
-    const effectiveModel = modelOverride ?? selectedModelId;
-    const isDebateMode = effectiveModel === "meter-1.0";
-    const isDissectorMode = effectiveModel === "dissector-1.0";
+    // If debate mode is on and no explicit override, route to debate
+    const debateMode = useMeterStore.getState().debateMode;
+    const effectiveModel = modelOverride ?? (debateMode ? "debate" : selectedModelId);
+    const isDebateMode = effectiveModel === "debate";
+    const isDissectorMode = effectiveModel === "dissect";
 
     // Reset debate state
     if (isDebateMode) {
@@ -958,6 +1003,7 @@ export function ChatView() {
             (k) => connectedServices[k]
           ),
           ...(userAttachments?.length ? { attachments: userAttachments } : {}),
+          ...(effectiveModel === "debate" ? { debateRoster: useMeterStore.getState().debateRoster } : {}),
         }),
       });
 
@@ -1104,7 +1150,7 @@ export function ChatView() {
                 setActiveDissectorTurn(currentDissTurn);
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
-                const dissModel = getModel("dissector-1.0");
+                const dissModel = getModel("anthropic/claude-opus-4.6");
                 incrementCurrentMessageCost(estTokens * dissModel.outputPrice, streamProjectId);
                 if (checkSpendLimits()) break;
               }
@@ -1343,15 +1389,14 @@ export function ChatView() {
   const handleDebate = async () => {
     if (isStreaming || !workspaceCardReady) return;
     trackDebateStarted({ projectId: activeProjectId });
-    await streamResponse("Debate this.", "meter-1.0");
+    await streamResponse("Debate this.", "debate");
   };
 
   /** Triggered by the "Dissect" button on a decision-point message */
   const handleDissect = async () => {
     if (isStreaming || !workspaceCardReady) return;
     trackDissectClicked({ projectId: activeProjectId });
-    setSelectedModelId("dissector-1.0");
-    await streamResponse("Dissect this.", "dissector-1.0");
+    await streamResponse("Dissect this.", "dissect");
   };
 
   /** Triggered when user submits answers to a clarifying question (dissector Q&A) */
@@ -1371,7 +1416,7 @@ export function ChatView() {
       .map(([, a], i) => `${i + 1}. ${a}`)
       .join("\n");
     const answersContent = `Here are my answers to your clarifying questions:\n${formatted}`;
-    await streamResponse(answersContent, "dissector-1.0", undefined, { hiddenUser: true });
+    await streamResponse(answersContent, "dissect", undefined, { hiddenUser: true });
   };
 
   /** Triggered by the "Decide" button on a decision-point message */
@@ -1678,10 +1723,13 @@ export function ChatView() {
             {visibleMessages.map((msg, msgIdx) => {
               const isLastAssistant = msg.role === "assistant" && msgIdx === visibleMessages.length - 1;
               const displayContent = msg.role === "assistant" ? stripDecisionPoint(msg.content) : msg.content;
-              const showDecisionButtons = msg.role === "assistant"
-                && hasDecisionPoint(msg.content)
+              const isDecisionPoint = hasDecisionPoint(msg.content);
+              const isDissectPoint = hasDissectPoint(msg.content);
+              const showActionButtons = msg.role === "assistant"
+                && (isDecisionPoint || isDissectPoint)
                 && !msg.decisionId
                 && !isStreaming;
+              const actionVariant: "decision" | "dissect" = isDecisionPoint ? "decision" : "dissect";
               // Show live debate trace on the last assistant message while streaming
               const showLiveDebate = isLastAssistant && isStreaming && debatePhase;
               // Show persisted debate trace on any message that has one
@@ -1822,9 +1870,10 @@ export function ChatView() {
                         />
                       )}
 
-                      {/* Decision point buttons: Decide / Debate / Dissect */}
-                      {showDecisionButtons && (
-                        <DecisionPointButtons
+                      {/* Context-aware action buttons */}
+                      {showActionButtons && (
+                        <ActionPointButtons
+                          variant={actionVariant}
                           onDecide={handleDecide}
                           onDebate={handleDebate}
                           onDissect={handleDissect}
@@ -1959,57 +2008,62 @@ export function ChatView() {
                   </div>
                 )}
 
-                {/* Composer — middle section */}
+                {/* Composer — input row */}
                 <div className="flex items-end gap-2 border-t border-border/50 p-2">
+                  <textarea
+                    ref={inputRef}
+                    onKeyDown={handleKeyDown}
+                    onChange={handleInputChange}
+                    onPaste={handlePaste}
+                    placeholder={!sessionsLoaded ? "Loading chat..." : workspaceCardReady ? "Say something... (type / for commands)" : "Add a card to start chatting..."}
+                    disabled={!workspaceCardReady || !sessionsLoaded}
+                    rows={1}
+                    className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ maxHeight: "120px" }}
+                    onInput={(e) => {
+                      const t = e.currentTarget;
+                      t.style.height = "auto";
+                      t.style.height = Math.min(t.scrollHeight, 120) + "px";
+                    }}
+                  />
+                  <MeterPill />
+                  {isStreaming ? (
+                    <button
+                      onClick={handleStop}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/80"
+                      title="Stop generating"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="4" y="4" width="16" height="16" rx="2" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSend}
+                      disabled={!workspaceCardReady || !sessionsLoaded}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="19" x2="12" y2="5" />
+                        <polyline points="5 12 12 5 19 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                {/* Action bar — + button and Discuss/Debate toggle */}
+                <div className="flex items-center gap-1.5 border-t border-border/30 px-2 py-1.5">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center justify-center rounded-lg h-8 w-8 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground shrink-0"
+                    className="flex items-center justify-center rounded-md h-7 w-7 text-muted-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground shrink-0"
                     title="Add file"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="12" y1="5" x2="12" y2="19" />
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
                   </button>
-                <textarea
-                  ref={inputRef}
-                  onKeyDown={handleKeyDown}
-                  onChange={handleInputChange}
-                  onPaste={handlePaste}
-                  placeholder={!sessionsLoaded ? "Loading chat..." : workspaceCardReady ? "Say something... (type / for commands)" : "Add a card to start chatting..."}
-                  disabled={!workspaceCardReady || !sessionsLoaded}
-                  rows={1}
-                  className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ maxHeight: "120px" }}
-                  onInput={(e) => {
-                    const t = e.currentTarget;
-                    t.style.height = "auto";
-                    t.style.height = Math.min(t.scrollHeight, 120) + "px";
-                  }}
-                />
-                <MeterPill />
-                {isStreaming ? (
-                  <button
-                    onClick={handleStop}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/80"
-                    title="Stop generating"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                      <rect x="4" y="4" width="16" height="16" rx="2" />
-                    </svg>
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSend}
-                    disabled={!workspaceCardReady || !sessionsLoaded}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="12" y1="19" x2="12" y2="5" />
-                      <polyline points="5 12 12 5 19 12" />
-                    </svg>
-                  </button>
-                )}
+                  <DiscussDebateToggle />
                 </div>
               </div>
             </div>

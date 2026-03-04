@@ -141,6 +141,10 @@ interface MeterState {
   connectionsLoading: boolean;
 
   selectedModelId: string;
+  /** Debate mode — when true, selected models debate instead of single-model chat */
+  debateMode: boolean;
+  /** Models checked in the picker for debate (2+ models = auto-debate) */
+  debateRoster: string[];
   spendingCapEnabled: boolean;
   spendingCap: number;
 
@@ -225,6 +229,10 @@ interface MeterState {
   setScrollToMessageId: (id: string | null) => void;
 
   setSelectedModelId: (id: string) => void;
+  setDebateMode: (on: boolean) => void;
+  toggleDebateMode: () => void;
+  setDebateRoster: (models: string[]) => void;
+  toggleDebateRosterModel: (modelId: string) => void;
   setSpendingCapEnabled: (v: boolean) => void;
   setSpendingCap: (v: number) => void;
   setAutoSettleThreshold: (v: number) => void;
@@ -380,6 +388,8 @@ export const useMeterStore = create<MeterState>()(
       connectionsLoading: false,
 
       selectedModelId: DEFAULT_MODEL.id,
+      debateMode: false,
+      debateRoster: [],
       spendingCapEnabled: false,
       spendingCap: 10,
 
@@ -1348,6 +1358,26 @@ export const useMeterStore = create<MeterState>()(
       setInspectorTab: (tab) => set({ inspectorTab: tab }),
       setScrollToMessageId: (id) => set({ scrollToMessageId: id }),
       setSelectedModelId: (id) => set({ selectedModelId: id }),
+      setDebateMode: (on) => set({ debateMode: on }),
+      toggleDebateMode: () => set((s) => {
+        if (s.debateMode) {
+          // Turning off debate — clear roster
+          return { debateMode: false, debateRoster: [] };
+        }
+        // Turning on debate — if roster has <2 models, populate with defaults
+        const roster = s.debateRoster.length >= 2
+          ? s.debateRoster
+          : ["anthropic/claude-opus-4.6", "openai/gpt-5.2", "x-ai/grok-4.1-fast"];
+        return { debateMode: true, debateRoster: roster };
+      }),
+      setDebateRoster: (models) => set({ debateRoster: models, debateMode: models.length >= 2 }),
+      toggleDebateRosterModel: (modelId) => set((s) => {
+        const has = s.debateRoster.includes(modelId);
+        const next = has
+          ? s.debateRoster.filter((id) => id !== modelId)
+          : [...s.debateRoster, modelId];
+        return { debateRoster: next, debateMode: next.length >= 2 };
+      }),
       setSpendingCapEnabled: (v) => set({ spendingCapEnabled: v }),
       setSpendingCap: (v) => set({ spendingCap: v }),
       setAutoSettleThreshold: (v) => set({ autoSettleThreshold: v }),
@@ -1396,6 +1426,8 @@ export const useMeterStore = create<MeterState>()(
         cardBrand: s.cardBrand,
         stripeCustomerId: s.stripeCustomerId,
         selectedModelId: s.selectedModelId,
+        debateMode: s.debateMode,
+        debateRoster: s.debateRoster,
         spendingCapEnabled: s.spendingCapEnabled,
         spendingCap: s.spendingCap,
         autoSettleThreshold: s.autoSettleThreshold,
