@@ -337,9 +337,14 @@ export function HeaderMeter() {
               <SpendRow label="This month" amount={usage.month} subLabel={`Avg/day $${usage.monthAvg.toFixed(2)}`} />
               <SpendRow label="Lifetime" amount={usage.lifetime} />
             </div>
-            <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
-              Daily spend resets in {formatCountdown(remaining)}, midnight local time.
-            </p>
+            <div className="mt-2">
+              <p className="font-mono text-[10px] text-muted-foreground/30">
+                Daily spend resets at midnight local time.
+              </p>
+              <p className="font-mono text-[11px] tabular-nums text-muted-foreground/60">
+                {formatCountdown(remaining)}
+              </p>
+            </div>
           </div>
 
           <div className="h-px bg-border" />
