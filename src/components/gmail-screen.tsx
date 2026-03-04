@@ -53,14 +53,14 @@ export function GmailScreen() {
 
         <button
           onClick={handleSkip}
-          className="font-mono text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+          className="font-mono text-[11px] text-muted-foreground/70 hover:text-muted-foreground transition-colors"
         >
           Skip for now
         </button>
 
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span className="font-mono text-[10px] text-muted-foreground/40">
+          <span className="font-mono text-[10px] text-muted-foreground/60">
             {email}
           </span>
         </div>

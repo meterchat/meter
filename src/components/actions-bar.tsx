@@ -192,7 +192,7 @@ export function ActionsBar() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-mono text-[11px] text-foreground truncate">{card.title}</p>
-                        <p className="font-mono text-[10px] text-muted-foreground/50 truncate">{card.description}</p>
+                        <p className="font-mono text-[10px] text-muted-foreground/70 truncate">{card.description}</p>
                       </div>
                       {card.cost != null && (
                         <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground">${card.cost.toFixed(2)}</span>
@@ -220,8 +220,8 @@ export function ActionsBar() {
 
           {totalPending === 0 && (
             <div className="px-3 py-4 text-center">
-              <p className="font-mono text-[11px] text-muted-foreground/40">Nothing to review</p>
-              <p className="mt-1 font-mono text-[10px] text-muted-foreground/30">
+              <p className="font-mono text-[11px] text-muted-foreground/60">Nothing to review</p>
+              <p className="mt-1 font-mono text-[10px] text-muted-foreground/50">
                 Follow-ups, subscriptions, purchases, and approvals appear here
               </p>
             </div>

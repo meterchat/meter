@@ -104,10 +104,10 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
             <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">Switching workspace</p>
             <p className="mt-2 text-xl text-foreground">{switchingName}</p>
           </div>
-          <div className="flex flex-col items-start gap-0.5 font-mono text-[10px] text-muted-foreground/50">
+          <div className="flex flex-col items-start gap-0.5 font-mono text-[10px] text-muted-foreground/70">
             {logLines.map((line, i) => (
               <span key={i} className="animate-[fadeIn_0.15s_ease-out]">
-                <span className="text-muted-foreground/30 mr-1.5">&gt;</span>
+                <span className="text-muted-foreground/50 mr-1.5">&gt;</span>
                 {line}
               </span>
             ))}
@@ -137,7 +137,7 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
             Workspaces
           </div>
           {companies.length === 0 && !creating && (
-            <div className="px-2 py-3 text-center font-mono text-[11px] text-muted-foreground/50">
+            <div className="px-2 py-3 text-center font-mono text-[11px] text-muted-foreground/70">
               No workspaces yet
             </div>
           )}

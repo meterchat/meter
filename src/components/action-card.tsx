@@ -24,7 +24,7 @@ export function ActionCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/50">
+            <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
               {TYPE_LABELS[card.type] ?? card.type}
             </span>
             {card.status === "approved" && (

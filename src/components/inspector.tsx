@@ -164,7 +164,7 @@ export function Inspector() {
         <div className="border-t border-border px-4 py-3 flex items-center justify-between" style={{ paddingBottom: isMobile ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
           <button
             onClick={openManageDialog}
-            className="rounded-md py-1.5 px-2 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground hover:bg-foreground/5"
+            className="rounded-md py-1.5 px-2 font-mono text-[11px] text-muted-foreground/70 transition-colors hover:text-foreground hover:bg-foreground/5"
           >
             Manage workspace
           </button>
@@ -240,7 +240,7 @@ export function Inspector() {
             >
               {deleting ? "Deleting..." : "Delete Workspace"}
             </button>
-            <p className="font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
+            <p className="font-mono text-[10px] text-muted-foreground/60 leading-relaxed">
               Deleted workspaces are retained for 7 days. To recover, email support@meter.chat within 7 days of deletion.
             </p>
           </div>
@@ -309,7 +309,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`shrink-0 text-muted-foreground/40 transition-transform ${expanded ? "rotate-90" : ""}`}
+          className={`shrink-0 text-muted-foreground/60 transition-transform ${expanded ? "rotate-90" : ""}`}
         >
           <polyline points="9 18 15 12 9 6" />
         </svg>
@@ -324,13 +324,13 @@ function DecisionRow({ decision }: { decision: Decision }) {
         <div className="hidden group-hover:flex items-center gap-1 shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); handleRevisit(); }}
-            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/60 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
           >
             revisit
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); trackDecisionArchived({ decisionId: decision.id }); archiveDecision(decision.id); }}
-            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/60 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
           >
             archive
           </button>
@@ -350,17 +350,17 @@ function DecisionRow({ decision }: { decision: Decision }) {
         <div className="ml-6 mr-1 mb-2 mt-0.5 flex flex-col gap-1.5 border-l border-border/40 pl-3">
           {decision.choice && (
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Choice</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">Choice</span>
               <p className="font-mono text-[12px] text-foreground/70 mt-0.5">{decision.choice}</p>
             </div>
           )}
           {Array.isArray(decision.alternatives) && decision.alternatives.length > 0 && (
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Alternatives</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">Alternatives</span>
               <ul className="mt-0.5">
                 {decision.alternatives.map((alt, i) => (
-                  <li key={i} className="font-mono text-[12px] text-foreground/50 flex items-start gap-1.5">
-                    <span className="text-muted-foreground/30 mt-px">-</span>
+                  <li key={i} className="font-mono text-[12px] text-foreground/70 flex items-start gap-1.5">
+                    <span className="text-muted-foreground/50 mt-px">-</span>
                     {alt}
                   </li>
                 ))}
@@ -369,12 +369,12 @@ function DecisionRow({ decision }: { decision: Decision }) {
           )}
           {decision.reasoning && (
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Reasoning</span>
-              <p className="font-mono text-[12px] text-foreground/50 mt-0.5">{decision.reasoning}</p>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">Reasoning</span>
+              <p className="font-mono text-[12px] text-foreground/70 mt-0.5">{decision.reasoning}</p>
             </div>
           )}
           {!decision.choice && !decision.reasoning && (!Array.isArray(decision.alternatives) || decision.alternatives.length === 0) && (
-            <p className="font-mono text-[11px] text-muted-foreground/30 italic">No details recorded</p>
+            <p className="font-mono text-[11px] text-muted-foreground/50 italic">No details recorded</p>
           )}
         </div>
       )}
@@ -430,13 +430,13 @@ function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
                 {preview}{msg.content.length > 100 ? "..." : ""}
               </p>
               {meta && (
-                <span className="mt-1 block font-mono text-[10px] text-muted-foreground/40">
+                <span className="mt-1 block font-mono text-[10px] text-muted-foreground/60">
                   {meta}
                 </span>
               )}
               <button
                 onClick={(e) => { e.stopPropagation(); togglePinMessage(msg.id); }}
-                className="absolute right-1.5 top-1.5 hidden group-hover:block rounded p-0.5 text-muted-foreground/40 hover:text-amber-500 transition-colors"
+                className="absolute right-1.5 top-1.5 hidden group-hover:block rounded p-0.5 text-muted-foreground/60 hover:text-amber-500 transition-colors"
                 title="Unpin"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -473,10 +473,10 @@ function DecisionsTab({ activeProjectId }: { activeProjectId: string | null }) {
         </div>
         {scoped.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 gap-2">
-            <span className="font-mono text-xs text-muted-foreground/40">
+            <span className="font-mono text-xs text-muted-foreground/60">
               No decisions yet
             </span>
-            <span className="font-mono text-[11px] text-muted-foreground/30">
+            <span className="font-mono text-[11px] text-muted-foreground/50">
               Decisions are logged as you chat
             </span>
           </div>
@@ -553,12 +553,12 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
     </svg>
   ),
   notes: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/70">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
     </svg>
   ),
   other: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/70">
       <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" />
     </svg>
   ),
@@ -618,7 +618,7 @@ function DocumentTree({ artifacts, onRegenerate, onPush, pushing }: {
             >
               <svg
                 width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                className={`shrink-0 text-muted-foreground/40 transition-transform ${collapsed ? "" : "rotate-90"}`}
+                className={`shrink-0 text-muted-foreground/60 transition-transform ${collapsed ? "" : "rotate-90"}`}
               >
                 <polyline points="9 18 15 12 9 6" />
               </svg>
@@ -626,7 +626,7 @@ function DocumentTree({ artifacts, onRegenerate, onPush, pushing }: {
               <span className="font-mono text-[11px] text-muted-foreground/70 uppercase tracking-wider">
                 {CATEGORY_LABELS[category] ?? category}
               </span>
-              <span className="font-mono text-[10px] text-muted-foreground/30">
+              <span className="font-mono text-[10px] text-muted-foreground/50">
                 {items.length}
               </span>
             </button>
@@ -678,11 +678,11 @@ function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`shrink-0 text-muted-foreground/40 transition-transform ${expanded ? "rotate-90" : ""}`}
+          className={`shrink-0 text-muted-foreground/60 transition-transform ${expanded ? "rotate-90" : ""}`}
         >
           <polyline points="9 18 15 12 9 6" />
         </svg>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/70">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
         </svg>
@@ -692,14 +692,14 @@ function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
         <div className="hidden group-hover:flex items-center gap-1 shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); onRegenerate(artifact.filePath); }}
-            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/60 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
           >
             regen
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onPush(artifact.id); }}
             disabled={pushing}
-            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors disabled:opacity-30"
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/60 hover:bg-foreground/10 hover:text-muted-foreground transition-colors disabled:opacity-30"
           >
             push
           </button>
@@ -711,7 +711,7 @@ function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
               : isCommitted
               ? isModified
                 ? "bg-amber-500/10 text-amber-500"
-                : "bg-foreground/5 text-muted-foreground/50"
+                : "bg-foreground/5 text-muted-foreground/70"
               : "bg-amber-500/10 text-amber-500"
           }`}
         >
@@ -722,19 +722,19 @@ function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
       {expanded && (
         <div className="ml-6 mr-1 mb-2 mt-0.5 flex flex-col gap-1.5 border-l border-border/40 pl-3">
           {artifact.lastGeneratedAt && (
-            <span className="font-mono text-[10px] text-muted-foreground/40">
+            <span className="font-mono text-[10px] text-muted-foreground/60">
               Generated {formatArtifactTime(artifact.lastGeneratedAt)}
               {artifact.lastPushedAt && ` · Pushed ${formatArtifactTime(artifact.lastPushedAt)}`}
               {artifact.lastCommittedAt && ` · Committed ${formatArtifactTime(artifact.lastCommittedAt)}`}
             </span>
           )}
           {artifact.githubRepo && (
-            <span className="font-mono text-[10px] text-muted-foreground/40">
+            <span className="font-mono text-[10px] text-muted-foreground/60">
               {artifact.githubRepo}
             </span>
           )}
           {artifact.content && (
-            <pre className="max-h-[200px] overflow-y-auto rounded bg-foreground/[0.03] p-2 font-mono text-[11px] text-foreground/60 leading-relaxed whitespace-pre-wrap break-words">
+            <pre className="max-h-[200px] overflow-y-auto rounded bg-foreground/[0.03] p-2 font-mono text-[11px] text-foreground/80 leading-relaxed whitespace-pre-wrap break-words">
               {artifact.content.slice(0, 2000)}{artifact.content.length > 2000 ? "\n..." : ""}
             </pre>
           )}
@@ -843,7 +843,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
             <>
               <button
                 onClick={handleDownloadZip}
-                className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors"
                 title="Download all"
               >
                 Download
@@ -851,7 +851,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
               <button
                 onClick={() => handlePush()}
                 disabled={pushing || artifacts.length === 0}
-                className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-30"
+                className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-30"
               >
                 {pushing ? "Pushing..." : "Push to GitHub"}
               </button>
@@ -863,11 +863,11 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
       {/* Repo selector */}
       {showRepoSelector && (
         <div className="rounded-lg border border-border/50 p-2">
-          <div className="font-mono text-[10px] text-muted-foreground/50 mb-1.5">
+          <div className="font-mono text-[10px] text-muted-foreground/70 mb-1.5">
             Select target repo
           </div>
           {reposLoading ? (
-            <div className="py-2 text-center font-mono text-[11px] text-muted-foreground/40">
+            <div className="py-2 text-center font-mono text-[11px] text-muted-foreground/60">
               Loading repos...
             </div>
           ) : (
@@ -884,7 +884,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
                   }`}
                 >
                   {r.fullName}
-                  {r.private && <span className="ml-1.5 text-[9px] text-muted-foreground/40">private</span>}
+                  {r.private && <span className="ml-1.5 text-[9px] text-muted-foreground/60">private</span>}
                 </button>
               ))}
             </div>
@@ -895,13 +895,13 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
       {/* Target repo indicator */}
       {targetRepo && !showRepoSelector && (
         <div className="flex items-center gap-1.5">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground/40 shrink-0">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground/60 shrink-0">
             <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
           </svg>
-          <span className="font-mono text-[10px] text-muted-foreground/50">{targetRepo}</span>
+          <span className="font-mono text-[10px] text-muted-foreground/70">{targetRepo}</span>
           <button
             onClick={() => { setShowRepoSelector(true); fetchRepos(); }}
-            className="font-mono text-[10px] text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+            className="font-mono text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           >
             change
           </button>
@@ -910,21 +910,21 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
 
       {/* Document tree */}
       {loading ? (
-        <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">
+        <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/60">
           Loading...
         </div>
       ) : artifacts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-6 gap-2">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/20">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
             <line x1="16" y1="13" x2="8" y2="13" />
             <line x1="16" y1="17" x2="8" y2="17" />
           </svg>
-          <span className="font-mono text-[12px] text-muted-foreground/40">
+          <span className="font-mono text-[12px] text-muted-foreground/60">
             No documents yet
           </span>
-          <span className="font-mono text-[11px] text-muted-foreground/30 text-center">
+          <span className="font-mono text-[11px] text-muted-foreground/50 text-center">
             Ask Meter to write a doc — specs, proposals, notes, anything
           </span>
         </div>
@@ -1112,12 +1112,12 @@ function TimelineTab({ activeProjectId }: { activeProjectId: string | null }) {
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-2">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/50">
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        <span className="font-mono text-xs text-muted-foreground/40">No activity yet</span>
-        <span className="font-mono text-[11px] text-muted-foreground/30">
+        <span className="font-mono text-xs text-muted-foreground/60">No activity yet</span>
+        <span className="font-mono text-[11px] text-muted-foreground/50">
           Decisions, debates, and documents appear here
         </span>
       </div>
@@ -1128,7 +1128,7 @@ function TimelineTab({ activeProjectId }: { activeProjectId: string | null }) {
     <div className="flex flex-col gap-4">
       {grouped.map(([date, dayEvents]) => (
         <div key={date}>
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/40 mb-2 sticky top-0 bg-card py-1 z-10">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-2 sticky top-0 bg-card py-1 z-10">
             {date}
           </div>
           <div className="relative">
@@ -1159,13 +1159,13 @@ function TimelineTab({ activeProjectId }: { activeProjectId: string | null }) {
                           </span>
                         </div>
                         {event.subtitle && (
-                          <span className="font-mono text-[10px] text-muted-foreground/50">
+                          <span className="font-mono text-[10px] text-muted-foreground/70">
                             {event.subtitle}
                           </span>
                         )}
                       </div>
                       {/* Time */}
-                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground/30 mt-0.5">
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground/50 mt-0.5">
                         {formatTimelineTime(event.timestamp)}
                       </span>
                     </button>
@@ -1192,17 +1192,17 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-1.5">
         {d.choice && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Choice</span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">Choice</span>
             <p className="font-mono text-[12px] text-foreground/70 mt-0.5">{d.choice}</p>
           </div>
         )}
         {Array.isArray(d.alternatives) && d.alternatives.length > 0 && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Alternatives</span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">Alternatives</span>
             <ul className="mt-0.5">
               {d.alternatives.map((alt, i) => (
-                <li key={i} className="font-mono text-[12px] text-foreground/50 flex items-start gap-1.5">
-                  <span className="text-muted-foreground/30 mt-px">-</span>{alt}
+                <li key={i} className="font-mono text-[12px] text-foreground/70 flex items-start gap-1.5">
+                  <span className="text-muted-foreground/50 mt-px">-</span>{alt}
                 </li>
               ))}
             </ul>
@@ -1210,8 +1210,8 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
         )}
         {d.reasoning && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Reasoning</span>
-            <p className="font-mono text-[12px] text-foreground/50 mt-0.5">{d.reasoning}</p>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">Reasoning</span>
+            <p className="font-mono text-[12px] text-foreground/70 mt-0.5">{d.reasoning}</p>
           </div>
         )}
         {d.chatMessageId && (
@@ -1230,12 +1230,12 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-2">
         {turns.slice(0, 4).map((t, i) => (
           <div key={i}>
-            <span className="font-mono text-[10px] text-muted-foreground/50">{t.model} — {t.phase}</span>
-            <p className="font-mono text-[11px] text-foreground/60 mt-0.5 line-clamp-3">{t.content}</p>
+            <span className="font-mono text-[10px] text-muted-foreground/70">{t.model} — {t.phase}</span>
+            <p className="font-mono text-[11px] text-foreground/80 mt-0.5 line-clamp-3">{t.content}</p>
           </div>
         ))}
         {turns.length > 4 && (
-          <span className="font-mono text-[10px] text-muted-foreground/30">+{turns.length - 4} more turns</span>
+          <span className="font-mono text-[10px] text-muted-foreground/50">+{turns.length - 4} more turns</span>
         )}
         <button onClick={() => onJump(m.id)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
           Jump to message
@@ -1251,12 +1251,12 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-2">
         {passes.slice(0, 3).map((p, i) => (
           <div key={i}>
-            <span className="font-mono text-[10px] text-muted-foreground/50">{p.persona}</span>
-            <p className="font-mono text-[11px] text-foreground/60 mt-0.5 line-clamp-3">{p.content}</p>
+            <span className="font-mono text-[10px] text-muted-foreground/70">{p.persona}</span>
+            <p className="font-mono text-[11px] text-foreground/80 mt-0.5 line-clamp-3">{p.content}</p>
           </div>
         ))}
         {passes.length > 3 && (
-          <span className="font-mono text-[10px] text-muted-foreground/30">+{passes.length - 3} more passes</span>
+          <span className="font-mono text-[10px] text-muted-foreground/50">+{passes.length - 3} more passes</span>
         )}
         <button onClick={() => onJump(m.id)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
           Jump to message
@@ -1269,7 +1269,7 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
     const { message, doc } = event.data as { message: { id: string }; doc: { filePath: string; content: string } };
     return (
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-1">
-        <p className="font-mono text-[11px] text-foreground/50 line-clamp-4 whitespace-pre-wrap">{doc.content.slice(0, 300)}{doc.content.length > 300 ? "..." : ""}</p>
+        <p className="font-mono text-[11px] text-foreground/70 line-clamp-4 whitespace-pre-wrap">{doc.content.slice(0, 300)}{doc.content.length > 300 ? "..." : ""}</p>
         <button onClick={() => onJump(message.id)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
           Jump to message
         </button>
@@ -1282,14 +1282,14 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
     return (
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className={`font-mono text-[10px] rounded-full px-1.5 py-0.5 ${a.status === "synced" ? "text-emerald-500 bg-emerald-500/10" : "text-muted-foreground/50 bg-foreground/5"}`}>
+          <span className={`font-mono text-[10px] rounded-full px-1.5 py-0.5 ${a.status === "synced" ? "text-emerald-500 bg-emerald-500/10" : "text-muted-foreground/70 bg-foreground/5"}`}>
             {a.status}
           </span>
           {a.category && (
-            <span className="font-mono text-[10px] text-muted-foreground/40">{a.category}</span>
+            <span className="font-mono text-[10px] text-muted-foreground/60">{a.category}</span>
           )}
         </div>
-        <p className="font-mono text-[11px] text-foreground/50 line-clamp-3 whitespace-pre-wrap">{a.content.slice(0, 200)}{a.content.length > 200 ? "..." : ""}</p>
+        <p className="font-mono text-[11px] text-foreground/70 line-clamp-3 whitespace-pre-wrap">{a.content.slice(0, 200)}{a.content.length > 200 ? "..." : ""}</p>
       </div>
     );
   }

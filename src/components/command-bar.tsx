@@ -121,7 +121,7 @@ export function CommandBar({ open, onToggle, onSelectCommand }: CommandBarProps)
                       <path d={connector.iconPath} />
                     </svg>
                     <span className="text-[13px] text-foreground shrink-0">{connector.name}</span>
-                    <span className="font-mono text-[10px] text-muted-foreground/40 truncate">
+                    <span className="font-mono text-[10px] text-muted-foreground/60 truncate">
                       {connector.description}
                     </span>
                     <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -134,7 +134,7 @@ export function CommandBar({ open, onToggle, onSelectCommand }: CommandBarProps)
                               e.stopPropagation();
                               trackConnectorDisconnected({ provider: connector.id }); disconnectServiceRemote(connector.id);
                             }}
-                            className="text-muted-foreground/40 hover:text-red-400 transition-colors"
+                            className="text-muted-foreground/60 hover:text-red-400 transition-colors"
                             title="Disconnect"
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -159,7 +159,7 @@ export function CommandBar({ open, onToggle, onSelectCommand }: CommandBarProps)
                     <svg
                       width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                       strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                      className="shrink-0 text-muted-foreground/30"
+                      className="shrink-0 text-muted-foreground/50"
                     >
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
@@ -211,7 +211,7 @@ function DrillDownView({
           </svg>
           Back
         </button>
-        <span className="text-muted-foreground/30">|</span>
+        <span className="text-muted-foreground/50">|</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground shrink-0">
           <path d={connector.iconPath} />
         </svg>
@@ -222,7 +222,7 @@ function DrillDownView({
             <span
               role="button"
               onClick={() => onDisconnect(connector.id)}
-              className="text-muted-foreground/40 hover:text-red-400 transition-colors"
+              className="text-muted-foreground/60 hover:text-red-400 transition-colors"
               title="Disconnect"
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -245,7 +245,7 @@ function DrillDownView({
             <span className="font-mono text-[11px] text-foreground/80">
               {tool.commandLabel}
             </span>
-            <span className="font-mono text-[10px] text-muted-foreground/30 truncate">
+            <span className="font-mono text-[10px] text-muted-foreground/50 truncate">
               {tool.function.description}
             </span>
           </button>
@@ -257,7 +257,7 @@ function DrillDownView({
             <span className="font-mono text-[11px] text-foreground/80">
               {tool.commandLabel}
             </span>
-            <span className="font-mono text-[10px] text-muted-foreground/30 truncate">
+            <span className="font-mono text-[10px] text-muted-foreground/50 truncate">
               {tool.function.description}
             </span>
           </div>
@@ -267,7 +267,7 @@ function DrillDownView({
       {/* Connect prompt for disconnected services */}
       {!connected && (
         <div className="flex items-center justify-between px-3 py-2 pl-10 border-t border-border/30">
-          <span className="font-mono text-[10px] text-muted-foreground/50">
+          <span className="font-mono text-[10px] text-muted-foreground/70">
             Connect to use these commands
           </span>
           <button

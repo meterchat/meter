@@ -233,7 +233,7 @@ export function HeaderMeter() {
         <MeterIcon active={isStreaming} size={14} />
         <span className="tabular-nums text-[12px] text-foreground">{costStr}</span>
         {!isMobile && (
-          <span className="text-[11px] text-muted-foreground/50 uppercase tracking-wider">
+          <span className="text-[11px] text-muted-foreground/70 uppercase tracking-wider">
             TODAY
           </span>
         )}
@@ -263,14 +263,14 @@ export function HeaderMeter() {
               Payment Cards
             </div>
             {cardsLoading && cards.length === 0 ? (
-              <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">Loading cards...</div>
+              <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/60">Loading cards...</div>
             ) : sortedCards.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 gap-2 rounded-lg border border-dashed border-border">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/50">
                   <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
                   <line x1="1" y1="10" x2="23" y2="10" />
                 </svg>
-                <span className="font-mono text-[11px] text-muted-foreground/40">No cards yet</span>
+                <span className="font-mono text-[11px] text-muted-foreground/60">No cards yet</span>
               </div>
             ) : (
               <div className="flex flex-col gap-1">
@@ -286,7 +286,7 @@ export function HeaderMeter() {
                       <div className="flex items-center gap-2">
                         <span className={`h-1.5 w-1.5 rounded-full ${card.isDefault ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                         <span className="text-foreground">{brandLabel} •••• {card.last4}</span>
-                        <span className="text-[10px] text-muted-foreground/50">
+                        <span className="text-[10px] text-muted-foreground/70">
                           {String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}
                         </span>
                       </div>
@@ -294,7 +294,7 @@ export function HeaderMeter() {
                         {!card.isDefault && (
                           <button
                             onClick={() => handleSetDefault(card.id)}
-                            className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                            className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors"
                           >
                             Default
                           </button>
@@ -302,7 +302,7 @@ export function HeaderMeter() {
                         {cards.length > 1 && (
                           <button
                             onClick={() => handleRemoveCard(card.id)}
-                            className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-red-400 transition-colors"
+                            className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/70 hover:text-red-400 transition-colors"
                           >
                             Remove
                           </button>
@@ -338,7 +338,7 @@ export function HeaderMeter() {
               <SpendRow label="Lifetime" amount={usage.lifetime} />
             </div>
             <div className="mt-2">
-              <p className="font-mono text-[10px] text-muted-foreground/30">
+              <p className="font-mono text-[10px] text-muted-foreground/50">
                 Daily spend resets at midnight local time.
               </p>
               <p className="font-mono text-[11px] tabular-nums text-muted-foreground/60">
@@ -361,7 +361,7 @@ export function HeaderMeter() {
                   <LimitRow label="Monthly Limit" value={monthlyInput} onChange={setMonthlyInput} onBlur={() => saveLimitOnBlur("monthlyLimit", monthlyInput)} />
                   <LimitRow label="Per-Txn Max" value={perTxnInput} onChange={setPerTxnInput} onBlur={() => saveLimitOnBlur("perTxnLimit", perTxnInput)} />
                 </div>
-                <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
+                <p className="mt-2 font-mono text-[10px] text-muted-foreground/50">
                   Leave blank for no limit. Limits are enforced server-side.
                 </p>
               </div>
@@ -416,7 +416,7 @@ function LimitRow({ label, value, onChange, onBlur }: {
     <div className="flex items-center justify-between">
       <span className="text-xs text-muted-foreground">{label}</span>
       <div className="flex items-center gap-1">
-        <span className="font-mono text-xs text-muted-foreground/50">$</span>
+        <span className="font-mono text-xs text-muted-foreground/70">$</span>
         <input
           type="number"
           value={value}
@@ -458,7 +458,7 @@ function PendingBalanceSection({ getPendingBalance, settleAll, isSettling }: {
           <span className="font-mono text-[14px] font-medium tabular-nums text-foreground">
             ${pending.toFixed(2)}
           </span>
-          <span className="font-mono text-[10px] text-muted-foreground/30">Auto-settles at $10</span>
+          <span className="font-mono text-[10px] text-muted-foreground/50">Auto-settles at $10</span>
         </div>
         {pending > 0 && (
           <button
@@ -493,7 +493,7 @@ function SpendRow({ label, amount, subLabel }: { label: string; amount: number; 
       <div className="flex flex-col">
         <span className="font-mono text-[12px] text-muted-foreground/70">{label}</span>
         {subLabel && (
-          <span className="font-mono text-[10px] text-muted-foreground/40">{subLabel}</span>
+          <span className="font-mono text-[10px] text-muted-foreground/60">{subLabel}</span>
         )}
       </div>
       <span className="font-mono text-[12px] tabular-nums text-foreground">
