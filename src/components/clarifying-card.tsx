@@ -33,7 +33,7 @@ export function ClarifyingCard({ questions, messageId, onSubmit, disabled }: Cla
         </p>
 
         {isSubmitted ? (
-          <p className="text-[12px] text-foreground/60 font-mono bg-foreground/[0.03] rounded px-2 py-1.5">
+          <p className="text-[12px] text-foreground/80 font-mono bg-foreground/[0.03] rounded px-2 py-1.5">
             {question.answer}
           </p>
         ) : (

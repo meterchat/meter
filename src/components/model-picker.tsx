@@ -26,7 +26,7 @@ function SpeedBar({ speed }: { speed: number }) {
           style={{ width: `${pct}%` }}
         />
       </span>
-      <span className="text-muted-foreground/50">{speed} t/s</span>
+      <span className="text-muted-foreground/70">{speed} t/s</span>
     </span>
   );
 }
@@ -126,7 +126,7 @@ export function ModelSelectorBar({
               );
             })}
           </span>
-          <span className="text-muted-foreground/50 text-[10px] normal-case tracking-normal">(Debate)</span>
+          <span className="text-muted-foreground/70 text-[10px] normal-case tracking-normal">(Debate)</span>
         </>
       ) : (
         <>
@@ -134,7 +134,7 @@ export function ModelSelectorBar({
           <span className="text-[12px] text-foreground normal-case tracking-normal truncate">
             {model.name}
           </span>
-          <span className="text-[10px] text-muted-foreground/50 normal-case tracking-normal">
+          <span className="text-[10px] text-muted-foreground/70 normal-case tracking-normal">
             {model.provider}
           </span>
         </>
@@ -202,17 +202,17 @@ export function ModelPickerPanel({
                   </div>
                   <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 flex-wrap">
                     <span>{m.provider}</span>
-                    <span className="text-muted-foreground/40">&middot;</span>
-                    <span className="text-muted-foreground/50">{fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
+                    <span className="text-muted-foreground/60">&middot;</span>
+                    <span className="text-muted-foreground/70">{fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
                     {m.quality != null && (
                       <>
-                        <span className="text-muted-foreground/40">&middot;</span>
+                        <span className="text-muted-foreground/60">&middot;</span>
                         <span>{m.quality}% GPQA</span>
                       </>
                     )}
                     {m.speed != null && (
                       <>
-                        <span className="text-muted-foreground/40">&middot;</span>
+                        <span className="text-muted-foreground/60">&middot;</span>
                         <SpeedBar speed={m.speed} />
                       </>
                     )}

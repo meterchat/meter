@@ -73,7 +73,7 @@ function CardFormInner({ clientSecret, onComplete }: { clientSecret: string; onC
         />
       </div>
 
-      <p className="mt-2 font-mono text-[10px] text-muted-foreground/50 leading-relaxed">
+      <p className="mt-2 font-mono text-[10px] text-muted-foreground/70 leading-relaxed">
         A small hold verifies your card. Usage settles at $10 or when you choose.
       </p>
 
@@ -137,7 +137,7 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        <span className="font-mono text-[10px] text-muted-foreground/50">Loading payment form...</span>
+        <span className="font-mono text-[10px] text-muted-foreground/70">Loading payment form...</span>
       </div>
     );
   }

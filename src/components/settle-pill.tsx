@@ -155,7 +155,7 @@ export function SettlePill() {
             <div className="max-h-[280px] overflow-y-auto">
               {lineItems.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
-                  <span className="font-mono text-[11px] text-muted-foreground/40">
+                  <span className="font-mono text-[11px] text-muted-foreground/60">
                     No usage yet
                   </span>
                 </div>
@@ -168,7 +168,7 @@ export function SettlePill() {
                           <span className="block truncate font-mono text-[11px] text-foreground/80">
                             {item.title}
                           </span>
-                          <span className="font-mono text-[9px] text-muted-foreground/40">
+                          <span className="font-mono text-[9px] text-muted-foreground/60">
                             {item.subtitle}
                           </span>
                         </div>
@@ -234,7 +234,7 @@ export function SettlePill() {
           <div className="max-h-[280px] overflow-y-auto">
             {lineItems.length === 0 ? (
               <div className="flex items-center justify-center py-8">
-                <span className="font-mono text-[11px] text-muted-foreground/40">
+                <span className="font-mono text-[11px] text-muted-foreground/60">
                   No pending charges
                 </span>
               </div>
@@ -247,7 +247,7 @@ export function SettlePill() {
                         <span className="block truncate font-mono text-[11px] text-foreground/80">
                           {item.title}
                         </span>
-                        <span className="font-mono text-[9px] text-muted-foreground/40">
+                        <span className="font-mono text-[9px] text-muted-foreground/60">
                           {item.subtitle}
                         </span>
                       </div>
@@ -256,7 +256,7 @@ export function SettlePill() {
                       </span>
                     </div>
                     {item.type === "card" && (
-                      <div className="mt-1 font-mono text-[9px] text-muted-foreground/50">
+                      <div className="mt-1 font-mono text-[9px] text-muted-foreground/70">
                         Paid{item.paidAt ? ` on ${new Date(item.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""} with Virtual Card{cardLast4 ? ` ${cardLast4}` : ""}
                       </div>
                     )}
@@ -300,7 +300,7 @@ export function SettlePill() {
             </button>
 
             {cardLast4 && (
-              <div className="text-center font-mono text-[9px] text-muted-foreground/40">
+              <div className="text-center font-mono text-[9px] text-muted-foreground/60">
                 Charged to {brandLabel} {cardLast4}
               </div>
             )}

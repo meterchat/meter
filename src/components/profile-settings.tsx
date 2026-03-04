@@ -110,7 +110,7 @@ export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () 
                       <span className="text-xs text-muted-foreground">
                         Passkey{pk.deviceType ? ` (${pk.deviceType})` : ""}
                       </span>
-                      <span className="ml-auto text-[10px] text-muted-foreground/40">
+                      <span className="ml-auto text-[10px] text-muted-foreground/60">
                         {pk.backedUp ? "Synced" : "Local"}
                       </span>
                     </div>
@@ -125,7 +125,7 @@ export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () 
               <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
                 Model Preferences
               </div>
-              <p className="font-mono text-[10px] text-muted-foreground/40">
+              <p className="font-mono text-[10px] text-muted-foreground/60">
                 Auto-routing picks the best model per message. You can override per-message in the composer.
               </p>
             </div>
@@ -136,7 +136,7 @@ export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () 
               <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
                 Data
               </div>
-              <p className="font-mono text-[10px] text-muted-foreground/40 mb-2">
+              <p className="font-mono text-[10px] text-muted-foreground/60 mb-2">
                 Your conversation persists as one eternal session per workspace.
               </p>
             </div>

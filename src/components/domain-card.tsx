@@ -45,7 +45,7 @@ export function DomainCard({ card, messageId }: DomainCardProps) {
       {/* Header row: type badge + availability + tld */}
       <div className="flex items-center justify-between px-3 pt-3 pb-1">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/50">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
             Domain
           </span>
           {isAvailable && isPending && (
@@ -69,13 +69,13 @@ export function DomainCard({ card, messageId }: DomainCardProps) {
             </span>
           )}
           {isSkipped && (
-            <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/50">
+            <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
               Skipped
             </span>
           )}
         </div>
         {tld && (
-          <span className="font-mono text-[10px] text-muted-foreground/40">.{tld}</span>
+          <span className="font-mono text-[10px] text-muted-foreground/60">.{tld}</span>
         )}
       </div>
 
@@ -94,7 +94,7 @@ export function DomainCard({ card, messageId }: DomainCardProps) {
             <div className="font-mono text-sm text-foreground">
               ${card.cost.toFixed(2)}
             </div>
-            <div className="font-mono text-[9px] text-muted-foreground/40">/yr</div>
+            <div className="font-mono text-[9px] text-muted-foreground/60">/yr</div>
           </div>
         )}
       </div>
@@ -103,7 +103,7 @@ export function DomainCard({ card, messageId }: DomainCardProps) {
       {renewalPrice && renewalPrice !== "" && (
         <div className="px-3 pb-2">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[10px] text-muted-foreground/50">Renewal</span>
+            <span className="font-mono text-[10px] text-muted-foreground/70">Renewal</span>
             <span className="font-mono text-[10px] text-muted-foreground">${renewalPrice}/yr</span>
           </div>
         </div>
@@ -146,7 +146,7 @@ export function DomainCard({ card, messageId }: DomainCardProps) {
       {/* Unavailable domain — no actions */}
       {!isAvailable && !isPurchased && !isSkipped && (
         <div className="border-t border-border px-3 py-2 text-center">
-          <span className="font-mono text-[10px] text-muted-foreground/50">
+          <span className="font-mono text-[10px] text-muted-foreground/70">
             Not available for registration
           </span>
         </div>

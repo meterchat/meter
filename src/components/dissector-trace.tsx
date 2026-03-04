@@ -75,7 +75,7 @@ export function DissectorTrace({ trace, activeTurn, phase }: DissectorTraceProps
                   </span>
                 )}
                 <span
-                  className={`font-mono ${active ? "thinking-shimmer" : "text-muted-foreground/50"}`}
+                  className={`font-mono ${active ? "thinking-shimmer" : "text-muted-foreground/70"}`}
                   style={active ? { color: p.color } : undefined}
                 >
                   {PASS_STATUS[p.id]}

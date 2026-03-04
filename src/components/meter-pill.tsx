@@ -158,7 +158,7 @@ export function MeterPill() {
           <span
             className={`text-[12px] leading-none tabular-nums inline-flex items-center transition-opacity duration-300 ${
               phase === "locked"
-                ? "text-muted-foreground/40"
+                ? "text-muted-foreground/60"
                 : "text-foreground"
             }`}
           >

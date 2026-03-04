@@ -54,7 +54,7 @@ export function ConnectorsBar() {
       {/* Trigger bar */}
       <button
         onClick={handleToggle}
-        className="flex w-full items-center gap-1.5 bg-foreground/[0.03] px-3 py-2 font-mono text-[10px] text-muted-foreground/50 uppercase tracking-wider hover:text-muted-foreground/80 transition-colors"
+        className="flex w-full items-center gap-1.5 bg-foreground/[0.03] px-3 py-2 font-mono text-[10px] text-muted-foreground/70 uppercase tracking-wider hover:text-muted-foreground/80 transition-colors"
       >
         <svg
           width="10"
@@ -92,7 +92,7 @@ export function ConnectorsBar() {
                   <path d={connector.iconPath} />
                 </svg>
                 <span className="text-[13px] text-foreground shrink-0">{connector.name}</span>
-                <span className="font-mono text-[10px] text-muted-foreground/40 truncate">
+                <span className="font-mono text-[10px] text-muted-foreground/60 truncate">
                   {connector.description}
                 </span>
                 <div className="ml-auto shrink-0">
@@ -103,7 +103,7 @@ export function ConnectorsBar() {
                       </span>
                       <button
                         onClick={() => disconnectServiceRemote(connector.id)}
-                        className="text-muted-foreground/40 hover:text-red-400 transition-colors"
+                        className="text-muted-foreground/60 hover:text-red-400 transition-colors"
                         title="Disconnect"
                       >
                         <svg
