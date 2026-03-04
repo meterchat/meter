@@ -330,6 +330,12 @@ function ensureDaily(project: ProjectThread): ProjectThread {
     ...(needsMonthInit ? { monthKey: month } : {}),
     ...(needsWeekReset ? { weekCost: 0, weekKey: week } : {}),
     ...(needsWeekInit ? { weekKey: week } : {}),
+    // Invariant: week/month totals must never be less than today's spend.
+    // Migration or stale localStorage can leave these undercounted.
+    ...(!needsWeekReset && !needsWeekInit && (project.weekCost ?? 0) < (needsDaily ? 0 : project.todayCost)
+      ? { weekCost: project.todayCost } : {}),
+    ...(!needsMonthReset && !needsMonthInit && (project.monthCost ?? 0) < (needsDaily ? 0 : project.todayCost)
+      ? { monthCost: project.todayCost } : {}),
   };
 }
 
