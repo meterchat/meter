@@ -224,31 +224,38 @@ export function ModelPickerPanel({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    // If adding a model and the current primary isn't in the roster yet, add it too
+                    const currentRoster = useMeterStore.getState().debateRoster;
+                    if (!currentRoster.includes(m.id) && !currentRoster.includes(selectedModelId) && selectedModelId !== "auto") {
+                      toggleDebateRosterModel(selectedModelId);
+                    }
                     toggleDebateRosterModel(m.id);
                   }}
-                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                    isInRoster
-                      ? "border-foreground/60 bg-foreground/10"
-                      : isSelected
-                        ? "border-foreground/40 bg-transparent"
-                        : "border-foreground/20 hover:border-foreground/40"
-                  }`}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center"
                   title={isInRoster ? "Remove from debate" : "Add to debate"}
                 >
-                  {(isInRoster || isSelected) && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
+                  <span className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors ${
+                    isInRoster
+                      ? "border-foreground/60 bg-foreground/10"
+                      : "border-foreground/20 hover:border-foreground/40"
+                  }`}>
+                    {isInRoster && (
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </span>
                 </button>
               ) : isSelected ? (
-                <svg
-                  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  className="text-foreground shrink-0"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                  <svg
+                    width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    className="text-foreground"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
               ) : null}
             </div>
           );
