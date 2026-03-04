@@ -108,6 +108,11 @@ export function HeaderMeter() {
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [switchingCardId, setSwitchingCardId] = useState<string | null>(null);
 
+  const assistantMsgs = useMemo(
+    () => (activeProject?.messages ?? []).filter((m) => m.role === "assistant" && m.cost != null),
+    [activeProject]
+  );
+
   const usage = useMemo(() => {
     const today = activeProject?.todayCost ?? 0;
     const week = activeProject?.weekCost ?? 0;
@@ -121,8 +126,24 @@ export function HeaderMeter() {
     const weekAvg = week / daysIntoWeek;
     const monthAvg = month / daysIntoMonth;
 
-    return { today, week, month, lifetime, weekAvg, monthAvg };
-  }, [activeProject]);
+    const totalTokensIn = assistantMsgs.reduce((sum, m) => sum + (m.tokensIn ?? 0), 0);
+    const totalTokensOut = assistantMsgs.reduce((sum, m) => sum + (m.tokensOut ?? 0), 0);
+    const totalMessages = assistantMsgs.length;
+    const settledCount = assistantMsgs.filter((m) => m.settled).length;
+    const pendingCount = assistantMsgs.filter((m) => !m.settled).length;
+
+    const byModel: Record<string, { cost: number; count: number }> = {};
+    for (const m of assistantMsgs) {
+      const key = m.model ?? "unknown";
+      const existing = byModel[key] || { cost: 0, count: 0 };
+      byModel[key] = { cost: existing.cost + (m.cost ?? 0), count: existing.count + 1 };
+    }
+
+    return {
+      today, week, month, lifetime, weekAvg, monthAvg,
+      totalTokensIn, totalTokensOut, totalMessages, settledCount, pendingCount, byModel,
+    };
+  }, [assistantMsgs, activeProject]);
 
   const animatedToday = useAnimatedNumber(usage.today, !isStreaming);
   const costStr = isStreaming
@@ -227,32 +248,12 @@ export function HeaderMeter() {
 
       {open && (
         <div className={`absolute top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl ${isMobile ? "fixed left-2 right-2 w-auto" : "right-0 w-[360px]"}`}>
-          {/* Pending Balance — top, prominent */}
+          {/* Pending Balance — top */}
           <PendingBalanceSection
             getPendingBalance={getPendingBalance}
             settleAll={settleAll}
             isSettling={isSettling}
-            cardLast4={cardLast4}
-            cardBrand={cardBrand}
           />
-
-          <div className="h-px bg-border" />
-
-          {/* Spend */}
-          <div className="px-4 py-3">
-            <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
-              Spend
-            </div>
-            <div className="space-y-1.5">
-              <SpendRow label="Today" amount={usage.today} subLabel={formatCountdown(remaining)} />
-              <SpendRow label="This week" amount={usage.week} subLabel={`Avg/day $${usage.weekAvg.toFixed(2)}`} />
-              <SpendRow label="This month" amount={usage.month} subLabel={`Avg/day $${usage.monthAvg.toFixed(2)}`} />
-              <SpendRow label="Lifetime" amount={usage.lifetime} />
-            </div>
-            <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
-              Daily spend resets at midnight local time.
-            </p>
-          </div>
 
           <div className="h-px bg-border" />
 
@@ -323,10 +324,29 @@ export function HeaderMeter() {
             </button>
           </div>
 
+          <div className="h-px bg-border" />
+
+          {/* Spend */}
+          <div className="px-4 py-3">
+            <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
+              Spend
+            </div>
+            <div className="space-y-1.5">
+              <SpendRow label="Today" amount={usage.today} />
+              <SpendRow label="This week" amount={usage.week} subLabel={`Avg/day $${usage.weekAvg.toFixed(2)}`} />
+              <SpendRow label="This month" amount={usage.month} subLabel={`Avg/day $${usage.monthAvg.toFixed(2)}`} />
+              <SpendRow label="Lifetime" amount={usage.lifetime} />
+            </div>
+            <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
+              Daily spend resets in {formatCountdown(remaining)}, midnight local time.
+            </p>
+          </div>
+
+          <div className="h-px bg-border" />
+
           {/* Spend Limits */}
           {activeProjectId && (
             <>
-              <div className="h-px bg-border" />
               <div className="px-4 py-3">
                 <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
                   Spend Limits
@@ -339,6 +359,38 @@ export function HeaderMeter() {
                 <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
                   Leave blank for no limit. Limits are enforced server-side.
                 </p>
+              </div>
+              <div className="h-px bg-border" />
+            </>
+          )}
+
+          {/* Activity */}
+          <div className="px-4 py-3">
+            <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
+              Activity
+            </div>
+            <StatRow label="Messages" value={usage.totalMessages.toString()} />
+            <StatRow label="Tokens In" value={usage.totalTokensIn.toLocaleString()} />
+            <StatRow label="Tokens Out" value={usage.totalTokensOut.toLocaleString()} />
+            <StatRow label="Settled" value={usage.settledCount.toString()} />
+            <StatRow label="Pending" value={usage.pendingCount.toString()} />
+          </div>
+
+          {Object.keys(usage.byModel).length > 0 && (
+            <>
+              <div className="h-px bg-border" />
+              <div className="px-4 py-3">
+                <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
+                  By Model
+                </div>
+                {Object.entries(usage.byModel).map(([model, data]) => (
+                  <div key={model} className="flex items-center justify-between py-1.5">
+                    <span className="text-[12px] text-muted-foreground">{model}</span>
+                    <span className="text-[12px] text-foreground font-mono">
+                      ${data.cost.toFixed(2)} &middot; {data.count} msgs
+                    </span>
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -375,16 +427,13 @@ function LimitRow({ label, value, onChange, onBlur }: {
   );
 }
 
-function PendingBalanceSection({ getPendingBalance, settleAll, isSettling, cardLast4, cardBrand }: {
+function PendingBalanceSection({ getPendingBalance, settleAll, isSettling }: {
   getPendingBalance: () => number;
   settleAll: () => Promise<{ success: boolean }>;
   isSettling: boolean;
-  cardLast4: string | null;
-  cardBrand: string | null;
 }) {
   const [success, setSuccess] = useState(false);
   const pending = getPendingBalance();
-  const brand = cardBrand ? cardBrand.charAt(0).toUpperCase() + cardBrand.slice(1) : "Card";
 
   const handleSettle = async () => {
     const result = await settleAll();
@@ -400,27 +449,35 @@ function PendingBalanceSection({ getPendingBalance, settleAll, isSettling, cardL
         Pending Balance
       </div>
       <div className="flex items-center justify-between">
-        <div className="font-mono text-lg tabular-nums text-foreground">
-          ${pending.toFixed(2)}
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[14px] font-medium tabular-nums text-foreground">
+            ${pending.toFixed(2)}
+          </span>
+          <span className="font-mono text-[10px] text-muted-foreground/30">Auto-settles at $10</span>
         </div>
         {pending > 0 && (
           <button
             onClick={handleSettle}
             disabled={isSettling}
-            className={`rounded-md px-3 py-1.5 font-mono text-[11px] transition-colors ${
+            className={`rounded-md px-2 py-1 font-mono text-[10px] transition-colors ${
               success
-                ? "text-emerald-500 bg-emerald-500/10 border border-emerald-500/20"
+                ? "text-emerald-500 bg-emerald-500/10"
                 : "text-foreground bg-foreground/10 hover:bg-foreground/15 disabled:opacity-40"
             }`}
           >
-            {success ? "Settled" : isSettling ? "Processing..." : "Settle"}
+            {success ? "Settled" : isSettling ? "..." : "Settle"}
           </button>
         )}
       </div>
-      <p className="mt-1.5 font-mono text-[11px] text-muted-foreground/50">
-        {cardLast4 ? `${brand} •••• ${cardLast4}` : "No card on file"}
-        {cardLast4 && <span className="text-muted-foreground/30"> · Auto-settles at $10</span>}
-      </p>
+    </div>
+  );
+}
+
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-1.5">
+      <span className="text-[12px] text-muted-foreground">{label}</span>
+      <span className="text-[12px] text-foreground font-mono">{value}</span>
     </div>
   );
 }
