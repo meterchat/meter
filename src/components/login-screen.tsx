@@ -65,13 +65,13 @@ function VideoPlayer() {
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden border border-border/40 bg-black cursor-pointer group"
+      className="relative rounded-t-2xl overflow-hidden border border-b-0 border-border/40 bg-black cursor-pointer group h-full"
       onClick={toggle}
     >
       <video
         ref={videoRef}
         src="/meter.webm"
-        className="w-full block"
+        className="w-full h-full object-cover object-top block"
         playsInline
         preload="metadata"
         onEnded={() => setPlaying(false)}
@@ -94,8 +94,61 @@ function VideoPlayer() {
   );
 }
 
-// ── ASCII art canvas with animated thought stream ───────────────────────
-const ASCII_CHARS = "01$.<>{}()=+-*/&|~^%#@!?:;";
+// ── ASCII art canvas with in-place animating chat bubbles ────────────────
+const BUBBLE_CHARS = "01$.<>{}()=+-*/&|~^%#@!?:;";
+
+// Chat bubble templates — each is an array of strings (lines)
+const CHAT_BUBBLES = [
+  [
+    "  .--------.",
+    " / what if  \\",
+    " | we used  |",
+    " | GPT-4o?  |",
+    " \\__________/",
+  ],
+  [
+    "  .----------.",
+    " / Claude is  \\",
+    " | better for |",
+    " | this task  |",
+    " \\____________/",
+  ],
+  [
+    "  .-------.",
+    " / $0.003  \\",
+    " | per msg |",
+    " \\_________/",
+  ],
+  [
+    "  .----------.",
+    " / comparing  \\",
+    " | trade-offs |",
+    " \\____________/",
+  ],
+  [
+    "  .--------.",
+    " / thinking \\",
+    " | deeply.. |",
+    " \\__________/",
+  ],
+  [
+    "  .----------.",
+    " / debate:    \\",
+    " | speed vs   |",
+    " | accuracy   |",
+    " \\____________/",
+  ],
+];
+
+interface Bubble {
+  lines: string[];
+  row: number;
+  col: number;
+  opacity: number;
+  phase: number; // 0..1 animation phase
+  speed: number;
+  charMap: { char: string; flickerRate: number }[][];
+}
 
 function AsciiCanvas({ side }: { side: "left" | "right" }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -107,54 +160,68 @@ function AsciiCanvas({ side }: { side: "left" | "right" }) {
     if (!ctx) return;
 
     let animId: number;
-    const cols = 28;
-    const fontSize = 14;
-    const rows = 60;
+    const fontSize = 13;
+    const charW = fontSize * 0.6;
+    const cols = 30;
+    const rows = 50;
 
-    canvas.width = cols * fontSize * 0.65;
+    canvas.width = cols * charW;
     canvas.height = rows * fontSize;
 
-    // Each column has a "drop" that falls and leaves fading characters
-    const drops: number[] = Array.from({ length: cols }, () => Math.random() * -rows);
-    const speeds: number[] = Array.from({ length: cols }, () => 0.3 + Math.random() * 0.7);
-    // Grid of character opacity (0..1) and character
-    const grid: { char: string; opacity: number }[][] = Array.from(
-      { length: rows },
-      () => Array.from({ length: cols }, () => ({ char: " ", opacity: 0 }))
-    );
+    // Create a set of bubbles placed at fixed positions
+    const bubbles: Bubble[] = [];
+    const positions = side === "left"
+      ? [{ r: 4, c: 2 }, { r: 14, c: 1 }, { r: 26, c: 3 }, { r: 38, c: 0 }]
+      : [{ r: 6, c: 1 }, { r: 18, c: 2 }, { r: 30, c: 0 }, { r: 42, c: 2 }];
+
+    positions.forEach((pos, i) => {
+      const template = CHAT_BUBBLES[(i + (side === "right" ? 3 : 0)) % CHAT_BUBBLES.length];
+      const charMap = template.map(line =>
+        Array.from(line).map(ch => ({
+          char: ch,
+          flickerRate: (ch !== " " && ch !== "/" && ch !== "\\" && ch !== "|" && ch !== "." && ch !== "-" && ch !== "_")
+            ? 0.02 + Math.random() * 0.03
+            : 0,
+        }))
+      );
+      bubbles.push({
+        lines: template,
+        row: pos.r,
+        col: pos.c,
+        opacity: 0.3 + Math.random() * 0.3,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.005 + Math.random() * 0.01,
+        charMap,
+      });
+    });
+
+    let time = 0;
 
     function draw() {
       ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
       ctx!.font = `${fontSize}px "JetBrains Mono", monospace`;
+      time += 1;
 
-      // Update drops
-      for (let c = 0; c < cols; c++) {
-        drops[c] += speeds[c];
-        const row = Math.floor(drops[c]);
-        if (row >= 0 && row < rows) {
-          grid[row][c] = {
-            char: ASCII_CHARS[Math.floor(Math.random() * ASCII_CHARS.length)],
-            opacity: 0.6,
-          };
-        }
-        if (drops[c] > rows + Math.random() * rows) {
-          drops[c] = Math.random() * -20;
-          speeds[c] = 0.3 + Math.random() * 0.7;
-        }
-      }
+      for (const bubble of bubbles) {
+        // Gentle opacity pulse (stays in place)
+        const pulse = Math.sin(time * bubble.speed + bubble.phase) * 0.15 + bubble.opacity;
+        const alpha = Math.max(0.05, Math.min(0.5, pulse));
 
-      // Draw & fade
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cell = grid[r][c];
-          if (cell.opacity > 0.01) {
-            // Occasionally flicker a nearby character to create "thought" effect
-            if (Math.random() < 0.005) {
-              cell.char = ASCII_CHARS[Math.floor(Math.random() * ASCII_CHARS.length)];
+        for (let l = 0; l < bubble.charMap.length; l++) {
+          const lineChars = bubble.charMap[l];
+          for (let c = 0; c < lineChars.length; c++) {
+            const cell = lineChars[c];
+            let ch = cell.char;
+
+            // Flicker: randomly swap character content (not structure chars)
+            if (cell.flickerRate > 0 && Math.random() < cell.flickerRate) {
+              ch = BUBBLE_CHARS[Math.floor(Math.random() * BUBBLE_CHARS.length)];
             }
-            ctx!.fillStyle = `rgba(255,255,255,${cell.opacity * 0.15})`;
-            ctx!.fillText(cell.char, c * fontSize * 0.65, r * fontSize);
-            cell.opacity *= 0.985; // slow fade
+
+            if (ch !== " ") {
+              ctx!.fillStyle = `rgba(255,255,255,${alpha * 0.2})`;
+              ctx!.fillText(ch, (bubble.col + c) * charW, (bubble.row + l) * fontSize);
+            }
           }
         }
       }
@@ -164,7 +231,7 @@ function AsciiCanvas({ side }: { side: "left" | "right" }) {
 
     draw();
     return () => cancelAnimationFrame(animId);
-  }, []);
+  }, [side]);
 
   return (
     <canvas
@@ -424,12 +491,12 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center bg-background px-4 overflow-y-auto overflow-x-hidden">
+    <div className="relative flex h-screen flex-col items-center bg-background px-4 overflow-hidden">
       {/* ── ASCII art canvases ── */}
       <AsciiCanvas side="left" />
       <AsciiCanvas side="right" />
 
-      <div className="relative z-10 flex flex-col items-center gap-6 max-w-sm text-center mt-[10vh]">
+      <div className="relative z-10 flex flex-col items-center gap-6 max-w-sm text-center mt-[8vh] shrink-0">
         {/* Logo — always visible */}
         <div className="flex flex-col items-center gap-4">
           <Image
@@ -456,11 +523,30 @@ export function LoginScreen() {
         {step === "passkey" && (
           <div className="flex flex-col items-center gap-3 w-full">
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Every model. One bill. No subscription.
+              No subscription. Pay for what you use.
             </p>
-            <p className="text-xs text-muted-foreground/70 leading-relaxed">
-              The meter runs in dollars. You pay what you use.
-            </p>
+
+            <div className="flex items-center gap-3 w-full">
+              <a
+                href="/docs"
+                className="flex-1 h-10 rounded-lg border border-border text-foreground text-sm font-medium transition-colors hover:bg-foreground/5 active:bg-foreground/10 flex items-center justify-center"
+              >
+                Learn more
+              </a>
+              <button
+                onClick={handleContinue}
+                disabled={loading}
+                className="flex-1 h-10 rounded-lg bg-foreground text-background text-sm font-medium transition-colors hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading && (
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+                {loading ? "Authenticating..." : "Chat now"}
+              </button>
+            </div>
 
             {error && (
               <p className="font-mono text-[11px] text-red-400">{error}</p>
@@ -469,20 +555,6 @@ export function LoginScreen() {
             {status && !error && (
               <p className="font-mono text-[11px] text-muted-foreground/60">{status}</p>
             )}
-
-            <button
-              onClick={handleContinue}
-              disabled={loading}
-              className="w-full h-10 rounded-lg bg-foreground text-background text-sm font-medium transition-colors hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading && (
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              )}
-              {loading ? "Authenticating..." : "Continue"}
-            </button>
 
             <p className="font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
               Sign in with passkey. No passwords, ever.
@@ -540,26 +612,24 @@ export function LoginScreen() {
         )}
       </div>
 
-      {/* ── Demo video ── */}
-      <div className="relative z-10 w-full max-w-3xl mt-12 mb-32 px-4">
+      {/* ── Demo video — fills remaining space to bottom ── */}
+      <div className="relative z-10 w-full max-w-3xl mt-8 flex-1 min-h-0 px-4">
         <VideoPlayer />
       </div>
 
-      {/* Footer — always visible */}
-      <div className="fixed bottom-8 z-20 flex flex-col items-center gap-3">
-        <div className="flex items-center gap-3">
-          <a href="https://x.com/meterchat" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-          </a>
-          <a href="https://github.com/meterchat/meter" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-          </a>
-        </div>
-        <div className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground/30">
-          <a href="/privacy" className="hover:text-muted-foreground/60 transition-colors">Privacy</a>
-          <span>&middot;</span>
-          <a href="/terms" className="hover:text-muted-foreground/60 transition-colors">Terms</a>
-        </div>
+      {/* Footer — bottom-left: terms/privacy, bottom-right: socials */}
+      <div className="fixed bottom-6 left-6 z-20 flex items-center gap-2 font-mono text-[10px] text-muted-foreground/30">
+        <a href="/terms" className="hover:text-muted-foreground/60 transition-colors">Terms</a>
+        <span>&middot;</span>
+        <a href="/privacy" className="hover:text-muted-foreground/60 transition-colors">Privacy</a>
+      </div>
+      <div className="fixed bottom-6 right-6 z-20 flex items-center gap-3">
+        <a href="https://github.com/meterchat/meter" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+        <a href="https://x.com/meterchat" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
       </div>
     </div>
   );
