@@ -1216,13 +1216,13 @@ export function ChatView() {
               useMeterStore.getState().updateLastAssistantThinking(thinkingContent, streamProjectId);
             } else if (data.type === "delta") {
               fullContent += data.content;
-              setActiveTool(null);
               setRerouting(null);
               updateLastAssistantMessage(fullContent, data.tokensOut, streamProjectId);
               if (checkSpendLimits()) break;
             } else if (data.type === "tool_call") {
               setActiveTool(data.name as string);
             } else if (data.type === "tool_result") {
+              setActiveTool(null);
               if (data.name === "save_decision" && data.decision) {
                 const d = data.decision as { id?: string; title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
                 const decId = d.id || Math.random().toString(36).slice(2, 10);
