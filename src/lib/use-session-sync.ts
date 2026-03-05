@@ -98,6 +98,10 @@ export function useSessionSync() {
       todayMessageCount: Number(session.today_message_count ?? 0),
       todayByModel: {},
       todayDate: session.today_date ?? todayStr(),
+      weekCost: Number(session.week_cost ?? 0),
+      weekKey: (session.week_key as string) ?? undefined,
+      monthCost: Number(session.month_cost ?? 0),
+      monthKey: (session.month_key as string) ?? undefined,
       totalCost: Math.max(totalFromSession, totalFromMessages),
       currentMessageCost: 0,
       connectedServices: existingConnectedServices ?? {},
@@ -108,6 +112,7 @@ export function useSessionSync() {
       serverTokensIn: Number(session.total_tokens_in ?? 0),
       serverTokensOut: Number(session.total_tokens_out ?? 0),
       serverMessageCount: Number(session.total_message_count ?? 0),
+      serverPendingBalance: Number(session.pending_balance ?? 0),
     };
   };
 
@@ -146,6 +151,10 @@ export function useSessionSync() {
               todayTokensOut: project.todayTokensOut,
               todayMessageCount: project.todayMessageCount,
               todayDate: project.todayDate,
+              weekCost: project.weekCost ?? 0,
+              weekKey: project.weekKey,
+              monthCost: project.monthCost ?? 0,
+              monthKey: project.monthKey,
             },
             messages: project.messages ?? [],
           }),
@@ -234,17 +243,23 @@ export function useSessionSync() {
         const syncedCount = syncedMessageCountRef.current.get(project.id) ?? 0;
         const deltaMessages = project.messages.slice(syncedCount);
 
+        const sessionMeta = {
+          id: project.id,
+          name: project.name,
+          totalCost: project.totalCost,
+          todayCost: project.todayCost,
+          todayTokensIn: project.todayTokensIn,
+          todayTokensOut: project.todayTokensOut,
+          todayMessageCount: project.todayMessageCount,
+          todayDate: project.todayDate,
+          weekCost: project.weekCost ?? 0,
+          weekKey: project.weekKey,
+          monthCost: project.monthCost ?? 0,
+          monthKey: project.monthKey,
+        };
+
         const payload = JSON.stringify({
-          session: {
-            id: project.id,
-            name: project.name,
-            totalCost: project.totalCost,
-            todayCost: project.todayCost,
-            todayTokensIn: project.todayTokensIn,
-            todayTokensOut: project.todayTokensOut,
-            todayMessageCount: project.todayMessageCount,
-            todayDate: project.todayDate,
-          },
+          session: sessionMeta,
           messages: deltaMessages,
         });
 
@@ -254,16 +269,7 @@ export function useSessionSync() {
         if (payload.length > MAX_BEACON_BYTES && deltaMessages.length > 1) {
           // Send only session metadata (guaranteed small) — periodic sync handles messages
           const metaOnly = JSON.stringify({
-            session: {
-              id: project.id,
-              name: project.name,
-              totalCost: project.totalCost,
-              todayCost: project.todayCost,
-              todayTokensIn: project.todayTokensIn,
-              todayTokensOut: project.todayTokensOut,
-              todayMessageCount: project.todayMessageCount,
-              todayDate: project.todayDate,
-            },
+            session: sessionMeta,
             messages: [],
           });
           blob = new Blob([metaOnly], { type: "application/json" });
@@ -341,6 +347,10 @@ export function useSessionSync() {
               todayTokensOut: Math.max(serverProject.todayTokensOut, (lp.todayTokensOut as number) ?? 0),
               todayMessageCount: Math.max(serverProject.todayMessageCount, (lp.todayMessageCount as number) ?? 0),
               totalCost: Math.max(serverProject.totalCost, (lp.totalCost as number) ?? 0),
+              weekCost: Math.max(serverProject.weekCost ?? 0, (lp.weekCost as number) ?? 0),
+              weekKey: serverProject.weekKey ?? (lp.weekKey as string) ?? undefined,
+              monthCost: Math.max(serverProject.monthCost ?? 0, (lp.monthCost as number) ?? 0),
+              monthKey: serverProject.monthKey ?? (lp.monthKey as string) ?? undefined,
               connectedServices: localProject.connectedServices ?? {},
             });
             continue;
@@ -384,9 +394,23 @@ export function useSessionSync() {
           }
         }
 
-        let nextActiveProjectId = merged.some((p) => p.id === store.activeProjectId)
-          ? store.activeProjectId
-          : merged[0]?.id ?? store.activeProjectId;
+        // Choose the best active project:
+        // If current active project is a bare default with no messages and the server
+        // returned sessions with actual content, switch to the most recently used one.
+        const currentInMerged = merged.find((p) => p.id === store.activeProjectId);
+        const currentIsEmpty = currentInMerged && currentInMerged.messages.length === 0 && currentInMerged.totalCost === 0;
+        const serverHasContent = merged.some((p) => p.id !== store.activeProjectId && (p.messages.length > 0 || p.totalCost > 0));
+
+        let nextActiveProjectId: string;
+        if (currentInMerged && !currentIsEmpty) {
+          nextActiveProjectId = store.activeProjectId;
+        } else if (currentIsEmpty && serverHasContent) {
+          // Prefer a server session with content over an empty default
+          const best = merged.find((p) => p.id !== store.activeProjectId && (p.messages.length > 0 || p.totalCost > 0));
+          nextActiveProjectId = best?.id ?? store.activeProjectId;
+        } else {
+          nextActiveProjectId = merged[0]?.id ?? store.activeProjectId;
+        }
 
         useMeterStore.setState(() => ({
           projects: merged,
