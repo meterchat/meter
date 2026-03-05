@@ -299,10 +299,10 @@ export default function ExplainerPage() {
 
         {/* 4: Introducing Meter */}
         <div className={`scene ${current === 3 ? "active" : ""}`}>
+          <div className="intro-label">Introducing</div>
           <div className="meter-logo-large">
-            <Image src="/logo-light.webp" alt="Meter" width={400} height={100} style={{ width: "clamp(240px, 30vw, 400px)", height: "auto" }} priority />
+            <Image src="/logo-light.webp" alt="Meter" width={600} height={150} style={{ width: "clamp(360px, 45vw, 600px)", height: "auto" }} priority />
           </div>
-          <div className="tagline-intro">Introducing Meter.</div>
         </div>
 
         {/* 5: The first pay per thought AI */}
@@ -385,10 +385,10 @@ export default function ExplainerPage() {
         {/* 12: Auto-settle */}
         <div className={`scene ${current === 11 ? "active" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
-            <div className="headline">Meter auto-settles your spend to your saved card on an ongoing basis.</div>
+            <div className="headline">Meter auto-settles your ongoing spend.</div>
           </div>
           <div className="settle-container">
-            <div className="settle-amount">$0.042</div>
+            <div className="settle-amount">$10.04</div>
             <div className="settle-btn">
               <span className="settle-text-default">Settle</span>
               <span className="settle-text-settling">
@@ -419,7 +419,7 @@ export default function ExplainerPage() {
           <div className="cta-container">
             <div className="beta-badge">Public Beta</div>
             <div className="scene-text" style={{ marginBottom: 24 }}>
-              <div className="headline">Meter is now live in public beta.</div>
+              <div className="headline">Meter is now live in public beta. Sign up at</div>
             </div>
             <div className="cta-url">meter.chat</div>
           </div>
@@ -519,11 +519,11 @@ const styles = `
   .pill-name { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.6); letter-spacing: -0.2px; }
 
   /* ── Logo reveal ── */
-  .meter-logo-large { margin-bottom: 28px; opacity: 0; transform: scale(0.5); }
-  .tagline-intro {
+  .intro-label {
     font-size: clamp(18px, 1.8vw, 26px); font-weight: 300;
-    color: rgba(255,255,255,0.4); letter-spacing: -0.3px;
+    color: rgba(255,255,255,0.4); letter-spacing: -0.3px; margin-bottom: 24px;
   }
+  .meter-logo-large { margin-bottom: 28px; opacity: 0; transform: scale(0.5); }
 
   /* ── Cost stream ── */
   .cost-stream { display: flex; align-items: center; gap: 40px; }
