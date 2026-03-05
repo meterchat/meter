@@ -75,7 +75,7 @@ export default function ExplainerPage() {
   const [playing, setPlaying] = useState(false);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const costIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const totalScenes = 16;
+  const totalScenes = 15;
 
   const sceneDurations = [
     5500, // 1: why pay hundreds
@@ -91,9 +91,8 @@ export default function ExplainerPage() {
     5500, // 11: log decisions
     5000, // 12: auto-settle
     4500, // 13: spend time thinking
-    5500, // 14: future gym memberships
-    5000, // 15: public beta CTA
-    5000, // 16: closing tagline
+    5000, // 14: public beta CTA
+    5000, // 15: closing tagline
   ];
 
   useEffect(() => {
@@ -201,15 +200,15 @@ export default function ExplainerPage() {
         setTimeout(() => { btn.classList.remove("settling"); btn.classList.add("settled"); }, 3000);
       }
     }
-    // Frame 15: CTA
-    if (i === 14) {
+    // Frame 14: CTA
+    if (i === 13) {
       const b = document.querySelector<HTMLElement>(".beta-badge");
       const url = document.querySelector<HTMLElement>(".cta-url");
       if (b) setTimeout(() => { b.style.transition = "opacity 0.5s ease"; b.style.opacity = "1"; }, 200);
       if (url) setTimeout(() => { url.style.transition = "opacity 0.7s ease, transform 0.7s ease"; url.style.opacity = "1"; url.style.transform = "translateY(0)"; }, 600);
     }
-    // Frame 16: closing
-    if (i === 15) {
+    // Frame 15: closing
+    if (i === 14) {
       const ct = document.querySelector<HTMLElement>(".closing-tagline");
       if (ct) setTimeout(() => { ct.style.transition = "opacity 1s ease"; ct.style.opacity = "1"; }, 300);
     }
@@ -298,7 +297,7 @@ export default function ExplainerPage() {
         <div className={`scene ${current === 3 ? "active" : ""}`}>
           <div className="intro-label">Introducing</div>
           <div className="meter-logo-large">
-            <Image src="/logo-dark.webp" alt="Meter" width={500} height={125} style={{ width: "clamp(280px, 35vw, 500px)", height: "auto" }} priority />
+            <Image src="/logo-dark.webp" alt="Meter" width={380} height={95} style={{ width: "clamp(220px, 26vw, 380px)", height: "auto" }} priority />
           </div>
         </div>
 
@@ -411,15 +410,8 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* 14: Future / gym memberships */}
+        {/* 14: Public beta CTA */}
         <div className={`scene ${current === 13 ? "active" : ""}`}>
-          <div className="future-text">
-            <div className="big">In the future everyone will wonder why they ever paid to think like they do gym memberships.</div>
-          </div>
-        </div>
-
-        {/* 15: Public beta CTA */}
-        <div className={`scene ${current === 14 ? "active" : ""}`}>
           <div className="cta-container">
             <div className="beta-badge">Public Beta</div>
             <div className="scene-text" style={{ marginBottom: 24 }}>
@@ -429,8 +421,8 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* 16: Closing – tagline only */}
-        <div className={`scene ${current === 15 ? "active" : ""}`}>
+        {/* 15: Closing – tagline only */}
+        <div className={`scene ${current === 14 ? "active" : ""}`}>
           <div className="closing-tagline">Think in Meter. Pay per thought.</div>
         </div>
 
@@ -601,13 +593,6 @@ const styles = `
   .settle-btn.settled { border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.08); }
   .settle-spinner { animation: spin 1s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-  /* ── Future ── */
-  .future-text { max-width: 780px; text-align: center; padding: 0 40px; }
-  .future-text .big {
-    font-size: clamp(28px, 3vw, 46px); font-weight: 400; letter-spacing: -1.5px; line-height: 1.3;
-    color: rgba(255,255,255,0.85);
-  }
 
   /* ── CTA ── */
   .cta-container { text-align: center; }
