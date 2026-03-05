@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMeterStore } from "@/lib/store";
 import { apiUrl } from "@/lib/api-url";
 import {
@@ -49,6 +49,130 @@ function credentialToJSON(cred: PublicKeyCredential) {
     clientExtensionResults: cred.getClientExtensionResults(),
     type: cred.type,
   };
+}
+
+// ── Inline video player ─────────────────────────────────────────────────
+function VideoPlayer() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const toggle = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) { v.play(); setPlaying(true); }
+    else { v.pause(); setPlaying(false); }
+  }, []);
+
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden border border-border/40 bg-black cursor-pointer group"
+      onClick={toggle}
+    >
+      <video
+        ref={videoRef}
+        src="/meter.mp4"
+        className="w-full block"
+        playsInline
+        preload="metadata"
+        onEnded={() => setPlaying(false)}
+      />
+      {/* Play button overlay */}
+      <div
+        className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+          playing ? "opacity-0 pointer-events-none group-hover:opacity-100" : "opacity-100"
+        }`}
+      >
+        <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center transition-transform hover:scale-110">
+          {playing ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><polygon points="8,5 19,12 8,19" /></svg>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ASCII art canvas with animated thought stream ───────────────────────
+const ASCII_CHARS = "01$.<>{}()=+-*/&|~^%#@!?:;";
+
+function AsciiCanvas({ side }: { side: "left" | "right" }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    const cols = 28;
+    const fontSize = 14;
+    const rows = 60;
+
+    canvas.width = cols * fontSize * 0.65;
+    canvas.height = rows * fontSize;
+
+    // Each column has a "drop" that falls and leaves fading characters
+    const drops: number[] = Array.from({ length: cols }, () => Math.random() * -rows);
+    const speeds: number[] = Array.from({ length: cols }, () => 0.3 + Math.random() * 0.7);
+    // Grid of character opacity (0..1) and character
+    const grid: { char: string; opacity: number }[][] = Array.from(
+      { length: rows },
+      () => Array.from({ length: cols }, () => ({ char: " ", opacity: 0 }))
+    );
+
+    function draw() {
+      ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
+      ctx!.font = `${fontSize}px "JetBrains Mono", monospace`;
+
+      // Update drops
+      for (let c = 0; c < cols; c++) {
+        drops[c] += speeds[c];
+        const row = Math.floor(drops[c]);
+        if (row >= 0 && row < rows) {
+          grid[row][c] = {
+            char: ASCII_CHARS[Math.floor(Math.random() * ASCII_CHARS.length)],
+            opacity: 0.6,
+          };
+        }
+        if (drops[c] > rows + Math.random() * rows) {
+          drops[c] = Math.random() * -20;
+          speeds[c] = 0.3 + Math.random() * 0.7;
+        }
+      }
+
+      // Draw & fade
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cell = grid[r][c];
+          if (cell.opacity > 0.01) {
+            // Occasionally flicker a nearby character to create "thought" effect
+            if (Math.random() < 0.005) {
+              cell.char = ASCII_CHARS[Math.floor(Math.random() * ASCII_CHARS.length)];
+            }
+            ctx!.fillStyle = `rgba(255,255,255,${cell.opacity * 0.15})`;
+            ctx!.fillText(cell.char, c * fontSize * 0.65, r * fontSize);
+            cell.opacity *= 0.985; // slow fade
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(draw);
+    }
+
+    draw();
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={`fixed top-0 ${side === "left" ? "left-0" : "right-0"} pointer-events-none z-0 hidden lg:block`}
+      style={{ opacity: 0.7 }}
+    />
+  );
 }
 
 // ── Main LoginScreen ────────────────────────────────────────────────────
@@ -300,8 +424,12 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="relative flex h-screen flex-col items-center bg-background px-4">
-      <div className="flex flex-col items-center gap-8 max-w-sm text-center mt-[28vh]">
+    <div className="relative flex min-h-screen flex-col items-center bg-background px-4 overflow-y-auto overflow-x-hidden">
+      {/* ── ASCII art canvases ── */}
+      <AsciiCanvas side="left" />
+      <AsciiCanvas side="right" />
+
+      <div className="relative z-10 flex flex-col items-center gap-6 max-w-sm text-center mt-[10vh]">
         {/* Logo — always visible */}
         <div className="flex flex-col items-center gap-4">
           <Image
@@ -410,11 +538,15 @@ export function LoginScreen() {
             </button>
           </div>
         )}
+      </div>
 
+      {/* ── Demo video ── */}
+      <div className="relative z-10 w-full max-w-3xl mt-12 mb-32 px-4">
+        <VideoPlayer />
       </div>
 
       {/* Footer — always visible */}
-      <div className="absolute bottom-8 flex flex-col items-center gap-3">
+      <div className="fixed bottom-8 z-20 flex flex-col items-center gap-3">
         <div className="flex items-center gap-3">
           <a href="https://x.com/meterchat" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/40 hover:text-muted-foreground transition-colors">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
