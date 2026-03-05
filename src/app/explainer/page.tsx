@@ -72,10 +72,15 @@ const CLIP_PLACEHOLDER = (
 export default function ExplainerPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [current, setCurrent] = useState(0);
+  const [visible, setVisible] = useState(0);
+  const [fading, setFading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const costIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const transitionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const totalScenes = 15;
+  const FADE_OUT_MS = 400;
+  const FADE_IN_MS = 400;
 
   const sceneDurations = [
     5500, // 1: why pay hundreds
@@ -108,11 +113,32 @@ export default function ExplainerPage() {
   }, []);
 
   useEffect(() => {
-    resetAll();
-    const t = setTimeout(() => animate(current), 50);
-    return () => clearTimeout(t);
+    if (current === visible && !fading) return;
+    // Phase 1: fade out current scene
+    setFading(true);
+    if (transitionRef.current) clearTimeout(transitionRef.current);
+    transitionRef.current = setTimeout(() => {
+      // Phase 2: at black, swap content and reset animations
+      resetAll();
+      setVisible(current);
+      // Phase 3: small delay then fade in
+      transitionRef.current = setTimeout(() => {
+        setFading(false);
+        animate(current);
+      }, 80);
+    }, FADE_OUT_MS);
+    return () => { if (transitionRef.current) clearTimeout(transitionRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
+
+  // Initial mount: show first scene
+  useEffect(() => {
+    setFading(false);
+    setVisible(0);
+    const t = setTimeout(() => animate(0), 50);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function resetAll() {
     document.querySelectorAll<HTMLElement>(".tool-card").forEach((c) => {
@@ -242,7 +268,7 @@ export default function ExplainerPage() {
   }, [goNext, goPrev, stopAutoplay]);
 
   const progressWidth = ((current + 1) / totalScenes) * 100;
-  const counterText = `${String(current + 1).padStart(2, "0")} / ${String(totalScenes).padStart(2, "0")}`;
+
 
   return (
     <>
@@ -254,7 +280,7 @@ export default function ExplainerPage() {
         <div className="glow-orb glow-3" />
 
         {/* 1: Why pay hundreds */}
-        <div className={`scene ${current === 0 ? "active" : ""}`}>
+        <div className={`scene ${visible === 0 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">Why pay hundreds of dollars a month for subscriptions you barely use.</div>
           </div>
@@ -274,7 +300,7 @@ export default function ExplainerPage() {
         </div>
 
         {/* 2: When you can pay per thought */}
-        <div className={`scene ${current === 1 ? "active" : ""}`}>
+        <div className={`scene ${visible === 1 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">When you can pay per thought.</div>
           </div>
@@ -287,14 +313,14 @@ export default function ExplainerPage() {
         </div>
 
         {/* 3: Intelligence metered like electricity */}
-        <div className={`scene ${current === 2 ? "active" : ""}`}>
+        <div className={`scene ${visible === 2 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text">
             <div className="headline">Intelligence needs to be metered like electricity.</div>
           </div>
         </div>
 
         {/* 4: Introducing Meter */}
-        <div className={`scene ${current === 3 ? "active" : ""}`}>
+        <div className={`scene ${visible === 3 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="intro-label">Introducing</div>
           <div className="meter-logo-large">
             <Image src="/logo-dark.webp" alt="Meter" width={380} height={95} style={{ width: "clamp(220px, 26vw, 380px)", height: "auto" }} priority />
@@ -302,27 +328,27 @@ export default function ExplainerPage() {
         </div>
 
         {/* 5: The first pay per thought AI */}
-        <div className={`scene ${current === 4 ? "active" : ""}`}>
+        <div className={`scene ${visible === 4 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text">
             <div className="headline">The first pay-per-thought AI.</div>
           </div>
         </div>
 
         {/* 6: Clip – meter counter streaming */}
-        <div className={`scene ${current === 5 ? "active" : ""}`}>
+        <div className={`scene ${visible === 5 ? "active" : ""} ${fading ? "fading" : ""}`}>
           {CLIP_PLACEHOLDER}
           <div className="clip-label">Insert clip: app meter counter streaming</div>
         </div>
 
         {/* 7: Think first, pay later */}
-        <div className={`scene ${current === 6 ? "active" : ""}`}>
+        <div className={`scene ${visible === 6 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text">
             <div className="headline">Meter lets you think first, pay later.</div>
           </div>
         </div>
 
         {/* 8: Chat with top AI models – pills with logos */}
-        <div className={`scene ${current === 7 ? "active" : ""}`}>
+        <div className={`scene ${visible === 7 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">It lets you chat with the top AI models.</div>
           </div>
@@ -337,7 +363,7 @@ export default function ExplainerPage() {
         </div>
 
         {/* 9: Debate in real time */}
-        <div className={`scene ${current === 8 ? "active" : ""}`}>
+        <div className={`scene ${visible === 8 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">And gets them to debate your ideas in real time.</div>
           </div>
@@ -355,13 +381,13 @@ export default function ExplainerPage() {
         </div>
 
         {/* 10: Clip – debate mode */}
-        <div className={`scene ${current === 9 ? "active" : ""}`}>
+        <div className={`scene ${visible === 9 ? "active" : ""} ${fading ? "fading" : ""}`}>
           {CLIP_PLACEHOLDER}
           <div className="clip-label">Insert clip: debate mode</div>
         </div>
 
         {/* 11: Log decisions with one tap */}
-        <div className={`scene ${current === 10 ? "active" : ""}`}>
+        <div className={`scene ${visible === 10 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">And when you have conviction, log decisions with one tap.</div>
           </div>
@@ -379,7 +405,7 @@ export default function ExplainerPage() {
         </div>
 
         {/* 12: Auto-settle */}
-        <div className={`scene ${current === 11 ? "active" : ""}`}>
+        <div className={`scene ${visible === 11 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">Meter auto-settles your ongoing spend.</div>
           </div>
@@ -404,14 +430,14 @@ export default function ExplainerPage() {
         </div>
 
         {/* 13: Spend time thinking, not rate-limiting */}
-        <div className={`scene ${current === 12 ? "active" : ""}`}>
+        <div className={`scene ${visible === 12 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text">
             <div className="headline">So you can spend your time thinking and not rate-limiting.</div>
           </div>
         </div>
 
         {/* 14: Public beta CTA */}
-        <div className={`scene ${current === 13 ? "active" : ""}`}>
+        <div className={`scene ${visible === 13 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="cta-container">
             <div className="beta-badge">Public Beta</div>
             <div className="scene-text" style={{ marginBottom: 24 }}>
@@ -422,7 +448,7 @@ export default function ExplainerPage() {
         </div>
 
         {/* 15: Closing – tagline only */}
-        <div className={`scene ${current === 14 ? "active" : ""}`}>
+        <div className={`scene ${visible === 14 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="closing-tagline">Think in Meter. Pay per thought.</div>
         </div>
 
@@ -436,11 +462,11 @@ const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-  body { margin: 0; padding: 0; background: #060f0a; overflow: hidden; }
+  body { margin: 0; padding: 0; background: #1a1a1a; overflow: hidden; }
 
   .explainer-root {
     width: 100vw; height: 100vh;
-    background: #060f0a; color: #fff;
+    background: #1a1a1a; color: #fff;
     font-family: 'Inter', -apple-system, sans-serif;
     overflow: hidden; position: relative;
     -webkit-font-smoothing: antialiased;
@@ -451,11 +477,12 @@ const styles = `
   .scene {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center; flex-direction: column;
-    z-index: 1; opacity: 0; transform: scale(0.97);
-    transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1);
+    z-index: 1; opacity: 0;
+    transition: opacity 0.4s ease;
     pointer-events: none;
   }
-  .scene.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+  .scene.active { opacity: 1; pointer-events: auto; }
+  .scene.active.fading { opacity: 0; }
 
   .scene-text { text-align: center; max-width: 900px; padding: 0 40px; }
 
