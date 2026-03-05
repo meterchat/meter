@@ -130,7 +130,7 @@ Parse "delta" events for streamed text. "usage" has final token counts and confi
               <span className="font-mono text-xs text-foreground">{email}</span>
             </button>
             {dropdownOpen && (
-              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-[#191b19] shadow-lg overflow-hidden z-50">
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-[#142019] shadow-lg overflow-hidden z-50">
                 <button
                   onClick={() => { logout(); setDropdownOpen(false); }}
                   className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-400/10 transition-colors"
@@ -249,8 +249,8 @@ Parse "delta" events for streamed text. "usage" has final token counts and confi
                 onClick={() => setCodeTab(tab.key)}
                 className={`px-3 py-1.5 rounded-md font-mono text-[11px] transition-colors ${
                   codeTab === tab.key
-                    ? "bg-white/[0.06] text-foreground"
-                    : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-white/[0.03]"
+                    ? "bg-emerald-400/[0.08] text-foreground"
+                    : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-emerald-400/[0.04]"
                 }`}
               >
                 {tab.label}
@@ -259,12 +259,12 @@ Parse "delta" events for streamed text. "usage" has final token counts and confi
           </div>
 
           <div className="relative">
-            <pre className="rounded-lg bg-[#111412] border border-white/[0.05] p-4 font-mono text-xs text-foreground overflow-x-auto mb-6 leading-relaxed">
+            <pre className="rounded-lg bg-[#0c1610] border border-emerald-400/[0.06] p-4 font-mono text-xs text-foreground overflow-x-auto mb-6 leading-relaxed">
               {activeSnippet}
             </pre>
             <button
               onClick={() => copyText(activeSnippet)}
-              className="absolute top-3 right-3 rounded-md border border-white/[0.05] bg-[#191b19] px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute top-3 right-3 rounded-md border border-emerald-400/[0.06] bg-[#142019] px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors"
             >
               Copy
             </button>
