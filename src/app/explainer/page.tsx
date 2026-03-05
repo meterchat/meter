@@ -159,13 +159,11 @@ export default function ExplainerPage() {
     if (dRight) { dRight.style.opacity = "0"; dRight.style.transform = "translateX(60px)"; }
     if (vs) { vs.style.opacity = "0"; vs.style.transform = "scale(0)"; }
     const dc = document.querySelector<HTMLElement>(".decision-card");
-    if (dc) { dc.style.opacity = "0"; dc.style.transform = "translateY(30px)"; }
-    const dcCheck = document.querySelector<HTMLElement>(".dc-check");
-    if (dcCheck) { dcCheck.style.opacity = "0"; dcCheck.style.transform = "scale(0)"; }
+    if (dc) { dc.style.opacity = "0"; dc.style.transform = "translateY(30px)"; dc.style.position = "relative"; }
     const dLog = document.querySelector<HTMLElement>(".decision-log");
     if (dLog) { dLog.style.opacity = "0"; }
-    document.querySelectorAll<HTMLElement>(".log-line").forEach((l) => {
-      l.style.opacity = "0"; l.style.transform = "translateX(-20px)";
+    document.querySelectorAll<HTMLElement>(".log-entry").forEach((l) => {
+      l.style.opacity = "0"; l.style.transform = "translateY(10px)";
     });
     const settleBtn = document.querySelector<HTMLElement>(".settle-btn");
     if (settleBtn) { settleBtn.style.opacity = "0"; settleBtn.classList.remove("settling", "settled"); }
@@ -219,22 +217,20 @@ export default function ExplainerPage() {
       if (vsEl) setTimeout(() => { vsEl.style.transition = "opacity 0.4s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1)"; vsEl.style.opacity = "1"; vsEl.style.transform = "scale(1)"; }, 700);
       if (right) setTimeout(() => { right.style.transition = "opacity 0.6s ease, transform 0.6s ease"; right.style.opacity = "1"; right.style.transform = "translateX(0)"; }, 1100);
     }
-    // Frame 11: decision card → check → log
+    // Frame 11: decision card appears → fades to scrolling log
     if (i === 10) {
       const card = document.querySelector<HTMLElement>(".decision-card");
-      const check = document.querySelector<HTMLElement>(".dc-check");
       const log = document.querySelector<HTMLElement>(".decision-log");
-      // Step 1: card fades in
+      const entries = document.querySelectorAll<HTMLElement>(".log-entry");
+      // Step 1: card fades in at full size
       if (card) setTimeout(() => { card.style.transition = "opacity 0.7s ease, transform 0.7s ease"; card.style.opacity = "1"; card.style.transform = "translateY(0)"; }, 300);
-      // Step 2: green check overlay appears
-      if (check) setTimeout(() => { check.style.transition = "opacity 0.3s ease, transform 0.3s cubic-bezier(0.34,1.56,0.64,1)"; check.style.opacity = "1"; check.style.transform = "scale(1)"; }, 1800);
-      // Step 3: card fades out, log fades in
-      if (card) setTimeout(() => { card.style.transition = "opacity 0.4s ease"; card.style.opacity = "0"; }, 2800);
-      if (log) setTimeout(() => { log.style.transition = "opacity 0.4s ease"; log.style.opacity = "1"; }, 3200);
-      // Step 4: log lines appear one by one
-      document.querySelectorAll<HTMLElement>(".log-line").forEach((line) => {
-        const delay = parseInt(line.dataset.delay || "0");
-        setTimeout(() => { line.style.transition = "opacity 0.4s ease, transform 0.4s ease"; line.style.opacity = "1"; line.style.transform = "translateX(0)"; }, 3400 + delay);
+      // Step 2: card fades out, log appears
+      if (card) setTimeout(() => { card.style.transition = "opacity 0.4s ease"; card.style.opacity = "0"; card.style.position = "absolute"; }, 2400);
+      if (log) setTimeout(() => { log.style.transition = "opacity 0.3s ease"; log.style.opacity = "1"; }, 2800);
+      // Step 3: log entries appear one by one
+      entries.forEach((entry) => {
+        const delay = parseInt(entry.dataset.delay || "0");
+        setTimeout(() => { entry.style.transition = "opacity 0.4s ease, transform 0.4s ease"; entry.style.opacity = "1"; entry.style.transform = "translateY(0)"; }, 2900 + delay);
       });
     }
     // Frame 12: settle
@@ -410,48 +406,47 @@ export default function ExplainerPage() {
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">And when you have conviction, log decisions with one tap.</div>
           </div>
-          <div className="decision-card">
-            <div className="dc-header">
-              <div className="dc-title">Decision Record</div>
-              <div className="dc-status">Locked</div>
+          <div className="decision-log-area">
+            <div className="decision-card">
+              <div className="dc-header">
+                <div className="dc-title">Decision Record</div>
+                <div className="dc-status">Locked</div>
+              </div>
+              <div className="dc-decision">Use Postgres with JSONB columns</div>
+              <div className="dc-meta">
+                Trade-off: Less horizontal scale, but ACID + rich queries outweigh for current traffic.<br />
+                Debated by Claude &amp; GPT-4o &bull; March 4, 2026
+              </div>
             </div>
-            <div className="dc-decision">Use Postgres with JSONB columns</div>
-            <div className="dc-meta">
-              Trade-off: Less horizontal scale, but ACID + rich queries outweigh for current traffic.<br />
-              Debated by Claude &amp; GPT-4o &bull; March 4, 2026
-            </div>
-            <div className="dc-check">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-            </div>
-          </div>
-          <div className="decision-log">
-            <div className="log-line" data-delay="0">
-              <span className="log-check">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
-              </span>
-              <span className="log-decision">Use Postgres with JSONB columns</span>
-              <span className="log-models">Claude &amp; GPT-4o</span>
-            </div>
-            <div className="log-line" data-delay="200">
-              <span className="log-check">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
-              </span>
-              <span className="log-decision">Ship Stripe billing on day one</span>
-              <span className="log-models">GPT-4o &amp; Gemini</span>
-            </div>
-            <div className="log-line" data-delay="400">
-              <span className="log-check">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
-              </span>
-              <span className="log-decision">Deploy on Vercel, not AWS</span>
-              <span className="log-models">Claude &amp; DeepSeek</span>
-            </div>
-            <div className="log-line" data-delay="600">
-              <span className="log-check">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
-              </span>
-              <span className="log-decision">Use Tailwind over custom CSS</span>
-              <span className="log-models">Gemini &amp; Grok</span>
+            <div className="decision-log">
+              <div className="log-entry" data-delay="0">
+                <span className="log-check">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                </span>
+                <span className="log-text">Use Postgres with JSONB columns</span>
+                <span className="log-models">Claude &amp; GPT-4o</span>
+              </div>
+              <div className="log-entry" data-delay="250">
+                <span className="log-check">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                </span>
+                <span className="log-text">Ship Stripe billing on day one</span>
+                <span className="log-models">GPT-4o &amp; Gemini</span>
+              </div>
+              <div className="log-entry" data-delay="500">
+                <span className="log-check">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                </span>
+                <span className="log-text">Deploy on Vercel, not AWS</span>
+                <span className="log-models">Claude &amp; DeepSeek</span>
+              </div>
+              <div className="log-entry" data-delay="750">
+                <span className="log-check">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                </span>
+                <span className="log-text">Use Tailwind over custom CSS</span>
+                <span className="log-models">Gemini &amp; Grok</span>
+              </div>
             </div>
           </div>
         </div>
@@ -624,12 +619,19 @@ const styles = `
     letter-spacing: 1px; opacity: 0; transform: scale(0);
   }
 
+  /* ── Decision log area ── */
+  .decision-log-area {
+    display: flex; flex-direction: column; align-items: center;
+    width: 500px; position: relative;
+  }
+
   /* ── Decision card ── */
   .decision-card {
-    width: 500px; border-radius: 20px;
+    width: 100%; border-radius: 20px;
     border: 1px solid rgba(255,255,255,0.08);
     background: rgba(255,255,255,0.02);
     padding: 36px; opacity: 0; transform: translateY(30px);
+    position: relative;
   }
   .decision-card .dc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   .decision-card .dc-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.25); font-weight: 500; }
@@ -640,28 +642,21 @@ const styles = `
   }
   .decision-card .dc-decision { font-size: 22px; font-weight: 500; margin-bottom: 14px; letter-spacing: -0.5px; color: #fff; }
   .decision-card .dc-meta { font-size: 13px; color: rgba(255,255,255,0.3); line-height: 1.7; font-weight: 300; }
-  .decision-card { position: relative; }
-  .dc-check {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(74,222,128,0.06); border-radius: 20px;
-    opacity: 0; transform: scale(0);
-  }
 
   /* ── Decision log ── */
   .decision-log {
-    width: 500px; opacity: 0;
-    display: flex; flex-direction: column; gap: 0;
+    width: 100%; opacity: 0;
+    display: flex; flex-direction: column;
   }
-  .log-line {
+  .log-entry {
     display: flex; align-items: center; gap: 12px;
     padding: 14px 20px;
-    border-bottom: 1px solid rgba(74,222,128,0.06);
-    opacity: 0; transform: translateX(-20px);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    opacity: 0; transform: translateY(10px);
   }
-  .log-line:last-child { border-bottom: none; }
+  .log-entry:last-child { border-bottom: none; }
   .log-check { display: flex; align-items: center; flex-shrink: 0; }
-  .log-decision { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.8); letter-spacing: -0.2px; flex: 1; }
+  .log-text { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.8); letter-spacing: -0.2px; flex: 1; }
   .log-models { font-size: 11px; color: rgba(255,255,255,0.2); white-space: nowrap; }
 
   /* ── Settle animation ── */
