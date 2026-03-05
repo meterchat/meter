@@ -301,7 +301,7 @@ export default function ExplainerPage() {
         <div className={`scene ${current === 3 ? "active" : ""}`}>
           <div className="intro-label">Introducing</div>
           <div className="meter-logo-large">
-            <Image src="/logo-light.webp" alt="Meter" width={600} height={150} style={{ width: "clamp(360px, 45vw, 600px)", height: "auto" }} priority />
+            <Image src="/logo-dark.webp" alt="Meter" width={600} height={150} style={{ width: "clamp(360px, 45vw, 600px)", height: "auto" }} priority />
           </div>
         </div>
 
@@ -419,7 +419,7 @@ export default function ExplainerPage() {
           <div className="cta-container">
             <div className="beta-badge">Public Beta</div>
             <div className="scene-text" style={{ marginBottom: 24 }}>
-              <div className="headline">Meter is now live in public beta. Sign up at</div>
+              <div className="headline">Sign up at</div>
             </div>
             <div className="cta-url">meter.chat</div>
           </div>
@@ -428,7 +428,7 @@ export default function ExplainerPage() {
         {/* 15: Closing – logo image + tagline */}
         <div className={`scene ${current === 14 ? "active" : ""}`}>
           <div className="closing-logo">
-            <Image src="/logo-light.webp" alt="Meter" width={300} height={75} style={{ width: "clamp(180px, 22vw, 300px)", height: "auto" }} priority />
+            <Image src="/logo-dark.webp" alt="Meter" width={300} height={75} style={{ width: "clamp(180px, 22vw, 300px)", height: "auto" }} priority />
           </div>
           <div className="closing-tagline">Think in Meter. Pay per thought.</div>
         </div>
