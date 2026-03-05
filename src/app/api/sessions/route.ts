@@ -33,29 +33,63 @@ export async function GET() {
 
     if (sessErr) throw sessErr;
 
-    // Load messages per session to avoid Supabase's default 1000-row limit.
-    // Order descending to get the MOST RECENT 10k, then reverse to chronological.
+    // Load the most recent 200 messages per session for initial display.
+    // Older messages are loaded on demand via paginated endpoint.
+    const INITIAL_MESSAGE_LIMIT = 200;
     const messagesBySession: Record<string, Record<string, unknown>[]> = {};
+    const aggregatesBySession: Record<string, { totalTokensIn: number; totalTokensOut: number; totalMessageCount: number; hasMore: boolean }> = {};
+
     for (const session of sessions ?? []) {
+      // Fetch recent messages (limit+1 to check hasMore)
       const { data: msgs, error: msgErr } = await supabase
         .from("chat_messages")
         .select("*")
         .eq("session_id", session.id)
         .order("timestamp", { ascending: false })
-        .limit(10000);
+        .limit(INITIAL_MESSAGE_LIMIT + 1);
       if (msgErr) throw msgErr;
-      messagesBySession[session.id] = ((msgs ?? []) as Record<string, unknown>[]).reverse();
+
+      const rows = (msgs ?? []) as Record<string, unknown>[];
+      const hasMore = rows.length > INITIAL_MESSAGE_LIMIT;
+      const pageRows = hasMore ? rows.slice(0, INITIAL_MESSAGE_LIMIT) : rows;
+      pageRows.reverse();
+      messagesBySession[session.id] = pageRows;
+
+      // Fetch aggregate token counts for full session
+      const { data: agg, error: aggErr } = await supabase
+        .from("chat_messages")
+        .select("tokens_in, tokens_out")
+        .eq("session_id", session.id);
+
+      let totalTokensIn = 0;
+      let totalTokensOut = 0;
+      let totalMessageCount = 0;
+      if (!aggErr && agg) {
+        totalMessageCount = agg.length;
+        for (const row of agg) {
+          totalTokensIn += (row.tokens_in as number) ?? 0;
+          totalTokensOut += (row.tokens_out as number) ?? 0;
+        }
+      }
+      aggregatesBySession[session.id] = { totalTokensIn, totalTokensOut, totalMessageCount, hasMore };
     }
 
     // Return sessions with unscoped IDs so the client sees its original local IDs
-    const result = (sessions ?? []).map((s) => ({
-      ...s,
-      id: unscopedId(userId, s.id),
-      messages: (messagesBySession[s.id] ?? []).map((m) => ({
-        ...m,
-        session_id: unscopedId(userId, m.session_id as string),
-      })),
-    }));
+    const result = (sessions ?? []).map((s) => {
+      const agg = aggregatesBySession[s.id] ?? { totalTokensIn: 0, totalTokensOut: 0, totalMessageCount: 0, hasMore: false };
+      return {
+        ...s,
+        id: unscopedId(userId, s.id),
+        messages: (messagesBySession[s.id] ?? []).map((m) => ({
+          ...m,
+          session_id: unscopedId(userId, m.session_id as string),
+        })),
+        total_tokens_in: agg.totalTokensIn,
+        total_tokens_out: agg.totalTokensOut,
+        total_message_count: agg.totalMessageCount,
+        has_more_messages: agg.hasMore,
+      };
+    });
 
     return NextResponse.json({ sessions: result });
   } catch (err) {

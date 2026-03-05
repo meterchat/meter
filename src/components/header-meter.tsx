@@ -126,9 +126,17 @@ export function HeaderMeter() {
     const weekAvg = week / daysIntoWeek;
     const monthAvg = month / daysIntoMonth;
 
-    const totalTokensIn = assistantMsgs.reduce((sum, m) => sum + (m.tokensIn ?? 0), 0);
-    const totalTokensOut = assistantMsgs.reduce((sum, m) => sum + (m.tokensOut ?? 0), 0);
-    const totalMessages = assistantMsgs.length;
+    // Use server aggregates for accurate totals (messages may be partially loaded via pagination)
+    const serverTokensIn = activeProject?.serverTokensIn ?? 0;
+    const serverTokensOut = activeProject?.serverTokensOut ?? 0;
+    const serverMsgCount = activeProject?.serverMessageCount ?? 0;
+
+    // Add tokens from messages sent in the current session that may not be in server aggregates yet
+    const loadedTokensIn = assistantMsgs.reduce((sum, m) => sum + (m.tokensIn ?? 0), 0);
+    const loadedTokensOut = assistantMsgs.reduce((sum, m) => sum + (m.tokensOut ?? 0), 0);
+    const totalTokensIn = Math.max(serverTokensIn, loadedTokensIn);
+    const totalTokensOut = Math.max(serverTokensOut, loadedTokensOut);
+    const totalMessages = Math.max(serverMsgCount, assistantMsgs.length);
     const settledCount = assistantMsgs.filter((m) => m.settled).length;
     const pendingCount = assistantMsgs.filter((m) => !m.settled).length;
 

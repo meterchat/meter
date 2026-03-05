@@ -902,6 +902,8 @@ export function ChatView() {
     };
   }, []);
 
+  const fetchOlderMessages = useMeterStore((s) => s.fetchOlderMessages);
+
   const handleScroll = useCallback(() => {
     if (isProgrammaticScrollRef.current) return;
     const el = scrollRef.current;
@@ -912,7 +914,23 @@ export function ChatView() {
     if (nearBottom && Date.now() - scrollAwayAtRef.current > 500) {
       userScrolledAwayRef.current = false;
     }
-  }, []);
+
+    // Pagination: load older messages when scrolled near top
+    if (
+      el.scrollTop < 100 &&
+      activeProject?.hasOlderMessages &&
+      !activeProject?.loadingOlderMessages
+    ) {
+      const prevScrollHeight = el.scrollHeight;
+      fetchOlderMessages(activeProjectId).then(() => {
+        // Preserve scroll position after older messages are prepended
+        requestAnimationFrame(() => {
+          const newScrollHeight = el.scrollHeight;
+          el.scrollTop = newScrollHeight - prevScrollHeight;
+        });
+      });
+    }
+  }, [activeProject?.hasOlderMessages, activeProject?.loadingOlderMessages, activeProjectId, fetchOlderMessages]);
 
   // Auto-scroll using instant scrollTop (no smooth animation that fights
   // with user scroll). Guarded by isProgrammaticScrollRef so our own scroll
@@ -1759,6 +1777,18 @@ export function ChatView() {
               <div className="flex flex-col items-center justify-center gap-3 py-24">
                 <p className="text-sm text-muted-foreground">What are you building in {activeProject?.name ?? "this workspace"}?</p>
                 <p className="font-mono text-[10px] text-muted-foreground/40">Every model available. The meter runs in dollars.</p>
+              </div>
+            )}
+
+            {activeProject?.loadingOlderMessages && (
+              <div className="flex items-center justify-center py-4">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+                <span className="ml-2 text-xs text-muted-foreground">Loading older messages...</span>
+              </div>
+            )}
+            {activeProject?.hasOlderMessages && !activeProject?.loadingOlderMessages && (
+              <div className="flex items-center justify-center py-2">
+                <span className="text-[10px] text-muted-foreground/40">Scroll up for older messages</span>
               </div>
             )}
 

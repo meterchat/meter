@@ -21,6 +21,11 @@ interface ServerSession {
   today_tokens_out?: number;
   today_message_count?: number;
   today_date?: string;
+  // Pagination aggregates
+  total_tokens_in?: number;
+  total_tokens_out?: number;
+  total_message_count?: number;
+  has_more_messages?: boolean;
   [key: string]: unknown;
 }
 
@@ -32,6 +37,7 @@ export function useSessionSync() {
   const attemptDailySettlement = useMeterStore((s) => s.attemptDailySettlement);
   const lastSyncRef = useRef<string>("");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncedMessageCountRef = useRef<Map<string, number>>(new Map());
   const todayStr = () => {
     const now = new Date();
     const yyyy = now.getFullYear();
@@ -95,6 +101,13 @@ export function useSessionSync() {
       totalCost: Math.max(totalFromSession, totalFromMessages),
       currentMessageCost: 0,
       connectedServices: existingConnectedServices ?? {},
+      // Pagination state
+      hasOlderMessages: session.has_more_messages ?? false,
+      loadingOlderMessages: false,
+      oldestLoadedTimestamp: messages.length > 0 ? messages[0].timestamp : null,
+      serverTokensIn: Number(session.total_tokens_in ?? 0),
+      serverTokensOut: Number(session.total_tokens_out ?? 0),
+      serverMessageCount: Number(session.total_message_count ?? 0),
     };
   };
 
@@ -154,6 +167,10 @@ export function useSessionSync() {
     if (allOk) {
       lastSyncRef.current = snapshot;
       syncFailCountRef.current = 0;
+      // Track synced message counts for sendBeacon delta
+      for (const project of projects) {
+        syncedMessageCountRef.current.set(project.id, project.messages.length);
+      }
     } else {
       syncFailCountRef.current += 1;
       if (syncFailCountRef.current >= 3) {
@@ -211,27 +228,49 @@ export function useSessionSync() {
     if (!authenticated) return;
 
     const handleBeforeUnload = () => {
-      // Use sendBeacon with Blob for reliable unload sync
-      // (Blob ensures Content-Type: application/json; plain string sends as text/plain)
+      // Send only delta messages since last successful sync to stay under
+      // the ~64KB sendBeacon payload limit.
       for (const project of projects) {
-        const blob = new Blob(
-          [
-            JSON.stringify({
-              session: {
-                id: project.id,
-                name: project.name,
-                totalCost: project.totalCost,
-                todayCost: project.todayCost,
-                todayTokensIn: project.todayTokensIn,
-                todayTokensOut: project.todayTokensOut,
-                todayMessageCount: project.todayMessageCount,
-                todayDate: project.todayDate,
-              },
-              messages: project.messages,
-            }),
-          ],
-          { type: "application/json" }
-        );
+        const syncedCount = syncedMessageCountRef.current.get(project.id) ?? 0;
+        const deltaMessages = project.messages.slice(syncedCount);
+
+        const payload = JSON.stringify({
+          session: {
+            id: project.id,
+            name: project.name,
+            totalCost: project.totalCost,
+            todayCost: project.todayCost,
+            todayTokensIn: project.todayTokensIn,
+            todayTokensOut: project.todayTokensOut,
+            todayMessageCount: project.todayMessageCount,
+            todayDate: project.todayDate,
+          },
+          messages: deltaMessages,
+        });
+
+        // Safety: if payload still exceeds ~60KB, truncate to last N messages that fit
+        const MAX_BEACON_BYTES = 60_000;
+        let blob: Blob;
+        if (payload.length > MAX_BEACON_BYTES && deltaMessages.length > 1) {
+          // Send only session metadata (guaranteed small) — periodic sync handles messages
+          const metaOnly = JSON.stringify({
+            session: {
+              id: project.id,
+              name: project.name,
+              totalCost: project.totalCost,
+              todayCost: project.todayCost,
+              todayTokensIn: project.todayTokensIn,
+              todayTokensOut: project.todayTokensOut,
+              todayMessageCount: project.todayMessageCount,
+              todayDate: project.todayDate,
+            },
+            messages: [],
+          });
+          blob = new Blob([metaOnly], { type: "application/json" });
+        } else {
+          blob = new Blob([payload], { type: "application/json" });
+        }
+
         navigator.sendBeacon("/api/sessions", blob);
       }
     };
@@ -271,67 +310,74 @@ export function useSessionSync() {
         const serverSessions = data.sessions as ServerSession[];
 
         const localById = new Map(store.projects.map((p) => [p.id, p]));
-        const hasLocalMessages = store.projects.some((p) => p.messages.length > 0);
-        if (!hasLocalMessages) {
-          const serverProjects = serverSessions.map((s) =>
-            buildProjectFromSession(s, localById.get(s.id)?.connectedServices)
-          );
-          if (serverProjects.length > 0) {
-            useMeterStore.setState((s) => ({
-              projects: serverProjects,
-              activeProjectId: serverProjects.some((p) => p.id === s.activeProjectId)
-                ? s.activeProjectId
-                : serverProjects[0].id,
-            }));
-            useMeterStore.getState().resetDailyIfNeeded();
-            useMeterStore.getState().attemptDailySettlement();
-            const activeSessionId = serverProjects.some((p) => p.id === store.activeProjectId)
-              ? store.activeProjectId
-              : serverProjects[0].id;
-            useWorkspaceStore
-              .getState()
-              .upsertCompaniesFromSessions(serverSessions, activeSessionId);
-          } else {
-            useWorkspaceStore.getState().upsertCompaniesFromSessions(serverSessions, store.activeProjectId);
-          }
-          useMeterStore.getState().fetchConnectionStatus();
-          useMeterStore.getState().setSessionsLoaded(true);
-          return;
-        }
+        const serverById = new Map(serverSessions.map((s) => [s.id as string, s]));
 
-        const merged = [...store.projects];
-        let changed = false;
+        // Union merge: combine local and server sessions, merging messages by ID
+        const merged: ReturnType<typeof buildProjectFromSession>[] = [];
 
+        // Process all server sessions (merge with local if exists)
         for (const serverSession of serverSessions) {
           const serverId = serverSession.id as string;
           const localProject = localById.get(serverId);
-          if (!localProject) {
-            merged.push(buildProjectFromSession(serverSession));
-            changed = true;
+          const serverProject = buildProjectFromSession(
+            serverSession,
+            localProject?.connectedServices,
+          );
+
+          if (!localProject || localProject.messages.length === 0) {
+            // No local data or empty local — use server as-is
+            merged.push(serverProject);
             continue;
           }
 
-          if (localProject.messages.length === 0 && Array.isArray(serverSession.messages) && serverSession.messages.length > 0) {
-            const idx = merged.findIndex((p) => p.id === serverId);
-            if (idx >= 0) {
-              merged[idx] = buildProjectFromSession(serverSession, localProject.connectedServices);
-              changed = true;
+          // Union merge messages by ID, preferring server version (has settlement data)
+          const msgMap = new Map(
+            localProject.messages.map((m) => [m.id, m]),
+          );
+          for (const sm of serverProject.messages) {
+            const existing = msgMap.get(sm.id);
+            if (!existing) {
+              msgMap.set(sm.id, sm);
+            } else {
+              // Server wins if it has settlement/receipt fields the local version lacks
+              if (
+                (sm.settled && !existing.settled) ||
+                (sm.receiptStatus && !existing.receiptStatus)
+              ) {
+                msgMap.set(sm.id, sm);
+              }
             }
+          }
+
+          const mergedMessages = Array.from(msgMap.values()).sort(
+            (a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0),
+          );
+
+          merged.push({
+            ...serverProject,
+            messages: mergedMessages,
+            totalCost: Math.max(serverProject.totalCost, localProject.totalCost),
+            connectedServices: localProject.connectedServices ?? {},
+          });
+        }
+
+        // Keep local-only sessions (not yet synced to server)
+        for (const localProject of store.projects) {
+          if (!serverById.has(localProject.id)) {
+            merged.push(localProject as ReturnType<typeof buildProjectFromSession>);
           }
         }
 
-        let nextActiveProjectId = store.activeProjectId;
-        if (changed) {
-          nextActiveProjectId = merged.some((p) => p.id === store.activeProjectId)
-            ? store.activeProjectId
-            : merged[0]?.id ?? store.activeProjectId;
-          useMeterStore.setState((s) => ({
-            projects: merged,
-            activeProjectId: nextActiveProjectId,
-          }));
-          useMeterStore.getState().resetDailyIfNeeded();
-          useMeterStore.getState().attemptDailySettlement();
-        }
+        let nextActiveProjectId = merged.some((p) => p.id === store.activeProjectId)
+          ? store.activeProjectId
+          : merged[0]?.id ?? store.activeProjectId;
+
+        useMeterStore.setState(() => ({
+          projects: merged,
+          activeProjectId: nextActiveProjectId,
+        }));
+        useMeterStore.getState().resetDailyIfNeeded();
+        useMeterStore.getState().attemptDailySettlement();
 
         useWorkspaceStore.getState().upsertCompaniesFromSessions(serverSessions, nextActiveProjectId);
         useMeterStore.getState().fetchConnectionStatus();
