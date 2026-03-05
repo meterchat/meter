@@ -102,7 +102,7 @@ export default function ExplainerPage() {
     if (!ctx) return;
     canvas.width = 1920; canvas.height = 1080;
     ctx.clearRect(0, 0, 1920, 1080);
-    ctx.strokeStyle = "rgba(74,222,128,0.03)"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255,255,255,0.02)"; ctx.lineWidth = 1;
     for (let x = 0; x < 1920; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1080); ctx.stroke(); }
     for (let y = 0; y < 1080; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1920, y); ctx.stroke(); }
   }, []);
@@ -436,11 +436,11 @@ const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-  body { margin: 0; padding: 0; background: #060f0a; overflow: hidden; }
+  body { margin: 0; padding: 0; background: #000; overflow: hidden; }
 
   .explainer-root {
     width: 100vw; height: 100vh;
-    background: #060f0a; color: #fff;
+    background: #000; color: #fff;
     font-family: 'Inter', -apple-system, sans-serif;
     overflow: hidden; position: relative;
     -webkit-font-smoothing: antialiased;
@@ -469,8 +469,8 @@ const styles = `
   .clip-placeholder {
     display: flex; flex-direction: column; align-items: center; gap: 24px;
     padding: 60px 80px; border-radius: 20px;
-    border: 2px dashed rgba(74,222,128,0.12);
-    background: rgba(74,222,128,0.03); margin-bottom: 16px;
+    border: 2px dashed rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.02); margin-bottom: 16px;
   }
   .clip-label { font-size: 15px; font-weight: 400; color: rgba(255,255,255,0.25); }
 
@@ -479,8 +479,8 @@ const styles = `
 
   .tool-card {
     width: 180px; height: 240px; border-radius: 16px;
-    border: 1px solid rgba(74,222,128,0.1);
-    background: rgba(74,222,128,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
     backdrop-filter: blur(20px);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
     opacity: 0; transform: translateY(30px);
@@ -497,8 +497,8 @@ const styles = `
   .model-pill {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 22px 10px 12px; border-radius: 100px;
-    border: 1px solid rgba(74,222,128,0.12);
-    background: rgba(74,222,128,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
     opacity: 0; transform: scale(0.8);
   }
   .pill-logo { display: flex; align-items: center; }
@@ -529,8 +529,8 @@ const styles = `
   .debate-arena { display: flex; gap: 32px; align-items: center; }
   .debater {
     width: 280px; padding: 28px; border-radius: 20px;
-    border: 1px solid rgba(74,222,128,0.1);
-    background: rgba(74,222,128,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
     text-align: center; opacity: 0;
   }
   .debater.left { transform: translateX(-60px); }
@@ -539,7 +539,7 @@ const styles = `
   .debater .position { font-size: 14px; color: rgba(255,255,255,0.35); line-height: 1.6; font-weight: 300; }
   .vs-badge {
     width: 56px; height: 56px; border-radius: 50%;
-    border: 1.5px solid rgba(74,222,128,0.15);
+    border: 1.5px solid rgba(255,255,255,0.15);
     display: flex; align-items: center; justify-content: center;
     font-weight: 600; font-size: 14px; color: rgba(255,255,255,0.5);
     letter-spacing: 1px; opacity: 0; transform: scale(0);
@@ -548,8 +548,8 @@ const styles = `
   /* ── Decision card ── */
   .decision-card {
     width: 500px; border-radius: 20px;
-    border: 1px solid rgba(74,222,128,0.1);
-    background: rgba(74,222,128,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
     padding: 36px; opacity: 0; transform: translateY(30px);
   }
   .decision-card .dc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -571,8 +571,8 @@ const styles = `
   .settle-btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     padding: 14px 48px; border-radius: 100px;
-    border: 1px solid rgba(74,222,128,0.15);
-    background: rgba(74,222,128,0.05);
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.04);
     font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.7);
     letter-spacing: -0.2px; opacity: 0; transition: all 0.4s ease;
   }
@@ -608,7 +608,7 @@ const styles = `
   }
 
   /* ── Chrome ── */
-  .progress-bar { position: fixed; bottom: 0; left: 0; height: 2px; background: linear-gradient(90deg, rgba(74,222,128,0.5), rgba(74,222,128,0.15)); z-index: 100; transition: width 0.3s ease; }
+  .progress-bar { position: fixed; bottom: 0; left: 0; height: 2px; background: linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.15)); z-index: 100; transition: width 0.3s ease; }
 
   .glow-orb { position: fixed; border-radius: 50%; filter: blur(120px); z-index: 0; pointer-events: none; }
   .glow-1 { width: 600px; height: 600px; background: rgba(99,102,241,0.06); top: -200px; right: -200px; }
