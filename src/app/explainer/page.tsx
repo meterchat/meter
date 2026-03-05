@@ -120,8 +120,6 @@ export default function ExplainerPage() {
     document.querySelectorAll<HTMLElement>(".tool-card").forEach((c) => {
       c.style.opacity = "0"; c.style.transform = "translateY(30px)"; c.classList.remove("strikethrough");
     });
-    const totalBar = document.querySelector<HTMLElement>(".total-bar");
-    if (totalBar) { totalBar.style.opacity = "0"; totalBar.style.transform = "translateY(20px)"; }
     document.querySelectorAll<HTMLElement>(".model-badge").forEach((b) => {
       b.style.opacity = "0"; b.style.transform = "scale(0.8)";
     });
@@ -132,7 +130,7 @@ export default function ExplainerPage() {
     if (logo) { logo.style.opacity = "0"; logo.style.transform = "scale(0.5)"; }
     if (costIntervalRef.current) clearInterval(costIntervalRef.current);
     const costEl = document.getElementById("costValue");
-    if (costEl) costEl.textContent = "0.00";
+    if (costEl) costEl.textContent = "0.000";
     const dLeft = document.querySelector<HTMLElement>(".debater.left");
     const dRight = document.querySelector<HTMLElement>(".debater.right");
     const vs = document.querySelector<HTMLElement>(".vs-badge");
@@ -140,24 +138,17 @@ export default function ExplainerPage() {
     if (dRight) { dRight.style.opacity = "0"; dRight.style.transform = "translateX(60px)"; }
     if (vs) { vs.style.opacity = "0"; vs.style.transform = "scale(0)"; }
     const dc = document.querySelector<HTMLElement>(".decision-card");
-    const tap = document.querySelector<HTMLElement>(".tap-indicator");
     if (dc) { dc.style.opacity = "0"; dc.style.transform = "translateY(30px)"; }
-    if (tap) tap.style.opacity = "0";
     const badge = document.querySelector<HTMLElement>(".beta-badge");
     const ctaUrl = document.querySelector<HTMLElement>(".cta-url");
-    const ctaSub = document.getElementById("ctaSub");
     if (badge) badge.style.opacity = "0";
     if (ctaUrl) { ctaUrl.style.opacity = "0"; ctaUrl.style.transform = "translateY(20px)"; }
-    if (ctaSub) ctaSub.style.opacity = "0";
     const closingLogo = document.querySelector<HTMLElement>(".closing-logo");
     const closingTag = document.querySelector<HTMLElement>(".closing-tagline");
     if (closingLogo) closingLogo.style.opacity = "0";
     if (closingTag) closingTag.style.opacity = "0";
-    // settle animation
     const settleBtn = document.querySelector<HTMLElement>(".settle-btn");
     if (settleBtn) { settleBtn.style.opacity = "0"; settleBtn.classList.remove("settling", "settled"); }
-    const settleLabel = document.querySelector<HTMLElement>(".settle-label");
-    if (settleLabel) settleLabel.style.opacity = "0";
   }
 
   function animateScene(i: number) {
@@ -168,8 +159,6 @@ export default function ExplainerPage() {
         setTimeout(() => { card.style.transition = "opacity 0.6s ease, transform 0.6s ease"; card.style.opacity = "1"; card.style.transform = "translateY(0)"; }, 300 + delay);
         setTimeout(() => { card.classList.add("strikethrough"); }, 2200 + delay);
       });
-      const total = document.querySelector<HTMLElement>(".total-bar");
-      if (total) setTimeout(() => { total.style.transition = "opacity 0.6s ease, transform 0.6s ease"; total.style.opacity = "1"; total.style.transform = "translateY(0)"; }, 3200);
     }
     // Frame 4: cost stream (deterministic)
     if (i === 3) {
@@ -183,6 +172,13 @@ export default function ExplainerPage() {
         el.textContent = COST_SEQUENCE[step].toFixed(3);
         step++;
       }, 120);
+    }
+    // Frame 5: model badges
+    if (i === 4) {
+      document.querySelectorAll<HTMLElement>(".model-badge").forEach((b) => {
+        const delay = parseInt(b.dataset.delay || "0");
+        setTimeout(() => { b.style.transition = "opacity 0.5s ease, transform 0.5s cubic-bezier(0.34,1.56,0.64,1)"; b.style.opacity = "1"; b.style.transform = "scale(1)"; }, 400 + delay);
+      });
     }
     // Frame 7: logo reveal
     if (i === 6) {
@@ -208,29 +204,23 @@ export default function ExplainerPage() {
     // Frame 12: decision card
     if (i === 11) {
       const card = document.querySelector<HTMLElement>(".decision-card");
-      const tapEl = document.querySelector<HTMLElement>(".tap-indicator");
       if (card) setTimeout(() => { card.style.transition = "opacity 0.7s ease, transform 0.7s ease"; card.style.opacity = "1"; card.style.transform = "translateY(0)"; }, 300);
-      if (tapEl) setTimeout(() => { tapEl.style.transition = "opacity 0.5s ease"; tapEl.style.opacity = "1"; }, 1500);
     }
     // Frame 13: settle animation
     if (i === 12) {
       const btn = document.querySelector<HTMLElement>(".settle-btn");
-      const label = document.querySelector<HTMLElement>(".settle-label");
       if (btn) {
         setTimeout(() => { btn.style.transition = "opacity 0.6s ease"; btn.style.opacity = "1"; }, 300);
         setTimeout(() => { btn.classList.add("settling"); }, 1200);
         setTimeout(() => { btn.classList.remove("settling"); btn.classList.add("settled"); }, 3000);
       }
-      if (label) setTimeout(() => { label.style.transition = "opacity 0.5s ease"; label.style.opacity = "1"; }, 500);
     }
     // Frame 15: CTA
     if (i === 14) {
       const b = document.querySelector<HTMLElement>(".beta-badge");
       const url = document.querySelector<HTMLElement>(".cta-url");
-      const sub = document.getElementById("ctaSub");
       if (b) setTimeout(() => { b.style.transition = "opacity 0.5s ease"; b.style.opacity = "1"; }, 200);
       if (url) setTimeout(() => { url.style.transition = "opacity 0.7s ease, transform 0.7s ease"; url.style.opacity = "1"; url.style.transform = "translateY(0)"; }, 600);
-      if (sub) setTimeout(() => { sub.style.transition = "opacity 0.5s ease"; sub.style.opacity = "1"; }, 1200);
     }
     // Frame 16: closing
     if (i === 15) {
@@ -290,14 +280,14 @@ export default function ExplainerPage() {
 
         {/* Frame 1: Intelligence needs to be metered like electricity */}
         <div className={`scene ${current === 0 ? "active" : ""}`}>
+          <div className="scene-text">
+            <div className="headline">Intelligence needs to be metered like electricity.</div>
+          </div>
           <div className="meter-icon">
             <div className="meter-dial">
               <div className="meter-needle" />
               <div className="meter-dot" />
             </div>
-          </div>
-          <div className="scene-text">
-            <div className="headline">Intelligence needs to be metered like electricity.</div>
           </div>
         </div>
 
@@ -333,34 +323,30 @@ export default function ExplainerPage() {
               );
             })}
           </div>
-          <div className="total-bar">
-            <div className="total-amount">$270/mo</div>
-            <div className="total-label">for tools you barely use</div>
-          </div>
         </div>
 
         {/* Frame 4: When you can pay per thought – cost stream */}
         <div className={`scene ${current === 3 ? "active" : ""}`}>
+          <div className="scene-text" style={{ marginBottom: 40 }}>
+            <div className="headline">When you can pay per thought.</div>
+          </div>
           <div className="cost-stream">
             <div className="cost-ticker">
               <span className="cent">$</span><span id="costValue">0.000</span>
               <span className="label">streaming cost</span>
             </div>
           </div>
-          <div className="scene-text">
-            <div className="headline">When you can pay per thought.</div>
-          </div>
         </div>
 
         {/* Frame 5: All top models debate in real time */}
         <div className={`scene ${current === 4 ? "active" : ""}`}>
+          <div className="scene-text" style={{ marginBottom: 40 }}>
+            <div className="headline">And get all the top models to debate your ideas in real time.</div>
+          </div>
           <div className="model-badges">
             {["GPT-4o", "Claude Opus", "Gemini Pro", "DeepSeek R1", "Grok 3"].map((m, i) => (
               <div key={m} className="model-badge" data-delay={String(i * 100)}>{m}</div>
             ))}
-          </div>
-          <div className="scene-text">
-            <div className="headline">And get all the top models to debate your ideas in real time.</div>
           </div>
         </div>
 
@@ -401,6 +387,9 @@ export default function ExplainerPage() {
 
         {/* Frame 10: Chat with top AI models – logos animation */}
         <div className={`scene ${current === 9 ? "active" : ""}`}>
+          <div className="scene-text" style={{ marginBottom: 40 }}>
+            <div className="headline">It lets you chat with the top AI models.</div>
+          </div>
           <div className="model-logos-row">
             {MODEL_LOGOS.map((m, i) => (
               <div key={m.name} className="model-logo-item" data-delay={String(i * 120)}>
@@ -409,13 +398,13 @@ export default function ExplainerPage() {
               </div>
             ))}
           </div>
-          <div className="scene-text" style={{ marginTop: 40 }}>
-            <div className="headline">It lets you chat with the top AI models.</div>
-          </div>
         </div>
 
         {/* Frame 11: Stress test with debate mode */}
         <div className={`scene ${current === 10 ? "active" : ""}`}>
+          <div className="scene-text" style={{ marginBottom: 40 }}>
+            <div className="headline">Stress test your ideas with debate mode.</div>
+          </div>
           <div className="debate-arena">
             <div className="debater left">
               <div className="model-name">Claude</div>
@@ -427,13 +416,13 @@ export default function ExplainerPage() {
               <div className="position">&ldquo;DynamoDB scales horizontally with zero operational overhead.&rdquo;</div>
             </div>
           </div>
-          <div className="scene-text">
-            <div className="headline">Stress test your ideas with debate mode.</div>
-          </div>
         </div>
 
         {/* Frame 12: Log decisions with one tap */}
         <div className={`scene ${current === 11 ? "active" : ""}`}>
+          <div className="scene-text" style={{ marginBottom: 40 }}>
+            <div className="headline">And when you have conviction, log your decisions with one tap.</div>
+          </div>
           <div className="decision-card">
             <div className="dc-header">
               <div className="dc-title">Decision Record</div>
@@ -445,18 +434,13 @@ export default function ExplainerPage() {
               Debated by Claude &amp; GPT-4o &bull; March 4, 2026
             </div>
           </div>
-          <div className="tap-indicator">
-            <div className="tap-circle">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 19V5M5 12l7-7 7 7" />
-              </svg>
-            </div>
-            <div className="tap-label">When you have conviction, log your decisions with one tap.</div>
-          </div>
         </div>
 
         {/* Frame 13: Auto-settle animation */}
         <div className={`scene ${current === 12 ? "active" : ""}`}>
+          <div className="scene-text" style={{ marginBottom: 40 }}>
+            <div className="headline">Meter auto-settles your spend to your saved card on an ongoing basis.</div>
+          </div>
           <div className="settle-container">
             <div className="settle-amount">$0.042</div>
             <div className="settle-btn">
@@ -474,7 +458,6 @@ export default function ExplainerPage() {
                 Settled
               </span>
             </div>
-            <div className="settle-label">Meter auto-settles your spend to your saved card on an ongoing basis.</div>
           </div>
         </div>
 
@@ -489,8 +472,10 @@ export default function ExplainerPage() {
         <div className={`scene ${current === 14 ? "active" : ""}`}>
           <div className="cta-container">
             <div className="beta-badge">Public Beta</div>
+            <div className="scene-text" style={{ marginBottom: 24 }}>
+              <div className="headline">Meter is now live in public beta.</div>
+            </div>
             <div className="cta-url">meter.chat</div>
-            <div className="subtext" style={{ opacity: 0 }} id="ctaSub">Meter is now live in public beta. Sign up at meter.chat</div>
           </div>
         </div>
 
@@ -559,7 +544,7 @@ const explainerStyles = `
   }
 
   /* ── Scene 1: Meter icon ── */
-  .meter-icon { width: 160px; height: 160px; margin-bottom: 48px; position: relative; }
+  .meter-icon { width: 160px; height: 160px; margin-top: 48px; position: relative; }
   .meter-dial {
     width: 160px; height: 160px; border: 2px solid rgba(255,255,255,0.12);
     border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center;
@@ -620,16 +605,8 @@ const explainerStyles = `
   }
   .tool-card.strikethrough .strike-line { width: 80%; }
 
-  .total-bar { display: flex; align-items: center; gap: 20px; opacity: 0; transform: translateY(20px); }
-  .total-amount {
-    font-size: 44px; font-weight: 500; color: #ff4444; letter-spacing: -2px;
-    text-decoration: line-through; text-decoration-thickness: 2px;
-    text-decoration-color: rgba(255,68,68,0.6);
-  }
-  .total-label { font-size: 18px; color: rgba(255,255,255,0.35); font-weight: 300; }
-
   /* ── Model badges (frame 5) ── */
-  .model-badges { display: flex; gap: 10px; margin-bottom: 48px; flex-wrap: wrap; justify-content: center; }
+  .model-badges { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .model-badge {
     padding: 10px 22px; border-radius: 100px;
     border: 1px solid rgba(255,255,255,0.1);
@@ -661,7 +638,7 @@ const explainerStyles = `
   }
 
   /* ── Cost stream ── */
-  .cost-stream { display: flex; align-items: center; gap: 40px; margin-bottom: 56px; }
+  .cost-stream { display: flex; align-items: center; gap: 40px; }
   .cost-ticker {
     font-family: 'JetBrains Mono', monospace; font-size: 48px; font-weight: 500;
     color: #4ade80; letter-spacing: -2px; position: relative; text-align: center;
@@ -674,7 +651,7 @@ const explainerStyles = `
   }
 
   /* ── Debate ── */
-  .debate-arena { display: flex; gap: 32px; align-items: center; margin-bottom: 48px; }
+  .debate-arena { display: flex; gap: 32px; align-items: center; }
   .debater {
     width: 280px; padding: 28px; border-radius: 20px;
     border: 1px solid rgba(255,255,255,0.08);
@@ -699,7 +676,7 @@ const explainerStyles = `
     width: 500px; border-radius: 20px;
     border: 1px solid rgba(255,255,255,0.08);
     background: rgba(255,255,255,0.02);
-    padding: 36px; margin-bottom: 40px; opacity: 0; transform: translateY(30px);
+    padding: 36px; opacity: 0; transform: translateY(30px);
   }
   .decision-card .dc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   .decision-card .dc-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.25); font-weight: 500; }
@@ -710,16 +687,6 @@ const explainerStyles = `
   }
   .decision-card .dc-decision { font-size: 22px; font-weight: 500; margin-bottom: 14px; letter-spacing: -0.5px; color: #fff; }
   .decision-card .dc-meta { font-size: 13px; color: rgba(255,255,255,0.3); line-height: 1.7; font-weight: 300; }
-
-  .tap-indicator { display: flex; align-items: center; gap: 12px; opacity: 0; }
-  .tap-circle {
-    width: 44px; height: 44px; border-radius: 50%;
-    border: 1.5px solid rgba(255,255,255,0.15);
-    display: flex; align-items: center; justify-content: center;
-    animation: tapPulse 1.5s ease-in-out infinite;
-  }
-  @keyframes tapPulse { 0%, 100% { transform: scale(1); border-color: rgba(255,255,255,0.15); } 50% { transform: scale(0.92); border-color: rgba(255,255,255,0.4); } }
-  .tap-label { font-size: 15px; color: rgba(255,255,255,0.35); font-weight: 300; }
 
   /* ── Settle animation ── */
   .settle-container { display: flex; flex-direction: column; align-items: center; gap: 28px; }
@@ -747,11 +714,6 @@ const explainerStyles = `
   .settle-btn.settled { border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.08); }
   .settle-spinner { animation: spin 1s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  .settle-label {
-    font-size: 15px; font-weight: 300; color: rgba(255,255,255,0.35);
-    max-width: 460px; text-align: center; line-height: 1.6; opacity: 0;
-  }
-
   /* ── Future ── */
   .future-text { max-width: 780px; text-align: center; padding: 0 40px; }
   .future-text .big {
