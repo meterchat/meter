@@ -70,7 +70,7 @@ function VideoPlayer() {
     >
       <video
         ref={videoRef}
-        src="/meter.mp4"
+        src="/meter.webm"
         className="w-full block"
         playsInline
         preload="metadata"
