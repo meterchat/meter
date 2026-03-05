@@ -1,24 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
+import Image from "next/image";
 
 /* ── Official SVG logos ── */
 
-// OpenAI / ChatGPT – official blossom logo (from gilbarbara/logos)
 const LogoGPT = () => (
   <svg width="40" height="40" viewBox="0 0 256 260" fill="none">
     <path d="M239.184 106.203C245.054 88.524 243.022 69.173 233.608 53.1C219.452 28.459 191 15.784 163.213 21.74C147.554 4.321 123.795-3.424 100.879 1.419C77.963 6.261 59.369 22.957 52.096 45.221C33.844 48.964 18.09 60.393 8.867 76.582C-5.443 101.183-2.195 132.215 16.899 153.32C11.006 170.991 13.02 190.344 22.424 206.423C36.598 231.072 65.068 243.747 92.87 237.783C105.236 251.708 123.001 259.631 141.624 259.527C170.105 259.552 195.338 241.166 204.038 214.046C222.287 210.296 238.038 198.87 247.267 182.685C261.404 158.128 258.142 127.263 239.184 106.203ZM141.624 242.541C130.256 242.559 119.244 238.575 110.519 231.286L112.054 230.416L163.725 200.591C166.341 199.056 167.954 196.257 167.971 193.224V120.374L189.816 133.01C190.034 133.121 190.186 133.331 190.225 133.573V193.94C190.169 220.758 168.442 242.485 141.624 242.541ZM37.158 197.931C31.456 188.086 29.409 176.547 31.377 165.342L32.911 166.263L84.633 196.089C87.239 197.618 90.468 197.618 93.074 196.089L156.255 159.664V184.885C156.244 185.15 156.112 185.395 155.897 185.55L103.562 215.734C80.305 229.132 50.592 221.165 37.158 197.931ZM23.549 85.381C29.29 75.473 38.351 67.916 49.129 64.048V125.439C49.089 128.459 50.697 131.263 53.324 132.754L116.198 169.026L94.353 181.662C94.113 181.789 93.826 181.789 93.586 181.662L41.353 151.53C18.142 138.076 10.182 108.386 23.549 85.125V85.381ZM203.015 127.076L139.936 90.446L161.729 77.861C161.969 77.733 162.257 77.733 162.497 77.861L214.73 108.045C231.032 117.452 240.437 135.426 238.872 154.183C237.306 172.939 225.051 189.106 207.414 195.68V134.289C207.323 131.277 205.651 128.536 203.015 127.076ZM224.757 94.385L223.222 93.464L171.603 63.383C168.981 61.844 165.732 61.844 163.111 63.383L99.981 99.808V74.587C99.953 74.325 100.071 74.07 100.288 73.922L152.521 43.789C168.863 34.374 189.174 35.253 204.643 46.043C220.111 56.834 227.949 75.592 224.757 94.18V94.385ZM88.061 139.098L66.216 126.513C65.995 126.379 65.845 126.154 65.807 125.899V65.685C65.831 46.829 76.75 29.685 93.827 21.688C110.904 13.692 131.064 16.284 145.563 28.339L144.028 29.209L92.358 59.034C89.742 60.569 88.128 63.368 88.112 66.401L88.061 139.098ZM99.929 113.519L128.067 97.301L156.255 113.519V145.953L128.169 162.171L99.981 145.953L99.929 113.519Z" fill="rgba(255,255,255,0.8)" />
   </svg>
 );
 
-// Claude / Anthropic – official logo (from simple-icons)
 const LogoClaude = () => (
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
     <path d="M17.304 3.541h-3.672l6.696 16.918H24ZM6.696 3.541L0 20.459h3.744l1.37-3.553h7.005l1.37 3.553h3.744L10.536 3.541Zm-.371 10.223l2.291-5.946 2.292 5.946Z" fill="rgba(217,171,119,0.85)" />
   </svg>
 );
 
-// Google Gemini – official logo (from simple-icons)
 const LogoGemini = () => (
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
     <path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81" fill="url(#gem)" />
@@ -26,11 +24,16 @@ const LogoGemini = () => (
   </svg>
 );
 
-// Grok / xAI – official logo (from walkxcode/dashboard-icons)
 const LogoGrok = () => (
   <svg width="40" height="40" viewBox="0 0 34 33" fill="none">
     <path d="M13.237 21.041L24.319 12.851C24.862 12.449 25.638 12.606 25.897 13.229C27.26 16.519 26.651 20.471 23.94 23.185C21.23 25.899 17.458 26.494 14.011 25.139L10.245 26.884C15.646 30.581 22.205 29.667 26.304 25.56C29.555 22.305 30.562 17.868 29.621 13.867L29.629 13.876C28.264 7.998 29.965 5.649 33.449 0.845C33.531 0.731 33.614 0.617 33.696 0.5L29.111 5.091V5.076L13.234 21.044" fill="rgba(255,255,255,0.8)" />
     <path d="M10.95 23.031C7.073 19.324 7.742 13.585 11.05 10.276C13.496 7.827 17.504 6.828 21.002 8.297L24.76 6.56C24.083 6.07 23.215 5.543 22.22 5.173C17.72 3.319 12.333 4.242 8.675 7.901C5.156 11.424 4.05 16.84 5.95 21.462C7.369 24.917 5.043 27.36 2.699 29.826C1.868 30.7 1.035 31.575 0.364 32.5L10.947 23.034" fill="rgba(255,255,255,0.8)" />
+  </svg>
+);
+
+const LogoDeepSeek = () => (
+  <svg width="40" height="40" viewBox="0 0 377 278" fill="none">
+    <path d="M373.15 23.32c-4-1.95-5.72 1.77-8.06 3.66-.79.62-1.47 1.43-2.14 2.14-5.85 6.26-12.67 10.36-21.57 9.86-13.04-.71-24.16 3.38-33.99 13.37-2.09-12.31-9.04-19.66-19.6-24.38-5.54-2.45-11.13-4.9-14.99-10.23-2.71-3.78-3.44-8-4.81-12.16-.85-2.51-1.72-5.09-4.6-5.52-3.13-.5-4.36 2.14-5.58 4.34-4.93 8.99-6.82 18.92-6.65 28.97.43 22.58 9.97 40.56 28.89 53.37 2.16 1.46 2.71 2.95 2.03 5.09-1.29 4.4-2.82 8.68-4.19 13.09-.85 2.82-2.14 3.44-5.15 2.2-10.39-4.34-19.37-10.76-27.29-18.55-13.46-13.02-25.63-27.41-40.81-38.67-3.57-2.64-7.12-5.09-10.81-7.41-15.49-15.07 2.03-27.45 6.08-28.9 4.25-1.52 1.47-6.79-12.23-6.73-13.69.06-26.24 4.65-42.21 10.76-2.34.93-4.79 1.61-7.32 2.14-14.5-2.73-29.55-3.35-45.29-1.58-29.62 3.32-53.28 17.34-70.68 41.28C1.29 88.2-3.63 120.88 2.39 155c6.33 35.91 24.64 65.68 52.8 88.94 29.18 24.1 62.8 35.91 101.15 33.65 23.29-1.33 49.23-4.46 78.48-29.24 7.38 3.66 15.12 5.12 27.97 6.23 9.89.93 19.41-.5 26.79-2.02 11.55-2.45 10.75-13.15 6.58-15.13-33.87-15.78-26.44-9.36-33.2-14.54 17.21-20.41 43.15-41.59 53.3-110.19.79-5.46.11-8.87 0-13.3-.06-2.67.54-3.72 3.61-4.03 8.48-.96 16.72-3.29 24.28-7.47 21.94-12 30.78-31.69 32.87-55.33.31-3.6-.06-7.35-3.86-9.24ZM181.96 235.97c-32.83-25.83-48.74-34.33-55.31-33.96-6.14.34-5.04 7.38-3.69 11.97 1.41 4.53 3.26 7.66 5.85 11.63 1.78 2.64 3.01 6.57-1.78 9.49-10.57 6.58-28.95-2.2-29.82-2.64-21.38-12.59-39.26-29.24-51.87-52.01-12.16-21.92-19.23-45.43-20.39-70.52-.31-6.08 1.47-8.22 7.49-9.3 7.92-1.46 16.11-1.77 24.03-.62 33.49 4.9 62.01 19.91 85.9 43.63 13.65 13.55 23.97 29.71 34.61 45.49 11.3 16.78 23.48 32.75 38.97 45.84 5.46 4.59 9.83 8.09 14 10.67-12.59 1.4-33.62 1.71-47.99-9.68ZM197.69 134.65c0-2.7 2.15-4.84 4.87-4.84.6 0 1.16.12 1.66.31.67.25 1.29.62 1.77 1.18.87.84 1.36 2.08 1.36 3.35 0 2.7-2.15 4.84-4.85 4.84s-4.81-2.14-4.81-4.84ZM246.55 159.77c-3.13 1.27-6.26 2.39-9.27 2.51-4.67.22-9.77-1.68-12.55-4-4.3-3.6-7.36-5.61-8.67-11.94-.54-2.7-.23-6.85.25-9.24 1.12-5.15-.12-8.44-3.74-11.44-2.96-2.45-6.7-3.1-10.82-3.1-1.54 0-2.95-.68-4-1.24-1.72-.87-3.13-3.01-1.78-5.64.43-.84 2.53-2.92 3.02-3.29 5.58-3.19 12.03-2.14 18 .25 5.54 2.26 9.71 6.42 15.72 12.28 6.16 7.1 7.26 9.09 10.76 14.39 2.76 4.19 5.29 8.47 7.01 13.37 1.04 3.04-.31 5.55-3.94 7.1Z" fill="rgba(77,107,254,0.8)" />
   </svg>
 );
 
@@ -41,25 +44,30 @@ const AI_PRODUCTS = [
   { name: "Grok", tier: "Super", price: "$30", logo: LogoGrok, delay: "450" },
 ];
 
-/* Deterministic cost sequence so it's the same every load */
 const COST_SEQUENCE = [
   0.001, 0.003, 0.005, 0.008, 0.010, 0.013, 0.015, 0.017,
   0.019, 0.021, 0.023, 0.025, 0.027, 0.029, 0.031, 0.033,
   0.034, 0.036, 0.037, 0.038, 0.039, 0.040,
 ];
 
-/* Models used in our app */
-const MODEL_LOGOS = [
+const MODEL_BADGES = [
   { name: "GPT-4o", Logo: LogoGPT },
   { name: "Claude Opus", Logo: LogoClaude },
   { name: "Gemini Pro", Logo: LogoGemini },
   { name: "Grok 3", Logo: LogoGrok },
-  { name: "DeepSeek R1", Logo: () => (
-    <svg width="40" height="40" viewBox="0 0 377 278" fill="none">
-      <path d="M373.15 23.32c-4-1.95-5.72 1.77-8.06 3.66-.79.62-1.47 1.43-2.14 2.14-5.85 6.26-12.67 10.36-21.57 9.86-13.04-.71-24.16 3.38-33.99 13.37-2.09-12.31-9.04-19.66-19.6-24.38-5.54-2.45-11.13-4.9-14.99-10.23-2.71-3.78-3.44-8-4.81-12.16-.85-2.51-1.72-5.09-4.6-5.52-3.13-.5-4.36 2.14-5.58 4.34-4.93 8.99-6.82 18.92-6.65 28.97.43 22.58 9.97 40.56 28.89 53.37 2.16 1.46 2.71 2.95 2.03 5.09-1.29 4.4-2.82 8.68-4.19 13.09-.85 2.82-2.14 3.44-5.15 2.2-10.39-4.34-19.37-10.76-27.29-18.55-13.46-13.02-25.63-27.41-40.81-38.67-3.57-2.64-7.12-5.09-10.81-7.41-15.49-15.07 2.03-27.45 6.08-28.9 4.25-1.52 1.47-6.79-12.23-6.73-13.69.06-26.24 4.65-42.21 10.76-2.34.93-4.79 1.61-7.32 2.14-14.5-2.73-29.55-3.35-45.29-1.58-29.62 3.32-53.28 17.34-70.68 41.28C1.29 88.2-3.63 120.88 2.39 155c6.33 35.91 24.64 65.68 52.8 88.94 29.18 24.1 62.8 35.91 101.15 33.65 23.29-1.33 49.23-4.46 78.48-29.24 7.38 3.66 15.12 5.12 27.97 6.23 9.89.93 19.41-.5 26.79-2.02 11.55-2.45 10.75-13.15 6.58-15.13-33.87-15.78-26.44-9.36-33.2-14.54 17.21-20.41 43.15-41.59 53.3-110.19.79-5.46.11-8.87 0-13.3-.06-2.67.54-3.72 3.61-4.03 8.48-.96 16.72-3.29 24.28-7.47 21.94-12 30.78-31.69 32.87-55.33.31-3.6-.06-7.35-3.86-9.24ZM181.96 235.97c-32.83-25.83-48.74-34.33-55.31-33.96-6.14.34-5.04 7.38-3.69 11.97 1.41 4.53 3.26 7.66 5.85 11.63 1.78 2.64 3.01 6.57-1.78 9.49-10.57 6.58-28.95-2.2-29.82-2.64-21.38-12.59-39.26-29.24-51.87-52.01-12.16-21.92-19.23-45.43-20.39-70.52-.31-6.08 1.47-8.22 7.49-9.3 7.92-1.46 16.11-1.77 24.03-.62 33.49 4.9 62.01 19.91 85.9 43.63 13.65 13.55 23.97 29.71 34.61 45.49 11.3 16.78 23.48 32.75 38.97 45.84 5.46 4.59 9.83 8.09 14 10.67-12.59 1.4-33.62 1.71-47.99-9.68ZM197.69 134.65c0-2.7 2.15-4.84 4.87-4.84.6 0 1.16.12 1.66.31.67.25 1.29.62 1.77 1.18.87.84 1.36 2.08 1.36 3.35 0 2.7-2.15 4.84-4.85 4.84s-4.81-2.14-4.81-4.84ZM246.55 159.77c-3.13 1.27-6.26 2.39-9.27 2.51-4.67.22-9.77-1.68-12.55-4-4.3-3.6-7.36-5.61-8.67-11.94-.54-2.7-.23-6.85.25-9.24 1.12-5.15-.12-8.44-3.74-11.44-2.96-2.45-6.7-3.1-10.82-3.1-1.54 0-2.95-.68-4-1.24-1.72-.87-3.13-3.01-1.78-5.64.43-.84 2.53-2.92 3.02-3.29 5.58-3.19 12.03-2.14 18 .25 5.54 2.26 9.71 6.42 15.72 12.28 6.16 7.1 7.26 9.09 10.76 14.39 2.76 4.19 5.29 8.47 7.01 13.37 1.04 3.04-.31 5.55-3.94 7.1Z" fill="rgba(77,107,254,0.8)" />
-    </svg>
-  )},
+  { name: "DeepSeek R1", Logo: LogoDeepSeek },
 ];
+
+const CLIP_PLACEHOLDER = (
+  <div className="clip-placeholder">
+    <div className="clip-icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5">
+        <rect x="2" y="2" width="20" height="20" rx="4" />
+        <polygon points="10,8 16,12 10,16" fill="rgba(255,255,255,0.3)" stroke="none" />
+      </svg>
+    </div>
+  </div>
+);
 
 export default function ExplainerPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,64 +75,51 @@ export default function ExplainerPage() {
   const [playing, setPlaying] = useState(false);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const costIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const totalScenes = 16;
+  const totalScenes = 15;
 
   const sceneDurations = [
-    4500, // 1: Intelligence metered
-    5000, // 2: clip placeholder
-    5500, // 3: why pay hundreds
-    4000, // 4: pay per thought (cost stream)
-    4000, // 5: all top models debate
+    5500, // 1: why pay hundreds
+    4000, // 2: pay per thought
+    4500, // 3: intelligence metered
+    4000, // 4: introducing meter
+    3500, // 5: first pay per thought AI
     5000, // 6: clip placeholder
-    4000, // 7: Introducing Meter
-    3500, // 8: first pay per thought AI
-    4500, // 9: think first pay later
-    5000, // 10: chat with top models
-    5000, // 11: stress test with debate
-    5500, // 12: log decisions one tap
-    5000, // 13: auto-settle
-    5500, // 14: future gym memberships
-    5000, // 15: public beta CTA
-    5000, // 16: closing
+    4500, // 7: think first pay later
+    5000, // 8: chat with top models (pills with logos)
+    4500, // 9: debate in real time
+    5000, // 10: clip placeholder
+    5500, // 11: log decisions
+    5000, // 12: auto-settle
+    5500, // 13: future gym memberships
+    5000, // 14: public beta CTA
+    5000, // 15: closing tagline
   ];
 
-  // Draw background grid
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    canvas.width = 1920;
-    canvas.height = 1080;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "rgba(255,255,255,0.02)";
-    ctx.lineWidth = 1;
-    const size = 80;
-    for (let x = 0; x < canvas.width; x += size) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-    }
-    for (let y = 0; y < canvas.height; y += size) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-    }
+    canvas.width = 1920; canvas.height = 1080;
+    ctx.clearRect(0, 0, 1920, 1080);
+    ctx.strokeStyle = "rgba(255,255,255,0.02)"; ctx.lineWidth = 1;
+    for (let x = 0; x < 1920; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1080); ctx.stroke(); }
+    for (let y = 0; y < 1080; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1920, y); ctx.stroke(); }
   }, []);
 
-  // Scene animations
   useEffect(() => {
-    resetAllAnimations();
-    const timer = setTimeout(() => animateScene(current), 50);
-    return () => clearTimeout(timer);
+    resetAll();
+    const t = setTimeout(() => animate(current), 50);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
-  function resetAllAnimations() {
+  function resetAll() {
     document.querySelectorAll<HTMLElement>(".tool-card").forEach((c) => {
-      c.style.opacity = "0"; c.style.transform = "translateY(30px)"; c.classList.remove("strikethrough");
+      c.style.opacity = "0"; c.style.transform = "translateY(30px)";
     });
-    document.querySelectorAll<HTMLElement>(".model-badge").forEach((b) => {
+    document.querySelectorAll<HTMLElement>(".model-pill").forEach((b) => {
       b.style.opacity = "0"; b.style.transform = "scale(0.8)";
-    });
-    document.querySelectorAll<HTMLElement>(".model-logo-item").forEach((b) => {
-      b.style.opacity = "0"; b.style.transform = "translateY(20px)";
     });
     const logo = document.querySelector<HTMLElement>(".meter-logo-large");
     if (logo) { logo.style.opacity = "0"; logo.style.transform = "scale(0.5)"; }
@@ -139,29 +134,28 @@ export default function ExplainerPage() {
     if (vs) { vs.style.opacity = "0"; vs.style.transform = "scale(0)"; }
     const dc = document.querySelector<HTMLElement>(".decision-card");
     if (dc) { dc.style.opacity = "0"; dc.style.transform = "translateY(30px)"; }
+    const settleBtn = document.querySelector<HTMLElement>(".settle-btn");
+    if (settleBtn) { settleBtn.style.opacity = "0"; settleBtn.classList.remove("settling", "settled"); }
     const badge = document.querySelector<HTMLElement>(".beta-badge");
     const ctaUrl = document.querySelector<HTMLElement>(".cta-url");
     if (badge) badge.style.opacity = "0";
     if (ctaUrl) { ctaUrl.style.opacity = "0"; ctaUrl.style.transform = "translateY(20px)"; }
-    const closingLogo = document.querySelector<HTMLElement>(".closing-logo");
-    const closingTag = document.querySelector<HTMLElement>(".closing-tagline");
-    if (closingLogo) closingLogo.style.opacity = "0";
-    if (closingTag) closingTag.style.opacity = "0";
-    const settleBtn = document.querySelector<HTMLElement>(".settle-btn");
-    if (settleBtn) { settleBtn.style.opacity = "0"; settleBtn.classList.remove("settling", "settled"); }
+    const cl = document.querySelector<HTMLElement>(".closing-logo");
+    const ct = document.querySelector<HTMLElement>(".closing-tagline");
+    if (cl) cl.style.opacity = "0";
+    if (ct) ct.style.opacity = "0";
   }
 
-  function animateScene(i: number) {
-    // Frame 3: subscriptions crossed out
-    if (i === 2) {
+  function animate(i: number) {
+    // Frame 1: tool cards fade in (no strikethrough)
+    if (i === 0) {
       document.querySelectorAll<HTMLElement>(".tool-card").forEach((card) => {
         const delay = parseInt(card.dataset.delay || "0");
         setTimeout(() => { card.style.transition = "opacity 0.6s ease, transform 0.6s ease"; card.style.opacity = "1"; card.style.transform = "translateY(0)"; }, 300 + delay);
-        setTimeout(() => { card.classList.add("strikethrough"); }, 2200 + delay);
       });
     }
-    // Frame 4: cost stream (deterministic)
-    if (i === 3) {
+    // Frame 2: cost stream
+    if (i === 1) {
       const el = document.getElementById("costValue");
       if (!el) return;
       let step = 0;
@@ -173,27 +167,20 @@ export default function ExplainerPage() {
         step++;
       }, 120);
     }
-    // Frame 5: model badges
-    if (i === 4) {
-      document.querySelectorAll<HTMLElement>(".model-badge").forEach((b) => {
+    // Frame 4: logo reveal
+    if (i === 3) {
+      const el = document.querySelector<HTMLElement>(".meter-logo-large");
+      if (el) setTimeout(() => { el.style.transition = "opacity 1s ease, transform 1s cubic-bezier(0.16,1,0.3,1)"; el.style.opacity = "1"; el.style.transform = "scale(1)"; }, 200);
+    }
+    // Frame 8: model pills with logos
+    if (i === 7) {
+      document.querySelectorAll<HTMLElement>(".model-pill").forEach((b) => {
         const delay = parseInt(b.dataset.delay || "0");
         setTimeout(() => { b.style.transition = "opacity 0.5s ease, transform 0.5s cubic-bezier(0.34,1.56,0.64,1)"; b.style.opacity = "1"; b.style.transform = "scale(1)"; }, 400 + delay);
       });
     }
-    // Frame 7: logo reveal
-    if (i === 6) {
-      const el = document.querySelector<HTMLElement>(".meter-logo-large");
-      if (el) setTimeout(() => { el.style.transition = "opacity 1s ease, transform 1s cubic-bezier(0.16,1,0.3,1)"; el.style.opacity = "1"; el.style.transform = "scale(1)"; }, 200);
-    }
-    // Frame 10: model logos
-    if (i === 9) {
-      document.querySelectorAll<HTMLElement>(".model-logo-item").forEach((b) => {
-        const delay = parseInt(b.dataset.delay || "0");
-        setTimeout(() => { b.style.transition = "opacity 0.5s ease, transform 0.5s ease"; b.style.opacity = "1"; b.style.transform = "translateY(0)"; }, 400 + delay);
-      });
-    }
-    // Frame 11: debate animation
-    if (i === 10) {
+    // Frame 9: debate animation
+    if (i === 8) {
       const left = document.querySelector<HTMLElement>(".debater.left");
       const right = document.querySelector<HTMLElement>(".debater.right");
       const vsEl = document.querySelector<HTMLElement>(".vs-badge");
@@ -201,13 +188,13 @@ export default function ExplainerPage() {
       if (vsEl) setTimeout(() => { vsEl.style.transition = "opacity 0.4s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1)"; vsEl.style.opacity = "1"; vsEl.style.transform = "scale(1)"; }, 700);
       if (right) setTimeout(() => { right.style.transition = "opacity 0.6s ease, transform 0.6s ease"; right.style.opacity = "1"; right.style.transform = "translateX(0)"; }, 1100);
     }
-    // Frame 12: decision card
-    if (i === 11) {
+    // Frame 11: decision card
+    if (i === 10) {
       const card = document.querySelector<HTMLElement>(".decision-card");
       if (card) setTimeout(() => { card.style.transition = "opacity 0.7s ease, transform 0.7s ease"; card.style.opacity = "1"; card.style.transform = "translateY(0)"; }, 300);
     }
-    // Frame 13: settle animation
-    if (i === 12) {
+    // Frame 12: settle
+    if (i === 11) {
       const btn = document.querySelector<HTMLElement>(".settle-btn");
       if (btn) {
         setTimeout(() => { btn.style.transition = "opacity 0.6s ease"; btn.style.opacity = "1"; }, 300);
@@ -215,15 +202,15 @@ export default function ExplainerPage() {
         setTimeout(() => { btn.classList.remove("settling"); btn.classList.add("settled"); }, 3000);
       }
     }
-    // Frame 15: CTA
-    if (i === 14) {
+    // Frame 14: CTA
+    if (i === 13) {
       const b = document.querySelector<HTMLElement>(".beta-badge");
       const url = document.querySelector<HTMLElement>(".cta-url");
       if (b) setTimeout(() => { b.style.transition = "opacity 0.5s ease"; b.style.opacity = "1"; }, 200);
       if (url) setTimeout(() => { url.style.transition = "opacity 0.7s ease, transform 0.7s ease"; url.style.opacity = "1"; url.style.transform = "translateY(0)"; }, 600);
     }
-    // Frame 16: closing
-    if (i === 15) {
+    // Frame 15: closing
+    if (i === 14) {
       const cl = document.querySelector<HTMLElement>(".closing-logo");
       const ct = document.querySelector<HTMLElement>(".closing-tagline");
       if (cl) setTimeout(() => { cl.style.transition = "opacity 1s ease"; cl.style.opacity = "1"; }, 300);
@@ -231,20 +218,13 @@ export default function ExplainerPage() {
     }
   }
 
-  const goNext = useCallback(() => {
-    setCurrent((c) => (c < totalScenes - 1 ? c + 1 : c));
-  }, []);
-
-  const goPrev = useCallback(() => {
-    setCurrent((c) => (c > 0 ? c - 1 : c));
-  }, []);
-
+  const goNext = useCallback(() => setCurrent((c) => (c < totalScenes - 1 ? c + 1 : c)), []);
+  const goPrev = useCallback(() => setCurrent((c) => (c > 0 ? c - 1 : c)), []);
   const stopAutoplay = useCallback(() => {
     setPlaying(false);
     if (autoTimerRef.current) { clearTimeout(autoTimerRef.current); autoTimerRef.current = null; }
   }, []);
 
-  // Autoplay
   useEffect(() => {
     if (!playing) return;
     autoTimerRef.current = setTimeout(() => {
@@ -255,7 +235,6 @@ export default function ExplainerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, current]);
 
-  // Keyboard
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); stopAutoplay(); goNext(); }
@@ -271,41 +250,15 @@ export default function ExplainerPage() {
 
   return (
     <>
-      <style>{explainerStyles}</style>
+      <style>{styles}</style>
       <div className="explainer-root">
         <canvas ref={canvasRef} id="bg" />
         <div className="glow-orb glow-1" />
         <div className="glow-orb glow-2" />
         <div className="glow-orb glow-3" />
 
-        {/* Frame 1: Intelligence needs to be metered like electricity */}
+        {/* 1: Why pay hundreds */}
         <div className={`scene ${current === 0 ? "active" : ""}`}>
-          <div className="scene-text">
-            <div className="headline">Intelligence needs to be metered like electricity.</div>
-          </div>
-          <div className="meter-icon">
-            <div className="meter-dial">
-              <div className="meter-needle" />
-              <div className="meter-dot" />
-            </div>
-          </div>
-        </div>
-
-        {/* Frame 2: CLIP PLACEHOLDER – meter counter streaming */}
-        <div className={`scene ${current === 1 ? "active" : ""}`}>
-          <div className="clip-placeholder">
-            <div className="clip-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5">
-                <rect x="2" y="2" width="20" height="20" rx="4" />
-                <polygon points="10,8 16,12 10,16" fill="rgba(255,255,255,0.3)" stroke="none" />
-              </svg>
-            </div>
-            <div className="clip-label">Insert clip: app meter counter streaming</div>
-          </div>
-        </div>
-
-        {/* Frame 3: Why pay hundreds – four tools crossed out */}
-        <div className={`scene ${current === 2 ? "active" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">Why pay hundreds of dollars a month for subscriptions you barely use.</div>
           </div>
@@ -318,15 +271,14 @@ export default function ExplainerPage() {
                   <div className="tool-name">{t.name}</div>
                   <div className="tool-tier">{t.tier}</div>
                   <div className="price">{t.price}<span className="price-period">/mo</span></div>
-                  <div className="strike-line" />
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Frame 4: When you can pay per thought – cost stream */}
-        <div className={`scene ${current === 3 ? "active" : ""}`}>
+        {/* 2: When you can pay per thought */}
+        <div className={`scene ${current === 1 ? "active" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">When you can pay per thought.</div>
           </div>
@@ -338,72 +290,60 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* Frame 5: All top models debate in real time */}
-        <div className={`scene ${current === 4 ? "active" : ""}`}>
-          <div className="scene-text" style={{ marginBottom: 40 }}>
-            <div className="headline">And get all the top models to debate your ideas in real time.</div>
-          </div>
-          <div className="model-badges">
-            {["GPT-4o", "Claude Opus", "Gemini Pro", "DeepSeek R1", "Grok 3"].map((m, i) => (
-              <div key={m} className="model-badge" data-delay={String(i * 100)}>{m}</div>
-            ))}
+        {/* 3: Intelligence metered like electricity */}
+        <div className={`scene ${current === 2 ? "active" : ""}`}>
+          <div className="scene-text">
+            <div className="headline">Intelligence needs to be metered like electricity.</div>
           </div>
         </div>
 
-        {/* Frame 6: CLIP PLACEHOLDER – debate mode */}
-        <div className={`scene ${current === 5 ? "active" : ""}`}>
-          <div className="clip-placeholder">
-            <div className="clip-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5">
-                <rect x="2" y="2" width="20" height="20" rx="4" />
-                <polygon points="10,8 16,12 10,16" fill="rgba(255,255,255,0.3)" stroke="none" />
-              </svg>
-            </div>
-            <div className="clip-label">Insert clip: debate mode</div>
-          </div>
-        </div>
-
-        {/* Frame 7: Introducing Meter */}
-        <div className={`scene ${current === 6 ? "active" : ""}`}>
+        {/* 4: Introducing Meter */}
+        <div className={`scene ${current === 3 ? "active" : ""}`}>
           <div className="meter-logo-large">
-            <div className="logo-text">meter</div>
+            <Image src="/logo-light.webp" alt="Meter" width={400} height={100} style={{ width: "clamp(240px, 30vw, 400px)", height: "auto" }} priority />
           </div>
           <div className="tagline-intro">Introducing Meter.</div>
         </div>
 
-        {/* Frame 8: The first pay per thought AI */}
-        <div className={`scene ${current === 7 ? "active" : ""}`}>
+        {/* 5: The first pay per thought AI */}
+        <div className={`scene ${current === 4 ? "active" : ""}`}>
           <div className="scene-text">
             <div className="headline">The first pay-per-thought AI.</div>
           </div>
         </div>
 
-        {/* Frame 9: Think first, pay later */}
-        <div className={`scene ${current === 8 ? "active" : ""}`}>
+        {/* 6: Clip – meter counter streaming */}
+        <div className={`scene ${current === 5 ? "active" : ""}`}>
+          {CLIP_PLACEHOLDER}
+          <div className="clip-label">Insert clip: app meter counter streaming</div>
+        </div>
+
+        {/* 7: Think first, pay later */}
+        <div className={`scene ${current === 6 ? "active" : ""}`}>
           <div className="scene-text">
             <div className="headline">Meter lets you think first, pay later.</div>
           </div>
         </div>
 
-        {/* Frame 10: Chat with top AI models – logos animation */}
-        <div className={`scene ${current === 9 ? "active" : ""}`}>
+        {/* 8: Chat with top AI models – pills with logos */}
+        <div className={`scene ${current === 7 ? "active" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">It lets you chat with the top AI models.</div>
           </div>
-          <div className="model-logos-row">
-            {MODEL_LOGOS.map((m, i) => (
-              <div key={m.name} className="model-logo-item" data-delay={String(i * 120)}>
-                <div className="model-logo-icon"><m.Logo /></div>
-                <div className="model-logo-name">{m.name}</div>
+          <div className="model-pills">
+            {MODEL_BADGES.map((m, i) => (
+              <div key={m.name} className="model-pill" data-delay={String(i * 100)}>
+                <span className="pill-logo"><m.Logo /></span>
+                <span className="pill-name">{m.name}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Frame 11: Stress test with debate mode */}
-        <div className={`scene ${current === 10 ? "active" : ""}`}>
+        {/* 9: Debate in real time */}
+        <div className={`scene ${current === 8 ? "active" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
-            <div className="headline">Stress test your ideas with debate mode.</div>
+            <div className="headline">And gets them to debate your ideas in real time.</div>
           </div>
           <div className="debate-arena">
             <div className="debater left">
@@ -418,8 +358,14 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* Frame 12: Log decisions with one tap */}
-        <div className={`scene ${current === 11 ? "active" : ""}`}>
+        {/* 10: Clip – debate mode */}
+        <div className={`scene ${current === 9 ? "active" : ""}`}>
+          {CLIP_PLACEHOLDER}
+          <div className="clip-label">Insert clip: debate mode</div>
+        </div>
+
+        {/* 11: Log decisions with one tap */}
+        <div className={`scene ${current === 10 ? "active" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">And when you have conviction, log your decisions with one tap.</div>
           </div>
@@ -436,8 +382,8 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* Frame 13: Auto-settle animation */}
-        <div className={`scene ${current === 12 ? "active" : ""}`}>
+        {/* 12: Auto-settle */}
+        <div className={`scene ${current === 11 ? "active" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
             <div className="headline">Meter auto-settles your spend to your saved card on an ongoing basis.</div>
           </div>
@@ -461,15 +407,15 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* Frame 14: Future / gym memberships */}
-        <div className={`scene ${current === 13 ? "active" : ""}`}>
+        {/* 13: Future / gym memberships */}
+        <div className={`scene ${current === 12 ? "active" : ""}`}>
           <div className="future-text">
-            <div className="big">In the future everyone will wonder why they ever bought the ability to think like they do gym memberships.</div>
+            <div className="big">In the future everyone will wonder why they ever paid to think like they do gym memberships.</div>
           </div>
         </div>
 
-        {/* Frame 15: Public beta CTA */}
-        <div className={`scene ${current === 14 ? "active" : ""}`}>
+        {/* 14: Public beta CTA */}
+        <div className={`scene ${current === 13 ? "active" : ""}`}>
           <div className="cta-container">
             <div className="beta-badge">Public Beta</div>
             <div className="scene-text" style={{ marginBottom: 24 }}>
@@ -479,10 +425,12 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* Frame 16: Closing */}
-        <div className={`scene ${current === 15 ? "active" : ""}`}>
-          <div className="closing-logo">meter</div>
-          <div className="closing-tagline">Think in <em>Meter</em>. Pay per thought.</div>
+        {/* 15: Closing – logo image + tagline */}
+        <div className={`scene ${current === 14 ? "active" : ""}`}>
+          <div className="closing-logo">
+            <Image src="/logo-light.webp" alt="Meter" width={300} height={75} style={{ width: "clamp(180px, 22vw, 300px)", height: "auto" }} priority />
+          </div>
+          <div className="closing-tagline">Think in Meter. Pay per thought.</div>
         </div>
 
         <div className="progress-bar" style={{ width: `${progressWidth}%` }} />
@@ -497,7 +445,7 @@ export default function ExplainerPage() {
   );
 }
 
-const explainerStyles = `
+const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
@@ -509,7 +457,6 @@ const explainerStyles = `
     font-family: 'Inter', -apple-system, sans-serif;
     overflow: hidden; position: relative;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
   }
 
   canvas#bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
@@ -523,57 +470,25 @@ const explainerStyles = `
   }
   .scene.active { opacity: 1; transform: scale(1); pointer-events: auto; }
 
-  /* ── Typography ── */
   .scene-text { text-align: center; max-width: 900px; padding: 0 40px; }
 
   .headline {
     font-size: clamp(32px, 3.5vw, 56px);
-    font-weight: 500;
-    letter-spacing: -1.5px;
-    line-height: 1.15;
-    margin-bottom: 16px;
-    color: #fff;
+    font-weight: 500; letter-spacing: -1.5px;
+    line-height: 1.15; margin-bottom: 16px; color: #fff;
   }
-
-  .subtext {
-    font-size: clamp(15px, 1.3vw, 21px);
-    font-weight: 300;
-    color: rgba(255,255,255,0.45);
-    line-height: 1.6;
-    letter-spacing: -0.2px;
-  }
-
-  /* ── Scene 1: Meter icon ── */
-  .meter-icon { width: 160px; height: 160px; margin-top: 48px; position: relative; }
-  .meter-dial {
-    width: 160px; height: 160px; border: 2px solid rgba(255,255,255,0.12);
-    border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center;
-  }
-  .meter-dial::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.04); }
-  .meter-needle {
-    width: 2px; height: 60px; background: linear-gradient(to top, #fff, rgba(255,255,255,0.15));
-    position: absolute; bottom: 50%; left: 50%; transform-origin: bottom center;
-    transform: translateX(-50%) rotate(-60deg); border-radius: 2px;
-    animation: needleSweep 3s cubic-bezier(0.34,1.56,0.64,1) forwards;
-  }
-  .meter-dot { width: 8px; height: 8px; background: #fff; border-radius: 50%; position: absolute; z-index: 2; }
-  @keyframes needleSweep { 0% { transform: translateX(-50%) rotate(-60deg); } 100% { transform: translateX(-50%) rotate(60deg); } }
 
   /* ── Clip placeholder ── */
   .clip-placeholder {
     display: flex; flex-direction: column; align-items: center; gap: 24px;
     padding: 60px 80px; border-radius: 20px;
     border: 2px dashed rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.02);
+    background: rgba(255,255,255,0.02); margin-bottom: 16px;
   }
-  .clip-icon { opacity: 0.4; }
-  .clip-label {
-    font-size: 15px; font-weight: 400; color: rgba(255,255,255,0.25);
-    letter-spacing: -0.2px;
-  }
+  .clip-label { font-size: 15px; font-weight: 400; color: rgba(255,255,255,0.25); }
 
   /* ── Tool cards ── */
-  .tools-grid { display: flex; gap: 20px; margin-bottom: 48px; }
+  .tools-grid { display: flex; gap: 20px; }
 
   .tool-card {
     width: 180px; height: 240px; border-radius: 16px;
@@ -581,57 +496,30 @@ const explainerStyles = `
     background: rgba(255,255,255,0.02);
     backdrop-filter: blur(20px);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-    opacity: 0; transform: translateY(30px); position: relative; overflow: hidden;
+    opacity: 0; transform: translateY(30px);
     transition: border-color 0.4s;
   }
-  .tool-card::before {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(180deg, rgba(255,50,50,0.06) 0%, transparent 60%);
-    opacity: 0; transition: opacity 0.6s;
-  }
-  .tool-card.strikethrough { border-color: rgba(255,68,68,0.2); }
-  .tool-card.strikethrough::before { opacity: 1; }
-
   .tool-logo { margin-bottom: 4px; opacity: 0.8; }
   .tool-name { font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.85); letter-spacing: -0.3px; }
   .tool-tier { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1.5px; }
   .tool-card .price { font-size: 28px; font-weight: 500; letter-spacing: -1px; color: #fff; }
   .price-period { font-size: 14px; font-weight: 300; color: rgba(255,255,255,0.35); }
 
-  .tool-card .strike-line {
-    position: absolute; width: 0; height: 1.5px; background: #ff4444;
-    top: 50%; left: 10%; transform: rotate(-45deg);
-    transition: width 0.4s cubic-bezier(0.16,1,0.3,1);
-  }
-  .tool-card.strikethrough .strike-line { width: 80%; }
-
-  /* ── Model badges (frame 5) ── */
-  .model-badges { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-  .model-badge {
-    padding: 10px 22px; border-radius: 100px;
+  /* ── Model pills with logos (frame 8) ── */
+  .model-pills { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .model-pill {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 22px 10px 12px; border-radius: 100px;
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.03);
-    font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.6);
-    letter-spacing: -0.2px;
     opacity: 0; transform: scale(0.8);
   }
-
-  /* ── Model logos row (frame 10) ── */
-  .model-logos-row { display: flex; gap: 36px; align-items: center; justify-content: center; }
-  .model-logo-item {
-    display: flex; flex-direction: column; align-items: center; gap: 12px;
-    opacity: 0; transform: translateY(20px);
-  }
-  .model-logo-icon { width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); }
-  .model-logo-icon svg { width: 32px; height: 32px; }
-  .model-logo-name { font-size: 12px; font-weight: 400; color: rgba(255,255,255,0.4); letter-spacing: -0.2px; }
+  .pill-logo { display: flex; align-items: center; }
+  .pill-logo svg { width: 22px; height: 22px; }
+  .pill-name { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.6); letter-spacing: -0.2px; }
 
   /* ── Logo reveal ── */
   .meter-logo-large { margin-bottom: 28px; opacity: 0; transform: scale(0.5); }
-  .meter-logo-large .logo-text {
-    font-size: clamp(64px, 8vw, 120px); font-weight: 500; letter-spacing: -5px;
-    color: #fff;
-  }
   .tagline-intro {
     font-size: clamp(18px, 1.8vw, 26px); font-weight: 300;
     color: rgba(255,255,255,0.4); letter-spacing: -0.3px;
@@ -641,7 +529,7 @@ const explainerStyles = `
   .cost-stream { display: flex; align-items: center; gap: 40px; }
   .cost-ticker {
     font-family: 'JetBrains Mono', monospace; font-size: 48px; font-weight: 500;
-    color: #4ade80; letter-spacing: -2px; position: relative; text-align: center;
+    color: #4ade80; letter-spacing: -2px; text-align: center;
   }
   .cost-ticker .cent { font-size: 28px; color: rgba(74,222,128,0.5); vertical-align: super; }
   .cost-ticker .label {
@@ -667,8 +555,7 @@ const explainerStyles = `
     border: 1.5px solid rgba(255,255,255,0.15);
     display: flex; align-items: center; justify-content: center;
     font-weight: 600; font-size: 14px; color: rgba(255,255,255,0.5);
-    letter-spacing: 1px;
-    opacity: 0; transform: scale(0);
+    letter-spacing: 1px; opacity: 0; transform: scale(0);
   }
 
   /* ── Decision card ── */
@@ -700,8 +587,7 @@ const explainerStyles = `
     border: 1px solid rgba(255,255,255,0.15);
     background: rgba(255,255,255,0.04);
     font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.7);
-    letter-spacing: -0.2px; opacity: 0;
-    transition: all 0.4s ease;
+    letter-spacing: -0.2px; opacity: 0; transition: all 0.4s ease;
   }
   .settle-btn .settle-text-settling,
   .settle-btn .settle-text-settled { display: none; }
@@ -714,6 +600,7 @@ const explainerStyles = `
   .settle-btn.settled { border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.08); }
   .settle-spinner { animation: spin 1s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
   /* ── Future ── */
   .future-text { max-width: 780px; text-align: center; padding: 0 40px; }
   .future-text .big {
@@ -735,9 +622,11 @@ const explainerStyles = `
   }
 
   /* ── Closing ── */
-  .closing-logo { font-size: clamp(48px, 5vw, 76px); font-weight: 500; letter-spacing: -3px; margin-bottom: 28px; opacity: 0; color: #fff; }
-  .closing-tagline { font-size: clamp(18px, 1.8vw, 26px); font-weight: 300; color: rgba(255,255,255,0.35); letter-spacing: -0.3px; opacity: 0; }
-  .closing-tagline em { font-style: normal; color: rgba(255,255,255,0.7); font-weight: 500; }
+  .closing-logo { margin-bottom: 28px; opacity: 0; }
+  .closing-tagline {
+    font-size: clamp(18px, 1.8vw, 26px); font-weight: 300;
+    color: rgba(255,255,255,0.5); letter-spacing: -0.3px; opacity: 0;
+  }
 
   /* ── Chrome ── */
   .progress-bar { position: fixed; bottom: 0; left: 0; height: 2px; background: linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.15)); z-index: 100; transition: width 0.3s ease; }
