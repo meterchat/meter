@@ -436,11 +436,11 @@ const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-  body { margin: 0; padding: 0; background: #030706; overflow: hidden; }
+  body { margin: 0; padding: 0; background: #060f0a; overflow: hidden; }
 
   .explainer-root {
     width: 100vw; height: 100vh;
-    background: #030706; color: #fff;
+    background: #060f0a; color: #fff;
     font-family: 'Inter', -apple-system, sans-serif;
     overflow: hidden; position: relative;
     -webkit-font-smoothing: antialiased;
