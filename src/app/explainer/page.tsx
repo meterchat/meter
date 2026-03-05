@@ -141,9 +141,7 @@ export default function ExplainerPage() {
     const ctaUrl = document.querySelector<HTMLElement>(".cta-url");
     if (badge) badge.style.opacity = "0";
     if (ctaUrl) { ctaUrl.style.opacity = "0"; ctaUrl.style.transform = "translateY(20px)"; }
-    const cl = document.querySelector<HTMLElement>(".closing-logo");
     const ct = document.querySelector<HTMLElement>(".closing-tagline");
-    if (cl) cl.style.opacity = "0";
     if (ct) ct.style.opacity = "0";
   }
 
@@ -212,10 +210,8 @@ export default function ExplainerPage() {
     }
     // Frame 16: closing
     if (i === 15) {
-      const cl = document.querySelector<HTMLElement>(".closing-logo");
       const ct = document.querySelector<HTMLElement>(".closing-tagline");
-      if (cl) setTimeout(() => { cl.style.transition = "opacity 1s ease"; cl.style.opacity = "1"; }, 300);
-      if (ct) setTimeout(() => { ct.style.transition = "opacity 0.8s ease"; ct.style.opacity = "1"; }, 1000);
+      if (ct) setTimeout(() => { ct.style.transition = "opacity 1s ease"; ct.style.opacity = "1"; }, 300);
     }
   }
 
@@ -433,11 +429,8 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* 16: Closing – logo image + tagline */}
+        {/* 16: Closing – tagline only */}
         <div className={`scene ${current === 15 ? "active" : ""}`}>
-          <div className="closing-logo">
-            <Image src="/logo-dark.webp" alt="Meter" width={300} height={75} style={{ width: "clamp(180px, 22vw, 300px)", height: "auto" }} priority />
-          </div>
           <div className="closing-tagline">Think in Meter. Pay per thought.</div>
         </div>
 
@@ -630,7 +623,6 @@ const styles = `
   }
 
   /* ── Closing ── */
-  .closing-logo { margin-bottom: 28px; opacity: 0; }
   .closing-tagline {
     font-size: clamp(18px, 1.8vw, 26px); font-weight: 300;
     color: rgba(255,255,255,0.5); letter-spacing: -0.3px; opacity: 0;
