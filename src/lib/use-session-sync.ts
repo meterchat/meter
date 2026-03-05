@@ -324,9 +324,25 @@ export function useSessionSync() {
             localProject?.connectedServices,
           );
 
-          if (!localProject || localProject.messages.length === 0) {
-            // No local data or empty local — use server as-is
+          if (!localProject) {
+            // No local data at all — use server as-is
             merged.push(serverProject);
+            continue;
+          }
+
+          if (localProject.messages.length === 0) {
+            // Local has no messages (stripped from localStorage) — use server messages
+            // but preserve the higher of local vs server cost/counter metadata
+            const lp = localProject as Record<string, unknown>;
+            merged.push({
+              ...serverProject,
+              todayCost: Math.max(serverProject.todayCost, (lp.todayCost as number) ?? 0),
+              todayTokensIn: Math.max(serverProject.todayTokensIn, (lp.todayTokensIn as number) ?? 0),
+              todayTokensOut: Math.max(serverProject.todayTokensOut, (lp.todayTokensOut as number) ?? 0),
+              todayMessageCount: Math.max(serverProject.todayMessageCount, (lp.todayMessageCount as number) ?? 0),
+              totalCost: Math.max(serverProject.totalCost, (lp.totalCost as number) ?? 0),
+              connectedServices: localProject.connectedServices ?? {},
+            });
             continue;
           }
 
@@ -381,8 +397,8 @@ export function useSessionSync() {
 
         useWorkspaceStore.getState().upsertCompaniesFromSessions(serverSessions, nextActiveProjectId);
         useMeterStore.getState().fetchConnectionStatus();
-      } catch {
-        // Silent fail — localStorage still works as fallback
+      } catch (err) {
+        console.error("[meter] Failed to load sessions from server:", err);
       } finally {
         useMeterStore.getState().setSessionsLoaded(true);
       }
