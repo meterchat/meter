@@ -146,7 +146,7 @@ export default function DocsPage() {
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
               Streaming chat endpoint. Returns SSE events.
             </p>
-            <pre className="rounded-lg bg-[#141414] border border-white/[0.06] p-4 font-mono text-xs text-foreground overflow-x-auto leading-relaxed">
+            <pre className="rounded-lg bg-[#0c1610] border border-emerald-400/[0.06] p-4 font-mono text-xs text-foreground overflow-x-auto leading-relaxed">
 {`POST /api/v1/chat
 Authorization: Bearer mk_your_api_key
 Content-Type: application/json
