@@ -427,7 +427,6 @@ export default function ExplainerPage() {
         </div>
 
         <div className="progress-bar" style={{ width: `${progressWidth}%` }} />
-        <div className="scene-counter">{counterText}</div>
       </div>
     </>
   );
@@ -610,11 +609,6 @@ const styles = `
 
   /* ── Chrome ── */
   .progress-bar { position: fixed; bottom: 0; left: 0; height: 2px; background: linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.15)); z-index: 100; transition: width 0.3s ease; }
-
-  .scene-counter {
-    position: fixed; bottom: 38px; left: 50%; transform: translateX(-50%);
-    font-size: 11px; color: rgba(255,255,255,0.15); letter-spacing: 3px; z-index: 100; font-weight: 400;
-  }
 
   .glow-orb { position: fixed; border-radius: 50%; filter: blur(120px); z-index: 0; pointer-events: none; }
   .glow-1 { width: 600px; height: 600px; background: rgba(99,102,241,0.06); top: -200px; right: -200px; }
