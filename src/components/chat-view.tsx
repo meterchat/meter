@@ -45,6 +45,7 @@ import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS } from "@/lib/models";
 import { useSessionSync } from "@/lib/use-session-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
+import { apiUrl } from "@/lib/api-url";
 import { useArtifactsStore } from "@/lib/artifacts-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
@@ -52,6 +53,7 @@ import { ClarifyingCard } from "@/components/clarifying-card";
 import { DissectorTrace } from "@/components/dissector-trace";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 
 const DRAFT_KEY = (id: string) => `meter:draft:${id}`;
 
@@ -331,7 +333,7 @@ function DocumentPreviewCard({
         style={{ cursor: expanded ? "default" : "pointer" }}
       >
         <div className="px-5 py-4 prose prose-sm max-w-none text-[#1c1917] prose-headings:text-[#1c1917] prose-headings:font-semibold prose-h1:text-base prose-h2:text-sm prose-h3:text-xs prose-p:text-[12px] prose-p:leading-relaxed prose-p:text-[#44403c] prose-li:text-[12px] prose-li:text-[#44403c] prose-strong:text-[#1c1917] prose-a:text-blue-600 prose-pre:bg-[#f5f5f4] prose-pre:text-[11px] prose-code:text-[11px] prose-code:text-[#c2410c]">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{doc.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={mdComponents}>{doc.content}</ReactMarkdown>
         </div>
         {/* Fade overlay when collapsed */}
         {!expanded && (
@@ -780,7 +782,7 @@ export function ChatView() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const res = await fetch("/api/attachments/upload", { method: "POST", body: formData });
+      const res = await fetch(apiUrl("/api/attachments/upload"), { method: "POST", body: formData });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         console.error("Upload failed:", body.error);
@@ -1031,7 +1033,7 @@ export function ChatView() {
         { role: "user", content: userContent },
       ];
 
-      const res = await fetch("/api/chat", {
+      const res = await fetch(apiUrl("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: abort.signal,
@@ -1848,7 +1850,7 @@ export function ChatView() {
                         <ErrorCard payload={displayContent.slice("__error__".length)} />
                       ) : msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-a:text-blue-400 dark:prose-a:text-blue-400 prose-a:text-blue-600">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{displayContent}</ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={mdComponents}>{displayContent}</ReactMarkdown>
                         </div>
                       ) : (
                         <div className="whitespace-pre-wrap">{msg.content}</div>

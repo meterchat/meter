@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { apiUrl } from "@/lib/api-url";
 
 export interface Decision {
   id: string;
@@ -105,7 +106,7 @@ export const useDecisionsStore = create<DecisionsState>()(
 
       fetchDecisions: async () => {
         try {
-          const res = await fetch("/api/decisions");
+          const res = await fetch(apiUrl("/api/decisions"));
           if (!res.ok) return;
           const data = await res.json();
           if (!data.decisions?.length) return;

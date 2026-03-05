@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useMeterStore } from "@/lib/store";
 import { trackCardAdded } from "@/lib/analytics";
+import { apiUrl } from "@/lib/api-url";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -38,7 +39,7 @@ function CardFormInner({ clientSecret, onComplete }: { clientSecret: string; onC
       if (result.error) throw new Error(result.error.message);
 
       if (result.setupIntent?.status === "succeeded") {
-        const res = await fetch("/api/billing/confirm", {
+        const res = await fetch(apiUrl("/api/billing/confirm"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ setupIntentId: result.setupIntent.id }),
@@ -100,7 +101,7 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
   useEffect(() => {
     if (!userId) return;
 
-    fetch("/api/billing/setup-intent", {
+    fetch(apiUrl("/api/billing/setup-intent"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),

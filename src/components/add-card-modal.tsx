@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMeterStore } from "@/lib/store";
 import { trackCardAdded } from "@/lib/analytics";
+import { apiUrl } from "@/lib/api-url";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -44,7 +45,7 @@ function AddCardForm({ clientSecret, onSuccess }: { clientSecret: string; onSucc
 
       if (result.setupIntent?.status === "succeeded") {
         setStatus("Confirming...");
-        const res = await fetch("/api/billing/confirm", {
+        const res = await fetch(apiUrl("/api/billing/confirm"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -134,7 +135,7 @@ export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => 
       return;
     }
 
-    fetch("/api/billing/setup-intent", {
+    fetch(apiUrl("/api/billing/setup-intent"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),

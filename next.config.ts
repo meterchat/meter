@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isMobileBuild = process.env.CAPACITOR_BUILD === "1";
+
 const csp = `
   default-src 'self';
   script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com;
@@ -16,25 +18,35 @@ const csp = `
 `.replace(/\n/g, ' ').trim();
 
 const nextConfig: NextConfig = {
-  async headers() {
-    return [
-      {
-        source: "/:path*",
-        headers: [
-          {
-            key: "Content-Security-Policy",
-            value: csp,
-          },
-        ],
-      },
-    ];
-  },
-  images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: '**' },
-      { protocol: 'http', hostname: '**' },
-    ],
-  },
+  // Static export for Capacitor mobile builds; normal SSR for web
+  ...(isMobileBuild && {
+    output: "export",
+    images: { unoptimized: true },
+  }),
+  // CSP headers only work in server mode (not static export)
+  ...(!isMobileBuild && {
+    async headers() {
+      return [
+        {
+          source: "/:path*",
+          headers: [
+            {
+              key: "Content-Security-Policy",
+              value: csp,
+            },
+          ],
+        },
+      ];
+    },
+  }),
+  ...(!isMobileBuild && {
+    images: {
+      remotePatterns: [
+        { protocol: 'https', hostname: '**' },
+        { protocol: 'http', hostname: '**' },
+      ],
+    },
+  }),
   typescript: {
     ignoreBuildErrors: true,
   },

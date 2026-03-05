@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
+import { apiUrl } from "@/lib/api-url";
 import { useDecisionsStore } from "@/lib/decisions-store";
 
 const SYNC_INTERVAL = 10_000; // sync every 10 seconds
@@ -119,7 +120,7 @@ export function useSessionSync() {
     for (const project of projects) {
 
       try {
-        const res = await fetch("/api/sessions", {
+        const res = await fetch(apiUrl("/api/sessions"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -247,7 +248,7 @@ export function useSessionSync() {
 
     async function loadSessions() {
       try {
-        const res = await fetch("/api/sessions");
+        const res = await fetch(apiUrl("/api/sessions"));
         if (!res.ok) {
           // Server session expired — clear client auth so user re-authenticates
           if (res.status === 401) {
