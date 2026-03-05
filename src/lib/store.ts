@@ -127,6 +127,14 @@ interface ProjectThread {
   currentMessageCost: number;
   connectedServices: Record<string, boolean>;
   cardAssigned?: boolean;
+  // Pagination state
+  hasOlderMessages: boolean;
+  loadingOlderMessages: boolean;
+  oldestLoadedTimestamp: number | null;
+  // Server aggregate token stats (full session, not just loaded messages)
+  serverTokensIn: number;
+  serverTokensOut: number;
+  serverMessageCount: number;
 }
 
 interface MeterState {
@@ -253,6 +261,10 @@ interface MeterState {
   resetDailyIfNeeded: () => void;
   attemptDailySettlement: () => Promise<void>;
 
+  // Pagination actions
+  prependMessages: (projectId: string, messages: ChatMessage[], hasMore: boolean) => void;
+  fetchOlderMessages: (projectId: string) => Promise<void>;
+
   reset: () => void;
 }
 
@@ -302,6 +314,12 @@ function createProject(id: string, name: string): ProjectThread {
     currentMessageCost: 0,
     connectedServices: {},
     cardAssigned: false,
+    hasOlderMessages: false,
+    loadingOlderMessages: false,
+    oldestLoadedTimestamp: null,
+    serverTokensIn: 0,
+    serverTokensOut: 0,
+    serverMessageCount: 0,
   };
 }
 
@@ -1410,6 +1428,83 @@ export const useMeterStore = create<MeterState>()(
         }),
       setDecisionMode: (v) => set({ decisionMode: v }),
 
+      // Pagination: prepend older messages loaded via scroll
+      prependMessages: (projectId, messages, hasMore) =>
+        set((s) => {
+          const projects = s.projects.map((p) => {
+            if (p.id !== projectId) return p;
+            // Deduplicate by ID
+            const existingIds = new Set(p.messages.map((m) => m.id));
+            const newMsgs = messages.filter((m) => !existingIds.has(m.id));
+            const merged = [...newMsgs, ...p.messages];
+            const oldest = merged.length > 0 ? merged[0].timestamp : null;
+            return {
+              ...p,
+              messages: merged,
+              hasOlderMessages: hasMore,
+              loadingOlderMessages: false,
+              oldestLoadedTimestamp: oldest,
+            };
+          });
+          return { projects };
+        }),
+
+      fetchOlderMessages: async (projectId) => {
+        const state = get();
+        const project = state.projects.find((p) => p.id === projectId);
+        if (!project || project.loadingOlderMessages || !project.hasOlderMessages) return;
+
+        // Mark loading
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId ? { ...p, loadingOlderMessages: true } : p,
+          ),
+        }));
+
+        try {
+          const oldest = project.messages[0];
+          const params = new URLSearchParams({ limit: "200" });
+          if (oldest) {
+            params.set("before", String(oldest.timestamp));
+            params.set("before_id", oldest.id);
+          }
+
+          const res = await fetch(`/api/sessions/${encodeURIComponent(projectId)}/messages?${params}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+
+          const mapped: ChatMessage[] = (data.messages ?? []).map((m: Record<string, unknown>) => ({
+            id: m.id as string,
+            role: m.role as "user" | "assistant",
+            content: (m.content as string) ?? "",
+            model: m.model as string | undefined,
+            tokensIn: m.tokens_in as number | undefined,
+            tokensOut: m.tokens_out as number | undefined,
+            cost: m.cost as number | undefined,
+            confidence: m.confidence as number | undefined,
+            settled: m.settled as boolean | undefined,
+            receiptStatus: m.receipt_status as ReceiptStatus | undefined,
+            signature: m.signature as string | undefined,
+            txHash: m.tx_hash as string | undefined,
+            cards: m.cards as ActionCard[] | undefined,
+            attachments: m.attachments as Attachment[] | undefined,
+            debateTrace: m.debate_trace as DebateTurn[] | undefined,
+            thinking: m.thinking as string | undefined,
+            timestamp: m.timestamp as number,
+          }));
+
+          get().prependMessages(projectId, mapped, data.hasMore ?? false);
+        } catch (err) {
+          console.warn("[meter] Failed to fetch older messages:", err);
+          // Clear loading state on error
+          set((s) => ({
+            projects: s.projects.map((p) =>
+              p.id === projectId ? { ...p, loadingOlderMessages: false } : p,
+            ),
+          }));
+        }
+      },
+
       reset: () =>
         set((s) => ({
           projects: s.projects.map((p) => ({
@@ -1443,7 +1538,7 @@ export const useMeterStore = create<MeterState>()(
         spendingCap: s.spendingCap,
         autoSettleThreshold: s.autoSettleThreshold,
         lastAutoSettleDate: s.lastAutoSettleDate,
-        projects: s.projects,
+        projects: s.projects.map((p) => ({ ...p, messages: [] })),
         activeProjectId: s.activeProjectId,
         spendLimits: s.spendLimits,
       }),
@@ -1463,18 +1558,14 @@ export const useMeterStore = create<MeterState>()(
         state.projects = state.projects.map((p) => {
           let proj = p.isStreaming ? { ...p, isStreaming: false } : p;
 
-          // Migrate: seed monthCost/weekCost from messages for old-format projects
+          // Seed monthKey/weekKey if missing (old-format migration).
+          // Messages are no longer in localStorage, so cost values come from
+          // persisted session fields — just stamp the period keys.
           if (proj.monthKey == null) {
-            const cost = proj.messages
-              .filter((m) => m.role === "assistant" && m.cost != null && (m.timestamp ?? 0) >= monthStart)
-              .reduce((sum, m) => sum + (m.cost ?? 0), 0);
-            proj = { ...proj, monthCost: Math.max(cost, proj.todayCost ?? 0), monthKey: curMonth };
+            proj = { ...proj, monthCost: Math.max(proj.monthCost ?? 0, proj.todayCost ?? 0), monthKey: curMonth };
           }
           if (proj.weekKey == null) {
-            const cost = proj.messages
-              .filter((m) => m.role === "assistant" && m.cost != null && (m.timestamp ?? 0) >= weekStart)
-              .reduce((sum, m) => sum + (m.cost ?? 0), 0);
-            proj = { ...proj, weekCost: Math.max(cost, proj.todayCost ?? 0), weekKey: curWeek };
+            proj = { ...proj, weekCost: Math.max(proj.weekCost ?? 0, proj.todayCost ?? 0), weekKey: curWeek };
           }
 
           return proj;
