@@ -75,7 +75,7 @@ export default function ExplainerPage() {
   const [playing, setPlaying] = useState(false);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const costIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const totalScenes = 15;
+  const totalScenes = 16;
 
   const sceneDurations = [
     5500, // 1: why pay hundreds
@@ -90,9 +90,10 @@ export default function ExplainerPage() {
     5000, // 10: clip placeholder
     5500, // 11: log decisions
     5000, // 12: auto-settle
-    5500, // 13: future gym memberships
-    5000, // 14: public beta CTA
-    5000, // 15: closing tagline
+    4500, // 13: spend time thinking
+    5500, // 14: future gym memberships
+    5000, // 15: public beta CTA
+    5000, // 16: closing tagline
   ];
 
   useEffect(() => {
@@ -202,15 +203,15 @@ export default function ExplainerPage() {
         setTimeout(() => { btn.classList.remove("settling"); btn.classList.add("settled"); }, 3000);
       }
     }
-    // Frame 14: CTA
-    if (i === 13) {
+    // Frame 15: CTA
+    if (i === 14) {
       const b = document.querySelector<HTMLElement>(".beta-badge");
       const url = document.querySelector<HTMLElement>(".cta-url");
       if (b) setTimeout(() => { b.style.transition = "opacity 0.5s ease"; b.style.opacity = "1"; }, 200);
       if (url) setTimeout(() => { url.style.transition = "opacity 0.7s ease, transform 0.7s ease"; url.style.opacity = "1"; url.style.transform = "translateY(0)"; }, 600);
     }
-    // Frame 15: closing
-    if (i === 14) {
+    // Frame 16: closing
+    if (i === 15) {
       const cl = document.querySelector<HTMLElement>(".closing-logo");
       const ct = document.querySelector<HTMLElement>(".closing-tagline");
       if (cl) setTimeout(() => { cl.style.transition = "opacity 1s ease"; cl.style.opacity = "1"; }, 300);
@@ -301,7 +302,7 @@ export default function ExplainerPage() {
         <div className={`scene ${current === 3 ? "active" : ""}`}>
           <div className="intro-label">Introducing</div>
           <div className="meter-logo-large">
-            <Image src="/logo-dark.webp" alt="Meter" width={600} height={150} style={{ width: "clamp(360px, 45vw, 600px)", height: "auto" }} priority />
+            <Image src="/logo-dark.webp" alt="Meter" width={500} height={125} style={{ width: "clamp(280px, 35vw, 500px)", height: "auto" }} priority />
           </div>
         </div>
 
@@ -367,7 +368,7 @@ export default function ExplainerPage() {
         {/* 11: Log decisions with one tap */}
         <div className={`scene ${current === 10 ? "active" : ""}`}>
           <div className="scene-text" style={{ marginBottom: 40 }}>
-            <div className="headline">And when you have conviction, log your decisions with one tap.</div>
+            <div className="headline">And when you have conviction, log decisions with one tap.</div>
           </div>
           <div className="decision-card">
             <div className="dc-header">
@@ -407,15 +408,22 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* 13: Future / gym memberships */}
+        {/* 13: Spend time thinking, not rate-limiting */}
         <div className={`scene ${current === 12 ? "active" : ""}`}>
+          <div className="scene-text">
+            <div className="headline">So you can spend your time thinking and not rate-limiting.</div>
+          </div>
+        </div>
+
+        {/* 14: Future / gym memberships */}
+        <div className={`scene ${current === 13 ? "active" : ""}`}>
           <div className="future-text">
             <div className="big">In the future everyone will wonder why they ever paid to think like they do gym memberships.</div>
           </div>
         </div>
 
-        {/* 14: Public beta CTA */}
-        <div className={`scene ${current === 13 ? "active" : ""}`}>
+        {/* 15: Public beta CTA */}
+        <div className={`scene ${current === 14 ? "active" : ""}`}>
           <div className="cta-container">
             <div className="beta-badge">Public Beta</div>
             <div className="scene-text" style={{ marginBottom: 24 }}>
@@ -425,8 +433,8 @@ export default function ExplainerPage() {
           </div>
         </div>
 
-        {/* 15: Closing – logo image + tagline */}
-        <div className={`scene ${current === 14 ? "active" : ""}`}>
+        {/* 16: Closing – logo image + tagline */}
+        <div className={`scene ${current === 15 ? "active" : ""}`}>
           <div className="closing-logo">
             <Image src="/logo-dark.webp" alt="Meter" width={300} height={75} style={{ width: "clamp(180px, 22vw, 300px)", height: "auto" }} priority />
           </div>
