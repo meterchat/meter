@@ -428,11 +428,6 @@ export default function ExplainerPage() {
 
         <div className="progress-bar" style={{ width: `${progressWidth}%` }} />
         <div className="scene-counter">{counterText}</div>
-        <div className="controls">
-          <button onClick={() => { stopAutoplay(); goPrev(); }} title="Previous">&lsaquo;</button>
-          <button onClick={() => setPlaying((p) => !p)} title="Play/Pause">{playing ? "\u23F8" : "\u25B6"}</button>
-          <button onClick={() => { stopAutoplay(); goNext(); }} title="Next">&rsaquo;</button>
-        </div>
       </div>
     </>
   );
@@ -615,17 +610,6 @@ const styles = `
 
   /* ── Chrome ── */
   .progress-bar { position: fixed; bottom: 0; left: 0; height: 2px; background: linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.15)); z-index: 100; transition: width 0.3s ease; }
-
-  .controls { position: fixed; bottom: 32px; right: 32px; z-index: 100; display: flex; gap: 10px; }
-  .controls button {
-    width: 44px; height: 44px; border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.03);
-    color: rgba(255,255,255,0.6); font-size: 16px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(10px); transition: all 0.2s;
-  }
-  .controls button:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: #fff; }
 
   .scene-counter {
     position: fixed; bottom: 38px; left: 50%; transform: translateX(-50%);
