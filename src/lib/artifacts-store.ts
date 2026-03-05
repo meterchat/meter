@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { apiUrl } from "@/lib/api-url";
 
 export interface Artifact {
   id: string;
@@ -41,7 +42,7 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
     try {
       const params = new URLSearchParams();
       if (projectId) params.set("projectId", projectId);
-      const res = await fetch(`/api/artifacts?${params}`);
+      const res = await fetch(apiUrl(`/api/artifacts?${params}`));
       if (!res.ok) {
         set({ loading: false });
         return;

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useMeterStore, selectConnectedServices } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
+import { apiUrl } from "@/lib/api-url";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
 import { initiateOAuthFlow } from "@/lib/oauth-client";
 import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
@@ -765,7 +766,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
     if (!githubConnected || !activeProjectIdFromStore) return;
     setReposLoading(true);
     try {
-      const res = await fetch(`/api/github/repos?workspaceId=${encodeURIComponent(activeProjectIdFromStore)}`);
+      const res = await fetch(apiUrl(`/api/github/repos?workspaceId=${encodeURIComponent(activeProjectIdFromStore)}`));
       if (res.ok) {
         const data = await res.json();
         setRepos((data.repos ?? []).map((r: { fullName: string; name: string; private: boolean }) => ({
@@ -805,7 +806,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
         workspaceId: activeProjectIdFromStore,
       };
       if (artifactIds) body.artifactIds = artifactIds;
-      const res = await fetch("/api/artifacts/push", {
+      const res = await fetch(apiUrl("/api/artifacts/push"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

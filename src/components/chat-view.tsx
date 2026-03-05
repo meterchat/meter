@@ -45,6 +45,7 @@ import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS } from "@/lib/models";
 import { useSessionSync } from "@/lib/use-session-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
+import { apiUrl } from "@/lib/api-url";
 import { useArtifactsStore } from "@/lib/artifacts-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
@@ -780,7 +781,7 @@ export function ChatView() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const res = await fetch("/api/attachments/upload", { method: "POST", body: formData });
+      const res = await fetch(apiUrl("/api/attachments/upload"), { method: "POST", body: formData });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         console.error("Upload failed:", body.error);
@@ -1031,7 +1032,7 @@ export function ChatView() {
         { role: "user", content: userContent },
       ];
 
-      const res = await fetch("/api/chat", {
+      const res = await fetch(apiUrl("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: abort.signal,

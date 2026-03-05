@@ -5,6 +5,7 @@ import { CONNECTORS } from "@/lib/connectors";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { useStagingStore } from "@/lib/staging-store";
+import { apiUrl } from "@/lib/api-url";
 
 export type ReceiptStatus = "signing" | "signed" | "settled";
 
@@ -465,7 +466,7 @@ export const useMeterStore = create<MeterState>()(
         if (!workspaceId) return;
         set({ connectionsLoading: true });
         try {
-          const res = await fetch(`/api/oauth/status?workspaceId=${encodeURIComponent(workspaceId)}`);
+          const res = await fetch(apiUrl(`/api/oauth/status?workspaceId=${encodeURIComponent(workspaceId)}`));
           if (res.ok) {
             const serverStatus = await res.json() as Record<string, boolean>;
             set((s) => {
@@ -496,7 +497,7 @@ export const useMeterStore = create<MeterState>()(
           return { projects: replaceActiveProject(s, updated) };
         });
         try {
-          await fetch(`/api/oauth/${id}/disconnect`, {
+          await fetch(apiUrl(`/api/oauth/${id}/disconnect`), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ workspaceId }),
@@ -510,7 +511,7 @@ export const useMeterStore = create<MeterState>()(
         const workspaceId = get().activeProjectId;
         if (!workspaceId) return { ok: false, error: "Not authenticated" };
         try {
-          const res = await fetch("/api/oauth/api-key", {
+          const res = await fetch(apiUrl("/api/oauth/api-key"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ provider, workspaceId, apiKey, metadata: metadata ?? null }),
@@ -569,7 +570,7 @@ export const useMeterStore = create<MeterState>()(
         }
 
         // Fire-and-forget server-side session cleanup
-        fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+        fetch(apiUrl("/api/auth/logout"), { method: "POST" }).catch(() => {});
 
         // Clear this store immediately — sendBeacon is queued and will complete
         set({
@@ -888,7 +889,7 @@ export const useMeterStore = create<MeterState>()(
         }
 
         try {
-          const res = await fetch("/api/billing/settle", {
+          const res = await fetch(apiUrl("/api/billing/settle"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1056,7 +1057,7 @@ export const useMeterStore = create<MeterState>()(
         });
 
         try {
-          const res = await fetch("/api/porkbun/register", {
+          const res = await fetch(apiUrl("/api/porkbun/register"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ domain: card.metadata.domain }),
@@ -1247,7 +1248,7 @@ export const useMeterStore = create<MeterState>()(
       fetchCards: async () => {
         set({ cardsLoading: true });
         try {
-          const res = await fetch("/api/billing/cards");
+          const res = await fetch(apiUrl("/api/billing/cards"));
           if (res.ok) {
             const data = await res.json();
             set({ cards: data.cards ?? [] });
@@ -1259,7 +1260,7 @@ export const useMeterStore = create<MeterState>()(
 
       setDefaultCard: async (paymentMethodId) => {
         try {
-          const res = await fetch("/api/billing/cards/default", {
+          const res = await fetch(apiUrl("/api/billing/cards/default"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentMethodId }),
@@ -1277,7 +1278,7 @@ export const useMeterStore = create<MeterState>()(
 
       removeCard: async (paymentMethodId) => {
         try {
-          const res = await fetch(`/api/billing/cards/${paymentMethodId}`, {
+          const res = await fetch(apiUrl(`/api/billing/cards/${paymentMethodId}`), {
             method: "DELETE",
           });
           if (!res.ok) {
@@ -1297,7 +1298,7 @@ export const useMeterStore = create<MeterState>()(
         if (!projectId) return;
         set({ settlementHistoryLoading: true });
         try {
-          const res = await fetch(`/api/billing/history?workspaceId=${encodeURIComponent(projectId)}`);
+          const res = await fetch(apiUrl(`/api/billing/history?workspaceId=${encodeURIComponent(projectId)}`));
           if (res.ok) {
             const data = await res.json();
             set({ settlementHistory: data.history ?? [] });
@@ -1311,7 +1312,7 @@ export const useMeterStore = create<MeterState>()(
         const projectId = workspaceId ?? get().activeProjectId;
         if (!projectId) return;
         try {
-          const res = await fetch(`/api/billing/spend-limits?workspaceId=${encodeURIComponent(projectId)}`);
+          const res = await fetch(apiUrl(`/api/billing/spend-limits?workspaceId=${encodeURIComponent(projectId)}`));
           if (res.ok) {
             const data = await res.json();
             set({ spendLimits: { dailyLimit: data.dailyLimit ?? null, monthlyLimit: data.monthlyLimit ?? null, perTxnLimit: data.perTxnLimit ?? null } });
@@ -1325,7 +1326,7 @@ export const useMeterStore = create<MeterState>()(
         const merged = { ...get().spendLimits, ...limits };
         set({ spendLimits: merged });
         try {
-          await fetch("/api/billing/spend-limits", {
+          await fetch(apiUrl("/api/billing/spend-limits"), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ workspaceId: projectId, ...merged }),
