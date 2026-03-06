@@ -53,7 +53,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
     function: {
       name: "save_decision",
       description:
-        "Save a decision or recommendation so the user can track it. Use when the user makes a choice, reaches a conclusion, or asks for a recommendation they should remember.",
+        "Save a decision or recommendation. ALWAYS call list_decisions first to check for existing decisions on the same topic — if one exists, pass its ID in `supersedes` to create a versioned history.",
       parameters: {
         type: "object",
         properties: {
@@ -65,8 +65,17 @@ export const BUILTIN_TOOLS: ToolDef[] = [
             description: "Other options that were considered",
           },
           reasoning: { type: "string", description: "Why this choice was made" },
+          category: {
+            type: "string",
+            enum: ["branding", "architecture", "billing", "product", "engineering", "strategy", "other"],
+            description: "Category for this decision",
+          },
+          supersedes: {
+            type: "string",
+            description: "ID of the existing decision this replaces. Pass this when updating a previous decision to create versioned history.",
+          },
         },
-        required: ["title", "choice"],
+        required: ["title", "choice", "category"],
       },
     },
   },
@@ -203,8 +212,8 @@ You can see images and read PDFs. When the user uploads an image or PDF, you rec
 
 You have tools. Use them:
 - web_search: Search the web for anything current — news, docs, prices, APIs, etc. Use this proactively when questions touch on recent events or data you're unsure about.
-- save_decision: Log important decisions when the user makes a choice or asks you to recommend something. This helps them track what was decided and why.
-- list_decisions: Recall past decisions when the user asks "what did we decide" or references earlier choices.
+- save_decision: Log important decisions when the user makes a choice or asks you to recommend something. IMPORTANT: Before saving, ALWAYS call list_decisions first to check for existing decisions on the same topic. If you find one that this new decision updates or replaces, pass its ID in the \`supersedes\` field — this creates versioned history instead of duplicates. Always assign a category (branding, architecture, billing, product, engineering, strategy, or other).
+- list_decisions: Recall past decisions when the user asks "what did we decide" or references earlier choices. Also call this BEFORE save_decision to check for existing decisions on the same topic.
 - save_artifact: Save any document — strategy specs, technical docs, proposals, guides, meeting notes, plans, or briefs. Use whenever the user asks you to write, draft, or generate a document. Each document gets a preview in chat and is saved to their Documents folder.
 - get_current_datetime: Know what day/time it is.
 - porkbun_check_domain: Check if a domain is available and get its price. Use when the user picks a brand name or asks about domains. A purchase card will appear in chat for available domains.
@@ -473,6 +482,36 @@ async function saveDecision(
   try {
     const supabase = getSupabaseServer();
     const id = `dec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const supersedesId = args.supersedes as string | undefined;
+
+    let version = 1;
+    let parentDecisionId: string | null = null;
+    let category = (args.category as string) || "other";
+
+    // If this supersedes an existing decision, archive the old one and link them
+    if (supersedesId) {
+      const { data: oldDecision } = await supabase
+        .from("decisions")
+        .select("id, version, category")
+        .eq("id", supersedesId)
+        .eq("user_id", ctx.userId)
+        .single();
+
+      if (oldDecision) {
+        // Archive the old decision
+        await supabase
+          .from("decisions")
+          .update({ archived: true, updated_at: new Date().toISOString() })
+          .eq("id", supersedesId);
+
+        version = (oldDecision.version ?? 1) + 1;
+        parentDecisionId = supersedesId;
+        // Inherit category from old decision if not explicitly provided
+        if (!args.category && oldDecision.category) {
+          category = oldDecision.category;
+        }
+      }
+    }
 
     await supabase.from("decisions").insert({
       id,
@@ -483,9 +522,13 @@ async function saveDecision(
       alternatives: args.alternatives || [],
       reasoning: (args.reasoning as string) || null,
       project_id: ctx.projectId || null,
+      category,
+      parent_decision_id: parentDecisionId,
+      version,
     });
 
-    return JSON.stringify({ id, message: `Decision saved: "${args.title}" — ${args.choice}` });
+    const versionLabel = version > 1 ? ` (v${version})` : "";
+    return JSON.stringify({ id, message: `Decision saved: "${args.title}"${versionLabel} — ${args.choice}` });
   } catch (err) {
     return `Failed to save decision: ${(err as Error).message}`;
   }

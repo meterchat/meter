@@ -276,11 +276,62 @@ export function Inspector() {
 }
 
 /* ─── DECISIONS TAB ─── */
+
+const CATEGORY_ORDER = ["branding", "architecture", "product", "engineering", "billing", "strategy", "other"];
+
+function VersionHistory({ title, projectId }: { title: string; projectId?: string }) {
+  const fetchDecisionHistory = useDecisionsStore((s) => s.fetchDecisionHistory);
+  const [history, setHistory] = useState<Decision[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchDecisionHistory(title, projectId).then((h) => {
+      if (!cancelled) { setHistory(h); setLoading(false); }
+    });
+    return () => { cancelled = true; };
+  }, [title, projectId, fetchDecisionHistory]);
+
+  if (loading) return <p className="font-mono text-[10px] text-muted-foreground/30">Loading history...</p>;
+  if (history.length === 0) return null;
+
+  return (
+    <div className="mt-1.5">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">History</span>
+      <div className="mt-0.5 flex flex-col gap-0.5">
+        {history.map((h) => (
+          <div key={h.id} className="font-mono text-[11px] text-foreground/40">
+            <span className="text-muted-foreground/50">v{h.version ?? 1}</span>
+            <span className="mx-1 text-muted-foreground/20">&middot;</span>
+            <span className="text-muted-foreground/30">{new Date(h.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+            <span className="mx-1 text-muted-foreground/20">&mdash;</span>
+            <span>{h.choice}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DecisionRow({ decision }: { decision: Decision }) {
   const { archiveDecision, reopenDecision } = useDecisionsStore();
   const setPendingInput = useMeterStore((s) => s.setPendingInput);
   const [expanded, setExpanded] = useState(false);
   const isDecided = decision.status === "decided";
+  const isContested = isDecided && (decision.revisitCount ?? 0) >= 2;
+  const version = decision.version ?? 1;
+
+  const dotColor = !isDecided
+    ? "bg-amber-500"
+    : isContested
+      ? "bg-amber-400"
+      : "bg-emerald-500/60";
+
+  const statusLabel = !isDecided
+    ? "open"
+    : isContested
+      ? `revisited ${decision.revisitCount}x`
+      : null;
 
   const handleRevisit = () => {
     trackDecisionRevisited({ decisionId: decision.id, status: decision.status });
@@ -313,13 +364,12 @@ function DecisionRow({ decision }: { decision: Decision }) {
         >
           <polyline points="9 18 15 12 9 6" />
         </svg>
-        <span
-          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-            isDecided ? "bg-emerald-500" : "bg-amber-500"
-          }`}
-        />
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} />
         <span className="flex-1 truncate font-mono text-[12px] text-foreground/80">
           {decision.title}
+          {version > 1 && (
+            <span className="ml-1 text-muted-foreground/40 text-[10px]">(v{version})</span>
+          )}
         </span>
         <div className="hidden group-hover:flex items-center gap-1 shrink-0">
           <button
@@ -335,15 +385,19 @@ function DecisionRow({ decision }: { decision: Decision }) {
             archive
           </button>
         </div>
-        <span
-          className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
-            isDecided
-              ? "bg-emerald-500/10 text-emerald-500"
-              : "bg-amber-500/10 text-amber-500"
-          }`}
-        >
-          {isDecided ? "decided" : "open"}
-        </span>
+        {statusLabel ? (
+          <span
+            className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] tracking-wider ${
+              !isDecided
+                ? "bg-amber-500/10 text-amber-500"
+                : "bg-amber-400/10 text-amber-400"
+            }`}
+          >
+            {statusLabel}
+          </span>
+        ) : (
+          <span className="group-hover:hidden w-0" />
+        )}
       </div>
 
       {expanded && (
@@ -376,8 +430,26 @@ function DecisionRow({ decision }: { decision: Decision }) {
           {!decision.choice && !decision.reasoning && (!Array.isArray(decision.alternatives) || decision.alternatives.length === 0) && (
             <p className="font-mono text-[11px] text-muted-foreground/30 italic">No details recorded</p>
           )}
+          {version > 1 && (
+            <VersionHistory title={decision.title} projectId={decision.projectId} />
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function CategoryGroup({ category, decisions }: { category: string; decisions: Decision[] }) {
+  return (
+    <div className="mb-3">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/40 mb-1 capitalize">
+        {category}
+      </div>
+      <div className="flex flex-col gap-0.5">
+        {decisions.map((d) => (
+          <DecisionRow key={d.id} decision={d} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -454,54 +526,53 @@ function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
 
 function DecisionsTab({ activeProjectId }: { activeProjectId: string | null }) {
   const { decisions } = useDecisionsStore();
-  const scoped = decisions
-    .filter((d) => !d.archived && d.projectId && d.projectId === activeProjectId)
+
+  // Combine scoped + legacy, filter non-archived
+  const allDecisions = decisions.filter((d) => !d.archived);
+  const scoped = allDecisions
+    .filter((d) => d.projectId && d.projectId === activeProjectId)
     .sort((a, b) => {
       if (a.status !== b.status) return a.status === "undecided" ? -1 : 1;
       return b.updatedAt - a.updatedAt;
     });
-  const legacy = decisions
-    .filter((d) => !d.archived && !d.projectId)
+  const legacy = allDecisions
+    .filter((d) => !d.projectId)
     .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  const allVisible = [...scoped, ...legacy];
+
+  // Group by category
+  const grouped = useMemo(() => {
+    const map = new Map<string, Decision[]>();
+    for (const d of allVisible) {
+      const cat = d.category || "other";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(d);
+    }
+    return [...map.entries()].sort(
+      (a, b) => CATEGORY_ORDER.indexOf(a[0]) - CATEGORY_ORDER.indexOf(b[0])
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisions, activeProjectId]);
 
   return (
     <div className="flex flex-col gap-4">
       <PinsSection activeProjectId={activeProjectId} />
-      <div>
-        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-          Decisions
+      {allVisible.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 gap-2">
+          <span className="font-mono text-xs text-muted-foreground/40">
+            No decisions yet
+          </span>
+          <span className="font-mono text-[11px] text-muted-foreground/30">
+            Decisions are logged as you chat
+          </span>
         </div>
-        {scoped.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 gap-2">
-            <span className="font-mono text-xs text-muted-foreground/40">
-              No decisions yet
-            </span>
-            <span className="font-mono text-[11px] text-muted-foreground/30">
-              Decisions are logged as you chat
-            </span>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-0.5">
-            {scoped.map((d) => (
-              <DecisionRow key={d.id} decision={d} />
-            ))}
-          </div>
-        )}
-      </div>
-      {legacy.length > 0 && (
-        <>
-          <div className="h-px bg-border" />
-          <div>
-            <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
-              Unassigned
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {legacy.map((d) => (
-                <DecisionRow key={d.id} decision={d} />
-              ))}
-            </div>
-          </div>
-        </>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {grouped.map(([category, categoryDecisions]) => (
+            <CategoryGroup key={category} category={category} decisions={categoryDecisions} />
+          ))}
+        </div>
       )}
     </div>
   );
