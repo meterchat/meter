@@ -82,6 +82,33 @@ export const BUILTIN_TOOLS: ToolDef[] = [
   {
     type: "function",
     function: {
+      name: "fork_paths",
+      description:
+        "Fork the conversation into two or three named paths for the user to explore separately. Use ONLY when the user says 'Fork this into paths' — call this tool with short descriptive names for each path based on the options being weighed.",
+      parameters: {
+        type: "object",
+        properties: {
+          paths: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Short name for this path (2-4 words)" },
+              },
+              required: ["name"],
+            },
+            description: "The paths to explore (2-3 paths)",
+            minItems: 2,
+            maxItems: 3,
+          },
+        },
+        required: ["paths"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "save_artifact",
       description:
         "Save a document for the project. Use for any document the user asks you to create — strategy specs, technical docs, proposals, guides, plans, briefs, notes, or any other structured document. The document will appear as a preview in chat and be saved to the user's Documents folder.",
@@ -189,7 +216,9 @@ When you sense the user has reached a decision point — a choice between two or
 
 When the user is questioning or stress-testing a singular idea — "is this good enough?", "what are the risks?", "should I go deeper?" — and it's not a fork between options, end your response with the tag [dissect-point] on its own line. This gives the user a Dissect button for deep multi-pass analysis.
 
-Only use these tags when a meaningful choice or analysis is being discussed, not on routine messages. Use [decision-point] for dual-nature decisions, [dissect-point] for singular ideas under scrutiny.
+When the user is genuinely torn between two or three paths and wants to explore each one in depth before committing — not just picking between options, but needing to think through the consequences of each path separately — end your response with the tag [fork-paths] on its own line. This gives the user an "Explore paths" button that forks the conversation into parallel tracks. Use this sparingly — only when the user is at a real crossroads where exploring each path separately would provide more clarity than a simple debate or decision. Do NOT use [fork-paths] alongside [decision-point] — if the user can just decide, use [decision-point]. [fork-paths] is for when they need to live with each option for a while before choosing.
+
+Only use these tags when a meaningful choice or analysis is being discussed, not on routine messages. Use [decision-point] for dual-nature decisions, [dissect-point] for singular ideas under scrutiny, [fork-paths] for deep crossroads requiring parallel exploration.
 
 When the user asks to generate strategy artifacts or prepare specs for their coding agents, create these files using save_artifact:
 1. README.md — project overview, purpose, current phase, and how to run it
@@ -236,6 +265,9 @@ export async function executeTool(
       return listDecisions(ctx);
     case "save_artifact":
       return saveArtifact(args, ctx);
+    case "fork_paths":
+      // Client-side tool — server just acknowledges, client creates the subtracks
+      return JSON.stringify({ ok: true, paths: args.paths });
     // Connector tools
     case "search_emails":
       return withConnectorToken("gmail", ctx, async (token) =>

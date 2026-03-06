@@ -57,6 +57,17 @@ import remarkBreaks from "remark-breaks";
 
 const DRAFT_KEY = (id: string) => `meter:draft:${id}`;
 
+/** Path color scheme — each forked path gets a distinct color */
+const PATH_COLORS = [
+  { name: "teal", dot: "bg-teal-500", dotMuted: "bg-teal-500/30", text: "text-teal-400", border: "border-teal-500/30", bg: "bg-teal-500/10", bgHover: "hover:bg-teal-500/20" },
+  { name: "indigo", dot: "bg-indigo-500", dotMuted: "bg-indigo-500/30", text: "text-indigo-400", border: "border-indigo-500/30", bg: "bg-indigo-500/10", bgHover: "hover:bg-indigo-500/20" },
+  { name: "amber", dot: "bg-amber-500", dotMuted: "bg-amber-500/30", text: "text-amber-400", border: "border-amber-500/30", bg: "bg-amber-500/10", bgHover: "hover:bg-amber-500/20" },
+] as const;
+
+function getPathColor(index: number) {
+  return PATH_COLORS[index % PATH_COLORS.length];
+}
+
 function statusLabel(msg: ChatMessage) {
   if (msg.receiptStatus === "settled") return "Settled";
   if (msg.receiptStatus === "signed") return "Signed";
@@ -202,11 +213,11 @@ function ActionPointButtons({
   disabled,
   forkDisabled,
 }: {
-  variant: "decision" | "dissect";
+  variant: "decision" | "dissect" | "fork";
   onDecide: () => void;
   onDebate: () => void;
   onDissect: () => void;
-  onFork?: () => void;
+  onFork: () => void;
   disabled?: boolean;
   forkDisabled?: boolean;
 }) {
@@ -232,23 +243,23 @@ function ActionPointButtons({
             </svg>
             Debate
           </button>
-          {onFork && (
-            <button
-              onClick={onFork}
-              disabled={disabled || forkDisabled}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-400 active:bg-violet-500/20 active:text-violet-400 disabled:opacity-40"
-              title={forkDisabled ? "Cannot fork while exploring paths" : "Explore different paths for this decision"}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="6" y1="3" x2="6" y2="15" />
-                <circle cx="18" cy="6" r="3" />
-                <circle cx="6" cy="18" r="3" />
-                <path d="M18 9a9 9 0 0 1-9 9" />
-              </svg>
-              Explore paths
-            </button>
-          )}
         </>
+      )}
+      {variant === "fork" && (
+        <button
+          onClick={onFork}
+          disabled={disabled || forkDisabled}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-teal-500/40 hover:bg-teal-500/10 hover:text-teal-400 active:bg-teal-500/20 active:text-teal-400 disabled:opacity-40"
+          title={forkDisabled ? "Cannot explore paths while already exploring" : "Fork into separate paths to explore each option"}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="6" y1="3" x2="6" y2="15" />
+            <circle cx="18" cy="6" r="3" />
+            <circle cx="6" cy="18" r="3" />
+            <path d="M18 9a9 9 0 0 1-9 9" />
+          </svg>
+          Explore paths
+        </button>
       )}
       {variant === "dissect" && (
         <button
@@ -266,88 +277,6 @@ function ActionPointButtons({
   );
 }
 
-/* ─── Inline Fork Form ─── */
-
-function InlineForkForm({
-  messageId,
-  onFork,
-  onCancel,
-}: {
-  messageId: string;
-  onFork: (messageId: string, names: string[]) => void;
-  onCancel: () => void;
-}) {
-  const [path1, setPath1] = useState("");
-  const [path2, setPath2] = useState("");
-  const [path3, setPath3] = useState("");
-  const [showThird, setShowThird] = useState(false);
-
-  const canSubmit = path1.trim().length > 0 && path2.trim().length > 0;
-
-  const handleSubmit = () => {
-    if (!canSubmit) return;
-    const names = [path1.trim(), path2.trim()];
-    if (showThird && path3.trim()) names.push(path3.trim());
-    onFork(messageId, names);
-  };
-
-  return (
-    <div className="mt-3 rounded-lg border border-violet-500/30 bg-violet-500/5 p-3">
-      <div className="font-mono text-[11px] text-violet-400 mb-2">Name your paths</div>
-      <div className="space-y-1.5">
-        <input
-          autoFocus
-          value={path1}
-          onChange={(e) => setPath1(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); if (e.key === "Escape") onCancel(); }}
-          placeholder="Path 1..."
-          className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/40"
-        />
-        <input
-          value={path2}
-          onChange={(e) => setPath2(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); if (e.key === "Escape") onCancel(); }}
-          placeholder="Path 2..."
-          className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/40"
-        />
-        {showThird && (
-          <input
-            value={path3}
-            onChange={(e) => setPath3(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); if (e.key === "Escape") onCancel(); }}
-            placeholder="Path 3 (optional)..."
-            className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/40"
-          />
-        )}
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        {!showThird && (
-          <button
-            onClick={() => setShowThird(true)}
-            className="font-mono text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-          >
-            + Add third path
-          </button>
-        )}
-        <div className="flex-1" />
-        <button
-          onClick={onCancel}
-          className="rounded-md px-2.5 py-1 font-mono text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className="rounded-md bg-violet-500/20 px-3 py-1 font-mono text-[10px] text-violet-400 transition-colors hover:bg-violet-500/30 disabled:opacity-40"
-        >
-          Fork
-        </button>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Fork Point Divider ─── */
 
 function ForkPointDivider({ timestamp }: { timestamp: number }) {
@@ -355,36 +284,35 @@ function ForkPointDivider({ timestamp }: { timestamp: number }) {
   const label = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return (
     <div className="flex items-center gap-3 my-4">
-      <div className="flex-1 h-px bg-violet-500/20" />
+      <div className="flex-1 h-px bg-teal-500/20" />
       <div className="flex items-center gap-1.5">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400/60">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400/60">
           <line x1="6" y1="3" x2="6" y2="15" />
           <circle cx="18" cy="6" r="3" />
           <circle cx="6" cy="18" r="3" />
           <path d="M18 9a9 9 0 0 1-9 9" />
         </svg>
-        <span className="font-mono text-[10px] text-violet-400/60">Forked into paths &middot; {label}</span>
+        <span className="font-mono text-[10px] text-teal-400/60">Forked into paths &middot; {label}</span>
       </div>
-      <div className="flex-1 h-px bg-violet-500/20" />
+      <div className="flex-1 h-px bg-teal-500/20" />
     </div>
   );
 }
 
 /* ─── Branch Divider (shown in subtracks) ─── */
 
-function BranchDivider({ timestamp }: { timestamp: number }) {
+function BranchDivider({ timestamp, colorIndex }: { timestamp: number; colorIndex: number }) {
   const date = new Date(timestamp);
   const label = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const color = getPathColor(colorIndex);
   return (
     <div className="flex items-center gap-3 my-4">
-      <div className="flex-1 h-px bg-violet-500/15" />
+      <div className="flex-1 h-px" style={{ background: `currentColor`, opacity: 0.15 }} />
       <div className="flex items-center gap-1.5">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400/40">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-        <span className="font-mono text-[10px] text-violet-400/40">Branched from main &middot; {label}</span>
+        <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} style={{ opacity: 0.6 }} />
+        <span className={`font-mono text-[10px] ${color.text}`} style={{ opacity: 0.5 }}>Branched from main &middot; {label}</span>
       </div>
-      <div className="flex-1 h-px bg-violet-500/15" />
+      <div className="flex-1 h-px" style={{ background: `currentColor`, opacity: 0.15 }} />
     </div>
   );
 }
@@ -403,7 +331,7 @@ function FrozenMainBanner({
   const [confirmClose, setConfirmClose] = useState(false);
 
   return (
-    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+    <div className="rounded-xl border border-border/30 bg-foreground/[0.02] p-4">
       <div className="text-center">
         <div className="font-mono text-[12px] text-foreground/70 mb-1">
           Conversation forked into {subtracks.length} paths
@@ -412,16 +340,19 @@ function FrozenMainBanner({
           Continue in a path or close all to resume main
         </div>
         <div className="flex items-center justify-center gap-2 flex-wrap">
-          {subtracks.map((st) => (
-            <button
-              key={st.id}
-              onClick={() => onSelectTrack(st.id)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 font-mono text-[11px] text-violet-400 transition-colors hover:bg-violet-500/20"
-            >
-              <span className="text-violet-400/60">↳</span>
-              {st.name}
-            </button>
-          ))}
+          {subtracks.map((st, idx) => {
+            const color = getPathColor(idx);
+            return (
+              <button
+                key={st.id}
+                onClick={() => onSelectTrack(st.id)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border ${color.border} ${color.bg} px-3 py-1.5 font-mono text-[11px] ${color.text} transition-colors ${color.bgHover}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
+                {st.name}
+              </button>
+            );
+          })}
           <div className="w-px h-5 bg-border/30 mx-1" />
           {!confirmClose ? (
             <button
@@ -459,28 +390,32 @@ function SubtrackCommitBar({
   trackName,
   siblingNames,
   onCommit,
+  colorIndex,
 }: {
   trackName: string;
   siblingNames: string[];
   onCommit: () => void;
+  colorIndex: number;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const color = getPathColor(colorIndex);
 
   return (
-    <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 mb-2">
+    <div className={`rounded-lg border ${color.border} ${color.bg} px-3 py-2.5 mb-2`}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="font-mono text-[11px] text-violet-400 truncate">
+          <div className={`font-mono text-[11px] ${color.text} truncate flex items-center gap-1.5`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
             Exploring: {trackName}
           </div>
-          <div className="font-mono text-[9px] text-muted-foreground/40 mt-0.5">
+          <div className="font-mono text-[9px] text-muted-foreground/40 mt-0.5 pl-3">
             This will merge into main and archive other paths
           </div>
         </div>
         {!confirming ? (
           <button
             onClick={() => setConfirming(true)}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-1.5 font-mono text-[11px] text-violet-400 transition-colors hover:bg-violet-500/25"
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg ${color.bg} px-3 py-1.5 font-mono text-[11px] ${color.text} transition-colors ${color.bgHover}`}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
@@ -494,7 +429,7 @@ function SubtrackCommitBar({
             </span>
             <button
               onClick={onCommit}
-              className="rounded-md bg-violet-500/20 px-2.5 py-1 font-mono text-[10px] text-violet-400 hover:bg-violet-500/30 transition-colors"
+              className={`rounded-md ${color.bg} px-2.5 py-1 font-mono text-[10px] ${color.text} ${color.bgHover} transition-colors`}
             >
               Commit
             </button>
@@ -570,9 +505,14 @@ function hasDissectPoint(content: string): boolean {
   return content.includes("[dissect-point]");
 }
 
+/** Check if a message contains the [fork-paths] tag (crossroads requiring parallel exploration) */
+function hasForkPathsPoint(content: string): boolean {
+  return content.includes("[fork-paths]");
+}
+
 /** Strip action-point tags from content for display */
 function stripDecisionPoint(content: string): string {
-  return content.replace(/\s*\[(decision|dissect)-point\]\s*/g, "").trim();
+  return content.replace(/\s*\[(decision|dissect|fork)-point\]\s*/g, "").replace(/\s*\[fork-paths\]\s*/g, "").trim();
 }
 
 /* ─── Document preview card (shown inline in chat) ─── */
@@ -744,6 +684,7 @@ function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string
 const TOOL_LABELS: Record<string, string> = {
   web_search: "Searching the web",
   save_decision: "Saving decision",
+  fork_paths: "Forking paths",
   save_artifact: "Writing document",
   list_decisions: "Recalling decisions",
   get_current_datetime: "Checking date",
@@ -1067,26 +1008,17 @@ export function ChatView() {
     );
   }, [wsProjects, isSubtrack, currentWsProject, parentTrackId]);
 
-  // Fork form state
-  const [forkingMessageId, setForkingMessageId] = useState<string | null>(null);
+  // Color index for current subtrack (based on creation order among all subtracks with same parent)
+  const currentPathColorIndex = useMemo(() => {
+    if (!isSubtrack || !currentWsProject) return 0;
+    const allSiblings = wsProjects
+      .filter((p) => p.isSubtrack && (p.parentTrackId ?? null) === parentTrackId)
+      .sort((a, b) => a.createdAt - b.createdAt);
+    return allSiblings.findIndex((p) => p.id === currentWsProject.id);
+  }, [wsProjects, isSubtrack, currentWsProject, parentTrackId]);
 
-  const handleForkStart = (messageId: string) => {
-    setForkingMessageId(messageId);
-  };
-
-  const handleForkConfirm = (messageId: string, names: string[]) => {
-    if (!activeCompanyId) return;
-    // The parentTrackId is the current activeProjectId (null = main)
-    const currentParent = wsActiveProjectId ?? null;
-    // Create subtrack projects in workspace store
-    const ids = forkTrack(activeCompanyId, currentParent, messageId, names);
-    // Create thread copies for each subtrack
-    const parentThreadId = activeProjectId;
-    for (const id of ids) {
-      createSubtrackThread(id, parentThreadId, messageId);
-    }
-    setForkingMessageId(null);
-  };
+  // Ref for fork handler — assigned after streamResponse is defined
+  const handleForkPathsRef = useRef<() => void>(() => {});
 
   const handleCommitSubtrack = () => {
     if (!currentWsProject || !isSubtrack) return;
@@ -1162,6 +1094,7 @@ export function ChatView() {
   const isProgrammaticScrollRef = useRef(false);
   const hasInitialScrolled = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const pendingForkRef = useRef<string[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -1667,6 +1600,13 @@ export function ChatView() {
                   }, streamProjectId);
                 }
               }
+              if (data.name === "fork_paths" && data.forkPaths) {
+                const paths = data.forkPaths as { name: string }[];
+                if (paths.length >= 2) {
+                  // Store pending fork — will be executed after stream completes
+                  pendingForkRef.current = paths.map((p) => p.name);
+                }
+              }
               if (data.name === "porkbun_check_domain" && data.domainCard) {
                 const dc = data.domainCard as {
                   id: string;
@@ -1770,6 +1710,23 @@ export function ChatView() {
       // Delay setStreaming(false) so the meter pill slot animation has
       // time to roll to the final cost value before locking.
       setTimeout(() => setStreaming(false, streamProjectId), 350);
+
+      // Execute pending fork if the AI called fork_paths
+      if (pendingForkRef.current && pendingForkRef.current.length >= 2) {
+        const pathNames = pendingForkRef.current;
+        pendingForkRef.current = null;
+        // Find the last assistant message ID to use as fork point
+        const store = useMeterStore.getState();
+        const project = store.projects.find((p) => p.id === streamProjectId);
+        const lastAssistantMsg = project?.messages.filter((m) => m.role === "assistant").pop();
+        if (lastAssistantMsg && activeCompanyId) {
+          const parentId = wsActiveProjectId ?? null;
+          const ids = forkTrack(activeCompanyId, parentId, lastAssistantMsg.id, pathNames);
+          for (const id of ids) {
+            createSubtrackThread(id, streamProjectId, lastAssistantMsg.id);
+          }
+        }
+      }
     }
   };
 
@@ -1874,6 +1831,20 @@ export function ChatView() {
     trackDissectClicked({ projectId: activeProjectId });
     await streamResponse("Dissect this.", "dissect");
   };
+
+  /** Triggered by "Explore paths" button — AI auto-names and creates paths */
+  handleForkPathsRef.current = async () => {
+    if (isStreaming || !workspaceCardReady || isMainFrozen || isSubtrack) return;
+    await streamResponse("Fork this into paths.");
+  };
+  const handleForkPaths = () => handleForkPathsRef.current();
+
+  // Listen for manual "Explore paths" trigger from project-switcher dropdown
+  useEffect(() => {
+    const handler = () => { handleForkPathsRef.current(); };
+    window.addEventListener("meter:explore-paths", handler);
+    return () => window.removeEventListener("meter:explore-paths", handler);
+  }, []);
 
   /** Triggered when user submits answers to a clarifying question (dissector Q&A) */
   const handleClarifyingSubmit = async (answers: Record<string, string>) => {
@@ -2213,11 +2184,12 @@ export function ChatView() {
               const displayContent = msg.role === "assistant" ? stripDecisionPoint(msg.content) : msg.content;
               const isDecisionPoint = hasDecisionPoint(msg.content);
               const isDissectPoint = hasDissectPoint(msg.content);
+              const isForkPathsPoint = hasForkPathsPoint(msg.content);
               const showActionButtons = msg.role === "assistant"
-                && (isDecisionPoint || isDissectPoint)
+                && (isDecisionPoint || isDissectPoint || isForkPathsPoint)
                 && !msg.decisionId
                 && !isStreaming;
-              const actionVariant: "decision" | "dissect" = isDecisionPoint ? "decision" : "dissect";
+              const actionVariant: "decision" | "dissect" | "fork" = isForkPathsPoint ? "fork" : isDecisionPoint ? "decision" : "dissect";
               // Show live debate trace on the last assistant message while streaming
               const showLiveDebate = isLastAssistant && isStreaming && debatePhase;
               // Show persisted debate trace on any message that has one
@@ -2365,18 +2337,9 @@ export function ChatView() {
                           onDecide={handleDecide}
                           onDebate={handleDebate}
                           onDissect={handleDissect}
-                          onFork={actionVariant === "decision" ? () => handleForkStart(msg.id) : undefined}
+                          onFork={handleForkPaths}
                           disabled={isStreaming}
                           forkDisabled={isMainFrozen || isSubtrack}
-                        />
-                      )}
-
-                      {/* Inline fork form */}
-                      {forkingMessageId === msg.id && (
-                        <InlineForkForm
-                          messageId={msg.id}
-                          onFork={handleForkConfirm}
-                          onCancel={() => setForkingMessageId(null)}
                         />
                       )}
 
@@ -2391,7 +2354,7 @@ export function ChatView() {
                   {msg.isForkPoint && <ForkPointDivider timestamp={msg.timestamp} />}
 
                   {/* Branch divider — shown in subtracks at the fork boundary */}
-                  {isSubtrack && forkMessageId === msg.id && <BranchDivider timestamp={msg.timestamp} />}
+                  {isSubtrack && forkMessageId === msg.id && <BranchDivider timestamp={msg.timestamp} colorIndex={currentPathColorIndex} />}
                 </div>
               );
             })}
@@ -2450,6 +2413,7 @@ export function ChatView() {
                 trackName={currentWsProject.name}
                 siblingNames={siblingSubtracks.map((s) => s.name)}
                 onCommit={handleCommitSubtrack}
+                colorIndex={currentPathColorIndex}
               />
             )}
 

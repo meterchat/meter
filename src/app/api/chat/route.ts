@@ -298,6 +298,9 @@ export async function POST(req: NextRequest) {
                   status: "draft",
                 };
               }
+              if (tc.name === "fork_paths") {
+                toolResultEvent.forkPaths = args.paths;
+              }
               if (tc.name === "porkbun_check_domain") {
                 try {
                   const domainData = JSON.parse(toolResult);
