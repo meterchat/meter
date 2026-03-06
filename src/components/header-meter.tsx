@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useMeterStore } from "@/lib/store";
+import { useWorkspaceStore } from "@/lib/workspace-store";
 import { MeterIcon } from "./meter-icon";
 import { AddCardModal } from "./add-card-modal";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -79,8 +80,26 @@ export function HeaderMeter() {
 
   const projects = useMeterStore((s) => s.projects);
   const activeProjectId = useMeterStore((s) => s.activeProjectId);
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
-  const isStreaming = activeProject?.isStreaming ?? false;
+  const rawActiveProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
+
+  // When on a subtrack (forked path), resolve to the parent workspace project
+  // so the header shows the workspace's stats, not the subtrack's $0 stats.
+  const wsProjects = useWorkspaceStore((s) => s.projects);
+  const wsCompanies = useWorkspaceStore((s) => s.companies);
+  const activeProject = useMemo(() => {
+    const wsProject = wsProjects.find((p) => p.id === activeProjectId);
+    if (wsProject?.isSubtrack) {
+      // Find the parent workspace's session and use that project for billing
+      const company = wsCompanies.find((c) => c.id === wsProject.companyId);
+      if (company?.sessionId) {
+        const parent = projects.find((p) => p.id === company.sessionId);
+        if (parent) return parent;
+      }
+    }
+    return rawActiveProject;
+  }, [activeProjectId, rawActiveProject, wsProjects, wsCompanies, projects]);
+
+  const isStreaming = rawActiveProject?.isStreaming ?? false;
 
   // Payment cards
   const cards = useMeterStore((s) => s.cards);
@@ -89,8 +108,22 @@ export function HeaderMeter() {
   const setDefaultCard = useMeterStore((s) => s.setDefaultCard);
   const removeCard = useMeterStore((s) => s.removeCard);
 
-  // Settlement
-  const getPendingBalance = useMeterStore((s) => s.getPendingBalance);
+  // Settlement — compute pending balance from the resolved workspace project,
+  // not the raw activeProjectId (which may be a subtrack with $0).
+  const pendingCharges = useMeterStore((s) => s.pendingCharges);
+  const getWorkspacePendingBalance = useMemo(() => {
+    return () => {
+      if (!activeProject) return 0;
+      const loadedMsgCost = (activeProject.messages ?? [])
+        .filter((m) => m.role === "assistant" && m.cost !== undefined && !m.settled)
+        .reduce((sum, m) => sum + (m.cost ?? 0), 0);
+      const msgCost = Math.max(activeProject.serverPendingBalance ?? 0, loadedMsgCost);
+      const cardCost = pendingCharges
+        .filter((c) => c.workspaceId === activeProject.id)
+        .reduce((sum, c) => sum + c.cost, 0);
+      return msgCost + cardCost;
+    };
+  }, [activeProject, pendingCharges]);
   const settleAll = useMeterStore((s) => s.settleAll);
   const isSettling = useMeterStore((s) => s.isSettling);
   const cardLast4 = useMeterStore((s) => s.cardLast4);
@@ -185,12 +218,13 @@ export function HeaderMeter() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Fetch cards and spend limits when dropdown opens
+  // Fetch cards and spend limits when dropdown opens — use the workspace project ID
+  const workspaceProjectId = activeProject?.id ?? activeProjectId;
   useEffect(() => {
     if (!open) return;
     fetchCards();
-    if (activeProjectId) fetchSpendLimits(activeProjectId);
-  }, [open, fetchCards, fetchSpendLimits, activeProjectId]);
+    if (workspaceProjectId) fetchSpendLimits(workspaceProjectId);
+  }, [open, fetchCards, fetchSpendLimits, workspaceProjectId]);
 
   // Sync limit inputs when store changes
   useEffect(() => {
@@ -268,7 +302,7 @@ export function HeaderMeter() {
         <div className={`absolute top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl ${isMobile ? "fixed left-2 right-2 w-auto" : "right-0 w-[360px]"}`}>
           {/* Pending Balance — top */}
           <PendingBalanceSection
-            getPendingBalance={getPendingBalance}
+            getPendingBalance={getWorkspacePendingBalance}
             settleAll={settleAll}
             isSettling={isSettling}
           />
