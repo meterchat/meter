@@ -43,7 +43,7 @@ export function WorkspaceBar() {
         {activeCompany && (
           <>
             <span className="text-muted-foreground/20">/</span>
-            {/* Track (git-branch icon) */}
+            {/* Path (git-branch icon) */}
             <div className="flex items-center gap-1">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
                 <line x1="6" y1="3" x2="6" y2="15" />
