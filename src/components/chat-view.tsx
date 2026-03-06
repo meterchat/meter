@@ -1067,7 +1067,18 @@ export function ChatView() {
     if (wsActiveProjectId) {
       // Subtrack selected — switch main store to the subtrack's ProjectThread
       const mainProjects = useMeterStore.getState().projects;
-      if (mainProjects.some((p) => p.id === wsActiveProjectId)) {
+      const subtrackThread = mainProjects.find((p) => p.id === wsActiveProjectId);
+      if (subtrackThread) {
+        // If subtrack has 0 messages (lost after refresh), re-clone from parent
+        if (subtrackThread.messages.length === 0) {
+          const wsProject = wsProjects.find((p) => p.id === wsActiveProjectId);
+          if (wsProject?.isSubtrack && wsProject.forkMessageId) {
+            const company = wsCompanies.find((c) => c.id === wsProject.companyId);
+            if (company?.sessionId) {
+              createSubtrackThread(wsActiveProjectId, company.sessionId, wsProject.forkMessageId);
+            }
+          }
+        }
         setActiveProjectChat(wsActiveProjectId);
       }
     } else if (activeCompanyId) {
@@ -1077,7 +1088,7 @@ export function ChatView() {
         setActiveProjectChat(company.sessionId);
       }
     }
-  }, [wsActiveProjectId, activeCompanyId, wsCompanies, setActiveProjectChat]);
+  }, [wsActiveProjectId, activeCompanyId, wsCompanies, wsProjects, setActiveProjectChat, createSubtrackThread]);
 
   // Current workspace project (from workspace store, has branching metadata)
   const currentWsProject = useMemo(
@@ -1089,11 +1100,11 @@ export function ChatView() {
   const parentTrackId = currentWsProject?.parentTrackId ?? null;
   const forkMessageId = currentWsProject?.forkMessageId ?? null;
 
-  // Active subtracks for the current parent — scoped to current company
+  // Active subtracks for the current parent — scoped to current company, sorted by creation for consistent color assignment
   const activeSubtracks = useMemo(
     () => wsProjects.filter(
       (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (isSubtrack ? parentTrackId : wsActiveProjectId)
-    ),
+    ).sort((a, b) => a.createdAt - b.createdAt),
     [wsProjects, activeCompanyId, isSubtrack, parentTrackId, wsActiveProjectId]
   );
 

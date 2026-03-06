@@ -1565,6 +1565,10 @@ export const useMeterStore = create<MeterState>()(
 
       createSubtrackThread: (subtrackId: string, parentProjectId: string, forkMessageId: string) => {
         set((s) => {
+          const existing = s.projects.find((p) => p.id === subtrackId);
+          // If subtrack already has messages, skip (idempotent)
+          if (existing && existing.messages.length > 0) return s;
+
           const parent = s.projects.find((p) => p.id === parentProjectId);
           if (!parent) return s;
           // Find all messages up to and including the fork message
@@ -1578,7 +1582,19 @@ export const useMeterStore = create<MeterState>()(
               m.id === forkMessageId ? { ...m, isForkPoint: true } : m
             ),
           };
-          // Create the subtrack thread with shared messages
+
+          // If thread shell exists (e.g. from localStorage after refresh), update in place
+          if (existing) {
+            return {
+              projects: s.projects.map((p) => {
+                if (p.id === parentProjectId) return updatedParent;
+                if (p.id === subtrackId) return { ...p, messages: sharedMessages, connectedServices: { ...parent.connectedServices }, cardAssigned: parent.cardAssigned };
+                return p;
+              }),
+            };
+          }
+
+          // Create new subtrack thread with cloned messages
           const subtrackThread = createProject(subtrackId, subtrackId);
           subtrackThread.messages = sharedMessages;
           // Copy connected services from parent
