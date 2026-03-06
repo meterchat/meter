@@ -121,9 +121,18 @@ export function useSessionSync() {
   const syncToServer = useCallback(async () => {
     if (!authenticated) return;
 
+    // Skip subtrack threads — they are local-only forks, not standalone sessions.
+    // Subtrack IDs match workspace store Projects with isSubtrack=true.
+    const wsSubtrackIds = new Set(
+      useWorkspaceStore.getState().projects
+        .filter((p) => p.isSubtrack)
+        .map((p) => p.id)
+    );
+    const syncableProjects = projects.filter((p) => !wsSubtrackIds.has(p.id));
+
     // Create a snapshot hash to avoid unnecessary syncs
     const snapshot = JSON.stringify(
-      projects.map((p) => ({
+      syncableProjects.map((p) => ({
         id: p.id,
         msgCount: p.messages.length,
         lastMsg: p.messages[p.messages.length - 1]?.id,
@@ -134,8 +143,8 @@ export function useSessionSync() {
     if (snapshot === lastSyncRef.current) return;
     let allOk = true;
 
-    // Sync each project as a session
-    for (const project of projects) {
+    // Sync each project as a session (excluding subtracks)
+    for (const project of syncableProjects) {
 
       try {
         const res = await fetch(apiUrl("/api/sessions"), {
@@ -177,7 +186,7 @@ export function useSessionSync() {
       lastSyncRef.current = snapshot;
       syncFailCountRef.current = 0;
       // Track synced message counts for sendBeacon delta
-      for (const project of projects) {
+      for (const project of syncableProjects) {
         syncedMessageCountRef.current.set(project.id, project.messages.length);
       }
     } else {
@@ -239,7 +248,14 @@ export function useSessionSync() {
     const handleBeforeUnload = () => {
       // Send only delta messages since last successful sync to stay under
       // the ~64KB sendBeacon payload limit.
+      // Skip subtrack threads — they are local-only forks, not standalone sessions.
+      const wsSubtrackIds = new Set(
+        useWorkspaceStore.getState().projects
+          .filter((p) => p.isSubtrack)
+          .map((p) => p.id)
+      );
       for (const project of projects) {
+        if (wsSubtrackIds.has(project.id)) continue;
         const syncedCount = syncedMessageCountRef.current.get(project.id) ?? 0;
         const deltaMessages = project.messages.slice(syncedCount);
 
@@ -419,7 +435,14 @@ export function useSessionSync() {
         useMeterStore.getState().resetDailyIfNeeded();
         useMeterStore.getState().attemptDailySettlement();
 
-        useWorkspaceStore.getState().upsertCompaniesFromSessions(serverSessions, nextActiveProjectId);
+        // Filter out any subtrack sessions that may have been synced before the fix
+        const wsSubIds = new Set(
+          useWorkspaceStore.getState().projects
+            .filter((p) => p.isSubtrack)
+            .map((p) => p.id)
+        );
+        const mainSessions = serverSessions.filter((s) => !wsSubIds.has(s.id));
+        useWorkspaceStore.getState().upsertCompaniesFromSessions(mainSessions, nextActiveProjectId);
         useMeterStore.getState().fetchConnectionStatus();
       } catch (err) {
         console.error("[meter] Failed to load sessions from server:", err);
