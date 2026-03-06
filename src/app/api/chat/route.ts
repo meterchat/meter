@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const { userId } = auth;
 
   try {
-    const { messages, model, projectId, connectedServices, attachments, debateRoster } = await req.json();
+    const { messages, model, projectId, connectedServices, attachments, debateRoster, userMessageId, assistantMessageId } = await req.json();
 
     // Server-side spend limit + exposure cap enforcement (skip for superadmin)
     if (projectId && !(await isSuperAdmin(userId))) {
@@ -136,10 +136,70 @@ export async function POST(req: NextRequest) {
       ...trimmed,
     ];
 
+    // Helper: save a single message to Supabase (fire-and-forget, non-blocking)
+    const saveMessageToDB = async (msg: {
+      id: string;
+      sessionId: string;
+      role: string;
+      content: string;
+      model?: string;
+      tokensIn?: number;
+      tokensOut?: number;
+      cost?: number;
+      timestamp: number;
+      debateTrace?: unknown;
+      thinking?: string;
+    }) => {
+      try {
+        const supabase = getSupabaseServer();
+        const dbSessionId = projectId?.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
+        await supabase.from("chat_messages").upsert({
+          id: msg.id,
+          session_id: dbSessionId,
+          role: msg.role,
+          content: msg.content || "",
+          model: msg.model ?? null,
+          tokens_in: msg.tokensIn ?? null,
+          tokens_out: msg.tokensOut ?? null,
+          cost: msg.cost ?? null,
+          settled: false,
+          debate_trace: msg.debateTrace ?? null,
+          thinking: msg.thinking ?? null,
+          timestamp: msg.timestamp,
+        }, { onConflict: "id" });
+      } catch (err) {
+        console.warn("[chat] Failed to save message to DB:", err);
+      }
+    };
+
+    // Save user message to DB immediately (before streaming starts).
+    // This ensures the user message survives even if the client disconnects.
+    const userContent = messages[messages.length - 1]?.content ?? "";
+    if (userMessageId && projectId) {
+      await saveMessageToDB({
+        id: userMessageId,
+        sessionId: projectId,
+        role: "user",
+        content: typeof userContent === "string" ? userContent : JSON.stringify(userContent),
+        timestamp: Date.now(),
+      });
+    }
+
+    // Track the full assistant response for server-side save after completion
+    let fullAssistantContent = "";
+    let fullThinkingContent = "";
+
     const stream = new ReadableStream({
       async start(controller) {
         const send: Send = (data) => {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          // Accumulate assistant content for server-side persistence
+          if (data.type === "delta" && typeof data.content === "string") {
+            fullAssistantContent += data.content;
+          }
+          if (data.type === "thinking_delta" && typeof data.content === "string") {
+            fullThinkingContent += data.content;
+          }
         };
 
         // ── Debate Mode ──────────────────────────────────────────────
@@ -154,6 +214,17 @@ export async function POST(req: NextRequest) {
             send({ type: "error", code: "debate_failed", model: "debate" });
             send({ type: "done", actualModel: "debate" });
           }
+          // Save debate assistant message
+          if (assistantMessageId && projectId && fullAssistantContent) {
+            await saveMessageToDB({
+              id: assistantMessageId,
+              sessionId: projectId,
+              role: "assistant",
+              content: fullAssistantContent,
+              model: "debate",
+              timestamp: Date.now(),
+            });
+          }
           controller.close();
           return;
         }
@@ -166,6 +237,17 @@ export async function POST(req: NextRequest) {
             console.error("[chat] dissection failed:", (err as Error).message);
             send({ type: "error", code: "dissection_failed", model: "dissect" });
             send({ type: "done", actualModel: "dissect" });
+          }
+          // Save dissect assistant message
+          if (assistantMessageId && projectId && fullAssistantContent) {
+            await saveMessageToDB({
+              id: assistantMessageId,
+              sessionId: projectId,
+              role: "assistant",
+              content: fullAssistantContent,
+              model: "dissect",
+              timestamp: Date.now(),
+            });
           }
           controller.close();
           return;
@@ -395,6 +477,23 @@ export async function POST(req: NextRequest) {
         }
 
         send({ type: "done", actualModel: activeModel });
+
+        // Save the completed assistant message to DB (server-side persistence).
+        // This ensures the response survives even if the client disconnects.
+        if (assistantMessageId && projectId && fullAssistantContent) {
+          await saveMessageToDB({
+            id: assistantMessageId,
+            sessionId: projectId,
+            role: "assistant",
+            content: fullAssistantContent,
+            model: activeModel,
+            tokensIn: cumulativeTokensIn || undefined,
+            tokensOut: cumulativeTokensOut || undefined,
+            timestamp: Date.now(),
+            thinking: fullThinkingContent || undefined,
+          });
+        }
+
         controller.close();
       },
     });

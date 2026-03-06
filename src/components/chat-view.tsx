@@ -1498,6 +1498,8 @@ export function ChatView() {
           messages: allMessages,
           model: effectiveModel,
           projectId: streamProjectId,
+          userMessageId: userMsg.id,
+          assistantMessageId: assistantMsg.id,
           connectedServices: Object.keys(connectedServices).filter(
             (k) => connectedServices[k]
           ),
