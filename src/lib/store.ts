@@ -75,6 +75,7 @@ export interface ChatMessage {
   hidden?: boolean;
   clarifyingQuestions?: ClarifyingQuestion[];
   dissectorTrace?: DissectorTurn[];
+  isForkPoint?: boolean;
 }
 
 export interface PaymentCard {
@@ -269,6 +270,11 @@ interface MeterState {
   // Pagination actions
   prependMessages: (projectId: string, messages: ChatMessage[], hasMore: boolean) => void;
   fetchOlderMessages: (projectId: string) => Promise<void>;
+
+  // Branching actions
+  createSubtrackThread: (subtrackId: string, parentProjectId: string, forkMessageId: string) => void;
+  mergeSubtrackIntoParent: (subtrackId: string, parentProjectId: string, forkMessageId: string) => void;
+  clearForkPoint: (parentProjectId: string, forkMessageId: string) => void;
 
   reset: () => void;
 }
@@ -1542,6 +1548,75 @@ export const useMeterStore = create<MeterState>()(
             ),
           }));
         }
+      },
+
+      // --- Branching actions ---
+
+      createSubtrackThread: (subtrackId: string, parentProjectId: string, forkMessageId: string) => {
+        set((s) => {
+          const parent = s.projects.find((p) => p.id === parentProjectId);
+          if (!parent) return s;
+          // Find all messages up to and including the fork message
+          const forkIdx = parent.messages.findIndex((m) => m.id === forkMessageId);
+          if (forkIdx === -1) return s;
+          const sharedMessages = parent.messages.slice(0, forkIdx + 1).map((m) => ({ ...m }));
+          // Mark the fork point on the parent thread
+          const updatedParent = {
+            ...parent,
+            messages: parent.messages.map((m) =>
+              m.id === forkMessageId ? { ...m, isForkPoint: true } : m
+            ),
+          };
+          // Create the subtrack thread with shared messages
+          const subtrackThread = createProject(subtrackId, subtrackId);
+          subtrackThread.messages = sharedMessages;
+          // Copy connected services from parent
+          subtrackThread.connectedServices = { ...parent.connectedServices };
+          subtrackThread.cardAssigned = parent.cardAssigned;
+          return {
+            projects: s.projects.map((p) => (p.id === parentProjectId ? updatedParent : p)).concat(subtrackThread),
+          };
+        });
+      },
+
+      mergeSubtrackIntoParent: (subtrackId: string, parentProjectId: string, forkMessageId: string) => {
+        set((s) => {
+          const subtrack = s.projects.find((p) => p.id === subtrackId);
+          const parent = s.projects.find((p) => p.id === parentProjectId);
+          if (!subtrack || !parent) return s;
+          // Get subtrack-only messages (those after the fork point)
+          const forkIdx = subtrack.messages.findIndex((m) => m.id === forkMessageId);
+          const newMessages = forkIdx === -1 ? [] : subtrack.messages.slice(forkIdx + 1);
+          // Append to parent and remove fork marker
+          const updatedParent = {
+            ...parent,
+            messages: [
+              ...parent.messages.map((m) =>
+                m.id === forkMessageId ? { ...m, isForkPoint: false } : m
+              ),
+              ...newMessages,
+            ],
+          };
+          // Remove the subtrack thread
+          const projects = s.projects
+            .filter((p) => p.id !== subtrackId)
+            .map((p) => (p.id === parentProjectId ? updatedParent : p));
+          return { projects };
+        });
+      },
+
+      clearForkPoint: (parentProjectId: string, forkMessageId: string) => {
+        set((s) => ({
+          projects: s.projects.map((p) => {
+            if (p.id !== parentProjectId) return p;
+            return {
+              ...p,
+              messages: p.messages.map((m) =>
+                m.id === forkMessageId ? { ...m, isForkPoint: false } : m
+              ),
+            };
+          }),
+        }));
       },
 
       reset: () =>
