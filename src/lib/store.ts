@@ -260,10 +260,6 @@ interface MeterState {
   fetchSpendLimits: (workspaceId?: string) => Promise<void>;
   updateSpendLimits: (limits: Partial<SpendLimits>, workspaceId?: string) => Promise<void>;
 
-  /** Remove an incomplete (signing) assistant response and its preceding user message.
-   *  Returns the user message content so the caller can re-send. */
-  popIncompleteResponse: (forProjectId?: string) => string | null;
-
   resetDailyIfNeeded: () => void;
   attemptDailySettlement: () => Promise<void>;
 
@@ -750,31 +746,6 @@ export const useMeterStore = create<MeterState>()(
           const updated = { ...active, messages: [...active.messages, msg] };
           return { projects: replaceActiveProject(s, updated) };
         }),
-
-      popIncompleteResponse: (forProjectId?) => {
-        const s = get();
-        const active = getProjectByIdOrActive(s, forProjectId);
-        const msgs = active.messages;
-        const last = msgs[msgs.length - 1];
-        if (!last || last.role !== "assistant" || last.receiptStatus !== "signing") {
-          return null;
-        }
-        // Find the preceding user message
-        const userIdx = msgs.length - 2;
-        const userMsg = userIdx >= 0 ? msgs[userIdx] : null;
-        // Remove both the incomplete assistant and user messages
-        const trimCount = userMsg?.role === "user" ? 2 : 1;
-        set((s2) => {
-          const proj = getProjectByIdOrActive(s2, forProjectId);
-          return {
-            projects: replaceActiveProject(s2, {
-              ...proj,
-              messages: proj.messages.slice(0, proj.messages.length - trimCount),
-            }),
-          };
-        });
-        return userMsg?.role === "user" ? userMsg.content : null;
-      },
 
       updateLastAssistantMessage: (content, tokensOut, forProjectId?) =>
         set((s) => {

@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
       timestamp: number;
       debateTrace?: unknown;
       thinking?: string;
+      receiptStatus?: string;
     }) => {
       try {
         const supabase = getSupabaseServer();
@@ -163,6 +164,7 @@ export async function POST(req: NextRequest) {
           tokens_out: msg.tokensOut ?? null,
           cost: msg.cost ?? null,
           settled: false,
+          receipt_status: msg.receiptStatus ?? null,
           debate_trace: msg.debateTrace ?? null,
           thinking: msg.thinking ?? null,
           timestamp: msg.timestamp,
@@ -188,17 +190,29 @@ export async function POST(req: NextRequest) {
     // Track the full assistant response for server-side save after completion
     let fullAssistantContent = "";
     let fullThinkingContent = "";
+    // Track client connection state — when the client disconnects (e.g. page
+    // refresh), we keep the upstream API call running and accumulate the full
+    // response so we can save it to DB. Only the SSE push is skipped.
+    let clientDisconnected = false;
 
     const stream = new ReadableStream({
       async start(controller) {
         const send: Send = (data) => {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-          // Accumulate assistant content for server-side persistence
+          // Accumulate assistant content BEFORE trying to push to client.
+          // This ensures content is captured even if the client is gone.
           if (data.type === "delta" && typeof data.content === "string") {
             fullAssistantContent += data.content;
           }
           if (data.type === "thinking_delta" && typeof data.content === "string") {
             fullThinkingContent += data.content;
+          }
+          // Try to send to client — if disconnected, just skip silently
+          if (!clientDisconnected) {
+            try {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+            } catch {
+              clientDisconnected = true;
+            }
           }
         };
 
@@ -222,10 +236,11 @@ export async function POST(req: NextRequest) {
               role: "assistant",
               content: fullAssistantContent,
               model: "debate",
+              receiptStatus: "signed",
               timestamp: Date.now(),
             });
           }
-          controller.close();
+          if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
           return;
         }
 
@@ -246,10 +261,11 @@ export async function POST(req: NextRequest) {
               role: "assistant",
               content: fullAssistantContent,
               model: "dissect",
+              receiptStatus: "signed",
               timestamp: Date.now(),
             });
           }
-          controller.close();
+          if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
           return;
         }
 
@@ -479,7 +495,9 @@ export async function POST(req: NextRequest) {
         send({ type: "done", actualModel: activeModel });
 
         // Save the completed assistant message to DB (server-side persistence).
-        // This ensures the response survives even if the client disconnects.
+        // This ensures the response survives even if the client disconnects
+        // mid-stream (e.g. page refresh). The upstream API call completes,
+        // content is accumulated, and this save captures the full response.
         if (assistantMessageId && projectId && fullAssistantContent) {
           await saveMessageToDB({
             id: assistantMessageId,
@@ -489,12 +507,18 @@ export async function POST(req: NextRequest) {
             model: activeModel,
             tokensIn: cumulativeTokensIn || undefined,
             tokensOut: cumulativeTokensOut || undefined,
+            receiptStatus: "signed",
             timestamp: Date.now(),
             thinking: fullThinkingContent || undefined,
           });
         }
 
-        controller.close();
+        if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
+      },
+      cancel() {
+        // Client disconnected (e.g. page refresh). Don't abort the upstream
+        // API call — let it finish so we can save the complete response.
+        clientDisconnected = true;
       },
     });
 

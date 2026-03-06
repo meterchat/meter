@@ -436,8 +436,20 @@ export function useSessionSync() {
           nextActiveProjectId = merged[0]?.id ?? store.activeProjectId;
         }
 
+        // Clean up stale "signing" messages from interrupted streams.
+        // If a message has content, upgrade to "signed". If empty shell, remove it.
+        const cleanedMerged = merged.map((p) => ({
+          ...p,
+          messages: p.messages
+            .filter((m) => !(m.role === "assistant" && !m.content && m.receiptStatus === "signing"))
+            .map((m) => (m.role === "assistant" && m.receiptStatus === "signing" && m.content)
+              ? { ...m, receiptStatus: "signed" as const }
+              : m
+            ),
+        }));
+
         useMeterStore.setState(() => ({
-          projects: merged,
+          projects: cleanedMerged,
           activeProjectId: nextActiveProjectId,
         }));
         useMeterStore.getState().resetDailyIfNeeded();

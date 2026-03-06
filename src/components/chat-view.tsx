@@ -1840,32 +1840,6 @@ export function ChatView() {
     }
   };
 
-  // ── Resume interrupted streams after page reload ──────────────
-  // If the last assistant message has receiptStatus "signing", it means
-  // the stream was interrupted (e.g. page refresh). Remove the incomplete
-  // response and re-send the last user message.
-  const resumeAttemptedRef = useRef(false);
-  useEffect(() => {
-    if (!sessionsLoaded || isStreaming || resumeAttemptedRef.current) return;
-    resumeAttemptedRef.current = true;
-
-    const project = useMeterStore.getState().projects.find((p) => p.id === activeProjectId);
-    if (!project || project.messages.length < 2) return;
-
-    const lastMsg = project.messages[project.messages.length - 1];
-    if (lastMsg.role !== "assistant" || lastMsg.receiptStatus !== "signing") return;
-
-    // Guard: skip if the incomplete message is very old (>5 min), likely a stale sync artifact
-    const age = Date.now() - (lastMsg.timestamp ?? 0);
-    if (age > 5 * 60 * 1000) return;
-
-    const userContent = useMeterStore.getState().popIncompleteResponse(activeProjectId);
-    if (userContent) {
-      // Small delay to let UI settle before re-streaming
-      setTimeout(() => streamResponse(userContent), 300);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionsLoaded, activeProjectId]);
 
   const handleSend = async () => {
     const input = inputRef.current;
