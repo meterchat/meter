@@ -128,7 +128,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         });
         set((s) => ({
           projects: [...s.projects, ...newProjects],
-          activeProjectId: ids[0],
+          // Stay on main — don't auto-jump to first path.
+          // FrozenMainBanner will appear so user can choose which path to enter.
         }));
         return ids;
       },
