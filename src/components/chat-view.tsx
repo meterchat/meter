@@ -931,30 +931,41 @@ export function ChatView() {
   const isMobile = useIsMobile();
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
 
-  const {
-    projects,
-    activeProjectId,
-    setActiveProject,
-    addMessage,
-    updateLastAssistantMessage,
-    finalizeResponse,
-    setStreaming,
-    incrementCurrentMessageCost,
-    inspectorOpen,
-    toggleInspector,
-    spendingCap,
-    spendingCapEnabled,
-    selectedModelId,
-    setSelectedModelId,
-    approveCard,
-    rejectCard,
-    spendLimits,
-    markupMultiplier,
-  } = useMeterStore();
+  const activeProjectId = useMeterStore((s) => s.activeProjectId);
+  const activeProject = useMeterStore((s) => s.projects.find((p) => p.id === s.activeProjectId) ?? s.projects[0]);
+  // Full projects list — only used for infrequent lookups (defaultProjectId, sourceWorkspace, project switching).
+  // Avoid using for hot-path renders.
+  const projects = useMeterStore((s) => s.projects);
+  const setActiveProject = useMeterStore((s) => s.setActiveProject);
+  const addMessage = useMeterStore((s) => s.addMessage);
+  const updateLastAssistantMessage = useMeterStore((s) => s.updateLastAssistantMessage);
+  const finalizeResponse = useMeterStore((s) => s.finalizeResponse);
+  const setStreaming = useMeterStore((s) => s.setStreaming);
+  const incrementCurrentMessageCost = useMeterStore((s) => s.incrementCurrentMessageCost);
+  const inspectorOpen = useMeterStore((s) => s.inspectorOpen);
+  const toggleInspector = useMeterStore((s) => s.toggleInspector);
+  const spendingCap = useMeterStore((s) => s.spendingCap);
+  const spendingCapEnabled = useMeterStore((s) => s.spendingCapEnabled);
+  const selectedModelId = useMeterStore((s) => s.selectedModelId);
+  const setSelectedModelId = useMeterStore((s) => s.setSelectedModelId);
+  const approveCard = useMeterStore((s) => s.approveCard);
+  const rejectCard = useMeterStore((s) => s.rejectCard);
+  const spendLimits = useMeterStore((s) => s.spendLimits);
+  const markupMultiplier = useMeterStore((s) => s.markupMultiplier);
 
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
   const messages = activeProject?.messages ?? [];
-  const visibleMessages = useMemo(() => messages.filter((m) => !m.hidden), [messages]);
+  const allVisibleMessages = useMemo(() => messages.filter((m) => !m.hidden), [messages]);
+  // Render only the last RENDER_WINDOW messages for performance.
+  // Users with 5000+ messages would freeze the UI if all were in the DOM.
+  // Scrolling up reveals more via the existing fetchOlderMessages mechanism.
+  const RENDER_WINDOW = 200;
+  const [renderLimit, setRenderLimit] = useState(RENDER_WINDOW);
+  // Reset render limit when switching projects
+  useEffect(() => { setRenderLimit(RENDER_WINDOW); }, [activeProjectId]);
+  const visibleMessages = useMemo(() => {
+    if (allVisibleMessages.length <= renderLimit) return allVisibleMessages;
+    return allVisibleMessages.slice(allVisibleMessages.length - renderLimit);
+  }, [allVisibleMessages, renderLimit]);
   const isStreaming = activeProject?.isStreaming ?? false;
   const todayCost = activeProject?.todayCost ?? 0;
   const todayMessageCount = activeProject?.todayMessageCount ?? 0;
@@ -1354,22 +1365,31 @@ export function ChatView() {
       userScrolledAwayRef.current = false;
     }
 
-    // Pagination: load older messages when scrolled near top
-    if (
-      el.scrollTop < 100 &&
-      activeProject?.hasOlderMessages &&
-      !activeProject?.loadingOlderMessages
-    ) {
-      const prevScrollHeight = el.scrollHeight;
-      fetchOlderMessages(activeProjectId).then(() => {
-        // Preserve scroll position after older messages are prepended
+    // Pagination: reveal more locally-loaded messages or fetch from server
+    if (el.scrollTop < 100) {
+      // First, expand the client-side render window to show more already-loaded messages
+      if (renderLimit < allVisibleMessages.length) {
+        const prevScrollHeight = el.scrollHeight;
+        setRenderLimit((prev) => Math.min(prev + RENDER_WINDOW, allVisibleMessages.length));
         requestAnimationFrame(() => {
           const newScrollHeight = el.scrollHeight;
           el.scrollTop = newScrollHeight - prevScrollHeight;
         });
-      });
+      } else if (
+        activeProject?.hasOlderMessages &&
+        !activeProject?.loadingOlderMessages
+      ) {
+        // All locally loaded messages are rendered — fetch more from server
+        const prevScrollHeight = el.scrollHeight;
+        fetchOlderMessages(activeProjectId).then(() => {
+          requestAnimationFrame(() => {
+            const newScrollHeight = el.scrollHeight;
+            el.scrollTop = newScrollHeight - prevScrollHeight;
+          });
+        });
+      }
     }
-  }, [activeProject?.hasOlderMessages, activeProject?.loadingOlderMessages, activeProjectId, fetchOlderMessages]);
+  }, [activeProject?.hasOlderMessages, activeProject?.loadingOlderMessages, activeProjectId, fetchOlderMessages, renderLimit, allVisibleMessages.length]);
 
   // Auto-scroll using instant scrollTop (no smooth animation that fights
   // with user scroll). Guarded by isProgrammaticScrollRef so our own scroll
@@ -2258,7 +2278,7 @@ export function ChatView() {
                 <span className="ml-2 text-xs text-muted-foreground">Loading older messages...</span>
               </div>
             )}
-            {activeProject?.hasOlderMessages && !activeProject?.loadingOlderMessages && (
+            {(renderLimit < allVisibleMessages.length || (activeProject?.hasOlderMessages && !activeProject?.loadingOlderMessages)) && (
               <div className="flex items-center justify-center py-2">
                 <span className="text-[10px] text-muted-foreground/40">Scroll up for older messages</span>
               </div>
