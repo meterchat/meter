@@ -1243,6 +1243,7 @@ export function ChatView() {
   const isProgrammaticScrollRef = useRef(false);
   const hasInitialScrolled = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const streamingForProjectRef = useRef<string | null>(null);
   const pendingForkRef = useRef<string[] | null>(null);
   const [pendingForkNames, setPendingForkNames] = useState<string[] | null>(null);
   const [pendingForkProjectId, setPendingForkProjectId] = useState<string | null>(null);
@@ -1292,6 +1293,14 @@ export function ChatView() {
   useEffect(() => {
     hasInitialScrolled.current = false;
     userScrolledAwayRef.current = false;
+    // Reset debate/dissector state so it doesn't leak across projects/tracks
+    setDebateTraceLocal([]);
+    setActiveDebateTurn(null);
+    setDebatePhase(null);
+    setDissectorTraceLocal([]);
+    setActiveDissectorTurn(null);
+    setDissectorPhase(null);
+    setActiveTool(null);
     // Snap to bottom on project switch
     requestAnimationFrame(() => {
       const el = scrollRef.current;
@@ -1458,6 +1467,11 @@ export function ChatView() {
     // Pin the project ID at stream start so all mutations target the correct
     // workspace even if the user switches workspaces mid-stream.
     const streamProjectId = activeProjectId;
+    streamingForProjectRef.current = streamProjectId;
+
+    // Guard: only update local UI state (debate trace, phase, etc.) if this
+    // stream's project is still the active one. Prevents cross-track contamination.
+    const isActiveStream = () => streamingForProjectRef.current === streamProjectId;
 
     isNearBottomRef.current = true;
     userScrolledAwayRef.current = false;
@@ -1653,11 +1667,11 @@ export function ChatView() {
               // Debate started — UI already set above
             } else if (data.type === "debate_turn_start") {
               currentTurn = { model: data.model as string, phase: data.phase as string, content: "" };
-              setActiveDebateTurn(currentTurn);
+              if (isActiveStream()) setActiveDebateTurn(currentTurn);
             } else if (data.type === "debate_turn_delta") {
               if (currentTurn) {
                 currentTurn = { model: currentTurn.model, phase: currentTurn.phase, content: currentTurn.content + (data.content as string) };
-                setActiveDebateTurn(currentTurn);
+                if (isActiveStream()) setActiveDebateTurn(currentTurn);
                 // Track output cost incrementally using the actual model's rate
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
@@ -1672,13 +1686,11 @@ export function ChatView() {
                   phase: currentTurn.phase as "opening" | "challenge" | "rebuttal" | "vote",
                   content: currentTurn.content,
                 });
-                setDebateTraceLocal([...localTrace]);
-                setActiveDebateTurn(null);
+                if (isActiveStream()) { setDebateTraceLocal([...localTrace]); setActiveDebateTurn(null); }
                 currentTurn = null;
               }
             } else if (data.type === "debate_synthesis_start") {
-              setDebatePhase("synthesizing");
-              setActiveDebateTurn(null);
+              if (isActiveStream()) { setDebatePhase("synthesizing"); setActiveDebateTurn(null); }
 
             // ── Dissector events ──────────────────────────────
             } else if (data.type === "dissector_start") {
@@ -1689,15 +1701,15 @@ export function ChatView() {
                 id: `dq_${i}`,
                 question: q,
               }));
-              setDissectorPhase(null);
+              if (isActiveStream()) setDissectorPhase(null);
               useMeterStore.getState().addClarifyingQuestions(questions, streamProjectId);
             } else if (data.type === "dissector_turn_start") {
               currentDissTurn = { persona: data.persona as string, content: "" };
-              setActiveDissectorTurn(currentDissTurn);
+              if (isActiveStream()) setActiveDissectorTurn(currentDissTurn);
             } else if (data.type === "dissector_turn_delta") {
               if (currentDissTurn) {
                 currentDissTurn = { persona: currentDissTurn.persona, content: currentDissTurn.content + (data.content as string) };
-                setActiveDissectorTurn(currentDissTurn);
+                if (isActiveStream()) setActiveDissectorTurn(currentDissTurn);
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
                 const dissModel = getModel("anthropic/claude-opus-4.6");
@@ -1710,13 +1722,11 @@ export function ChatView() {
                   persona: currentDissTurn.persona as "first-principles" | "inversion" | "pre-mortem" | "verdict",
                   content: currentDissTurn.content,
                 });
-                setDissectorTraceLocal([...localDissTrace]);
-                setActiveDissectorTurn(null);
+                if (isActiveStream()) { setDissectorTraceLocal([...localDissTrace]); setActiveDissectorTurn(null); }
                 currentDissTurn = null;
               }
             } else if (data.type === "dissector_synthesis_start") {
-              setDissectorPhase("synthesizing");
-              setActiveDissectorTurn(null);
+              if (isActiveStream()) { setDissectorPhase("synthesizing"); setActiveDissectorTurn(null); }
 
             // ── Standard events ───────────────────────────────
             } else if (data.type === "thinking_delta") {
@@ -1724,14 +1734,14 @@ export function ChatView() {
               useMeterStore.getState().updateLastAssistantThinking(thinkingContent, streamProjectId);
             } else if (data.type === "delta") {
               fullContent += data.content;
-              setRerouting(null);
+              if (isActiveStream()) setRerouting(null);
               updateLastAssistantMessage(fullContent, data.tokensOut, streamProjectId);
               if (checkSpendLimits()) break;
             } else if (data.type === "tool_call") {
-              setActiveTool(data.name as string);
+              if (isActiveStream()) setActiveTool(data.name as string);
             } else if (data.type === "tool_result") {
               // Delay clearing so the spinner is visible for at least 600ms
-              setTimeout(() => setActiveTool(null), 600);
+              if (isActiveStream()) setTimeout(() => setActiveTool(null), 600);
               if (data.name === "save_decision" && data.decision) {
                 const d = data.decision as { id?: string; title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
                 const decId = d.id || Math.random().toString(36).slice(2, 10);
@@ -1800,7 +1810,7 @@ export function ChatView() {
                 );
               }
             } else if (data.type === "rerouting") {
-              setRerouting({ provider: data.provider as string, toModel: data.to as string });
+              if (isActiveStream()) setRerouting({ provider: data.provider as string, toModel: data.to as string });
             } else if (data.type === "error") {
               const errorPayload = JSON.stringify({ code: data.code, model: data.model });
               fullContent = `__error__${errorPayload}`;
@@ -1870,12 +1880,18 @@ export function ChatView() {
         );
       }
     } finally {
+      if (streamingForProjectRef.current === streamProjectId) {
+        streamingForProjectRef.current = null;
+      }
       abortRef.current = null;
-      setActiveTool(null);
-      setDebatePhase(null);
-      setActiveDebateTurn(null);
-      setDissectorPhase(null);
-      setActiveDissectorTurn(null);
+      // Only reset local UI state if this stream's project is still active
+      if (isActiveStream() || streamingForProjectRef.current === null) {
+        setActiveTool(null);
+        setDebatePhase(null);
+        setActiveDebateTurn(null);
+        setDissectorPhase(null);
+        setActiveDissectorTurn(null);
+      }
       // Delay setStreaming(false) so the meter pill slot animation has
       // time to roll to the final cost value before locking.
       setTimeout(() => setStreaming(false, streamProjectId), 350);
