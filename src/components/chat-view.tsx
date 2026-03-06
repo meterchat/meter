@@ -1268,6 +1268,12 @@ export function ChatView() {
 
   useEffect(() => {
     hasInitialScrolled.current = false;
+    userScrolledAwayRef.current = false;
+    // Snap to bottom on project switch
+    requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
   }, [activeProjectId]);
 
   // Restore draft from localStorage on mount / project switch
