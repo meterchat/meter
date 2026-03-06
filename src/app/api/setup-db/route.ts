@@ -84,6 +84,8 @@ const STATEMENTS: string[] = [
     archived boolean default false,
     choice text, alternatives jsonb, reasoning text,
     project_id text, chat_message_id text,
+    category text, parent_decision_id text,
+    version integer default 1, revisit_count integer default 0,
     created_at timestamptz default now(),
     updated_at timestamptz default now()
   )`,
@@ -154,6 +156,12 @@ const STATEMENTS: string[] = [
   // Debate trace + thinking persistence (survive logout/login)
   `alter table chat_messages add column if not exists debate_trace jsonb`,
   `alter table chat_messages add column if not exists thinking text`,
+
+  // Decision versioning, categories, and revisit tracking
+  `alter table decisions add column if not exists category text`,
+  `alter table decisions add column if not exists parent_decision_id text`,
+  `alter table decisions add column if not exists version integer default 1`,
+  `alter table decisions add column if not exists revisit_count integer default 0`,
 
   // Soft-delete support for workspace deletion (7-day retention)
   `alter table chat_sessions add column if not exists deleted_at timestamptz default null`,

@@ -12,6 +12,10 @@ export interface Decision {
   reasoning?: string;
   projectId?: string;
   chatMessageId?: string;
+  category?: string;
+  parentDecisionId?: string;
+  version?: number;
+  revisitCount?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -32,6 +36,7 @@ interface DecisionsState {
   reopenDecision: (id: string) => void;
   archiveDecision: (id: string) => void;
   fetchDecisions: () => Promise<void>;
+  fetchDecisionHistory: (title: string, projectId?: string) => Promise<Decision[]>;
 }
 
 function generateId() {
@@ -90,7 +95,7 @@ export const useDecisionsStore = create<DecisionsState>()(
         set((s) => ({
           decisions: s.decisions.map((d) =>
             d.id === id
-              ? { ...d, status: "undecided" as const, updatedAt: Date.now() }
+              ? { ...d, status: "undecided" as const, revisitCount: (d.revisitCount ?? 0) + 1, updatedAt: Date.now() }
               : d
           ),
         })),
@@ -125,6 +130,19 @@ export const useDecisionsStore = create<DecisionsState>()(
           });
         } catch {
           // Silent fail — localStorage still works as fallback
+        }
+      },
+
+      fetchDecisionHistory: async (title: string, projectId?: string) => {
+        try {
+          const params = new URLSearchParams({ history_for: title });
+          if (projectId) params.set("project_id", projectId);
+          const res = await fetch(apiUrl(`/api/decisions?${params}`));
+          if (!res.ok) return [];
+          const data = await res.json();
+          return (data.decisions ?? []) as Decision[];
+        } catch {
+          return [];
         }
       },
     }),

@@ -140,6 +140,10 @@ create table if not exists decisions (
   reasoning text,
   project_id text,
   chat_message_id text,
+  category text,
+  parent_decision_id text,
+  version integer default 1,
+  revisit_count integer default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
