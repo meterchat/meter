@@ -1124,11 +1124,11 @@ export function ChatView() {
     );
   }, [wsProjects, activeCompanyId, isSubtrack, currentWsProject, parentTrackId]);
 
-  // Color index for current subtrack (based on creation order among all subtracks with same parent)
+  // Color index for current subtrack (based on creation order among active subtracks with same parent)
   const currentPathColorIndex = useMemo(() => {
     if (!isSubtrack || !currentWsProject) return 0;
     const allSiblings = wsProjects
-      .filter((p) => p.companyId === activeCompanyId && p.isSubtrack && (p.parentTrackId ?? null) === parentTrackId)
+      .filter((p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === parentTrackId)
       .sort((a, b) => a.createdAt - b.createdAt);
     return allSiblings.findIndex((p) => p.id === currentWsProject.id);
   }, [wsProjects, activeCompanyId, isSubtrack, currentWsProject, parentTrackId]);
@@ -1139,7 +1139,13 @@ export function ChatView() {
   const handleCommitSubtrack = () => {
     if (!currentWsProject || !isSubtrack) return;
     const subtrackId = currentWsProject.id;
-    const parent = parentTrackId ?? "default";
+    // Resolve the parent meter-store project ID — parentTrackId is null for root-level subtracks,
+    // so fall back to the company's sessionId (the actual meter-store project ID for the workspace).
+    let parent = parentTrackId;
+    if (!parent) {
+      const company = wsCompanies.find((c) => c.id === currentWsProject.companyId);
+      parent = company?.sessionId ?? "default";
+    }
     const fork = forkMessageId;
     if (!fork) return;
     // Merge messages into parent thread
@@ -1158,17 +1164,23 @@ export function ChatView() {
   };
 
   const handleCloseAllPaths = () => {
-    const parent = isSubtrack ? parentTrackId : (wsActiveProjectId ?? null);
+    const wsParent = isSubtrack ? parentTrackId : (wsActiveProjectId ?? null);
     // Find the fork message to clear — scoped to current company
     const subtracks = wsProjects.filter(
-      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === parent
+      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === wsParent
     );
     const fork = subtracks[0]?.forkMessageId;
     // Archive all subtracks
-    closeAllSubtracksWs(parent);
+    closeAllSubtracksWs(wsParent);
+    // Resolve to meter-store project ID for clearing fork point
+    let meterParent = wsParent;
+    if (!meterParent && activeCompanyId) {
+      const company = wsCompanies.find((c) => c.id === activeCompanyId);
+      meterParent = company?.sessionId ?? "default";
+    }
     // Clear fork point marker
     if (fork) {
-      clearForkPoint(parent ?? "default", fork);
+      clearForkPoint(meterParent ?? "default", fork);
     }
   };
 
