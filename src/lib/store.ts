@@ -570,32 +570,66 @@ export const useMeterStore = create<MeterState>()(
       },
 
       logout: async () => {
-        // Flush current messages to server before clearing state.
-        // Use sendBeacon (reliable, survives navigation) so logout is instant.
-        // The auth cookie is still valid since logout API hasn't been called yet.
+        // Flush unsaved messages to server BEFORE clearing state.
+        // Use awaited fetch (not sendBeacon) so messages are guaranteed to sync.
+        // sendBeacon silently drops payloads >64KB, which causes message loss
+        // for sessions with many messages.
         const currentProjects = get().projects;
-        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-          for (const project of currentProjects) {
-            if (project.messages.length === 0) continue;
-            const blob = new Blob(
-              [
-                JSON.stringify({
-                  session: {
-                    id: project.id,
-                    name: project.name,
-                    totalCost: project.totalCost,
-                    todayCost: project.todayCost,
-                    todayTokensIn: project.todayTokensIn,
-                    todayTokensOut: project.todayTokensOut,
-                    todayMessageCount: project.todayMessageCount,
-                    todayDate: project.todayDate,
-                  },
-                  messages: project.messages,
-                }),
-              ],
-              { type: "application/json" }
-            );
-            navigator.sendBeacon("/api/sessions", blob);
+
+        // Skip subtrack threads — they are local-only forks
+        const wsSubtrackIds = new Set(
+          useWorkspaceStore.getState().projects
+            .filter((p) => p.isSubtrack)
+            .map((p) => p.id)
+        );
+
+        for (const project of currentProjects) {
+          if (project.messages.length === 0) continue;
+          if (wsSubtrackIds.has(project.id)) continue;
+
+          const sessionMeta = {
+            id: project.id,
+            name: project.name,
+            totalCost: project.totalCost,
+            todayCost: project.todayCost,
+            todayTokensIn: project.todayTokensIn,
+            todayTokensOut: project.todayTokensOut,
+            todayMessageCount: project.todayMessageCount,
+            todayDate: project.todayDate,
+            weekCost: project.weekCost ?? 0,
+            weekKey: project.weekKey,
+            monthCost: project.monthCost ?? 0,
+            monthKey: project.monthKey,
+          };
+
+          try {
+            await fetch(apiUrl("/api/sessions"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                session: sessionMeta,
+                messages: project.messages,
+              }),
+            });
+          } catch {
+            // Fetch failed (offline, etc.) — fall back to sendBeacon with size safety
+            if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+              // Send only the most recent messages that fit under the beacon limit
+              const MAX_BEACON_BYTES = 60_000;
+              const recentMessages = project.messages.slice(-50);
+              const payload = JSON.stringify({
+                session: sessionMeta,
+                messages: recentMessages,
+              });
+              const blob = new Blob([payload], { type: "application/json" });
+              if (blob.size < MAX_BEACON_BYTES) {
+                navigator.sendBeacon("/api/sessions", blob);
+              } else {
+                // Even 50 messages too large — send metadata only
+                const metaOnly = JSON.stringify({ session: sessionMeta, messages: [] });
+                navigator.sendBeacon("/api/sessions", new Blob([metaOnly], { type: "application/json" }));
+              }
+            }
           }
         }
 

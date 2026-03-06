@@ -143,8 +143,16 @@ export function useSessionSync() {
     if (snapshot === lastSyncRef.current) return;
     let allOk = true;
 
-    // Sync each project as a session (excluding subtracks)
+    // Sync each project as a session (excluding subtracks).
+    // Send only delta messages (new since last successful sync) to avoid
+    // multi-MB payloads for sessions with thousands of messages.
     for (const project of syncableProjects) {
+      const syncedCount = syncedMessageCountRef.current.get(project.id) ?? 0;
+      // On first sync (syncedCount=0) send all messages; otherwise only new ones.
+      // Server upserts by message ID, so resending existing ones is safe but wasteful.
+      const messagesToSync = syncedCount === 0
+        ? (project.messages ?? [])
+        : project.messages.slice(syncedCount);
 
       try {
         const res = await fetch(apiUrl("/api/sessions"), {
@@ -165,7 +173,7 @@ export function useSessionSync() {
               monthCost: project.monthCost ?? 0,
               monthKey: project.monthKey,
             },
-            messages: project.messages ?? [],
+            messages: messagesToSync,
           }),
         });
         if (!res.ok) {
@@ -444,6 +452,28 @@ export function useSessionSync() {
         const mainSessions = serverSessions.filter((s) => !wsSubIds.has(s.id));
         useWorkspaceStore.getState().upsertCompaniesFromSessions(mainSessions, nextActiveProjectId);
         useMeterStore.getState().fetchConnectionStatus();
+
+        // Auto-fetch ALL remaining messages for sessions that have more than
+        // the initial 200 loaded. This runs in the background so the UI
+        // is responsive immediately, and messages fill in as they arrive.
+        // We loop fetchOlderMessages until hasOlderMessages becomes false.
+        for (const session of serverSessions) {
+          if (session.has_more_messages && !wsSubIds.has(session.id)) {
+            const sessionId = session.id as string;
+            (async () => {
+              try {
+                let hasMore = true;
+                while (hasMore) {
+                  await useMeterStore.getState().fetchOlderMessages(sessionId);
+                  const proj = useMeterStore.getState().projects.find((p) => p.id === sessionId);
+                  hasMore = proj?.hasOlderMessages ?? false;
+                }
+              } catch {
+                // Background fetch — don't block login on failure
+              }
+            })();
+          }
+        }
       } catch (err) {
         console.error("[meter] Failed to load sessions from server:", err);
       } finally {
