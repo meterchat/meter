@@ -37,7 +37,7 @@ export async function GET() {
     // Older messages are loaded on demand via paginated endpoint.
     const INITIAL_MESSAGE_LIMIT = 200;
     const messagesBySession: Record<string, Record<string, unknown>[]> = {};
-    const aggregatesBySession: Record<string, { totalTokensIn: number; totalTokensOut: number; totalMessageCount: number; hasMore: boolean }> = {};
+    const aggregatesBySession: Record<string, { totalTokensIn: number; totalTokensOut: number; totalMessageCount: number; pendingBalance: number; hasMore: boolean }> = {};
 
     for (const session of sessions ?? []) {
       // Fetch recent messages (limit+1 to check hasMore)
@@ -55,23 +55,51 @@ export async function GET() {
       pageRows.reverse();
       messagesBySession[session.id] = pageRows;
 
-      // Fetch aggregate token counts for full session
-      const { data: agg, error: aggErr } = await supabase
-        .from("chat_messages")
-        .select("tokens_in, tokens_out")
-        .eq("session_id", session.id);
-
+      // Fetch aggregate token counts for full session using count + sum via RPC,
+      // or paginate to avoid Supabase's default 1000-row limit.
+      // Also compute pending balance (unsettled cost) server-side.
       let totalTokensIn = 0;
       let totalTokensOut = 0;
       let totalMessageCount = 0;
-      if (!aggErr && agg) {
-        totalMessageCount = agg.length;
+      let pendingBalance = 0;
+
+      // Use count query first to get total message count
+      const { count: msgCount, error: countErr } = await supabase
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("session_id", session.id);
+
+      if (!countErr && msgCount != null) {
+        totalMessageCount = msgCount;
+      }
+
+      // Paginate through all messages to sum tokens (Supabase caps at 1000 per query)
+      const PAGE_SIZE = 1000;
+      let offset = 0;
+      let hasMoreAgg = true;
+      while (hasMoreAgg) {
+        const { data: agg, error: aggErr } = await supabase
+          .from("chat_messages")
+          .select("tokens_in, tokens_out, cost, settled, role")
+          .eq("session_id", session.id)
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (aggErr || !agg || agg.length === 0) break;
+
         for (const row of agg) {
           totalTokensIn += (row.tokens_in as number) ?? 0;
           totalTokensOut += (row.tokens_out as number) ?? 0;
+          // Sum unsettled assistant message costs for pending balance
+          if (row.role === "assistant" && row.cost != null && !row.settled) {
+            pendingBalance += (row.cost as number) ?? 0;
+          }
         }
+
+        hasMoreAgg = agg.length === PAGE_SIZE;
+        offset += PAGE_SIZE;
       }
-      aggregatesBySession[session.id] = { totalTokensIn, totalTokensOut, totalMessageCount, hasMore };
+
+      aggregatesBySession[session.id] = { totalTokensIn, totalTokensOut, totalMessageCount, pendingBalance, hasMore };
     }
 
     // Return sessions with unscoped IDs so the client sees its original local IDs
@@ -87,6 +115,7 @@ export async function GET() {
         total_tokens_in: agg.totalTokensIn,
         total_tokens_out: agg.totalTokensOut,
         total_message_count: agg.totalMessageCount,
+        pending_balance: agg.pendingBalance,
         has_more_messages: agg.hasMore,
       };
     });
@@ -163,21 +192,41 @@ export async function POST(req: NextRequest) {
     const clientHasMessages = Array.isArray(messages) && messages.length > 0;
 
     // Upsert the session with scoped ID
-    const { error: sessErr } = await supabase.from("chat_sessions").upsert(
-      {
-        id: dbSessionId,
-        user_id: userId,
-        project_name: session.name,
-        total_cost: session.totalCost ?? 0,
-        today_cost: session.todayCost ?? 0,
-        today_tokens_in: session.todayTokensIn ?? 0,
-        today_tokens_out: session.todayTokensOut ?? 0,
-        today_message_count: session.todayMessageCount ?? 0,
-        today_date: session.todayDate,
-        updated_at: new Date().toISOString(),
-      },
+    const upsertData: Record<string, unknown> = {
+      id: dbSessionId,
+      user_id: userId,
+      project_name: session.name,
+      total_cost: session.totalCost ?? 0,
+      today_cost: session.todayCost ?? 0,
+      today_tokens_in: session.todayTokensIn ?? 0,
+      today_tokens_out: session.todayTokensOut ?? 0,
+      today_message_count: session.todayMessageCount ?? 0,
+      today_date: session.todayDate,
+      updated_at: new Date().toISOString(),
+    };
+    // Persist week/month cost data if provided (columns may not exist yet)
+    if (session.weekCost != null) upsertData.week_cost = session.weekCost;
+    if (session.weekKey != null) upsertData.week_key = session.weekKey;
+    if (session.monthCost != null) upsertData.month_cost = session.monthCost;
+    if (session.monthKey != null) upsertData.month_key = session.monthKey;
+
+    let { error: sessErr } = await supabase.from("chat_sessions").upsert(
+      upsertData,
       { onConflict: "id" }
     );
+
+    // If upsert fails due to missing week/month columns, retry without them
+    if (sessErr && sessErr.message?.includes("column")) {
+      delete upsertData.week_cost;
+      delete upsertData.week_key;
+      delete upsertData.month_cost;
+      delete upsertData.month_key;
+      const retry = await supabase.from("chat_sessions").upsert(
+        upsertData,
+        { onConflict: "id" }
+      );
+      sessErr = retry.error;
+    }
 
     if (sessErr) throw sessErr;
 

@@ -218,6 +218,12 @@ create table if not exists settlement_history (
 -- alter table chat_sessions add column if not exists monthly_limit numeric;
 -- alter table chat_sessions add column if not exists per_txn_limit numeric;
 
+-- Week/month cost tracking on chat_sessions
+-- alter table chat_sessions add column if not exists week_cost numeric default 0;
+-- alter table chat_sessions add column if not exists week_key text;
+-- alter table chat_sessions add column if not exists month_cost numeric default 0;
+-- alter table chat_sessions add column if not exists month_key text;
+
 -- Workspace id on settlement history
 -- alter table settlement_history add column if not exists workspace_id text;
 

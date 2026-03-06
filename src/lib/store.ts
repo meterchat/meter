@@ -135,6 +135,7 @@ interface ProjectThread {
   serverTokensIn: number;
   serverTokensOut: number;
   serverMessageCount: number;
+  serverPendingBalance: number;
 }
 
 interface MeterState {
@@ -324,6 +325,7 @@ function createProject(id: string, name: string): ProjectThread {
     serverTokensIn: 0,
     serverTokensOut: 0,
     serverMessageCount: 0,
+    serverPendingBalance: 0,
   };
 }
 
@@ -858,6 +860,11 @@ export const useMeterStore = create<MeterState>()(
             monthCost: (active.monthCost ?? 0) + costAdjustment,
             totalCost: active.totalCost + costAdjustment,
             currentMessageCost: totalMsgCost,
+            // Keep server aggregate counters in sync with new messages
+            serverTokensIn: active.serverTokensIn + tokensIn,
+            serverTokensOut: Math.max(0, active.serverTokensOut + tokensOutAdjustment),
+            serverMessageCount: active.serverMessageCount + 1,
+            serverPendingBalance: (active.serverPendingBalance ?? 0) + totalMsgCost,
           };
 
           return { projects: replaceActiveProject(s, updated) };
@@ -887,9 +894,12 @@ export const useMeterStore = create<MeterState>()(
         const s = get();
         const active = getActiveProject(s);
         if (!active) return 0;
-        const msgCost = active.messages
+        // Use server-computed pending balance (covers ALL messages, not just loaded 200).
+        // Fall back to loaded-messages sum for local-only sessions.
+        const loadedMsgCost = active.messages
           .filter((m) => m.role === "assistant" && m.cost !== undefined && !m.settled)
           .reduce((sum, m) => sum + (m.cost ?? 0), 0);
+        const msgCost = Math.max(active.serverPendingBalance ?? 0, loadedMsgCost);
         const cardCost = s.pendingCharges
           .filter((c) => c.workspaceId === active.id)
           .reduce((sum, c) => sum + c.cost, 0);
