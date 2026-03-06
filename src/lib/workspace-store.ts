@@ -243,3 +243,20 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }
   )
 );
+
+/**
+ * Resolve a potentially-subtrack project ID to its parent workspace project ID.
+ * If the given ID belongs to a subtrack, returns the parent workspace's sessionId
+ * (which is the meter-store project ID for the workspace). Otherwise returns the
+ * original ID unchanged.
+ */
+export function resolveWorkspaceProjectId(projectId: string | null): string | null {
+  if (!projectId) return null;
+  const state = useWorkspaceStore.getState();
+  const wsProject = state.projects.find((p) => p.id === projectId);
+  if (wsProject?.isSubtrack) {
+    const company = state.companies.find((c) => c.id === wsProject.companyId);
+    if (company?.sessionId) return company.sessionId;
+  }
+  return projectId;
+}

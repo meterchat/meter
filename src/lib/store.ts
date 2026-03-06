@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { DEFAULT_MODEL, getModel } from "@/lib/models";
 import { CONNECTORS } from "@/lib/connectors";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { useWorkspaceStore, resolveWorkspaceProjectId } from "@/lib/workspace-store";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { apiUrl } from "@/lib/api-url";
@@ -368,6 +368,16 @@ function ensureDaily(project: ProjectThread): ProjectThread {
 
 function getActiveProject(state: MeterState): ProjectThread {
   return state.projects.find((p) => p.id === state.activeProjectId) ?? state.projects[0];
+}
+
+/** Get the workspace-level project, resolving subtracks to their parent workspace. */
+function getWorkspaceProject(state: MeterState): ProjectThread {
+  const wsId = resolveWorkspaceProjectId(state.activeProjectId);
+  if (wsId && wsId !== state.activeProjectId) {
+    const parent = state.projects.find((p) => p.id === wsId);
+    if (parent) return parent;
+  }
+  return getActiveProject(state);
 }
 
 /** Resolve a specific project by ID, falling back to the active project. */
@@ -899,7 +909,7 @@ export const useMeterStore = create<MeterState>()(
 
       getPendingBalance: () => {
         const s = get();
-        const active = getActiveProject(s);
+        const active = getWorkspaceProject(s);
         if (!active) return 0;
         // Use server-computed pending balance (covers ALL messages, not just loaded 200).
         // Fall back to loaded-messages sum for local-only sessions.
@@ -915,7 +925,7 @@ export const useMeterStore = create<MeterState>()(
 
       getUnsettledMessages: () => {
         const s = get();
-        const active = getActiveProject(s);
+        const active = getWorkspaceProject(s);
         if (!active) return [];
         return active.messages
           .filter((m) => m.role === "assistant" && m.cost !== undefined && !m.settled);
@@ -925,7 +935,7 @@ export const useMeterStore = create<MeterState>()(
         const s = get();
         if (s.isSettling) return { success: false, error: "Already settling" };
         set((prev) => {
-          const active = getActiveProject(prev);
+          const active = getWorkspaceProject(prev);
           if (!active) return { isSettling: true };
           return {
             isSettling: true,
@@ -933,7 +943,7 @@ export const useMeterStore = create<MeterState>()(
           };
         });
 
-        const active = getActiveProject(s);
+        const active = getWorkspaceProject(s);
         if (!active) {
           set({ isSettling: false });
           return { success: false, error: "No active workspace" };
@@ -969,15 +979,15 @@ export const useMeterStore = create<MeterState>()(
             const body = await res.json().catch(() => ({ error: "Settlement failed" }));
             const errorMsg = body.error ?? "Settlement failed";
             set((prev) => {
-              const current = getActiveProject(prev);
+              const current = prev.projects.find((p) => p.id === active.id);
               if (!current) return { isSettling: false };
               return {
                 isSettling: false,
-                projects: replaceActiveProject(prev, {
+                projects: prev.projects.map((p) => p.id === active.id ? {
                   ...current,
                   settlementError: errorMsg,
                   chatBlocked: true,
-                }),
+                } : p),
               };
             });
             return { success: false, error: errorMsg };
@@ -987,7 +997,7 @@ export const useMeterStore = create<MeterState>()(
           const batchTxHash = data.txHash as string | undefined;
 
           set((prev) => {
-            const current = getActiveProject(prev);
+            const current = prev.projects.find((p) => p.id === active.id);
             if (!current) return { isSettling: false };
             const updatedProject = {
               ...current,
@@ -1004,9 +1014,9 @@ export const useMeterStore = create<MeterState>()(
               settlementError: null,
               chatBlocked: false,
             };
-            const remainingCharges = prev.pendingCharges.filter((c) => c.workspaceId !== current.id);
+            const remainingCharges = prev.pendingCharges.filter((c) => c.workspaceId !== active.id);
             return {
-              projects: replaceActiveProject(prev, updatedProject),
+              projects: prev.projects.map((p) => p.id === active.id ? updatedProject : p),
               pendingCharges: remainingCharges,
               isSettling: false,
             };
@@ -1015,15 +1025,15 @@ export const useMeterStore = create<MeterState>()(
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : "Settlement failed";
           set((prev) => {
-            const current = getActiveProject(prev);
+            const current = prev.projects.find((p) => p.id === active.id);
             if (!current) return { isSettling: false };
             return {
               isSettling: false,
-              projects: replaceActiveProject(prev, {
+              projects: prev.projects.map((p) => p.id === active.id ? {
                 ...current,
                 settlementError: errorMsg,
                 chatBlocked: true,
-              }),
+              } : p),
             };
           });
           return { success: false, error: errorMsg };
@@ -1373,7 +1383,7 @@ export const useMeterStore = create<MeterState>()(
       },
 
       fetchSpendLimits: async (workspaceId) => {
-        const projectId = workspaceId ?? get().activeProjectId;
+        const projectId = resolveWorkspaceProjectId(workspaceId ?? get().activeProjectId);
         if (!projectId) return;
         try {
           const res = await fetch(apiUrl(`/api/billing/spend-limits?workspaceId=${encodeURIComponent(projectId)}`));
@@ -1385,7 +1395,7 @@ export const useMeterStore = create<MeterState>()(
       },
 
       updateSpendLimits: async (limits, workspaceId) => {
-        const projectId = workspaceId ?? get().activeProjectId;
+        const projectId = resolveWorkspaceProjectId(workspaceId ?? get().activeProjectId);
         if (!projectId) return;
         const merged = { ...get().spendLimits, ...limits };
         set({ spendLimits: merged });

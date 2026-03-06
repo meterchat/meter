@@ -815,11 +815,27 @@ function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
   );
 }
 
-function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
+function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: string | null }) {
+  // Resolve subtrack → parent workspace so artifacts are scoped to workspace
+  const wsProjects = useWorkspaceStore((s) => s.projects);
+  const wsCompanies = useWorkspaceStore((s) => s.companies);
+  const meterProjects = useMeterStore((s) => s.projects);
+  const activeProjectId = useMemo(() => {
+    if (!rawProjectId) return null;
+    const wsProject = wsProjects.find((p) => p.id === rawProjectId);
+    if (wsProject?.isSubtrack) {
+      const company = wsCompanies.find((c) => c.id === wsProject.companyId);
+      if (company?.sessionId) {
+        const parent = meterProjects.find((p) => p.id === company.sessionId);
+        if (parent) return parent.id;
+      }
+    }
+    return rawProjectId;
+  }, [rawProjectId, wsProjects, wsCompanies, meterProjects]);
+
   const { artifacts, loading, pushing, targetRepo, fetchArtifacts, setTargetRepo, setPushing } = useArtifactsStore();
   const setPendingInput = useMeterStore((s) => s.setPendingInput);
   const connectedServices = useMeterStore(selectConnectedServices);
-  const activeProjectIdFromStore = useMeterStore((s) => s.activeProjectId);
   const githubConnected = !!connectedServices["github"];
 
   const [repos, setRepos] = useState<{ fullName: string; name: string; private: boolean }[]>([]);
@@ -833,10 +849,10 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
   }, [activeProjectId, fetchArtifacts]);
 
   const fetchRepos = async () => {
-    if (!githubConnected || !activeProjectIdFromStore) return;
+    if (!githubConnected || !activeProjectId) return;
     setReposLoading(true);
     try {
-      const res = await fetch(`/api/github/repos?workspaceId=${encodeURIComponent(activeProjectIdFromStore)}`);
+      const res = await fetch(`/api/github/repos?workspaceId=${encodeURIComponent(activeProjectId)}`);
       if (res.ok) {
         const data = await res.json();
         setRepos((data.repos ?? []).map((r: { fullName: string; name: string; private: boolean }) => ({
@@ -861,7 +877,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
 
   const handlePush = async (artifactIds?: string[]) => {
     if (!githubConnected) {
-      initiateOAuthFlow("github", activeProjectIdFromStore);
+      if (activeProjectId) initiateOAuthFlow("github", activeProjectId);
       return;
     }
     if (!targetRepo) {
@@ -873,7 +889,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
     try {
       const body: Record<string, unknown> = {
         repo: targetRepo,
-        workspaceId: activeProjectIdFromStore,
+        workspaceId: activeProjectId,
       };
       if (artifactIds) body.artifactIds = artifactIds;
       const res = await fetch("/api/artifacts/push", {
@@ -1011,7 +1027,7 @@ function BlueprintTab({ activeProjectId }: { activeProjectId: string | null }) {
       {!githubConnected && artifacts.length > 0 && (
         <div className="mt-2 rounded-lg border border-border/50 bg-foreground/[0.02] px-3 py-2">
           <button
-            onClick={() => initiateOAuthFlow("github", activeProjectIdFromStore)}
+            onClick={() => activeProjectId && initiateOAuthFlow("github", activeProjectId)}
             className="font-mono text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
           >
             Connect GitHub to push artifacts
