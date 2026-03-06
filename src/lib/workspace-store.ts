@@ -13,6 +13,11 @@ export interface Project {
   companyId: string;
   name: string;
   createdAt: number;
+  // Branching
+  parentTrackId?: string;         // set on subtracks — points to the main/parent track
+  forkMessageId?: string;         // last message ID before fork (shared history boundary)
+  status?: "active" | "archived"; // archived = not chosen / closed
+  isSubtrack?: boolean;           // true for forked subtracks
 }
 
 interface WorkspaceState {
@@ -32,6 +37,12 @@ interface WorkspaceState {
     sessions: Array<{ id: string; project_name?: string; name?: string; created_at?: string }>,
     activeSessionId?: string
   ) => void;
+
+  // Branching actions
+  forkTrack: (companyId: string, parentTrackId: string | null, forkMessageId: string, names: string[]) => string[];
+  commitSubtrack: (subtrackId: string) => void;
+  closeAllSubtracks: (parentTrackId: string | null) => void;
+  getActiveSubtracks: (parentTrackId: string | null) => Project[];
 }
 
 function generateId() {
@@ -40,7 +51,7 @@ function generateId() {
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       companies: [],
       projects: [],
       activeCompanyId: null,
@@ -94,6 +105,66 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       setActiveProject: (id: string | null) => {
         set({ activeProjectId: id });
+      },
+
+      // --- Branching actions ---
+
+      forkTrack: (companyId: string, parentTrackId: string | null, forkMessageId: string, names: string[]) => {
+        const ids: string[] = [];
+        const now = Date.now();
+        const newProjects: Project[] = names.map((name) => {
+          const id = generateId();
+          ids.push(id);
+          return {
+            id,
+            companyId,
+            name,
+            createdAt: now,
+            parentTrackId: parentTrackId ?? undefined,
+            forkMessageId,
+            status: "active" as const,
+            isSubtrack: true,
+          };
+        });
+        set((s) => ({
+          projects: [...s.projects, ...newProjects],
+          activeProjectId: ids[0],
+        }));
+        return ids;
+      },
+
+      commitSubtrack: (subtrackId: string) => {
+        set((s) => {
+          const subtrack = s.projects.find((p) => p.id === subtrackId);
+          if (!subtrack || !subtrack.isSubtrack) return s;
+          const parentId = subtrack.parentTrackId ?? null;
+          // Archive all sibling subtracks (including the committed one)
+          const projects = s.projects.map((p) => {
+            if (p.isSubtrack && (p.parentTrackId ?? null) === parentId) {
+              return { ...p, status: "archived" as const };
+            }
+            return p;
+          });
+          return { projects, activeProjectId: parentId };
+        });
+      },
+
+      closeAllSubtracks: (parentTrackId: string | null) => {
+        set((s) => {
+          const projects = s.projects.map((p) => {
+            if (p.isSubtrack && (p.parentTrackId ?? null) === parentTrackId && p.status === "active") {
+              return { ...p, status: "archived" as const };
+            }
+            return p;
+          });
+          return { projects, activeProjectId: parentTrackId };
+        });
+      },
+
+      getActiveSubtracks: (parentTrackId: string | null): Project[] => {
+        return get().projects.filter(
+          (p: Project) => p.isSubtrack && (p.parentTrackId ?? null) === parentTrackId && p.status === "active"
+        );
       },
 
       upsertCompaniesFromSessions: (sessions, activeSessionId) => {

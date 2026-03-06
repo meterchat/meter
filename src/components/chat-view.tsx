@@ -198,13 +198,17 @@ function ActionPointButtons({
   onDecide,
   onDebate,
   onDissect,
+  onFork,
   disabled,
+  forkDisabled,
 }: {
   variant: "decision" | "dissect";
   onDecide: () => void;
   onDebate: () => void;
   onDissect: () => void;
+  onFork?: () => void;
   disabled?: boolean;
+  forkDisabled?: boolean;
 }) {
   return (
     <div className="mt-3 flex items-center gap-2">
@@ -228,6 +232,22 @@ function ActionPointButtons({
             </svg>
             Debate
           </button>
+          {onFork && (
+            <button
+              onClick={onFork}
+              disabled={disabled || forkDisabled}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-400 active:bg-violet-500/20 active:text-violet-400 disabled:opacity-40"
+              title={forkDisabled ? "Cannot fork while exploring paths" : "Explore different paths for this decision"}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="6" y1="3" x2="6" y2="15" />
+                <circle cx="18" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <path d="M18 9a9 9 0 0 1-9 9" />
+              </svg>
+              Explore paths
+            </button>
+          )}
         </>
       )}
       {variant === "dissect" && (
@@ -242,6 +262,267 @@ function ActionPointButtons({
           Dissect
         </button>
       )}
+    </div>
+  );
+}
+
+/* ─── Inline Fork Form ─── */
+
+function InlineForkForm({
+  messageId,
+  onFork,
+  onCancel,
+}: {
+  messageId: string;
+  onFork: (messageId: string, names: string[]) => void;
+  onCancel: () => void;
+}) {
+  const [path1, setPath1] = useState("");
+  const [path2, setPath2] = useState("");
+  const [path3, setPath3] = useState("");
+  const [showThird, setShowThird] = useState(false);
+
+  const canSubmit = path1.trim().length > 0 && path2.trim().length > 0;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    const names = [path1.trim(), path2.trim()];
+    if (showThird && path3.trim()) names.push(path3.trim());
+    onFork(messageId, names);
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-violet-500/30 bg-violet-500/5 p-3">
+      <div className="font-mono text-[11px] text-violet-400 mb-2">Name your paths</div>
+      <div className="space-y-1.5">
+        <input
+          autoFocus
+          value={path1}
+          onChange={(e) => setPath1(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); if (e.key === "Escape") onCancel(); }}
+          placeholder="Path 1..."
+          className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/40"
+        />
+        <input
+          value={path2}
+          onChange={(e) => setPath2(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); if (e.key === "Escape") onCancel(); }}
+          placeholder="Path 2..."
+          className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/40"
+        />
+        {showThird && (
+          <input
+            value={path3}
+            onChange={(e) => setPath3(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); if (e.key === "Escape") onCancel(); }}
+            placeholder="Path 3 (optional)..."
+            className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/40"
+          />
+        )}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        {!showThird && (
+          <button
+            onClick={() => setShowThird(true)}
+            className="font-mono text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+          >
+            + Add third path
+          </button>
+        )}
+        <div className="flex-1" />
+        <button
+          onClick={onCancel}
+          className="rounded-md px-2.5 py-1 font-mono text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          className="rounded-md bg-violet-500/20 px-3 py-1 font-mono text-[10px] text-violet-400 transition-colors hover:bg-violet-500/30 disabled:opacity-40"
+        >
+          Fork
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Fork Point Divider ─── */
+
+function ForkPointDivider({ timestamp }: { timestamp: number }) {
+  const date = new Date(timestamp);
+  const label = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return (
+    <div className="flex items-center gap-3 my-4">
+      <div className="flex-1 h-px bg-violet-500/20" />
+      <div className="flex items-center gap-1.5">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400/60">
+          <line x1="6" y1="3" x2="6" y2="15" />
+          <circle cx="18" cy="6" r="3" />
+          <circle cx="6" cy="18" r="3" />
+          <path d="M18 9a9 9 0 0 1-9 9" />
+        </svg>
+        <span className="font-mono text-[10px] text-violet-400/60">Forked into paths &middot; {label}</span>
+      </div>
+      <div className="flex-1 h-px bg-violet-500/20" />
+    </div>
+  );
+}
+
+/* ─── Branch Divider (shown in subtracks) ─── */
+
+function BranchDivider({ timestamp }: { timestamp: number }) {
+  const date = new Date(timestamp);
+  const label = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return (
+    <div className="flex items-center gap-3 my-4">
+      <div className="flex-1 h-px bg-violet-500/15" />
+      <div className="flex items-center gap-1.5">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400/40">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+        <span className="font-mono text-[10px] text-violet-400/40">Branched from main &middot; {label}</span>
+      </div>
+      <div className="flex-1 h-px bg-violet-500/15" />
+    </div>
+  );
+}
+
+/* ─── Frozen Main Banner ─── */
+
+function FrozenMainBanner({
+  subtracks,
+  onSelectTrack,
+  onCloseAll,
+}: {
+  subtracks: { id: string; name: string }[];
+  onSelectTrack: (id: string) => void;
+  onCloseAll: () => void;
+}) {
+  const [confirmClose, setConfirmClose] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+      <div className="text-center">
+        <div className="font-mono text-[12px] text-foreground/70 mb-1">
+          Conversation forked into {subtracks.length} paths
+        </div>
+        <div className="font-mono text-[10px] text-muted-foreground/50 mb-3">
+          Continue in a path or close all to resume main
+        </div>
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          {subtracks.map((st) => (
+            <button
+              key={st.id}
+              onClick={() => onSelectTrack(st.id)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 font-mono text-[11px] text-violet-400 transition-colors hover:bg-violet-500/20"
+            >
+              <span className="text-violet-400/60">↳</span>
+              {st.name}
+            </button>
+          ))}
+          <div className="w-px h-5 bg-border/30 mx-1" />
+          {!confirmClose ? (
+            <button
+              onClick={() => setConfirmClose(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/30 px-3 py-1.5 font-mono text-[10px] text-muted-foreground/50 transition-colors hover:border-foreground/20 hover:text-foreground/60"
+            >
+              Close all paths
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[10px] text-muted-foreground/50">Archive all paths?</span>
+              <button
+                onClick={onCloseAll}
+                className="rounded-md bg-red-500/10 px-2 py-1 font-mono text-[10px] text-red-400 hover:bg-red-500/20 transition-colors"
+              >
+                Yes, close
+              </button>
+              <button
+                onClick={() => setConfirmClose(false)}
+                className="rounded-md px-2 py-1 font-mono text-[10px] text-muted-foreground/40 hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Subtrack Commit Bar ─── */
+
+function SubtrackCommitBar({
+  trackName,
+  siblingNames,
+  onCommit,
+}: {
+  trackName: string;
+  siblingNames: string[];
+  onCommit: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 mb-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-mono text-[11px] text-violet-400 truncate">
+            Exploring: {trackName}
+          </div>
+          <div className="font-mono text-[9px] text-muted-foreground/40 mt-0.5">
+            This will merge into main and archive other paths
+          </div>
+        </div>
+        {!confirming ? (
+          <button
+            onClick={() => setConfirming(true)}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-1.5 font-mono text-[11px] text-violet-400 transition-colors hover:bg-violet-500/25"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Commit to this path
+          </button>
+        ) : (
+          <div className="shrink-0 flex items-center gap-1.5">
+            <span className="font-mono text-[9px] text-muted-foreground/50">
+              Archive {siblingNames.join(", ")}?
+            </span>
+            <button
+              onClick={onCommit}
+              className="rounded-md bg-violet-500/20 px-2.5 py-1 font-mono text-[10px] text-violet-400 hover:bg-violet-500/30 transition-colors"
+            >
+              Commit
+            </button>
+            <button
+              onClick={() => setConfirming(false)}
+              className="rounded-md px-2 py-1 font-mono text-[10px] text-muted-foreground/40 hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Archived Subtrack Banner ─── */
+
+function ArchivedSubtrackBanner({ onReturnToMain }: { onReturnToMain: () => void }) {
+  return (
+    <div className="rounded-xl border border-border/30 bg-foreground/[0.02] p-4 text-center">
+      <div className="font-mono text-[11px] text-muted-foreground/40 mb-2">This path was archived</div>
+      <button
+        onClick={onReturnToMain}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border/30 px-3 py-1.5 font-mono text-[10px] text-muted-foreground/50 transition-colors hover:border-foreground/20 hover:text-foreground/60"
+      >
+        Return to main
+      </button>
     </div>
   );
 }
@@ -737,6 +1018,114 @@ export function ChatView() {
     addProject(name, sessionId);
     setActiveProjectChat(sessionId);
     trackWorkspaceCreated({ name, source: "chat_onboarding" });
+  };
+
+  // --- Track branching state ---
+  const wsProjects = useWorkspaceStore((s) => s.projects);
+  const activeCompanyId = useWorkspaceStore((s) => s.activeCompanyId);
+  const wsActiveProjectId = useWorkspaceStore((s) => s.activeProjectId);
+  const forkTrack = useWorkspaceStore((s) => s.forkTrack);
+  const commitSubtrackWs = useWorkspaceStore((s) => s.commitSubtrack);
+  const closeAllSubtracksWs = useWorkspaceStore((s) => s.closeAllSubtracks);
+  const setActiveProjectWs = useWorkspaceStore((s) => s.setActiveProject);
+  const createSubtrackThread = useMeterStore((s) => s.createSubtrackThread);
+  const mergeSubtrackIntoParent = useMeterStore((s) => s.mergeSubtrackIntoParent);
+  const clearForkPoint = useMeterStore((s) => s.clearForkPoint);
+  const addDecision = useDecisionsStore((s) => s.addDecision);
+
+  // Current workspace project (from workspace store, has branching metadata)
+  const currentWsProject = useMemo(
+    () => wsProjects.find((p) => p.id === wsActiveProjectId) ?? null,
+    [wsProjects, wsActiveProjectId]
+  );
+  const isSubtrack = currentWsProject?.isSubtrack ?? false;
+  const isArchivedSubtrack = isSubtrack && currentWsProject?.status === "archived";
+  const parentTrackId = currentWsProject?.parentTrackId ?? null;
+  const forkMessageId = currentWsProject?.forkMessageId ?? null;
+
+  // Active subtracks for the current parent (or for null = main)
+  const activeSubtracks = useMemo(
+    () => wsProjects.filter(
+      (p) => p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (isSubtrack ? parentTrackId : wsActiveProjectId)
+    ),
+    [wsProjects, isSubtrack, parentTrackId, wsActiveProjectId]
+  );
+
+  // Is main frozen? (has active subtracks pointing to it)
+  const isMainFrozen = useMemo(() => {
+    if (isSubtrack) return false;
+    return wsProjects.some(
+      (p) => p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (wsActiveProjectId ?? null)
+    );
+  }, [wsProjects, isSubtrack, wsActiveProjectId]);
+
+  // Sibling subtracks (other active subtracks sharing same parent)
+  const siblingSubtracks = useMemo(() => {
+    if (!isSubtrack || !currentWsProject) return [];
+    return wsProjects.filter(
+      (p) => p.isSubtrack && p.status === "active" && p.id !== currentWsProject.id && (p.parentTrackId ?? null) === parentTrackId
+    );
+  }, [wsProjects, isSubtrack, currentWsProject, parentTrackId]);
+
+  // Fork form state
+  const [forkingMessageId, setForkingMessageId] = useState<string | null>(null);
+
+  const handleForkStart = (messageId: string) => {
+    setForkingMessageId(messageId);
+  };
+
+  const handleForkConfirm = (messageId: string, names: string[]) => {
+    if (!activeCompanyId) return;
+    // The parentTrackId is the current activeProjectId (null = main)
+    const currentParent = wsActiveProjectId ?? null;
+    // Create subtrack projects in workspace store
+    const ids = forkTrack(activeCompanyId, currentParent, messageId, names);
+    // Create thread copies for each subtrack
+    const parentThreadId = activeProjectId;
+    for (const id of ids) {
+      createSubtrackThread(id, parentThreadId, messageId);
+    }
+    setForkingMessageId(null);
+  };
+
+  const handleCommitSubtrack = () => {
+    if (!currentWsProject || !isSubtrack) return;
+    const subtrackId = currentWsProject.id;
+    const parent = parentTrackId ?? "default";
+    const fork = forkMessageId;
+    if (!fork) return;
+    // Merge messages into parent thread
+    mergeSubtrackIntoParent(subtrackId, parent, fork);
+    // Archive all subtracks in workspace store
+    commitSubtrackWs(subtrackId);
+    // Auto-log decision
+    addDecision({
+      title: `Committed to "${currentWsProject.name}"`,
+      status: "decided",
+      choice: currentWsProject.name,
+      alternatives: siblingSubtracks.map((s) => s.name),
+      reasoning: "Explored multiple paths and committed to this one.",
+      projectId: parent,
+    });
+  };
+
+  const handleCloseAllPaths = () => {
+    const parent = isSubtrack ? parentTrackId : (wsActiveProjectId ?? null);
+    // Find the fork message to clear
+    const subtracks = wsProjects.filter(
+      (p) => p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === parent
+    );
+    const fork = subtracks[0]?.forkMessageId;
+    // Archive all subtracks
+    closeAllSubtracksWs(parent);
+    // Clear fork point marker
+    if (fork) {
+      clearForkPoint(parent ?? "default", fork);
+    }
+  };
+
+  const handleReturnToMain = () => {
+    setActiveProjectWs(parentTrackId ?? null);
   };
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1976,7 +2365,18 @@ export function ChatView() {
                           onDecide={handleDecide}
                           onDebate={handleDebate}
                           onDissect={handleDissect}
+                          onFork={actionVariant === "decision" ? () => handleForkStart(msg.id) : undefined}
                           disabled={isStreaming}
+                          forkDisabled={isMainFrozen || isSubtrack}
+                        />
+                      )}
+
+                      {/* Inline fork form */}
+                      {forkingMessageId === msg.id && (
+                        <InlineForkForm
+                          messageId={msg.id}
+                          onFork={handleForkConfirm}
+                          onCancel={() => setForkingMessageId(null)}
                         />
                       )}
 
@@ -1986,6 +2386,12 @@ export function ChatView() {
                       {msg.role === "assistant" && <MessageFooter msg={msg} projectId={activeProjectId} />}
                     </div>
                   </div>
+
+                  {/* Fork point divider — shown after the fork message */}
+                  {msg.isForkPoint && <ForkPointDivider timestamp={msg.timestamp} />}
+
+                  {/* Branch divider — shown in subtracks at the fork boundary */}
+                  {isSubtrack && forkMessageId === msg.id && <BranchDivider timestamp={msg.timestamp} />}
                 </div>
               );
             })}
@@ -2038,7 +2444,31 @@ export function ChatView() {
               onClose={() => { setSlashOpen(false); setSlashQuery(""); if (inputRef.current) inputRef.current.value = ""; }}
             />
 
-            {/* Unified box */}
+            {/* Subtrack commit bar — shown above composer when in active subtrack */}
+            {isSubtrack && !isArchivedSubtrack && currentWsProject && (
+              <SubtrackCommitBar
+                trackName={currentWsProject.name}
+                siblingNames={siblingSubtracks.map((s) => s.name)}
+                onCommit={handleCommitSubtrack}
+              />
+            )}
+
+            {/* Frozen main banner — replaces composer when main has active subtracks */}
+            {isMainFrozen && !isSubtrack && (
+              <FrozenMainBanner
+                subtracks={activeSubtracks.map((s) => ({ id: s.id, name: s.name }))}
+                onSelectTrack={(id) => setActiveProjectWs(id)}
+                onCloseAll={handleCloseAllPaths}
+              />
+            )}
+
+            {/* Archived subtrack banner — replaces composer for archived subtracks */}
+            {isArchivedSubtrack && (
+              <ArchivedSubtrackBanner onReturnToMain={handleReturnToMain} />
+            )}
+
+            {/* Unified box — normal composer (hidden when frozen or archived) */}
+            {!isMainFrozen && !isArchivedSubtrack && (
             <div
               className={`relative rounded-xl border bg-card overflow-hidden transition-colors ${dragOver ? "border-foreground/30 ring-1 ring-foreground/10" : "border-border"}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -2168,6 +2598,7 @@ export function ChatView() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Workspace picker — plain text below the box */}
             <WorkspaceBar />
