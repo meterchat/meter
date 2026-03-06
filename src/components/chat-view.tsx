@@ -57,11 +57,12 @@ import remarkBreaks from "remark-breaks";
 
 const DRAFT_KEY = (id: string) => `meter:draft:${id}`;
 
-/** Path color scheme — each forked path gets a distinct color */
+/** Path color scheme — each forked path gets a distinct color (up to 4) */
 const PATH_COLORS = [
   { name: "teal", dot: "bg-teal-500", dotMuted: "bg-teal-500/30", text: "text-teal-400", border: "border-teal-500/30", bg: "bg-teal-500/10", bgHover: "hover:bg-teal-500/20" },
   { name: "indigo", dot: "bg-indigo-500", dotMuted: "bg-indigo-500/30", text: "text-indigo-400", border: "border-indigo-500/30", bg: "bg-indigo-500/10", bgHover: "hover:bg-indigo-500/20" },
   { name: "amber", dot: "bg-amber-500", dotMuted: "bg-amber-500/30", text: "text-amber-400", border: "border-amber-500/30", bg: "bg-amber-500/10", bgHover: "hover:bg-amber-500/20" },
+  { name: "rose", dot: "bg-rose-500", dotMuted: "bg-rose-500/30", text: "text-rose-400", border: "border-rose-500/30", bg: "bg-rose-500/10", bgHover: "hover:bg-rose-500/20" },
 ] as const;
 
 function getPathColor(index: number) {
@@ -458,6 +459,79 @@ function ArchivedSubtrackBanner({ onReturnToMain }: { onReturnToMain: () => void
       >
         Return to main
       </button>
+    </div>
+  );
+}
+
+/* ─── Inline Fork Form (confirmation before forking) ─── */
+
+function InlineForkForm({
+  pathNames,
+  onConfirm,
+  onCancel,
+}: {
+  pathNames: string[];
+  onConfirm: (names: string[]) => void;
+  onCancel: () => void;
+}) {
+  const [names, setNames] = useState(pathNames);
+
+  return (
+    <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 mb-3">
+      <div className="flex items-center gap-2 mb-3">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400/60">
+          <line x1="6" y1="3" x2="6" y2="15" />
+          <circle cx="18" cy="6" r="3" />
+          <circle cx="6" cy="18" r="3" />
+          <path d="M18 9a9 9 0 0 1-9 9" />
+        </svg>
+        <span className="font-mono text-[12px] text-teal-400/80">Fork into paths</span>
+      </div>
+      <div className="space-y-2 mb-3">
+        {names.map((name, idx) => {
+          const color = getPathColor(idx);
+          return (
+            <div key={idx} className="flex items-center gap-2">
+              <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  const updated = [...names];
+                  updated[idx] = e.target.value;
+                  setNames(updated);
+                }}
+                className={`flex-1 bg-transparent border-b ${color.border} font-mono text-[11px] ${color.text} py-1 px-1 focus:outline-none focus:border-opacity-60`}
+                placeholder={`Path ${idx + 1}`}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={onCancel}
+          className="rounded-md px-3 py-1.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            const valid = names.filter((n) => n.trim());
+            if (valid.length >= 2) onConfirm(valid);
+          }}
+          disabled={names.filter((n) => n.trim()).length < 2}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-1.5 font-mono text-[11px] text-teal-400 transition-colors hover:bg-teal-500/20 disabled:opacity-40"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="6" y1="3" x2="6" y2="15" />
+            <circle cx="18" cy="6" r="3" />
+            <circle cx="6" cy="18" r="3" />
+            <path d="M18 9a9 9 0 0 1-9 9" />
+          </svg>
+          Fork
+        </button>
+      </div>
     </div>
   );
 }
@@ -963,6 +1037,7 @@ export function ChatView() {
 
   // --- Track branching state ---
   const wsProjects = useWorkspaceStore((s) => s.projects);
+  const wsCompanies = useWorkspaceStore((s) => s.companies);
   const activeCompanyId = useWorkspaceStore((s) => s.activeCompanyId);
   const wsActiveProjectId = useWorkspaceStore((s) => s.activeProjectId);
   const forkTrack = useWorkspaceStore((s) => s.forkTrack);
@@ -974,6 +1049,25 @@ export function ChatView() {
   const clearForkPoint = useMeterStore((s) => s.clearForkPoint);
   const addDecision = useDecisionsStore((s) => s.addDecision);
 
+  // Sync workspace store's active project to main store's active project.
+  // When switching to a subtrack, main store must also switch so messages route correctly.
+  // When switching to null (main), main store should use the company's sessionId.
+  useEffect(() => {
+    if (wsActiveProjectId) {
+      // Subtrack selected — switch main store to the subtrack's ProjectThread
+      const mainProjects = useMeterStore.getState().projects;
+      if (mainProjects.some((p) => p.id === wsActiveProjectId)) {
+        setActiveProjectChat(wsActiveProjectId);
+      }
+    } else if (activeCompanyId) {
+      // Main selected (null) — switch main store to company's session thread
+      const company = wsCompanies.find((c) => c.id === activeCompanyId);
+      if (company?.sessionId) {
+        setActiveProjectChat(company.sessionId);
+      }
+    }
+  }, [wsActiveProjectId, activeCompanyId, wsCompanies, setActiveProjectChat]);
+
   // Current workspace project (from workspace store, has branching metadata)
   const currentWsProject = useMemo(
     () => wsProjects.find((p) => p.id === wsActiveProjectId) ?? null,
@@ -984,38 +1078,38 @@ export function ChatView() {
   const parentTrackId = currentWsProject?.parentTrackId ?? null;
   const forkMessageId = currentWsProject?.forkMessageId ?? null;
 
-  // Active subtracks for the current parent (or for null = main)
+  // Active subtracks for the current parent — scoped to current company
   const activeSubtracks = useMemo(
     () => wsProjects.filter(
-      (p) => p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (isSubtrack ? parentTrackId : wsActiveProjectId)
+      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (isSubtrack ? parentTrackId : wsActiveProjectId)
     ),
-    [wsProjects, isSubtrack, parentTrackId, wsActiveProjectId]
+    [wsProjects, activeCompanyId, isSubtrack, parentTrackId, wsActiveProjectId]
   );
 
-  // Is main frozen? (has active subtracks pointing to it)
+  // Is main frozen? (has active subtracks pointing to it) — scoped to current company
   const isMainFrozen = useMemo(() => {
     if (isSubtrack) return false;
     return wsProjects.some(
-      (p) => p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (wsActiveProjectId ?? null)
+      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (wsActiveProjectId ?? null)
     );
-  }, [wsProjects, isSubtrack, wsActiveProjectId]);
+  }, [wsProjects, activeCompanyId, isSubtrack, wsActiveProjectId]);
 
-  // Sibling subtracks (other active subtracks sharing same parent)
+  // Sibling subtracks (other active subtracks sharing same parent) — scoped to current company
   const siblingSubtracks = useMemo(() => {
     if (!isSubtrack || !currentWsProject) return [];
     return wsProjects.filter(
-      (p) => p.isSubtrack && p.status === "active" && p.id !== currentWsProject.id && (p.parentTrackId ?? null) === parentTrackId
+      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && p.id !== currentWsProject.id && (p.parentTrackId ?? null) === parentTrackId
     );
-  }, [wsProjects, isSubtrack, currentWsProject, parentTrackId]);
+  }, [wsProjects, activeCompanyId, isSubtrack, currentWsProject, parentTrackId]);
 
   // Color index for current subtrack (based on creation order among all subtracks with same parent)
   const currentPathColorIndex = useMemo(() => {
     if (!isSubtrack || !currentWsProject) return 0;
     const allSiblings = wsProjects
-      .filter((p) => p.isSubtrack && (p.parentTrackId ?? null) === parentTrackId)
+      .filter((p) => p.companyId === activeCompanyId && p.isSubtrack && (p.parentTrackId ?? null) === parentTrackId)
       .sort((a, b) => a.createdAt - b.createdAt);
     return allSiblings.findIndex((p) => p.id === currentWsProject.id);
-  }, [wsProjects, isSubtrack, currentWsProject, parentTrackId]);
+  }, [wsProjects, activeCompanyId, isSubtrack, currentWsProject, parentTrackId]);
 
   // Ref for fork handler — assigned after streamResponse is defined
   const handleForkPathsRef = useRef<() => void>(() => {});
@@ -1043,9 +1137,9 @@ export function ChatView() {
 
   const handleCloseAllPaths = () => {
     const parent = isSubtrack ? parentTrackId : (wsActiveProjectId ?? null);
-    // Find the fork message to clear
+    // Find the fork message to clear — scoped to current company
     const subtracks = wsProjects.filter(
-      (p) => p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === parent
+      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === parent
     );
     const fork = subtracks[0]?.forkMessageId;
     // Archive all subtracks
@@ -1058,6 +1152,27 @@ export function ChatView() {
 
   const handleReturnToMain = () => {
     setActiveProjectWs(parentTrackId ?? null);
+  };
+
+  const handleConfirmFork = (names: string[]) => {
+    const projectId = pendingForkProjectId ?? activeProjectId;
+    const store = useMeterStore.getState();
+    const project = store.projects.find((p) => p.id === projectId);
+    const lastAssistantMsg = project?.messages.filter((m) => m.role === "assistant").pop();
+    if (lastAssistantMsg && activeCompanyId) {
+      const parentId = wsActiveProjectId ?? null;
+      const ids = forkTrack(activeCompanyId, parentId, lastAssistantMsg.id, names);
+      for (const id of ids) {
+        createSubtrackThread(id, projectId, lastAssistantMsg.id);
+      }
+    }
+    setPendingForkNames(null);
+    setPendingForkProjectId(null);
+  };
+
+  const handleCancelFork = () => {
+    setPendingForkNames(null);
+    setPendingForkProjectId(null);
   };
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1095,6 +1210,8 @@ export function ChatView() {
   const hasInitialScrolled = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const pendingForkRef = useRef<string[] | null>(null);
+  const [pendingForkNames, setPendingForkNames] = useState<string[] | null>(null);
+  const [pendingForkProjectId, setPendingForkProjectId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -1711,21 +1828,12 @@ export function ChatView() {
       // time to roll to the final cost value before locking.
       setTimeout(() => setStreaming(false, streamProjectId), 350);
 
-      // Execute pending fork if the AI called fork_paths
+      // Show fork confirmation form if the AI called fork_paths
       if (pendingForkRef.current && pendingForkRef.current.length >= 2) {
         const pathNames = pendingForkRef.current;
         pendingForkRef.current = null;
-        // Find the last assistant message ID to use as fork point
-        const store = useMeterStore.getState();
-        const project = store.projects.find((p) => p.id === streamProjectId);
-        const lastAssistantMsg = project?.messages.filter((m) => m.role === "assistant").pop();
-        if (lastAssistantMsg && activeCompanyId) {
-          const parentId = wsActiveProjectId ?? null;
-          const ids = forkTrack(activeCompanyId, parentId, lastAssistantMsg.id, pathNames);
-          for (const id of ids) {
-            createSubtrackThread(id, streamProjectId, lastAssistantMsg.id);
-          }
-        }
+        setPendingForkNames(pathNames);
+        setPendingForkProjectId(streamProjectId);
       }
     }
   };
@@ -2338,7 +2446,7 @@ export function ChatView() {
                           onDebate={handleDebate}
                           onDissect={handleDissect}
                           onFork={handleForkPaths}
-                          disabled={isStreaming}
+                          disabled={isStreaming || isMainFrozen || isArchivedSubtrack}
                           forkDisabled={isMainFrozen || isSubtrack}
                         />
                       )}
@@ -2406,6 +2514,15 @@ export function ChatView() {
               onFile={handleSlashFile}
               onClose={() => { setSlashOpen(false); setSlashQuery(""); if (inputRef.current) inputRef.current.value = ""; }}
             />
+
+            {/* Fork confirmation form — shown when AI suggests paths */}
+            {pendingForkNames && (
+              <InlineForkForm
+                pathNames={pendingForkNames}
+                onConfirm={handleConfirmFork}
+                onCancel={handleCancelFork}
+              />
+            )}
 
             {/* Subtrack commit bar — shown above composer when in active subtrack */}
             {isSubtrack && !isArchivedSubtrack && currentWsProject && (

@@ -4,9 +4,9 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useWorkspaceStore, Project } from "@/lib/workspace-store";
 import { useMeterStore } from "@/lib/store";
 
-/** Path colors — teal, indigo, amber for up to 3 paths */
-const PATH_DOT_COLORS = ["bg-teal-500", "bg-indigo-500", "bg-amber-500"];
-const PATH_DOT_MUTED = ["bg-teal-500/30", "bg-indigo-500/30", "bg-amber-500/30"];
+/** Path colors — teal, indigo, amber, rose for up to 4 paths */
+const PATH_DOT_COLORS = ["bg-teal-500", "bg-indigo-500", "bg-amber-500", "bg-rose-500"];
+const PATH_DOT_MUTED = ["bg-teal-500/30", "bg-indigo-500/30", "bg-amber-500/30", "bg-rose-500/30"];
 
 interface ProjectSwitcherProps {
   activeProject: Project | null;
