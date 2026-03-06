@@ -70,11 +70,24 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       renameCompany: (id: string, name: string) => {
+        const company = get().companies.find((c) => c.id === id);
         set((s) => ({
           companies: s.companies.map((c) =>
             c.id === id ? { ...c, name } : c
           ),
         }));
+        // Sync renamed workspace name to the meter store project so it
+        // persists to the server on the next session sync.
+        if (company?.sessionId) {
+          // Lazy import to avoid circular dependency
+          import("@/lib/store").then(({ useMeterStore }) => {
+            useMeterStore.setState((s) => ({
+              projects: s.projects.map((p) =>
+                p.id === company.sessionId ? { ...p, name } : p
+              ),
+            }));
+          });
+        }
       },
 
       deleteCompany: (id: string) => {
@@ -198,7 +211,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               const existing = companies[idx];
               companies[idx] = {
                 ...existing,
-                name,
+                // Keep locally renamed name — only use server name if no local name exists
+                name: existing.name || name,
                 sessionId: existing.sessionId ?? sessionId,
               };
             }

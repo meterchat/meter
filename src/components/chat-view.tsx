@@ -1681,7 +1681,8 @@ export function ChatView() {
             } else if (data.type === "tool_call") {
               setActiveTool(data.name as string);
             } else if (data.type === "tool_result") {
-              setActiveTool(null);
+              // Delay clearing so the spinner is visible for at least 600ms
+              setTimeout(() => setActiveTool(null), 600);
               if (data.name === "save_decision" && data.decision) {
                 const d = data.decision as { id?: string; title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
                 const decId = d.id || Math.random().toString(36).slice(2, 10);
