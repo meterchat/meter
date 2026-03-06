@@ -39,7 +39,7 @@ import { SlashCommandPopover, type SlashCommandHandle } from "@/components/slash
 import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
 import { WorkspaceBar } from "@/components/workspace-bar";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { useWorkspaceStore, resolveWorkspaceProjectId } from "@/lib/workspace-store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS } from "@/lib/models";
@@ -1984,7 +1984,7 @@ export function ChatView() {
     store.commitArtifact(docId);
     useMeterStore.getState().markDocumentSaved(messageId, docId);
     // Refresh artifacts so the Documents tab picks up the change
-    store.fetchArtifacts(activeProjectId);
+    store.fetchArtifacts(resolveWorkspaceProjectId(activeProjectId));
   }, [activeProjectId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
