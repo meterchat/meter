@@ -126,17 +126,27 @@ export function HeaderMeter() {
     const weekAvg = week / daysIntoWeek;
     const monthAvg = month / daysIntoMonth;
 
-    // Use server aggregates for accurate totals (messages may be partially loaded via pagination)
+    // Use loaded messages as primary source of truth for counters.
+    // Server aggregates (serverTokensIn etc.) are set once on login and go stale
+    // as new messages are sent. Loaded messages are always up-to-date.
+    // Only fall back to server aggregates when messages are still being fetched
+    // (hasOlderMessages = true, meaning we only have the most recent 200).
+    const allLoadedMessages = activeProject?.messages ?? [];
     const serverTokensIn = activeProject?.serverTokensIn ?? 0;
     const serverTokensOut = activeProject?.serverTokensOut ?? 0;
     const serverMsgCount = activeProject?.serverMessageCount ?? 0;
 
-    // Add tokens from messages sent in the current session that may not be in server aggregates yet
     const loadedTokensIn = assistantMsgs.reduce((sum, m) => sum + (m.tokensIn ?? 0), 0);
     const loadedTokensOut = assistantMsgs.reduce((sum, m) => sum + (m.tokensOut ?? 0), 0);
+
+    // Token counts: server aggregates cover the full history but go stale after login.
+    // Loaded tokens cover only currently-loaded messages but include new ones.
+    // Use the max of both so neither stale server data nor partial loads cause a drop.
     const totalTokensIn = Math.max(serverTokensIn, loadedTokensIn);
     const totalTokensOut = Math.max(serverTokensOut, loadedTokensOut);
-    const totalMessages = Math.max(serverMsgCount, assistantMsgs.length);
+    // Message count: use total loaded messages (both roles) or server count, whichever is higher.
+    // This handles both "still loading" (server count > loaded) and "new messages" (loaded > server).
+    const totalMessages = Math.max(serverMsgCount, allLoadedMessages.length);
     const settledCount = assistantMsgs.filter((m) => m.settled).length;
     const pendingCount = assistantMsgs.filter((m) => !m.settled).length;
 
