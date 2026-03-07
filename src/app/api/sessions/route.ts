@@ -217,24 +217,10 @@ export async function POST(req: NextRequest) {
     if (session.monthCost != null) upsertData.month_cost = session.monthCost;
     if (session.monthKey != null) upsertData.month_key = session.monthKey;
 
-    let { error: sessErr } = await supabase.from("chat_sessions").upsert(
+    const { error: sessErr } = await supabase.from("chat_sessions").upsert(
       upsertData,
       { onConflict: "id" }
     );
-
-    // If upsert fails due to missing week/month columns, retry without them
-    if (sessErr && sessErr.message?.includes("column")) {
-      delete upsertData.week_cost;
-      delete upsertData.week_key;
-      delete upsertData.month_cost;
-      delete upsertData.month_key;
-      const retry = await supabase.from("chat_sessions").upsert(
-        upsertData,
-        { onConflict: "id" }
-      );
-      sessErr = retry.error;
-    }
-
     if (sessErr) throw sessErr;
 
     // Track session creation (first sync only — no messages means new session)
@@ -267,6 +253,8 @@ export async function POST(req: NextRequest) {
         dissector_trace: m.dissectorTrace ?? null,
         thinking: m.thinking ?? null,
         timestamp: m.timestamp,
+        is_fork_point: m.isForkPoint ?? null,
+        fork_resolution: m.forkResolution ?? null,
       }));
 
       // Batch upsert in chunks of 100

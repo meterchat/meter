@@ -76,6 +76,8 @@ export function useSessionSync() {
     dissectorTrace: m.dissector_trace as DissectorTurn[] | undefined,
     thinking: m.thinking as string | undefined,
     timestamp: m.timestamp as number,
+    isForkPoint: m.is_fork_point as boolean | undefined,
+    forkResolution: m.fork_resolution as "merged" | "closed" | undefined,
   });
 
   const buildSessionFromServer = (
