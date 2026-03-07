@@ -210,14 +210,14 @@ export function Inspector() {
           {feedbackOpen && (
             <div
               ref={feedbackRef}
-              className="absolute bottom-full right-4 mb-2 w-72 rounded-lg border border-border bg-card shadow-xl z-50"
+              className="absolute bottom-full right-4 mb-2 w-96 rounded-lg border border-border bg-card shadow-xl z-50"
             >
               <div className="p-3 flex flex-col gap-2">
                 <textarea
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
                   placeholder="Share feedback, ideas, or bugs..."
-                  rows={3}
+                  rows={5}
                   className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/20 transition-colors"
                   autoFocus
                   onKeyDown={(e) => {
