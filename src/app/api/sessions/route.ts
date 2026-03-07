@@ -211,6 +211,7 @@ export async function POST(req: NextRequest) {
     // Track vs workspace distinction
     if (session.isSubtrack != null) upsertData.is_subtrack = session.isSubtrack;
     if (session.parentSessionId != null) upsertData.parent_session_id = scopedId(userId, session.parentSessionId);
+    if (session.forkMessageId != null) upsertData.fork_message_id = session.forkMessageId;
     // Persist week/month cost data if provided (columns may not exist yet)
     if (session.weekCost != null) upsertData.week_cost = session.weekCost;
     if (session.weekKey != null) upsertData.week_key = session.weekKey;

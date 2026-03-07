@@ -230,7 +230,7 @@ export function useSessionSync() {
               weekKey: session.weekKey,
               monthCost: session.monthCost ?? 0,
               monthKey: session.monthKey,
-              ...(isSubtrack ? { isSubtrack: true, parentSessionId, archived: track?.status === "archived", committed: track?.committed ?? false } : {}),
+              ...(isSubtrack ? { isSubtrack: true, parentSessionId, archived: track?.status === "archived", committed: track?.committed ?? false, forkMessageId: track?.forkMessageId } : {}),
             },
             messages: messagesToSync,
           }),
@@ -378,6 +378,7 @@ export function useSessionSync() {
           sessionMeta.parentSessionId = beaconParentSessionId;
           sessionMeta.archived = beaconTrack?.status === "archived";
           sessionMeta.committed = beaconTrack?.committed ?? false;
+          sessionMeta.forkMessageId = beaconTrack?.forkMessageId;
         }
 
         const payload = JSON.stringify({
@@ -545,27 +546,29 @@ export function useSessionSync() {
 
         // Reconstruct subtrack sessions: prepend parent's pre-fork messages.
         // Server only stores post-fork messages for subtracks (to avoid ID conflicts
-        // with the parent session). The workspace store tracks tell us the fork point.
+        // with the parent session). We use fork_message_id from either the workspace
+        // store (localStorage) or the server (chat_sessions.fork_message_id) as fallback.
         const wsState = useWorkspaceStore.getState();
         for (let i = 0; i < merged.length; i++) {
           const session = merged[i];
           const serverSess = serverSessions.find((s) => s.id === session.id);
           if (!serverSess?.is_subtrack) continue;
 
-          // Find the track in workspace store to get the forkMessageId
+          // Get forkMessageId from workspace store or server DB fallback
           const wsTrack = wsState.tracks.find((t) => t.id === session.id && t.isSubtrack);
-          if (!wsTrack?.forkMessageId) continue;
+          const forkMessageId = wsTrack?.forkMessageId ?? (serverSess as Record<string, unknown>).fork_message_id as string | undefined;
+          if (!forkMessageId) continue;
 
           // Find the parent session (either by server's parent_session_id or workspace lookup)
           const parentId = serverSess.parent_session_id
-            ?? wsState.workspaces.find((w) => w.id === wsTrack.workspaceId)?.sessionId;
+            ?? (wsTrack ? wsState.workspaces.find((w) => w.id === wsTrack.workspaceId)?.sessionId : undefined);
           if (!parentId) continue;
 
           const parentSession = merged.find((p) => p.id === parentId);
           if (!parentSession) continue;
 
           // Get parent's messages up to and including the fork point
-          const forkIdx = parentSession.messages.findIndex((m) => m.id === wsTrack.forkMessageId);
+          const forkIdx = parentSession.messages.findIndex((m) => m.id === forkMessageId);
           if (forkIdx === -1) continue;
 
           const preForkMessages = parentSession.messages.slice(0, forkIdx + 1);

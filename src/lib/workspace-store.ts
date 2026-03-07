@@ -36,7 +36,7 @@ interface WorkspaceState {
   setActiveWorkspace: (id: string) => void;
   setActiveTrack: (id: string | null) => void;
   upsertWorkspacesFromSessions: (
-    sessions: Array<{ id: string; project_name?: string; workspace_name?: string; name?: string; created_at?: string; is_subtrack?: boolean; parent_session_id?: string }>,
+    sessions: Array<{ id: string; project_name?: string; workspace_name?: string; name?: string; created_at?: string; is_subtrack?: boolean; parent_session_id?: string; fork_message_id?: string; archived?: boolean; committed?: boolean }>,
     activeSessionId?: string
   ) => void;
 
@@ -190,6 +190,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         if (!sessions || sessions.length === 0) return;
         set((s) => {
           const workspaces = [...s.workspaces];
+          const tracks = [...s.tracks];
           const norm = (v: string) => v.toLowerCase();
 
           // Skip sessions that are subtracks — use BOTH server flag AND local tracks
@@ -197,8 +198,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             s.tracks.filter((t) => t.isSubtrack).map((t) => t.id)
           );
 
+          // First pass: upsert workspaces (non-subtracks)
           for (const session of sessions) {
-            // Server tells us this is a subtrack, or local tracks say so
             if (session.is_subtrack || localSubtrackIds.has(session.id)) continue;
             const sessionId = session.id;
             const name = session.workspace_name ?? session.project_name ?? session.name ?? session.id;
@@ -223,9 +224,43 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               const existing = workspaces[idx];
               workspaces[idx] = {
                 ...existing,
-                // Keep locally renamed name — only use server name if no local name exists
                 name: existing.name || name,
                 sessionId: existing.sessionId ?? sessionId,
+              };
+            }
+          }
+
+          // Second pass: upsert subtracks into tracks array (workspaces are populated now)
+          for (const session of sessions) {
+            if (!session.is_subtrack || !session.parent_session_id) continue;
+
+            const name = session.workspace_name ?? session.project_name ?? session.name ?? session.id;
+            const createdAtRaw = session.created_at ? Date.parse(session.created_at) : NaN;
+            const createdAt = Number.isFinite(createdAtRaw) ? createdAtRaw : Date.now();
+            const parentWs = workspaces.find((w) => w.sessionId === session.parent_session_id);
+            const workspaceId = parentWs?.id ?? "";
+
+            const existingIdx = tracks.findIndex((t) => t.id === session.id);
+            if (existingIdx === -1) {
+              tracks.push({
+                id: session.id,
+                workspaceId,
+                name,
+                createdAt,
+                isSubtrack: true,
+                forkMessageId: session.fork_message_id,
+                status: session.archived ? "archived" : "active",
+                committed: session.committed ?? false,
+              });
+            } else {
+              const existing = tracks[existingIdx];
+              tracks[existingIdx] = {
+                ...existing,
+                // Fill in missing fields from server (e.g. forkMessageId lost from localStorage)
+                forkMessageId: existing.forkMessageId ?? session.fork_message_id,
+                workspaceId: existing.workspaceId || workspaceId,
+                status: existing.status ?? (session.archived ? "archived" : "active"),
+                committed: existing.committed ?? session.committed ?? false,
               };
             }
           }
@@ -239,7 +274,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             activeWorkspaceId = workspaces[0].id;
           }
 
-          return { workspaces, activeWorkspaceId };
+          return { workspaces, tracks, activeWorkspaceId };
         });
       },
     }),

@@ -42,6 +42,7 @@ const STATEMENTS: string[] = [
     workspace_name text,
     is_subtrack boolean default false,
     parent_session_id text,
+    fork_message_id text,
     total_cost numeric default 0,
     today_cost numeric default 0,
     today_tokens_in integer default 0,
@@ -90,7 +91,7 @@ const STATEMENTS: string[] = [
   `create or replace view tracks as
    select id, parent_session_id as workspace_id, user_id,
           coalesce(workspace_name, project_name) as name,
-          archived, committed, total_cost, today_cost,
+          archived, committed, fork_message_id, total_cost, today_cost,
           created_at, updated_at, deleted_at
    from chat_sessions
    where is_subtrack = true and parent_session_id is not null`,
@@ -183,6 +184,7 @@ const STATEMENTS: string[] = [
   `create unique index if not exists idx_oauth_tokens_unique on oauth_tokens(user_id, provider, workspace_id)`,
   `alter table chat_sessions add column if not exists archived boolean default false`,
   `alter table chat_sessions add column if not exists committed boolean default false`,
+  `alter table chat_sessions add column if not exists fork_message_id text`,
   `alter table oauth_state add column if not exists workspace_id text`,
 
   // File attachments support
