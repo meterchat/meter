@@ -1341,13 +1341,28 @@ export function ChatView() {
   useEffect(() => {
     hasInitialScrolled.current = false;
     userScrolledAwayRef.current = false;
-    // Reset debate/dissector state so it doesn't leak across sessions/tracks
-    setDebateTraceLocal([]);
+    // Reset debate/dissector state so it doesn't leak across sessions/tracks.
+    // If the new session has an active stream with a debate in progress,
+    // restore the trace from the store so the UI picks up where it left off.
+    const switchedSession = useMeterStore.getState().sessions.find((p) => p.id === activeSessionId);
+    const hasActiveDebateStream = switchedSession?.isStreaming && activeStreamsRef.current.has(activeSessionId);
+    const lastMsg = switchedSession?.messages[switchedSession.messages.length - 1];
+    if (hasActiveDebateStream && lastMsg?.debateTrace && lastMsg.debateTrace.length > 0) {
+      setDebateTraceLocal(lastMsg.debateTrace);
+      setDebatePhase("debating");
+    } else {
+      setDebateTraceLocal([]);
+      setDebatePhase(null);
+    }
     setActiveDebateTurn(null);
-    setDebatePhase(null);
-    setDissectorTraceLocal([]);
+    if (hasActiveDebateStream && lastMsg?.dissectorTrace && lastMsg.dissectorTrace.length > 0) {
+      setDissectorTraceLocal(lastMsg.dissectorTrace);
+      setDissectorPhase("dissecting");
+    } else {
+      setDissectorTraceLocal([]);
+      setDissectorPhase(null);
+    }
     setActiveDissectorTurn(null);
-    setDissectorPhase(null);
     setActiveTool(null);
     // Snap to bottom on session switch
     requestAnimationFrame(() => {
@@ -1735,6 +1750,9 @@ export function ChatView() {
                   phase: currentTurn.phase as "opening" | "challenge" | "rebuttal" | "vote",
                   content: currentTurn.content,
                 });
+                // Always persist trace to the store (session-scoped) so it
+                // survives track switches — not just local React state.
+                useMeterStore.getState().setDebateTrace([...localTrace], streamSessionId);
                 if (isActiveStream()) { setDebateTraceLocal([...localTrace]); setActiveDebateTurn(null); }
                 currentTurn = null;
               }
@@ -1771,6 +1789,8 @@ export function ChatView() {
                   persona: currentDissTurn.persona as "first-principles" | "inversion" | "pre-mortem" | "verdict",
                   content: currentDissTurn.content,
                 });
+                // Always persist trace to the store (session-scoped)
+                useMeterStore.getState().setDissectorTrace([...localDissTrace], streamSessionId);
                 if (isActiveStream()) { setDissectorTraceLocal([...localDissTrace]); setActiveDissectorTurn(null); }
                 currentDissTurn = null;
               }

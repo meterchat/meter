@@ -5,6 +5,7 @@ import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment, ty
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { apiUrl } from "@/lib/api-url";
 import { useDecisionsStore } from "@/lib/decisions-store";
+import { getModel } from "@/lib/models";
 
 const SYNC_INTERVAL = 10_000; // sync every 10 seconds
 const SYNC_DEBOUNCE = 2_000; // debounce after message
@@ -57,28 +58,41 @@ export function useSessionSync() {
     return midnight.getTime() - now.getTime();
   };
 
-  const mapServerMessage = (m: Record<string, unknown>) => ({
-    id: m.id as string,
-    role: m.role as "user" | "assistant",
-    content: (m.content as string) ?? "",
-    model: m.model as string | undefined,
-    tokensIn: m.tokens_in as number | undefined,
-    tokensOut: m.tokens_out as number | undefined,
-    cost: m.cost as number | undefined,
-    confidence: m.confidence as number | undefined,
-    settled: m.settled as boolean | undefined,
-    receiptStatus: m.receipt_status as ReceiptStatus | undefined,
-    signature: m.signature as string | undefined,
-    txHash: m.tx_hash as string | undefined,
-    cards: m.cards as ActionCard[] | undefined,
-    attachments: m.attachments as Attachment[] | undefined,
-    debateTrace: m.debate_trace as DebateTurn[] | undefined,
-    dissectorTrace: m.dissector_trace as DissectorTurn[] | undefined,
-    thinking: m.thinking as string | undefined,
-    timestamp: m.timestamp as number,
-    isForkPoint: m.is_fork_point as boolean | undefined,
-    forkResolution: m.fork_resolution as "merged" | "closed" | undefined,
-  });
+  const mapServerMessage = (m: Record<string, unknown>) => {
+    let cost = m.cost as number | undefined;
+    // Recalculate cost from tokens + model pricing if the server didn't store it
+    // (e.g. messages saved before server-side cost calculation was added, or
+    // messages saved mid-stream via beacon before the API finished).
+    if (cost == null && m.model && ((m.tokens_in as number) || (m.tokens_out as number))) {
+      try {
+        const modelInfo = getModel(m.model as string);
+        cost = ((m.tokens_in as number) ?? 0) * modelInfo.inputPrice
+             + ((m.tokens_out as number) ?? 0) * modelInfo.outputPrice;
+      } catch { /* unknown model */ }
+    }
+    return {
+      id: m.id as string,
+      role: m.role as "user" | "assistant",
+      content: (m.content as string) ?? "",
+      model: m.model as string | undefined,
+      tokensIn: m.tokens_in as number | undefined,
+      tokensOut: m.tokens_out as number | undefined,
+      cost,
+      confidence: m.confidence as number | undefined,
+      settled: m.settled as boolean | undefined,
+      receiptStatus: m.receipt_status as ReceiptStatus | undefined,
+      signature: m.signature as string | undefined,
+      txHash: m.tx_hash as string | undefined,
+      cards: m.cards as ActionCard[] | undefined,
+      attachments: m.attachments as Attachment[] | undefined,
+      debateTrace: m.debate_trace as DebateTurn[] | undefined,
+      dissectorTrace: m.dissector_trace as DissectorTurn[] | undefined,
+      thinking: m.thinking as string | undefined,
+      timestamp: m.timestamp as number,
+      isForkPoint: m.is_fork_point as boolean | undefined,
+      forkResolution: m.fork_resolution as "merged" | "closed" | undefined,
+    };
+  };
 
   const buildSessionFromServer = (
     session: ServerSession,
