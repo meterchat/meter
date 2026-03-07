@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useMeterStore, selectConnectedServices } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
 import { initiateOAuthFlow } from "@/lib/oauth-client";
 import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { emitLogEvent } from "@/lib/log-event";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import {
   trackWorkspaceDeleted,
@@ -49,6 +50,11 @@ export function Inspector() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [editingName, setEditingName] = useState("");
   const [nameEdited, setNameEdited] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const feedbackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!INSPECTOR_TABS.includes(inspectorTab as typeof INSPECTOR_TABS[number])) {
@@ -94,6 +100,17 @@ export function Inspector() {
     setDeleteConfirmText("");
     setDeleting(false);
     setInspectorOpen(false);
+  };
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackText.trim() || feedbackSubmitting) return;
+    setFeedbackSubmitting(true);
+    emitLogEvent("feedback_logged", userId, { feedbackText: feedbackText.trim() });
+    setFeedbackOpen(false);
+    setFeedbackText("");
+    setFeedbackSubmitting(false);
+    setFeedbackSent(true);
+    setTimeout(() => setFeedbackSent(false), 3000);
   };
 
   const openManageDialog = () => {
@@ -161,13 +178,70 @@ export function Inspector() {
       </div>
 
       {activeWorkspace && (
-        <div className="border-t border-border px-4 py-3 flex items-center justify-between" style={{ paddingBottom: isMobile ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
+        <div className="relative border-t border-border px-4 py-3 flex items-center justify-between" style={{ paddingBottom: isMobile ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
           <button
             onClick={openManageDialog}
             className="rounded-md py-1.5 px-2 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground hover:bg-foreground/5"
           >
             Manage workspace
           </button>
+
+          {/* Feedback button / badge */}
+          {feedbackSent ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-1 font-mono text-[10px] text-blue-400">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              feedback logged
+            </span>
+          ) : (
+            <button
+              onClick={() => setFeedbackOpen(!feedbackOpen)}
+              className="inline-flex items-center gap-1.5 rounded-md py-1.5 px-2 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground hover:bg-foreground/5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Feedback
+            </button>
+          )}
+
+          {/* Feedback dropup */}
+          {feedbackOpen && (
+            <div
+              ref={feedbackRef}
+              className="absolute bottom-full right-4 mb-2 w-72 rounded-lg border border-border bg-card shadow-xl z-50"
+            >
+              <div className="p-3 flex flex-col gap-2">
+                <textarea
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  placeholder="Share feedback, ideas, or bugs..."
+                  rows={3}
+                  className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/20 transition-colors"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && feedbackText.trim()) {
+                      e.preventDefault();
+                      handleFeedbackSubmit();
+                    }
+                  }}
+                />
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[10px] text-muted-foreground/30">
+                    {"\u2318"}+Enter to send
+                  </span>
+                  <button
+                    onClick={handleFeedbackSubmit}
+                    disabled={!feedbackText.trim() || feedbackSubmitting}
+                    className="rounded-md px-3 py-1 font-mono text-[11px] bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    {feedbackSubmitting ? "Sending..." : "Send"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>

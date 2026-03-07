@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { apiUrl } from "@/lib/api-url";
+import { emitLogEvent } from "@/lib/log-event";
 
 export interface Decision {
   id: string;
@@ -82,14 +83,16 @@ export const useDecisionsStore = create<DecisionsState>()(
           decisions: s.decisions.filter((d) => d.id !== id),
         })),
 
-      resolveDecision: (id, choice, reasoning) =>
+      resolveDecision: (id, choice, reasoning) => {
+        emitLogEvent("decision_locked");
         set((s) => ({
           decisions: s.decisions.map((d) =>
             d.id === id
               ? { ...d, status: "decided" as const, choice, reasoning, updatedAt: Date.now() }
               : d
           ),
-        })),
+        }));
+      },
 
       reopenDecision: (id) =>
         set((s) => ({

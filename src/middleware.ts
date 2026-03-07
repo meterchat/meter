@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 
 const DEV_HOSTS = ["dev.getmeter.xyz", "getmeter.dev"];
 const PROD_HOST = "getmeter.xyz";
+const LOG_HOST = "log.meter.chat";
 
 export function middleware(req: NextRequest) {
   const hostname = req.headers.get("host") ?? "";
   const { pathname } = req.nextUrl;
+
+  // log.meter.chat → rewrite to /log
+  if (hostname === LOG_HOST || hostname.startsWith("log.meter")) {
+    if (!pathname.startsWith("/log") && !pathname.startsWith("/api") && !pathname.startsWith("/_next") && !pathname.startsWith("/favicon")) {
+      const url = req.nextUrl.clone();
+      url.pathname = `/log${pathname}`;
+      return NextResponse.rewrite(url);
+    }
+  }
 
   // dev.getmeter.xyz → rewrite to /console
   if (DEV_HOSTS.some((h) => hostname.startsWith(h.split(".")[0]))) {

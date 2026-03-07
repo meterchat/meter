@@ -163,6 +163,29 @@ create table if not exists decisions (
 );
 
 -- =============================================
+-- LOG ENTRIES (public development log)
+-- =============================================
+
+create table if not exists log_entries (
+  id text primary key,
+  type text not null check (type in (
+    'message_sent', 'decision_locked', 'debate_started',
+    'path_forked', 'path_merged', 'workspace_created',
+    'feedback_logged', 'commit_pushed'
+  )),
+  actor text not null default 'anon',    -- 'anon', 'meter', or first 6 chars of hashed user_id
+  -- commit-specific fields
+  commit_sha text,
+  commit_url text,
+  commit_repo text,
+  -- feedback-specific
+  feedback_text text,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_log_entries_created_at on log_entries(created_at desc);
+
+-- =============================================
 -- API KEYS & USAGE (v1 API)
 -- =============================================
 
