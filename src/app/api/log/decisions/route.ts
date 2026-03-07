@@ -1,24 +1,31 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 
-// GET /api/log/decisions — public locked decisions scoped to the Meter workspace
+const METER_EMAIL = "a@buxor.co";
+
+// GET /api/log/decisions — public locked decisions for the Meter workspace
 export async function GET() {
-  const userId = process.env.METER_FOUNDER_USER_ID;
-  const sessionId = process.env.METER_MAIN_SESSION_ID;
-
-  if (!userId || !sessionId) {
-    return NextResponse.json({ decisions: [] });
-  }
-
   try {
     const supabase = getSupabaseServer();
+
+    // Look up the Meter founder user by email
+    const { data: user, error: userError } = await supabase
+      .from("meter_users")
+      .select("id")
+      .eq("email", METER_EMAIL)
+      .single();
+
+    if (userError || !user) {
+      return NextResponse.json({ decisions: [] });
+    }
+
+    // Fetch all decided (locked) decisions for this user
     const { data, error } = await supabase
       .from("decisions")
       .select("id, title, status, choice, reasoning, category, version, revisit_count, created_at, updated_at")
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .eq("status", "decided")
       .eq("archived", false)
-      .or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`)
       .order("updated_at", { ascending: false });
 
     if (error) throw error;
