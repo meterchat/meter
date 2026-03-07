@@ -56,6 +56,8 @@ const STATEMENTS: string[] = [
     monthly_limit numeric,
     per_txn_limit numeric,
     settlement_failed boolean default false,
+    archived boolean default false,
+    committed boolean default false,
     created_at timestamptz default now(),
     updated_at timestamptz default now(),
     deleted_at timestamptz default null
@@ -77,12 +79,6 @@ const STATEMENTS: string[] = [
     created_at timestamptz default now()
   )`,
   // ── Views: workspaces & tracks (read-only projections of chat_sessions) ──
-  // Drop legacy/ghost tables (never populated, superseded by other tables)
-  `drop table if exists workspace_projects cascade`,
-  `drop table if exists workspaces cascade`,
-  `drop table if exists challenges cascade`,        -- superseded by auth_challenges
-  `drop table if exists webauthn_credentials cascade`, -- superseded by passkey_credentials
-
   `create or replace view workspaces as
    select id, user_id, coalesce(workspace_name, project_name) as name,
           total_cost, today_cost, week_cost, month_cost,
@@ -94,7 +90,7 @@ const STATEMENTS: string[] = [
   `create or replace view tracks as
    select id, parent_session_id as workspace_id, user_id,
           coalesce(workspace_name, project_name) as name,
-          total_cost, today_cost,
+          archived, committed, total_cost, today_cost,
           created_at, updated_at, deleted_at
    from chat_sessions
    where is_subtrack = true and parent_session_id is not null`,
@@ -185,6 +181,8 @@ const STATEMENTS: string[] = [
    where a.user_id = b.user_id and a.provider = b.provider and a.workspace_id = b.workspace_id
    and a.updated_at < b.updated_at`,
   `create unique index if not exists idx_oauth_tokens_unique on oauth_tokens(user_id, provider, workspace_id)`,
+  `alter table chat_sessions add column if not exists archived boolean default false`,
+  `alter table chat_sessions add column if not exists committed boolean default false`,
   `alter table oauth_state add column if not exists workspace_id text`,
 
   // File attachments support
