@@ -1,25 +1,31 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 
-// GET /api/log/decisions — public locked decisions for the founder's main workspace
+// GET /api/log/decisions — public locked decisions for the founder's workspace
 export async function GET() {
   const userId = process.env.METER_FOUNDER_USER_ID;
   const sessionId = process.env.METER_MAIN_SESSION_ID;
 
-  if (!userId || !sessionId) {
+  if (!userId) {
     return NextResponse.json({ decisions: [] });
   }
 
   try {
     const supabase = getSupabaseServer();
-    const { data, error } = await supabase
+    let query = supabase
       .from("decisions")
-      .select("id, title, status, choice, alternatives, reasoning, category, version, revisit_count, created_at, updated_at")
+      .select("id, title, status, choice, reasoning, category, version, revisit_count, created_at, updated_at")
       .eq("user_id", userId)
       .eq("status", "decided")
       .eq("archived", false)
-      .or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`)
       .order("updated_at", { ascending: false });
+
+    // If a session ID is configured, scope to that workspace; otherwise show all
+    if (sessionId) {
+      query = query.or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -28,7 +34,6 @@ export async function GET() {
       title: d.title,
       status: d.status,
       choice: d.choice,
-      alternatives: d.alternatives,
       reasoning: d.reasoning,
       category: d.category,
       version: (d.version as number) ?? 1,

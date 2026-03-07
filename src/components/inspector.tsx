@@ -482,18 +482,8 @@ function DecisionRow({ decision }: { decision: Decision }) {
               <p className="font-mono text-[12px] text-foreground/70 mt-0.5">{decision.choice}</p>
             </div>
           )}
-          {Array.isArray(decision.alternatives) && decision.alternatives.length > 0 && (
-            <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Alternatives</span>
-              <ul className="mt-0.5">
-                {decision.alternatives.map((alt, i) => (
-                  <li key={i} className="font-mono text-[12px] text-foreground/50 flex items-start gap-1.5">
-                    <span className="text-muted-foreground/30 mt-px">-</span>
-                    {alt}
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {version > 1 && (
+            <VersionHistory title={decision.title} projectId={decision.sessionId} />
           )}
           {decision.reasoning && (
             <div>
@@ -501,11 +491,8 @@ function DecisionRow({ decision }: { decision: Decision }) {
               <p className="font-mono text-[12px] text-foreground/50 mt-0.5">{decision.reasoning}</p>
             </div>
           )}
-          {!decision.choice && !decision.reasoning && (!Array.isArray(decision.alternatives) || decision.alternatives.length === 0) && (
+          {!decision.choice && !decision.reasoning && (
             <p className="font-mono text-[11px] text-muted-foreground/30 italic">No details recorded</p>
-          )}
-          {version > 1 && (
-            <VersionHistory title={decision.title} projectId={decision.sessionId} />
           )}
         </div>
       )}

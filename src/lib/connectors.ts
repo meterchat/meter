@@ -40,49 +40,94 @@ export interface SlashCommandDef {
 
 export const SLASH_COMMANDS: SlashCommandDef[] = [
   {
-    command: "money",
-    label: "/money",
+    command: "debate",
+    label: "/debate",
     chatPrompt:
-      "What's my current runway? Show me bank balances, recent burn rate, and how long my cash lasts at the current spend.",
-    connectorId: "mercury",
-    iconPath:
-      "M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zM12 1L2 6v2h20V6z",
-  },
-  {
-    command: "revenue",
-    label: "/revenue",
-    chatPrompt:
-      "Show me my revenue snapshot. MRR, active subscribers, churn rate, and any notable payment activity from the last 30 days.",
-    connectorId: "stripe",
-    iconPath:
-      "M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z",
-  },
-  {
-    command: "users",
-    label: "/users",
-    chatPrompt:
-      "Show me my product health. DAUs, retention trends, top events, and any funnels or insights that show how users are behaving right now.",
-    connectorId: "posthog",
-    iconPath:
-      "M3 3v18h18V3H3zm2 16V5h2v14H5zm4 0V5h2v14H9zm4 0V9h2v10h-2zm4 0v-6h2v6h-2z",
-  },
-  {
-    command: "code",
-    label: "/code",
-    chatPrompt:
-      "Show me my repo state. List my repositories, recent PRs, and latest commits so I can see what's active right now.",
-    connectorId: "github",
-    iconPath:
-      "M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12",
-  },
-  {
-    command: "domain",
-    label: "/domain",
-    chatPrompt:
-      "I want to check domain availability. What domain name should I look up?",
+      "Debate this.",
     connectorId: "_builtin",
     iconPath:
-      "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z",
+      "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+  },
+  {
+    command: "decide",
+    label: "/decide",
+    chatPrompt:
+      "Lock this as a decision. Summarize the choice, reasoning, and category, then save it.",
+    connectorId: "_builtin",
+    iconPath:
+      "M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
+  },
+  {
+    command: "fork",
+    label: "/fork",
+    chatPrompt:
+      "Fork this into separate paths so I can explore each option independently.",
+    connectorId: "_builtin",
+    iconPath:
+      "M6 3v12 M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M18 9a9 9 0 0 1-9 9",
+  },
+  {
+    command: "dissect",
+    label: "/dissect",
+    chatPrompt:
+      "Dissect this.",
+    connectorId: "_builtin",
+    iconPath:
+      "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+  },
+  {
+    command: "invert",
+    label: "/invert",
+    chatPrompt:
+      "Invert this. Flip my assumption completely — what if the opposite were true? What would that world look like, and what would I do differently?",
+    connectorId: "_builtin",
+    iconPath:
+      "M21 12a9 9 0 1 1-9-9 M21 3v9h-9",
+  },
+  {
+    command: "steelman",
+    label: "/steelman",
+    chatPrompt:
+      "Steelman this. Make the strongest possible case for the position I just described — even if you disagree. Find the best evidence, the most compelling framing, and the strongest arguments. Then tell me what would need to be true for this to be the right call.",
+    connectorId: "_builtin",
+    iconPath:
+      "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  },
+  {
+    command: "tradeoffs",
+    label: "/tradeoffs",
+    chatPrompt:
+      "Tradeoffs. Lay out the key tradeoffs for the options we're discussing. For each option, what do I gain and what do I give up? Be specific — costs, risks, timelines, and second-order effects.",
+    connectorId: "_builtin",
+    iconPath:
+      "M3 3v18h18 M18.7 8l-5.1 5.2-2.8-2.7L7 14.3",
+  },
+  {
+    command: "blueprint",
+    label: "/blueprint",
+    chatPrompt:
+      "Blueprint. Generate my full project spec files — README.md, ARCHITECTURE.md, DESIGN.md, DECISIONS.md, CLAUDE.md, and .cursorrules — based on all locked decisions and our conversation. Ask me to clarify anything major before generating.",
+    connectorId: "_builtin",
+    iconPath:
+      "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z",
+  },
+  {
+    command: "export",
+    label: "/export",
+    chatPrompt:
+      "Export everything. Package my full chat history, debates, decisions, documents, and timeline into a downloadable format.",
+    connectorId: "_builtin",
+    iconPath:
+      "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",
+  },
+  {
+    command: "feedback",
+    label: "/feedback",
+    chatPrompt:
+      "I want to submit feedback about Meter.",
+    connectorId: "_builtin",
+    iconPath:
+      "M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z",
   },
 ];
 

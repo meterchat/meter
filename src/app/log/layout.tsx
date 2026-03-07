@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "meter.log — Development Log",
-  description: "Live development log for Meter. Commits, decisions, and activity in real time.",
+  title: "Meter Log — Development Feed",
+  description: "Live development feed for Meter. Commits, decisions, and activity in real time.",
 };
 
 export default function LogLayout({
