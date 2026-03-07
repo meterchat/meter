@@ -11,8 +11,7 @@ function mapDecision(d: Record<string, unknown>) {
     choice: d.choice ?? undefined,
     alternatives: d.alternatives ?? undefined,
     reasoning: d.reasoning ?? undefined,
-    sessionId: d.project_id ?? undefined,
-    projectId: d.project_id ?? undefined,
+    sessionId: d.session_id ?? d.project_id ?? undefined,
     chatMessageId: d.chat_message_id ?? undefined,
     category: d.category ?? undefined,
     parentDecisionId: d.parent_decision_id ?? undefined,
@@ -24,7 +23,7 @@ function mapDecision(d: Record<string, unknown>) {
 }
 
 // GET /api/decisions — load all non-archived decisions for the authenticated user
-// GET /api/decisions?history_for=<title>&project_id=<id> — load version history (archived) for a decision title
+// GET /api/decisions?history_for=<title>&session_id=<id> — load version history (archived) for a decision title
 export async function GET(request: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
@@ -34,7 +33,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseServer();
     const { searchParams } = new URL(request.url);
     const historyFor = searchParams.get("history_for");
-    const projectId = searchParams.get("project_id");
+    const sessionId = searchParams.get("session_id") ?? searchParams.get("project_id");
 
     // Version history query — returns archived decisions matching title
     if (historyFor) {
@@ -46,8 +45,8 @@ export async function GET(request: NextRequest) {
         .eq("archived", true)
         .order("version", { ascending: false });
 
-      if (projectId) {
-        query = query.eq("project_id", projectId);
+      if (sessionId) {
+        query = query.or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`);
       }
 
       const { data, error } = await query;

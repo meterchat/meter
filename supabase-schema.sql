@@ -143,7 +143,8 @@ create table if not exists decisions (
   choice text,
   alternatives jsonb,
   reasoning text,
-  project_id text,
+  session_id text,                      -- workspace session this decision belongs to
+  project_id text,                      -- legacy alias for session_id
   chat_message_id text,
   category text,
   parent_decision_id text,
@@ -241,6 +242,12 @@ create table if not exists settlement_history (
 -- alter table chat_sessions add column if not exists is_subtrack boolean default false;
 -- alter table chat_sessions add column if not exists parent_session_id text;
 
+-- Rename project_id → session_id on decisions and artifacts (keep project_id as legacy alias)
+-- alter table decisions add column if not exists session_id text;
+-- update decisions set session_id = project_id where session_id is null and project_id is not null;
+-- alter table artifacts add column if not exists session_id text;
+-- update artifacts set session_id = project_id where session_id is null and project_id is not null;
+
 -- SDK: developer scoping on chat sessions
 -- alter table chat_sessions add column if not exists developer_id uuid;
 
@@ -298,7 +305,8 @@ create index if not exists idx_auth_sessions_expires on auth_sessions(expires_at
 create table if not exists artifacts (
   id text primary key,
   user_id text not null references meter_users(id) on delete cascade,
-  project_id text,
+  session_id text,                      -- workspace session this artifact belongs to
+  project_id text,                      -- legacy alias for session_id
   file_path text not null,
   content text not null default '',
   status text not null default 'draft',
