@@ -14,6 +14,33 @@ export async function GET() {
 
     if (msgError) throw msgError;
 
+    // Fetch total_cost from chat_sessions (source of truth for lifetime spend)
+    // Only count main workspaces (not subtracks) to avoid double-counting
+    const { data: sessionCosts } = await supabase
+      .from("chat_sessions")
+      .select("total_cost")
+      .eq("is_subtrack", false)
+      .is("deleted_at", null);
+
+    const sessionTotalSpend = (sessionCosts ?? []).reduce(
+      (sum, s) => sum + (Number(s.total_cost) || 0),
+      0,
+    );
+
+    // Count debates from chat_messages where model='debate' (reliable, not fire-and-forget)
+    const { count: debateCount } = await supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("model", "debate")
+      .eq("role", "assistant");
+
+    // Count forks from chat_sessions where is_subtrack=true (actual fork records)
+    const { count: forkCount } = await supabase
+      .from("chat_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("is_subtrack", true)
+      .is("deleted_at", null);
+
     const messages = msgStats ?? [];
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
@@ -29,7 +56,7 @@ export async function GET() {
 
     const monthStr = todayStr.slice(0, 7); // "YYYY-MM"
 
-    let totalSpend = 0;
+    let messageTotalSpend = 0;
     let todaySpend = 0;
     let weekSpend = 0;
     let monthSpend = 0;
@@ -48,7 +75,7 @@ export async function GET() {
       const createdAt = m.created_at as string;
       const dateStr = createdAt?.slice(0, 10) ?? "";
 
-      totalSpend += cost;
+      messageTotalSpend += cost;
       totalTokensIn += tokIn;
       totalTokensOut += tokOut;
 
@@ -68,6 +95,10 @@ export async function GET() {
       byModel[model].tokensOut += tokOut;
     }
 
+    // Use the higher of session totals vs message totals (session is source of truth,
+    // but message-level may have more granular data in some cases)
+    const totalSpend = Math.max(sessionTotalSpend, messageTotalSpend);
+
     // Calculate averages
     const daysSinceFirst = firstMessageDate
       ? Math.max(1, Math.floor((now.getTime() - new Date(firstMessageDate).getTime()) / dayMs) + 1)
@@ -75,55 +106,44 @@ export async function GET() {
     const daysIntoWeek = Math.max(1, Math.floor((now.getTime() - monday.getTime()) / dayMs) + 1);
     const daysIntoMonth = Math.max(1, now.getDate());
 
-    // Build time-series data for Liveline charts (hourly buckets, last 7 days)
-    const sevenDaysAgo = new Date(now.getTime() - 7 * dayMs);
-    const spendByHour: Record<number, number> = {};
-    const tokensByHour: Record<number, number> = {};
+    // Build time-series data for Liveline charts
+    // Use daily buckets over all time (not just 7 days) so charts always render
+    const spendByBucket: Record<number, number> = {};
+    const tokensByBucket: Record<number, number> = {};
 
     for (const m of messages) {
       const createdAt = m.created_at as string;
       if (!createdAt) continue;
       const t = new Date(createdAt);
-      if (t < sevenDaysAgo) continue;
-      // Round to hour
-      const hourTs = new Date(t.getFullYear(), t.getMonth(), t.getDate(), t.getHours()).getTime();
+      // Use daily buckets — more data points, charts always render
+      const bucketTs = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
       const cost = Number(m.cost) || 0;
       const tokens = (Number(m.tokens_in) || 0) + (Number(m.tokens_out) || 0);
-      spendByHour[hourTs] = (spendByHour[hourTs] || 0) + cost;
-      tokensByHour[hourTs] = (tokensByHour[hourTs] || 0) + tokens;
+      spendByBucket[bucketTs] = (spendByBucket[bucketTs] || 0) + cost;
+      tokensByBucket[bucketTs] = (tokensByBucket[bucketTs] || 0) + tokens;
     }
 
     // Convert to cumulative time-series arrays sorted by time
-    const spendHours = Object.keys(spendByHour).map(Number).sort((a, b) => a - b);
+    const spendBuckets = Object.keys(spendByBucket).map(Number).sort((a, b) => a - b);
     let cumSpend = 0;
-    const spendTimeline = spendHours.map((ts) => {
-      cumSpend += spendByHour[ts];
+    const spendTimeline = spendBuckets.map((ts) => {
+      cumSpend += spendByBucket[ts];
       return { time: ts, value: Math.round(cumSpend * 100) / 100 };
     });
 
-    const tokenHours = Object.keys(tokensByHour).map(Number).sort((a, b) => a - b);
+    const tokenBuckets = Object.keys(tokensByBucket).map(Number).sort((a, b) => a - b);
     let cumTokens = 0;
-    const tokensTimeline = tokenHours.map((ts) => {
-      cumTokens += tokensByHour[ts];
+    const tokensTimeline = tokenBuckets.map((ts) => {
+      cumTokens += tokensByBucket[ts];
       return { time: ts, value: cumTokens };
     });
 
-    // Fetch log entry counts for debates, dissects, forks
-    const { data: logCounts } = await supabase
-      .from("log_entries")
-      .select("type");
-
     const counts = {
-      debates: 0,
+      debates: debateCount ?? 0,
       dissects: 0,
-      forks: 0,
+      forks: forkCount ?? 0,
       documents: 0,
     };
-
-    for (const entry of logCounts ?? []) {
-      if (entry.type === "debate_started") counts.debates++;
-      if (entry.type === "path_forked") counts.forks++;
-    }
 
     return NextResponse.json(
       {
