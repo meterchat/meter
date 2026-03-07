@@ -126,14 +126,22 @@ export function useSessionSync() {
   const syncToServer = useCallback(async () => {
     if (!authenticated) return;
 
-    // Create a snapshot hash to avoid unnecessary syncs
+    // Create a snapshot hash to avoid unnecessary syncs.
+    // Include isStreaming and last message content length so that content
+    // updates during streaming (which don't change message count) still
+    // trigger a sync — preventing message loss on page refresh.
     const snapshot = JSON.stringify(
-      sessions.map((p) => ({
-        id: p.id,
-        msgCount: p.messages.length,
-        lastMsg: p.messages[p.messages.length - 1]?.id,
-        totalCost: p.totalCost,
-      }))
+      sessions.map((p) => {
+        const lastMsg = p.messages[p.messages.length - 1];
+        return {
+          id: p.id,
+          msgCount: p.messages.length,
+          lastMsg: lastMsg?.id,
+          lastMsgLen: lastMsg?.content?.length ?? 0,
+          totalCost: p.totalCost,
+          streaming: p.isStreaming,
+        };
+      })
     );
 
     if (snapshot === lastSyncRef.current) return;
@@ -177,6 +185,15 @@ export function useSessionSync() {
         messagesToSync = syncedCount === 0
           ? (session.messages ?? [])
           : session.messages.slice(syncedCount);
+      }
+
+      // During streaming, always resend the last assistant message even if it was
+      // already synced — its content has changed since the last sync.
+      if (session.isStreaming && messagesToSync.length === 0 && session.messages.length > 0) {
+        const lastMsg = session.messages[session.messages.length - 1];
+        if (lastMsg.role === "assistant") {
+          messagesToSync = [lastMsg];
+        }
       }
 
       try {
@@ -308,6 +325,15 @@ export function useSessionSync() {
             : postForkMessages.slice(postForkSyncedCount);
         } else {
           deltaMessages = session.messages.slice(syncedCount);
+        }
+
+        // During streaming, always include the last assistant message in the
+        // beacon so in-progress content is preserved after page refresh.
+        if (session.isStreaming && deltaMessages.length === 0 && session.messages.length > 0) {
+          const lastMsg = session.messages[session.messages.length - 1];
+          if (lastMsg.role === "assistant") {
+            deltaMessages = [lastMsg];
+          }
         }
 
         const sessionMeta: Record<string, unknown> = {

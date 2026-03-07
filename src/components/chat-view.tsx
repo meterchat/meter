@@ -1108,6 +1108,18 @@ export function ChatView() {
     [wsTracks, activeWorkspaceId, isSubtrack, parentTrackId, wsActiveTrackId]
   );
 
+  // Fork message IDs from active subtracks — used to show ForkPointDivider on main track
+  // without relying on the isForkPoint flag (which doesn't survive refresh)
+  const forkMessageIds = useMemo(
+    () => new Set(
+      wsTracks
+        .filter((p) => p.workspaceId === activeWorkspaceId && p.isSubtrack && p.status === "active")
+        .map((p) => p.forkMessageId)
+        .filter(Boolean) as string[]
+    ),
+    [wsTracks, activeWorkspaceId]
+  );
+
   // Is main frozen? (has active subtracks pointing to it) — scoped to current workspace
   const isMainFrozen = useMemo(() => {
     if (isSubtrack) return false;
@@ -1243,8 +1255,8 @@ export function ChatView() {
   const scrollAwayAtRef = useRef(0);
   const isProgrammaticScrollRef = useRef(false);
   const hasInitialScrolled = useRef(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const streamingForSessionRef = useRef<string | null>(null);
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const activeStreamsRef = useRef<Set<string>>(new Set());
   const pendingForkRef = useRef<string[] | null>(null);
   const [pendingForkNames, setPendingForkNames] = useState<string[] | null>(null);
   const [pendingForkSessionId, setPendingForkSessionId] = useState<string | null>(null);
@@ -1468,11 +1480,12 @@ export function ChatView() {
     // Pin the session ID at stream start so all mutations target the correct
     // session even if the user switches sessions mid-stream.
     const streamSessionId = activeSessionId;
-    streamingForSessionRef.current = streamSessionId;
+    activeStreamsRef.current.add(streamSessionId);
 
     // Guard: only update local UI state (debate trace, phase, etc.) if this
-    // stream's session is still the active one. Prevents cross-track contamination.
-    const isActiveStream = () => streamingForSessionRef.current === streamSessionId;
+    // stream's session is still the active one. Prevents cross-track contamination
+    // when multiple tracks stream concurrently.
+    const isActiveStream = () => activeStreamsRef.current.has(streamSessionId) && useMeterStore.getState().activeSessionId === streamSessionId;
 
     isNearBottomRef.current = true;
     userScrolledAwayRef.current = false;
@@ -1546,7 +1559,7 @@ export function ChatView() {
     let actualModelUsed: string | null = null;
 
     const abort = new AbortController();
-    abortRef.current = abort;
+    abortControllersRef.current.set(streamSessionId, abort);
 
     try {
       const allMessages = [
@@ -1881,12 +1894,10 @@ export function ChatView() {
         );
       }
     } finally {
-      if (streamingForSessionRef.current === streamSessionId) {
-        streamingForSessionRef.current = null;
-      }
-      abortRef.current = null;
-      // Only reset local UI state if this stream's session is still active
-      if (isActiveStream() || streamingForSessionRef.current === null) {
+      activeStreamsRef.current.delete(streamSessionId);
+      abortControllersRef.current.delete(streamSessionId);
+      // Always reset local UI state if this stream's session is still the viewed one
+      if (useMeterStore.getState().activeSessionId === streamSessionId) {
         setActiveTool(null);
         setDebatePhase(null);
         setActiveDebateTurn(null);
@@ -1961,11 +1972,14 @@ export function ChatView() {
   /** Stop the current streaming response */
   const handleStop = () => {
     trackResponseStopped();
-    if (abortRef.current) {
-      abortRef.current.abort();
+    // Abort the stream for the currently viewed session
+    const currentSessionId = useMeterStore.getState().activeSessionId;
+    const controller = abortControllersRef.current.get(currentSessionId);
+    if (controller) {
+      controller.abort();
     } else {
       // No active stream (e.g. stuck after refresh) — force reset
-      setStreaming(false);
+      setStreaming(false, currentSessionId);
     }
   };
 
@@ -2501,10 +2515,11 @@ export function ChatView() {
                     </div>
                   </div>
 
-                  {/* Fork point divider — shown after the fork message */}
-                  {msg.isForkPoint && <ForkPointDivider timestamp={msg.timestamp} />}
+                  {/* Fork point divider — shown on main when active subtracks exist, and on all subtracks at the fork boundary.
+                      Derived from workspace store (forkMessageIds) so it survives refresh. */}
+                  {(forkMessageIds.has(msg.id) || (isSubtrack && forkMessageId === msg.id)) && <ForkPointDivider timestamp={msg.timestamp} />}
 
-                  {/* Branch divider — shown in subtracks at the fork boundary */}
+                  {/* Branch divider — shown in subtracks at the fork boundary, after the fork divider */}
                   {isSubtrack && forkMessageId === msg.id && <BranchDivider timestamp={msg.timestamp} colorIndex={currentPathColorIndex} />}
                 </div>
               );
