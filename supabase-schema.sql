@@ -382,3 +382,22 @@ create table if not exists artifacts (
 create index if not exists idx_artifacts_user on artifacts(user_id);
 create index if not exists idx_artifacts_project on artifacts(project_id);
 create unique index if not exists idx_artifacts_user_project_path on artifacts(user_id, coalesce(project_id, ''), file_path);
+
+-- =============================================
+-- ROW LEVEL SECURITY
+-- =============================================
+-- All user-data tables enforce owner-only access via app.user_id context.
+
+alter table chat_sessions enable row level security;
+alter table chat_messages enable row level security;
+alter table decisions enable row level security;
+alter table artifacts enable row level security;
+alter table settlement_history enable row level security;
+alter table oauth_tokens enable row level security;
+alter table meter_users enable row level security;
+alter table passkey_credentials enable row level security;
+alter table auth_sessions enable row level security;
+alter table tx_history enable row level security;
+alter table oauth_state enable row level security;
+alter table auth_challenges enable row level security;
+alter table log_entries enable row level security;
