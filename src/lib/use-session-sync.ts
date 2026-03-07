@@ -12,6 +12,7 @@ const SYNC_DEBOUNCE = 2_000; // debounce after message
 interface ServerSession {
   id: string;
   project_name?: string;
+  workspace_name?: string;
   name?: string;
   created_at?: string;
   messages?: Record<string, unknown>[];
@@ -21,6 +22,9 @@ interface ServerSession {
   today_tokens_out?: number;
   today_message_count?: number;
   today_date?: string;
+  // Track vs workspace
+  is_subtrack?: boolean;
+  parent_session_id?: string;
   // Pagination aggregates
   total_tokens_in?: number;
   total_tokens_out?: number;
@@ -88,7 +92,7 @@ export function useSessionSync() {
 
     return {
       id: session.id,
-      name: session.project_name ?? session.name ?? session.id,
+      name: session.workspace_name ?? session.project_name ?? session.name ?? session.id,
       messages,
       isStreaming: false,
       settlementError: null,
@@ -138,6 +142,10 @@ export function useSessionSync() {
     // Sync each session to the server.
     // Send only delta messages (new since last successful sync) to avoid
     // multi-MB payloads for sessions with thousands of messages.
+    // Look up workspace store to determine if a session is a subtrack
+    const wsTracks = useWorkspaceStore.getState().tracks;
+    const wsWorkspaces = useWorkspaceStore.getState().workspaces;
+
     for (const session of sessions) {
       const syncedCount = syncedMessageCountRef.current.get(session.id) ?? 0;
       // On first sync (syncedCount=0) send all messages; otherwise only new ones.
@@ -145,6 +153,16 @@ export function useSessionSync() {
       const messagesToSync = syncedCount === 0
         ? (session.messages ?? [])
         : session.messages.slice(syncedCount);
+
+      // Determine if this session is a subtrack by checking workspace store tracks
+      const track = wsTracks.find((t) => t.id === session.id && t.isSubtrack);
+      const isSubtrack = !!track;
+      // Find the parent workspace's session ID for subtracks
+      let parentSessionId: string | undefined;
+      if (isSubtrack && track) {
+        const parentWs = wsWorkspaces.find((w) => w.id === track.workspaceId);
+        parentSessionId = parentWs?.sessionId ?? undefined;
+      }
 
       try {
         const res = await fetch(apiUrl("/api/sessions"), {
@@ -164,6 +182,7 @@ export function useSessionSync() {
               weekKey: session.weekKey,
               monthCost: session.monthCost ?? 0,
               monthKey: session.monthKey,
+              ...(isSubtrack ? { isSubtrack: true, parentSessionId } : {}),
             },
             messages: messagesToSync,
           }),

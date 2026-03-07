@@ -10,6 +10,8 @@ export interface Decision {
   choice?: string;
   alternatives?: string[];
   reasoning?: string;
+  sessionId?: string;
+  /** @deprecated Use sessionId */
   projectId?: string;
   chatMessageId?: string;
   category?: string;
@@ -36,7 +38,7 @@ interface DecisionsState {
   reopenDecision: (id: string) => void;
   archiveDecision: (id: string) => void;
   fetchDecisions: () => Promise<void>;
-  fetchDecisionHistory: (title: string, projectId?: string) => Promise<Decision[]>;
+  fetchDecisionHistory: (title: string, sessionId?: string) => Promise<Decision[]>;
 }
 
 function generateId() {
@@ -119,11 +121,12 @@ export const useDecisionsStore = create<DecisionsState>()(
           const serverDecisions = data.decisions as Decision[];
 
           set((s) => {
-            // Merge server decisions into local, deduplicating by ID and by title+projectId
+            // Merge server decisions into local, deduplicating by ID and by title+sessionId
             const localIds = new Set(s.decisions.map((d) => d.id));
-            const localKeys = new Set(s.decisions.map((d) => `${d.title}::${d.projectId ?? ""}`));
+            const sessionKey = (d: Decision) => d.sessionId ?? d.projectId ?? "";
+            const localKeys = new Set(s.decisions.map((d) => `${d.title}::${sessionKey(d)}`));
             const newFromServer = serverDecisions.filter(
-              (d) => !localIds.has(d.id) && !localKeys.has(`${d.title}::${d.projectId ?? ""}`)
+              (d) => !localIds.has(d.id) && !localKeys.has(`${d.title}::${sessionKey(d)}`)
             );
             if (newFromServer.length === 0) return s;
             return { decisions: [...newFromServer, ...s.decisions] };
@@ -133,10 +136,10 @@ export const useDecisionsStore = create<DecisionsState>()(
         }
       },
 
-      fetchDecisionHistory: async (title: string, projectId?: string) => {
+      fetchDecisionHistory: async (title: string, sessionId?: string) => {
         try {
           const params = new URLSearchParams({ history_for: title });
-          if (projectId) params.set("project_id", projectId);
+          if (sessionId) params.set("project_id", sessionId);
           const res = await fetch(apiUrl(`/api/decisions?${params}`));
           if (!res.ok) return [];
           const data = await res.json();

@@ -108,6 +108,9 @@ export async function GET() {
       return {
         ...s,
         id: unscopedId(userId, s.id),
+        // Include subtrack metadata so client can distinguish tracks from workspaces
+        is_subtrack: s.is_subtrack ?? false,
+        parent_session_id: s.parent_session_id ? unscopedId(userId, s.parent_session_id) : null,
         messages: (messagesBySession[s.id] ?? []).map((m) => ({
           ...m,
           session_id: unscopedId(userId, m.session_id as string),
@@ -196,6 +199,7 @@ export async function POST(req: NextRequest) {
       id: dbSessionId,
       user_id: userId,
       project_name: session.name,
+      workspace_name: session.name,
       total_cost: session.totalCost ?? 0,
       today_cost: session.todayCost ?? 0,
       today_tokens_in: session.todayTokensIn ?? 0,
@@ -204,6 +208,9 @@ export async function POST(req: NextRequest) {
       today_date: session.todayDate,
       updated_at: new Date().toISOString(),
     };
+    // Track vs workspace distinction
+    if (session.isSubtrack != null) upsertData.is_subtrack = session.isSubtrack;
+    if (session.parentSessionId != null) upsertData.parent_session_id = scopedId(userId, session.parentSessionId);
     // Persist week/month cost data if provided (columns may not exist yet)
     if (session.weekCost != null) upsertData.week_cost = session.weekCost;
     if (session.weekKey != null) upsertData.week_key = session.weekKey;

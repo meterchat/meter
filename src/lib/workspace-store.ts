@@ -34,7 +34,7 @@ interface WorkspaceState {
   setActiveWorkspace: (id: string) => void;
   setActiveTrack: (id: string | null) => void;
   upsertWorkspacesFromSessions: (
-    sessions: Array<{ id: string; project_name?: string; name?: string; created_at?: string }>,
+    sessions: Array<{ id: string; project_name?: string; workspace_name?: string; name?: string; created_at?: string; is_subtrack?: boolean; parent_session_id?: string }>,
     activeSessionId?: string
   ) => void;
 
@@ -187,15 +187,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const workspaces = [...s.workspaces];
           const norm = (v: string) => v.toLowerCase();
 
-          // Skip sessions that correspond to subtracks — they're tracks, not workspaces
-          const subtrackSessionIds = new Set(
+          // Skip sessions that are subtracks — use BOTH server flag AND local tracks
+          const localSubtrackIds = new Set(
             s.tracks.filter((t) => t.isSubtrack).map((t) => t.id)
           );
 
           for (const session of sessions) {
-            if (subtrackSessionIds.has(session.id)) continue;
+            // Server tells us this is a subtrack, or local tracks say so
+            if (session.is_subtrack || localSubtrackIds.has(session.id)) continue;
             const sessionId = session.id;
-            const name = session.project_name ?? session.name ?? session.id;
+            const name = session.workspace_name ?? session.project_name ?? session.name ?? session.id;
             const createdAtRaw = session.created_at ? Date.parse(session.created_at) : NaN;
             const createdAt = Number.isFinite(createdAtRaw) ? createdAtRaw : Date.now();
 
