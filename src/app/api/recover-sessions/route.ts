@@ -177,13 +177,17 @@ function groupByWorkspace(summaries: SessionSummary[]): WorkspaceGroup[] {
   return result;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
   const { userId } = auth;
 
   try {
     const supabase = getSupabaseServer();
+    const { searchParams } = new URL(request.url);
+    const confirm = searchParams.get("confirm") === "true";
+    const onlyWorkspace = searchParams.get("workspace"); // optional: only recover a specific workspace
+
     const summaries = await buildSessionSummaries(supabase, userId);
     const groups = groupByWorkspace(summaries);
 
@@ -215,25 +219,122 @@ export async function GET() {
     }
 
     // Build recovery plan
-    const plan = groups
-      .filter((g) => g.otherSessions.length > 0)
-      .map((g) => ({
-        workspace: g.name,
-        mainSession: g.mainSession ? {
-          id: g.mainSession.id,
-          messageCount: g.mainSession.messageCount,
-        } : null,
-        sessionsToConsolidate: g.otherSessions.map((s) => ({
-          id: s.id,
-          messageCount: s.messageCount,
-          isSubtrack: s.isSubtrack,
-          action: s.messageCount === 0
-            ? "delete (empty)"
-            : `move ${s.messageCount} messages to main, then mark as subtrack`,
-        })),
-        duplicateMessageCount: g.duplicateMessageIds.length,
-      }));
+    const actionableGroups = groups.filter((g) => g.otherSessions.length > 0);
+    const plan = actionableGroups.map((g) => ({
+      workspace: g.name,
+      mainSession: g.mainSession ? {
+        id: g.mainSession.id,
+        messageCount: g.mainSession.messageCount,
+      } : null,
+      sessionsToConsolidate: g.otherSessions.map((s) => ({
+        id: s.id,
+        messageCount: s.messageCount,
+        isSubtrack: s.isSubtrack,
+        action: s.messageCount === 0
+          ? "delete (empty)"
+          : `move ${s.messageCount} messages to main, then mark as subtrack`,
+      })),
+      duplicateMessageCount: g.duplicateMessageIds.length,
+    }));
 
+    // --- Execute mode: ?confirm=true ---
+    if (confirm) {
+      const log: string[] = [];
+      let totalMessagesMoved = 0;
+      let sessionsMarkedSubtrack = 0;
+      let sessionsDeleted = 0;
+      const PAGE = 500;
+
+      const groupsToProcess = onlyWorkspace
+        ? actionableGroups.filter((g) => g.name.toLowerCase() === onlyWorkspace.toLowerCase())
+        : actionableGroups;
+
+      for (const group of groupsToProcess) {
+        if (!group.mainSession) continue;
+        const mainScopedId = scopedId(userId, group.mainSession.id);
+
+        log.push(`\n=== Workspace: ${group.name} (main: ${group.mainSession.id}) ===`);
+
+        for (const other of group.otherSessions) {
+          const otherScopedId = scopedId(userId, other.id);
+          log.push(`\n--- ${other.id} (${other.messageCount} msgs) → ${group.mainSession.id} ---`);
+
+          if (other.messageCount === 0) {
+            // Empty session — just soft-delete it
+            await supabase
+              .from("chat_sessions")
+              .update({ deleted_at: new Date().toISOString() })
+              .eq("id", otherScopedId);
+            sessionsDeleted++;
+            log.push(`  → Soft-deleted (empty session)`);
+            continue;
+          }
+
+          // Move messages in batches
+          let moved = 0;
+
+          while (true) {
+            const { data: batch } = await supabase
+              .from("chat_messages")
+              .select("id")
+              .eq("session_id", otherScopedId)
+              .order("timestamp", { ascending: true })
+              .range(0, PAGE - 1);
+
+            if (!batch || batch.length === 0) break;
+
+            const ids = batch.map((m) => m.id as string);
+            const { error: moveErr } = await supabase
+              .from("chat_messages")
+              .update({ session_id: mainScopedId })
+              .in("id", ids);
+
+            if (moveErr) {
+              log.push(`  ✗ Error moving batch (already moved ${moved}): ${moveErr.message}`);
+              break;
+            }
+
+            moved += ids.length;
+          }
+
+          totalMessagesMoved += moved;
+          log.push(`  → Moved ${moved}/${other.messageCount} messages`);
+
+          // Only mark as subtrack if ALL messages moved
+          if (moved < other.messageCount) {
+            log.push(`  ⚠ Partial migration — skipping subtrack marking`);
+          } else {
+            await supabase
+              .from("chat_sessions")
+              .update({
+                is_subtrack: true,
+                parent_session_id: mainScopedId,
+              })
+              .eq("id", otherScopedId);
+
+            // If all messages moved, soft-delete the empty source
+            await supabase
+              .from("chat_sessions")
+              .update({ deleted_at: new Date().toISOString() })
+              .eq("id", otherScopedId);
+
+            sessionsDeleted++;
+            log.push(`  → Marked as subtrack and soft-deleted`);
+          }
+        }
+      }
+
+      return NextResponse.json({
+        status: "executed",
+        totalMessagesMoved,
+        sessionsMarkedSubtrack,
+        sessionsDeleted,
+        groupsProcessed: groupsToProcess.length,
+        log,
+      });
+    }
+
+    // --- Dry-run mode (default) ---
     return NextResponse.json({
       status: "dry_run",
       userId,
@@ -265,7 +366,11 @@ export async function GET() {
         duplicateMessageCount: g.duplicateMessageIds.length,
       })),
       recoveryPlan: plan,
-      instructions: "Review the plan above. To execute, POST to /api/recover-sessions with the body: { \"confirm\": true }. You can also specify { \"confirm\": true, \"workspace\": \"meter\" } to only recover a specific workspace.",
+      instructions: [
+        "To execute recovery from browser: /api/recover-sessions?confirm=true",
+        "To recover one workspace only: /api/recover-sessions?confirm=true&workspace=meter",
+        "Or POST with explicit mappings: { \"confirm\": true, \"mappings\": [...] }",
+      ],
     });
   } catch (err) {
     console.error("Recovery audit error:", err);
