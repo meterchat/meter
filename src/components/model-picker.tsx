@@ -63,6 +63,17 @@ function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number
           <path d="M2.3 4h4.3l5.4 8.1L17.4 4h4.3l-7.7 11.3L21.7 20h-4.3l-5.4-8.1L6.6 20H2.3l7.7-11.3L2.3 4z" />
         </svg>
       );
+    case "MiniMax":
+      // Sound-wave logo — 5 rounded bars matching the brand mark
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+          <rect x="1" y="10" width="2.8" height="7" rx="1.4" />
+          <rect x="5.8" y="4" width="2.8" height="16" rx="1.4" />
+          <rect x="10.6" y="6" width="2.8" height="14" rx="1.4" />
+          <rect x="15.4" y="4" width="2.8" height="16" rx="1.4" />
+          <rect x="20.2" y="7" width="2.8" height="10" rx="1.4" />
+        </svg>
+      );
     case "Meter":
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">

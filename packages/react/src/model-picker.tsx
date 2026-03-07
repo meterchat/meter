@@ -35,6 +35,16 @@ function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number
           <path d="M2.3 4h4.3l5.4 8.1L17.4 4h4.3l-7.7 11.3L21.7 20h-4.3l-5.4-8.1L6.6 20H2.3l7.7-11.3L2.3 4z" />
         </svg>
       );
+    case "MiniMax":
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+          <rect x="1" y="10" width="2.8" height="7" rx="1.4" />
+          <rect x="5.8" y="4" width="2.8" height="16" rx="1.4" />
+          <rect x="10.6" y="6" width="2.8" height="14" rx="1.4" />
+          <rect x="15.4" y="4" width="2.8" height="16" rx="1.4" />
+          <rect x="20.2" y="7" width="2.8" height="10" rx="1.4" />
+        </svg>
+      );
     case "Meter":
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
@@ -58,6 +68,7 @@ const PROVIDER_COLORS: Record<string, string> = {
   Google: "#4285F4",
   DeepSeek: "#4D6BFE",
   xAI: "#A0A0A0",
+  MiniMax: "#FF6B35",
   Meter: "#A1A1AA",
 };
 
