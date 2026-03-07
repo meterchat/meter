@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import dynamic from "next/dynamic";
 import { apiUrl } from "@/lib/api-url";
 
-const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), { ssr: false });
+const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), {
+  ssr: false,
+  loading: () => <div className="h-[80px] bg-foreground/[0.02] rounded animate-pulse" />,
+});
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -106,17 +109,91 @@ function formatActor(actor: string, type: string): string {
   return actor;
 }
 
+// ── Meter Icon (animated sprite, same as main app) ───────────
+
+const FRAMES = [
+  "/frame-1.png",
+  "/frame-2.png",
+  "/frame-3.png",
+  "/frame-4.png",
+  "/frame-5.png",
+  "/frame-6.png",
+];
+
+if (typeof window !== "undefined") {
+  FRAMES.forEach((src) => {
+    const img = new window.Image();
+    img.src = src;
+  });
+}
+
+const LogMeterIcon = memo(function LogMeterIcon({ active, size = 14 }: { active: boolean; size?: number }) {
+  const [frame, setFrame] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imagesRef = useRef<HTMLImageElement[]>([]);
+
+  useEffect(() => {
+    imagesRef.current = FRAMES.map((src) => {
+      const img = new window.Image();
+      img.src = src;
+      return img;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!active) {
+      setFrame(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % FRAMES.length);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [active]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const img = imagesRef.current[active ? frame : 0];
+    if (!canvas || !img) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    if (img.complete) {
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, size);
+    } else {
+      img.onload = () => {
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0, size, size);
+      };
+    }
+  }, [frame, active, size]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={size}
+      height={size}
+      style={{ width: size, height: size, imageRendering: "pixelated" }}
+    />
+  );
+});
+
 // ── MeterBar (header dropdown) ───────────────────────────────
 
-function LogMeterBar() {
+function LogMeterBar({ entryCount }: { entryCount: number }) {
   const [open, setOpen] = useState(false);
   const [stats, setStats] = useState<LogStats | null>(null);
+  const [iconActive, setIconActive] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const prevEntryCount = useRef<number | null>(null);
 
   useEffect(() => {
     fetch(apiUrl("/api/log/stats"))
       .then((r) => r.json())
-      .then((d) => setStats(d))
+      .then((d) => {
+        // Only set stats if the response has expected fields (not an error response)
+        if (d && typeof d.totalSpend === "number") setStats(d);
+      })
       .catch(() => {});
   }, []);
 
@@ -129,16 +206,28 @@ function LogMeterBar() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  // Spin meter icon when new log entries arrive
+  useEffect(() => {
+    if (prevEntryCount.current === null) {
+      prevEntryCount.current = entryCount;
+      return;
+    }
+    if (entryCount > prevEntryCount.current) {
+      setIconActive(true);
+      const timeout = setTimeout(() => setIconActive(false), 2000);
+      prevEntryCount.current = entryCount;
+      return () => clearTimeout(timeout);
+    }
+    prevEntryCount.current = entryCount;
+  }, [entryCount]);
+
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex h-8 items-center gap-2 rounded-lg border border-border px-2.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
       >
-        {/* Meter icon */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
-          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-        </svg>
+        <LogMeterIcon active={iconActive} size={14} />
         <span className="tabular-nums text-[12px] text-foreground">
           ${(stats?.totalSpend ?? 0).toFixed(2)}
         </span>
@@ -169,7 +258,7 @@ function LogMeterBar() {
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
             {/* Spend Liveline */}
-            {stats.spendTimeline.length > 1 && (
+            {Array.isArray(stats.spendTimeline) && stats.spendTimeline.length > 1 && (
               <div className="mt-2 h-[80px]">
                 <Liveline
                   data={stats.spendTimeline}
@@ -199,7 +288,7 @@ function LogMeterBar() {
             <StatRow label="Total Out" value={(stats.totalTokensOut).toLocaleString()} />
             <StatRow label="Messages" value={stats.totalMessages.toLocaleString()} />
             {/* Tokens Liveline */}
-            {stats.tokensTimeline.length > 1 && (
+            {Array.isArray(stats.tokensTimeline) && stats.tokensTimeline.length > 1 && (
               <div className="mt-2 h-[80px]">
                 <Liveline
                   data={stats.tokensTimeline}
@@ -388,7 +477,7 @@ export default function LogPage() {
             </div>
           )}
           {/* MeterBar */}
-          <LogMeterBar />
+          <LogMeterBar entryCount={entries.length} />
         </div>
       </header>
 
