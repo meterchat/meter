@@ -75,6 +75,39 @@ export async function GET() {
     const daysIntoWeek = Math.max(1, Math.floor((now.getTime() - monday.getTime()) / dayMs) + 1);
     const daysIntoMonth = Math.max(1, now.getDate());
 
+    // Build time-series data for Liveline charts (hourly buckets, last 7 days)
+    const sevenDaysAgo = new Date(now.getTime() - 7 * dayMs);
+    const spendByHour: Record<number, number> = {};
+    const tokensByHour: Record<number, number> = {};
+
+    for (const m of messages) {
+      const createdAt = m.created_at as string;
+      if (!createdAt) continue;
+      const t = new Date(createdAt);
+      if (t < sevenDaysAgo) continue;
+      // Round to hour
+      const hourTs = new Date(t.getFullYear(), t.getMonth(), t.getDate(), t.getHours()).getTime();
+      const cost = Number(m.cost) || 0;
+      const tokens = (Number(m.tokens_in) || 0) + (Number(m.tokens_out) || 0);
+      spendByHour[hourTs] = (spendByHour[hourTs] || 0) + cost;
+      tokensByHour[hourTs] = (tokensByHour[hourTs] || 0) + tokens;
+    }
+
+    // Convert to cumulative time-series arrays sorted by time
+    const spendHours = Object.keys(spendByHour).map(Number).sort((a, b) => a - b);
+    let cumSpend = 0;
+    const spendTimeline = spendHours.map((ts) => {
+      cumSpend += spendByHour[ts];
+      return { time: ts, value: Math.round(cumSpend * 100) / 100 };
+    });
+
+    const tokenHours = Object.keys(tokensByHour).map(Number).sort((a, b) => a - b);
+    let cumTokens = 0;
+    const tokensTimeline = tokenHours.map((ts) => {
+      cumTokens += tokensByHour[ts];
+      return { time: ts, value: cumTokens };
+    });
+
     // Fetch log entry counts for debates, dissects, forks
     const { data: logCounts } = await supabase
       .from("log_entries")
@@ -106,6 +139,8 @@ export async function GET() {
         totalMessages,
         byModel,
         counts,
+        spendTimeline,
+        tokensTimeline,
       },
       {
         headers: {
