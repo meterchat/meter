@@ -76,18 +76,27 @@ const STATEMENTS: string[] = [
     timestamp bigint not null,
     created_at timestamptz default now()
   )`,
-  `create table if not exists workspaces (
-    id text primary key,
-    user_id text not null,
-    name text not null,
-    created_at timestamptz default now()
-  )`,
-  `create table if not exists workspace_projects (
-    id text primary key,
-    workspace_id text not null references workspaces(id) on delete cascade,
-    name text not null,
-    created_at timestamptz default now()
-  )`,
+  // ── Views: workspaces & tracks (read-only projections of chat_sessions) ──
+  // Drop legacy tables if they exist (they were never populated)
+  `drop table if exists workspace_projects cascade`,
+  `drop table if exists workspaces cascade`,
+
+  `create or replace view workspaces as
+   select id, user_id, coalesce(workspace_name, project_name) as name,
+          total_cost, today_cost, week_cost, month_cost,
+          daily_limit, monthly_limit, per_txn_limit,
+          settlement_failed, created_at, updated_at, deleted_at
+   from chat_sessions
+   where is_subtrack = false`,
+
+  `create or replace view tracks as
+   select id, parent_session_id as workspace_id, user_id,
+          coalesce(workspace_name, project_name) as name,
+          total_cost, today_cost,
+          created_at, updated_at, deleted_at
+   from chat_sessions
+   where is_subtrack = true and parent_session_id is not null`,
+
   `create table if not exists decisions (
     id text primary key,
     user_id text not null,
@@ -239,7 +248,7 @@ const STATEMENTS: string[] = [
   `create index if not exists idx_auth_challenges_email on auth_challenges(email)`,
   `create index if not exists idx_chat_messages_session on chat_messages(session_id)`,
   `create index if not exists idx_chat_sessions_user on chat_sessions(user_id)`,
-  `create index if not exists idx_workspaces_user on workspaces(user_id)`,
+  // workspaces & tracks are views over chat_sessions — indexes live on chat_sessions
   `create index if not exists idx_decisions_user on decisions(user_id)`,
   `create index if not exists idx_decisions_user_session on decisions(user_id, session_id)`,
   `create index if not exists idx_artifacts_user_session on artifacts(user_id, session_id)`,
@@ -286,8 +295,7 @@ const STATEMENTS: string[] = [
   `alter table meter_users enable row level security`,
   `alter table passkey_credentials enable row level security`,
   `alter table auth_sessions enable row level security`,
-  `alter table workspaces enable row level security`,
-  `alter table workspace_projects enable row level security`,
+  // workspaces & tracks are views — RLS inherited from chat_sessions
   `alter table oauth_state enable row level security`,
   `alter table auth_challenges enable row level security`,
 
@@ -337,15 +345,7 @@ const STATEMENTS: string[] = [
        using (user_id = current_setting('app.user_id', true));
    exception when duplicate_object then null; end $$`,
 
-  `do $$ begin
-     create policy workspaces_owner on workspaces for all
-       using (user_id = current_setting('app.user_id', true));
-   exception when duplicate_object then null; end $$`,
-
-  `do $$ begin
-     create policy workspace_projects_owner on workspace_projects for all
-       using (workspace_id in (select id from workspaces where user_id = current_setting('app.user_id', true)));
-   exception when duplicate_object then null; end $$`,
+  // workspaces & tracks views inherit chat_sessions_owner policy — no separate policies needed
 
   `do $$ begin
      create policy oauth_state_owner on oauth_state for all
@@ -364,6 +364,38 @@ const STATEMENTS: string[] = [
      create policy log_entries_open on log_entries for all
        using (true);
    exception when duplicate_object then null; end $$`,
+
+  // Enforce: subtracks must always have a parent_session_id
+  `do $$ begin
+     alter table chat_sessions add constraint chk_subtrack_has_parent
+       check (is_subtrack = false or parent_session_id is not null);
+   exception when duplicate_object then null; end $$`,
+
+  // ── RLS: v1 API tables (users, api_keys, usage_records, sdk_end_users) ──
+  `do $$ begin alter table users enable row level security; exception when undefined_table then null; end $$`,
+  `do $$ begin alter table api_keys enable row level security; exception when undefined_table then null; end $$`,
+  `do $$ begin alter table usage_records enable row level security; exception when undefined_table then null; end $$`,
+  `do $$ begin alter table sdk_end_users enable row level security; exception when undefined_table then null; end $$`,
+
+  `do $$ begin
+     create policy users_self on users for all
+       using (id::text = current_setting('app.user_id', true));
+   exception when duplicate_object then null; when undefined_table then null; end $$`,
+
+  `do $$ begin
+     create policy api_keys_owner on api_keys for all
+       using (user_id::text = current_setting('app.user_id', true));
+   exception when duplicate_object then null; when undefined_table then null; end $$`,
+
+  `do $$ begin
+     create policy usage_records_owner on usage_records for all
+       using (user_id::text = current_setting('app.user_id', true));
+   exception when duplicate_object then null; when undefined_table then null; end $$`,
+
+  `do $$ begin
+     create policy sdk_end_users_owner on sdk_end_users for all
+       using (developer_id::text = current_setting('app.user_id', true));
+   exception when duplicate_object then null; when undefined_table then null; end $$`,
 ];
 
 function getProjectRef(url: string): string | null {

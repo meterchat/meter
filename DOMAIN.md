@@ -1,20 +1,31 @@
 # Meter Domain Model Reference
 
-> Code names now match domain concepts. This file documents the hierarchy,
-> relationships, and any remaining legacy naming in the database layer.
+> This file documents the hierarchy, relationships, and database design decisions.
+
+## Core Principle
+
+**A workspace IS a chat session.** That is its DNA. When a user creates a workspace,
+we create a `chat_sessions` row. Everything — messages, decisions, documents, connectors,
+spend limits, billing — hangs off that session. Tracks (forks) are child sessions
+(`is_subtrack = true`) that point back to the parent workspace session.
 
 ## Hierarchy
 
 ```
-Account (user identity, passkey auth via meter_users)
-  └── Workspace (a company, product, project, or thought — user decides)
-        ├── Main Track (default perpetual chat session)
-        ├── Forked Tracks (temporary parallel explorations)
-        ├── Decisions (structured records from debates)
-        ├── Connectors (GitHub, Stripe, Gmail, etc.)
-        ├── Documents / Artifacts
-        └── Billing (tokens consumed, receipts, settle, spend limits)
+Account (meter_users — passkey auth, Stripe customer, card info)
+  └── Workspace = chat_sessions row (is_subtrack = false)
+        ├── Messages (chat_messages, scoped by session_id)
+        ├── Tracks (child chat_sessions rows, is_subtrack = true, parent_session_id → workspace)
+        ├── Decisions (decisions.session_id → workspace session)
+        ├── Connectors (oauth_tokens.workspace_id → workspace session)
+        ├── Documents (artifacts.session_id → workspace session)
+        ├── Spend Limits (columns on the chat_sessions row: daily_limit, monthly_limit, per_txn_limit)
+        ├── Cost Tracking (columns: total_cost, today_cost, week_cost, month_cost)
+        └── Settlement (settlement_history.workspace_id → workspace session)
 ```
+
+**Account-level (not workspace-scoped):** Stripe customer ID, card info, account type,
+markup multiplier. One card covers all workspaces.
 
 ## Workspace Store (`src/lib/workspace-store.ts`)
 
@@ -49,17 +60,34 @@ Account (user identity, passkey auth via meter_users)
 | `TrackSwitcher` | `track-switcher.tsx` |
 | `WorkspaceBar` | `workspace-bar.tsx` |
 
-## Database (Legacy Naming)
+## Database Design
 
-The database columns use legacy names that don't match the TypeScript layer.
-This is intentional — renaming SQL columns would require a migration and is not needed.
+**`chat_sessions` is the source of truth.** Workspaces and tracks are both stored as
+`chat_sessions` rows, distinguished by `is_subtrack`. Two Postgres **views** project
+them into self-documenting shapes:
 
-| DB Name | Actual Concept |
-|---------|---------------|
-| `project_id` column | Session ID (in decisions, artifacts tables) |
-| `project_name` column | Session name (in chat_sessions table) |
-| `workspace_id` column | Workspace ID (in billing, oauth, settlement tables) |
-| `workspace_projects` table | Workspace-Track links (not actively used) |
+- **`workspaces` view** — `SELECT ... FROM chat_sessions WHERE is_subtrack = false`
+- **`tracks` view** — `SELECT ... FROM chat_sessions WHERE is_subtrack = true`
+
+These views exist so any agent or human looking at the DB immediately understands the
+domain model. They are read-only projections; all writes go to `chat_sessions`.
+
+| DB Table / Column | What It Represents |
+|---|---|
+| `workspaces` (view) | All workspaces (derived from chat_sessions) |
+| `tracks` (view) | All tracks/forks (derived from chat_sessions) |
+| `chat_sessions` (is_subtrack=false) | Workspace (source row) |
+| `chat_sessions` (is_subtrack=true) | Track / fork (source row) |
+| `chat_sessions.workspace_name` | Display name of the workspace |
+| `chat_sessions.project_name` | Legacy alias for workspace name |
+| `chat_sessions.daily_limit` etc. | Per-workspace spend limits |
+| `chat_messages.session_id` | Messages scoped to a workspace or track |
+| `decisions.session_id` | Decision scoped to a workspace |
+| `artifacts.session_id` | Document scoped to a workspace |
+| `oauth_tokens.workspace_id` | Connector scoped to a workspace (= chat_sessions.id) |
+| `settlement_history.workspace_id` | Settlement scoped to a workspace (= chat_sessions.id) |
+| `decisions.project_id` | Legacy alias for session_id |
+| `artifacts.project_id` | Legacy alias for session_id |
 
 ## UI Labels (what users see)
 
@@ -73,9 +101,9 @@ This is intentional — renaming SQL columns would require a migration and is no
 
 ## Key Relationships
 
-- Each **Workspace** has exactly one **main session** (perpetual chat)
-- Each **Workspace** can have zero or more **subtracks** (forked paths)
-- Each **subtrack** has its own **session** (forked from main's messages at fork point)
-- **Connectors** are scoped per workspace
-- **Decisions** and **Artifacts** reference sessions via `project_id` (legacy DB column name)
-- **Billing** (spend limits, settlement) is scoped per workspace via `workspace_id`
+- A **Workspace** IS a `chat_sessions` row with `is_subtrack = false`
+- A **Track** IS a `chat_sessions` row with `is_subtrack = true` and `parent_session_id` set
+- Each workspace has one perpetual conversation (the main track) plus zero or more forked tracks
+- **Connectors**, **Decisions**, **Artifacts**, and **Settlement** all reference the workspace
+  session ID (via `workspace_id` or `session_id` columns)
+- **Card/Stripe** info is account-level (`meter_users`), not workspace-level

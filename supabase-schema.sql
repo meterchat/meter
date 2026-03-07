@@ -122,24 +122,31 @@ create table if not exists chat_messages (
 -- alter table chat_messages add column if not exists fork_resolution text;
 
 -- =============================================
--- WORKSPACES
+-- VIEWS: workspaces & tracks
 -- =============================================
 
--- Workspaces
-create table if not exists workspaces (
-  id text primary key,
-  user_id text not null,
-  name text not null,
-  created_at timestamptz default now()
-);
+-- Read-only projections of chat_sessions — makes the schema self-documenting.
+-- Any agent or human looking at the DB immediately sees what a workspace/track is.
 
--- Workspace projects / tracks
-create table if not exists workspace_projects (
-  id text primary key,
-  workspace_id text not null references workspaces(id) on delete cascade,
-  name text not null,
-  created_at timestamptz default now()
-);
+create or replace view workspaces as
+select id, user_id, coalesce(workspace_name, project_name) as name,
+       total_cost, today_cost, week_cost, month_cost,
+       daily_limit, monthly_limit, per_txn_limit,
+       settlement_failed, created_at, updated_at, deleted_at
+from chat_sessions
+where is_subtrack = false;
+
+create or replace view tracks as
+select id, parent_session_id as workspace_id, user_id,
+       coalesce(workspace_name, project_name) as name,
+       total_cost, today_cost,
+       created_at, updated_at, deleted_at
+from chat_sessions
+where is_subtrack = true and parent_session_id is not null;
+
+-- =============================================
+-- DECISIONS
+-- =============================================
 
 -- Decisions
 create table if not exists decisions (
@@ -294,8 +301,7 @@ create index if not exists idx_oauth_tokens_workspace on oauth_tokens(workspace_
 create index if not exists idx_chat_messages_session on chat_messages(session_id);
 create index if not exists idx_chat_messages_timestamp on chat_messages(timestamp);
 create index if not exists idx_chat_sessions_user on chat_sessions(user_id);
-create index if not exists idx_workspaces_user on workspaces(user_id);
-create index if not exists idx_workspace_projects_workspace on workspace_projects(workspace_id);
+-- workspaces & tracks are views over chat_sessions — indexes live on chat_sessions
 create index if not exists idx_decisions_user on decisions(user_id);
 create index if not exists idx_decisions_user_session on decisions(user_id, session_id);
 create index if not exists idx_artifacts_user_session on artifacts(user_id, session_id);
