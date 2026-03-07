@@ -62,14 +62,22 @@ markup multiplier. One card covers all workspaces.
 
 ## Database Design
 
-**`chat_sessions` is the workspace table.** There is no separate `workspaces` table.
-A workspace row has `is_subtrack = false`. A track row has `is_subtrack = true` and
-`parent_session_id` pointing to the workspace session.
+**`chat_sessions` is the source of truth.** Workspaces and tracks are both stored as
+`chat_sessions` rows, distinguished by `is_subtrack`. Two Postgres **views** project
+them into self-documenting shapes:
+
+- **`workspaces` view** — `SELECT ... FROM chat_sessions WHERE is_subtrack = false`
+- **`tracks` view** — `SELECT ... FROM chat_sessions WHERE is_subtrack = true`
+
+These views exist so any agent or human looking at the DB immediately understands the
+domain model. They are read-only projections; all writes go to `chat_sessions`.
 
 | DB Table / Column | What It Represents |
 |---|---|
-| `chat_sessions` (is_subtrack=false) | Workspace |
-| `chat_sessions` (is_subtrack=true) | Track / fork within a workspace |
+| `workspaces` (view) | All workspaces (derived from chat_sessions) |
+| `tracks` (view) | All tracks/forks (derived from chat_sessions) |
+| `chat_sessions` (is_subtrack=false) | Workspace (source row) |
+| `chat_sessions` (is_subtrack=true) | Track / fork (source row) |
 | `chat_sessions.workspace_name` | Display name of the workspace |
 | `chat_sessions.project_name` | Legacy alias for workspace name |
 | `chat_sessions.daily_limit` etc. | Per-workspace spend limits |
