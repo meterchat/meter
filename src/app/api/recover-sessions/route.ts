@@ -187,6 +187,153 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const confirm = searchParams.get("confirm") === "true";
     const onlyWorkspace = searchParams.get("workspace"); // optional: only recover a specific workspace
+    const mapParam = searchParams.get("map"); // explicit mappings: "source1:target1,source2:target2"
+    const deleteParam = searchParams.get("delete"); // explicit deletes: "id1,id2,id3"
+
+    // --- Explicit mapping mode: ?confirm=true&map=src:tgt,src:tgt&delete=id,id ---
+    // This lets you run specific migrations from the browser URL bar
+    if (confirm && mapParam) {
+      const log: string[] = [];
+      let totalMessagesMoved = 0;
+      let sessionsMarkedSubtrack = 0;
+      let sessionsDeleted = 0;
+      const PAGE = 500;
+
+      // Parse mappings
+      const mappings = mapParam.split(",").map((pair) => {
+        const [source, target] = pair.split(":");
+        return { source: source.trim(), target: target.trim() };
+      }).filter((m) => m.source && m.target);
+
+      log.push(`Explicit mappings: ${mappings.length} pairs`);
+
+      for (const { source, target } of mappings) {
+        const sourceScopedId = scopedId(userId, source);
+        const targetScopedId = scopedId(userId, target);
+
+        log.push(`\n--- ${source} → ${target} ---`);
+
+        // Verify both sessions exist
+        const { data: sourceSession } = await supabase
+          .from("chat_sessions")
+          .select("id, workspace_name, project_name")
+          .eq("id", sourceScopedId)
+          .single();
+
+        if (!sourceSession) {
+          log.push(`  ✗ Source "${source}" not found, skipping`);
+          continue;
+        }
+
+        const { data: targetSession } = await supabase
+          .from("chat_sessions")
+          .select("id, workspace_name, project_name")
+          .eq("id", targetScopedId)
+          .single();
+
+        if (!targetSession) {
+          log.push(`  ✗ Target "${target}" not found, skipping`);
+          continue;
+        }
+
+        // Count source messages
+        const { count: beforeCount } = await supabase
+          .from("chat_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("session_id", sourceScopedId);
+
+        log.push(`  Source has ${beforeCount ?? 0} messages`);
+
+        if (!beforeCount || beforeCount === 0) {
+          log.push(`  → No messages to move`);
+          continue;
+        }
+
+        // Move in batches
+        let moved = 0;
+        while (true) {
+          const { data: batch } = await supabase
+            .from("chat_messages")
+            .select("id")
+            .eq("session_id", sourceScopedId)
+            .order("timestamp", { ascending: true })
+            .range(0, PAGE - 1);
+
+          if (!batch || batch.length === 0) break;
+
+          const ids = batch.map((m) => m.id as string);
+          const { error: moveErr } = await supabase
+            .from("chat_messages")
+            .update({ session_id: targetScopedId })
+            .in("id", ids);
+
+          if (moveErr) {
+            log.push(`  ✗ Error moving batch (already moved ${moved}): ${moveErr.message}`);
+            break;
+          }
+          moved += ids.length;
+        }
+
+        totalMessagesMoved += moved;
+        log.push(`  → Moved ${moved}/${beforeCount} messages`);
+
+        if (moved < beforeCount) {
+          log.push(`  ⚠ Partial migration — source NOT marked as subtrack`);
+        } else {
+          await supabase
+            .from("chat_sessions")
+            .update({ is_subtrack: true, parent_session_id: targetScopedId })
+            .eq("id", sourceScopedId);
+
+          await supabase
+            .from("chat_sessions")
+            .update({ deleted_at: new Date().toISOString() })
+            .eq("id", sourceScopedId);
+
+          sessionsMarkedSubtrack++;
+          sessionsDeleted++;
+          log.push(`  → Marked as subtrack and soft-deleted`);
+        }
+
+        // Show target count after
+        const { count: targetAfter } = await supabase
+          .from("chat_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("session_id", targetScopedId);
+        log.push(`  → Target "${target}" now has ${targetAfter} messages`);
+      }
+
+      // Delete empty sessions
+      const toDelete = deleteParam ? deleteParam.split(",").map((s) => s.trim()).filter(Boolean) : [];
+      for (const sessionId of toDelete) {
+        const dbId = scopedId(userId, sessionId);
+
+        const { count: msgCount } = await supabase
+          .from("chat_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("session_id", dbId);
+
+        if (msgCount && msgCount > 0) {
+          log.push(`\n⚠ "${sessionId}" has ${msgCount} messages — NOT deleting`);
+          continue;
+        }
+
+        await supabase
+          .from("chat_sessions")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", dbId);
+        sessionsDeleted++;
+        log.push(`\n→ Soft-deleted empty session "${sessionId}"`);
+      }
+
+      return NextResponse.json({
+        status: "executed",
+        totalMessagesMoved,
+        sessionsMarkedSubtrack,
+        sessionsDeleted,
+        log,
+      });
+    }
 
     const summaries = await buildSessionSummaries(supabase, userId);
     const groups = groupByWorkspace(summaries);
@@ -367,9 +514,10 @@ export async function GET(request: NextRequest) {
       })),
       recoveryPlan: plan,
       instructions: [
-        "To execute recovery from browser: /api/recover-sessions?confirm=true",
-        "To recover one workspace only: /api/recover-sessions?confirm=true&workspace=meter",
-        "Or POST with explicit mappings: { \"confirm\": true, \"mappings\": [...] }",
+        "Auto-recovery (groups by name): /api/recover-sessions?confirm=true",
+        "One workspace only: /api/recover-sessions?confirm=true&workspace=meter",
+        "Explicit mappings: /api/recover-sessions?confirm=true&map=source1:target1,source2:target2&delete=empty1,empty2",
+        "POST with JSON body also works: { \"confirm\": true, \"mappings\": [...] }",
       ],
     });
   } catch (err) {
