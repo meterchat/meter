@@ -139,7 +139,7 @@ where is_subtrack = false;
 create or replace view tracks as
 select id, parent_session_id as workspace_id, user_id,
        coalesce(workspace_name, project_name) as name,
-       total_cost, today_cost,
+       archived, total_cost, today_cost,
        created_at, updated_at, deleted_at
 from chat_sessions
 where is_subtrack = true and parent_session_id is not null;

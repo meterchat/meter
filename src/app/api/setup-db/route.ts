@@ -77,9 +77,12 @@ const STATEMENTS: string[] = [
     created_at timestamptz default now()
   )`,
   // ── Views: workspaces & tracks (read-only projections of chat_sessions) ──
-  // Drop legacy tables if they exist (they were never populated)
+  // Drop legacy/ghost tables (never populated, superseded by other tables)
   `drop table if exists workspace_projects cascade`,
   `drop table if exists workspaces cascade`,
+  `drop table if exists challenges cascade`,        -- superseded by auth_challenges
+  `drop table if exists tx_history cascade`,         -- superseded by settlement_history
+  `drop table if exists webauthn_credentials cascade`, -- superseded by passkey_credentials
 
   `create or replace view workspaces as
    select id, user_id, coalesce(workspace_name, project_name) as name,
@@ -92,7 +95,7 @@ const STATEMENTS: string[] = [
   `create or replace view tracks as
    select id, parent_session_id as workspace_id, user_id,
           coalesce(workspace_name, project_name) as name,
-          total_cost, today_cost,
+          archived, total_cost, today_cost,
           created_at, updated_at, deleted_at
    from chat_sessions
    where is_subtrack = true and parent_session_id is not null`,
