@@ -82,6 +82,8 @@ create table if not exists chat_sessions (
   monthly_limit numeric,
   per_txn_limit numeric,
   settlement_failed boolean default false,
+  archived boolean default false,
+  committed boolean default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   deleted_at timestamptz default null
@@ -139,7 +141,7 @@ where is_subtrack = false;
 create or replace view tracks as
 select id, parent_session_id as workspace_id, user_id,
        coalesce(workspace_name, project_name) as name,
-       total_cost, today_cost,
+       archived, committed, total_cost, today_cost,
        created_at, updated_at, deleted_at
 from chat_sessions
 where is_subtrack = true and parent_session_id is not null;
@@ -254,6 +256,25 @@ create table if not exists settlement_history (
   status text not null default 'succeeded',
   created_at timestamptz default now()
 );
+
+-- =============================================
+-- TX HISTORY (purchases: domains, cards, etc.)
+-- =============================================
+
+create table if not exists tx_history (
+  id text primary key,
+  user_id text not null references meter_users(id) on delete cascade,
+  type text not null,
+  description text,
+  amount numeric,
+  currency text default 'usd',
+  status text default 'pending',
+  metadata jsonb,
+  session_id text,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_tx_history_user on tx_history(user_id);
 
 -- Spend limit columns on meter_users
 -- (Run these as ALTER TABLE if table already exists)

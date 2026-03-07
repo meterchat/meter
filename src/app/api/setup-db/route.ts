@@ -56,6 +56,8 @@ const STATEMENTS: string[] = [
     monthly_limit numeric,
     per_txn_limit numeric,
     settlement_failed boolean default false,
+    archived boolean default false,
+    committed boolean default false,
     created_at timestamptz default now(),
     updated_at timestamptz default now(),
     deleted_at timestamptz default null
@@ -77,10 +79,6 @@ const STATEMENTS: string[] = [
     created_at timestamptz default now()
   )`,
   // ── Views: workspaces & tracks (read-only projections of chat_sessions) ──
-  // Drop legacy tables if they exist (they were never populated)
-  `drop table if exists workspace_projects cascade`,
-  `drop table if exists workspaces cascade`,
-
   `create or replace view workspaces as
    select id, user_id, coalesce(workspace_name, project_name) as name,
           total_cost, today_cost, week_cost, month_cost,
@@ -92,7 +90,7 @@ const STATEMENTS: string[] = [
   `create or replace view tracks as
    select id, parent_session_id as workspace_id, user_id,
           coalesce(workspace_name, project_name) as name,
-          total_cost, today_cost,
+          archived, committed, total_cost, today_cost,
           created_at, updated_at, deleted_at
    from chat_sessions
    where is_subtrack = true and parent_session_id is not null`,
@@ -154,6 +152,19 @@ const STATEMENTS: string[] = [
     expires_at timestamptz not null
   )`,
 
+  `create table if not exists tx_history (
+    id text primary key,
+    user_id text not null references meter_users(id) on delete cascade,
+    type text not null,
+    description text,
+    amount numeric,
+    currency text default 'usd',
+    status text default 'pending',
+    metadata jsonb,
+    session_id text,
+    created_at timestamptz default now()
+  )`,
+
   // Alter statements for existing deployments
   `alter table chat_sessions add column if not exists daily_limit numeric`,
   `alter table chat_sessions add column if not exists monthly_limit numeric`,
@@ -170,6 +181,8 @@ const STATEMENTS: string[] = [
    where a.user_id = b.user_id and a.provider = b.provider and a.workspace_id = b.workspace_id
    and a.updated_at < b.updated_at`,
   `create unique index if not exists idx_oauth_tokens_unique on oauth_tokens(user_id, provider, workspace_id)`,
+  `alter table chat_sessions add column if not exists archived boolean default false`,
+  `alter table chat_sessions add column if not exists committed boolean default false`,
   `alter table oauth_state add column if not exists workspace_id text`,
 
   // File attachments support
@@ -254,6 +267,7 @@ const STATEMENTS: string[] = [
   `create index if not exists idx_artifacts_user_session on artifacts(user_id, session_id)`,
   `create index if not exists idx_settlement_history_user on settlement_history(user_id)`,
   `create index if not exists idx_settlement_history_workspace on settlement_history(workspace_id)`,
+  `create index if not exists idx_tx_history_user on tx_history(user_id)`,
   `create index if not exists idx_auth_sessions_user on auth_sessions(user_id)`,
   `create index if not exists idx_auth_sessions_expires on auth_sessions(expires_at)`,
 
@@ -295,6 +309,7 @@ const STATEMENTS: string[] = [
   `alter table meter_users enable row level security`,
   `alter table passkey_credentials enable row level security`,
   `alter table auth_sessions enable row level security`,
+  `alter table tx_history enable row level security`,
   // workspaces & tracks are views — RLS inherited from chat_sessions
   `alter table oauth_state enable row level security`,
   `alter table auth_challenges enable row level security`,
@@ -342,6 +357,11 @@ const STATEMENTS: string[] = [
 
   `do $$ begin
      create policy auth_sessions_owner on auth_sessions for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy tx_history_owner on tx_history for all
        using (user_id = current_setting('app.user_id', true));
    exception when duplicate_object then null; end $$`,
 
