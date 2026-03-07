@@ -367,17 +367,18 @@ export async function POST(req: NextRequest) {
 
       // Move all messages in batches (paginate to handle >1000)
       let moved = 0;
-      let offset = 0;
       const PAGE = 500;
 
       while (true) {
         // Get batch of message IDs from source
+        // offset stays at 0: moved messages are gone from source,
+        // so the next query at range(0, PAGE-1) gets the next batch
         const { data: batch } = await supabase
           .from("chat_messages")
           .select("id")
           .eq("session_id", sourceScopedId)
           .order("timestamp", { ascending: true })
-          .range(offset, offset + PAGE - 1);
+          .range(0, PAGE - 1);
 
         if (!batch || batch.length === 0) break;
 
@@ -389,30 +390,33 @@ export async function POST(req: NextRequest) {
           .in("id", ids);
 
         if (moveErr) {
-          log.push(`  ✗ Error moving batch at offset ${offset}: ${moveErr.message}`);
-          // Don't increment offset — the failed batch is still in source
+          log.push(`  ✗ Error moving batch (already moved ${moved}): ${moveErr.message}`);
+          // Failed batch remains in source — stop here
           break;
         }
 
         moved += ids.length;
-        // Don't increment offset — moved messages are gone from source,
-        // so next query at offset 0 gets the next batch
       }
 
       totalMessagesMoved += moved;
       log.push(`  → Moved ${moved}/${beforeCount} messages`);
 
-      // Mark source as subtrack of target (prevents phantom workspace recreation)
-      await supabase
-        .from("chat_sessions")
-        .update({
-          is_subtrack: true,
-          parent_session_id: targetScopedId,
-        })
-        .eq("id", sourceScopedId);
+      // Only mark source as subtrack if ALL messages were successfully moved
+      if (moved < beforeCount) {
+        log.push(`  ⚠ Partial migration (${moved}/${beforeCount}) — skipping subtrack marking`);
+      } else {
+        // Mark source as subtrack of target (prevents phantom workspace recreation)
+        await supabase
+          .from("chat_sessions")
+          .update({
+            is_subtrack: true,
+            parent_session_id: targetScopedId,
+          })
+          .eq("id", sourceScopedId);
 
-      sessionsMarkedSubtrack++;
-      log.push(`  → Marked source as subtrack of target`);
+        sessionsMarkedSubtrack++;
+        log.push(`  → Marked source as subtrack of target`);
+      }
 
       // Verify target message count after move
       const { count: targetAfter } = await supabase
@@ -454,6 +458,17 @@ export async function POST(req: NextRequest) {
 
     for (const sessionId of cleanup) {
       const dbId = scopedId(userId, sessionId);
+
+      // Safety: verify session has 0 messages before deleting
+      const { count: cleanupCount } = await supabase
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("session_id", dbId);
+
+      if (cleanupCount && cleanupCount > 0) {
+        log.push(`\n⚠ Session "${sessionId}" still has ${cleanupCount} messages — NOT deleting (safety check)`);
+        continue;
+      }
 
       await supabase
         .from("chat_sessions")
