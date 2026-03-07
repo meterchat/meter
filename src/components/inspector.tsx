@@ -29,20 +29,20 @@ export function Inspector() {
     setInspectorOpen,
     inspectorTab,
     setInspectorTab,
-    projects,
-    activeProjectId,
+    sessions,
+    activeSessionId,
     userId,
-    removeProject,
+    removeSession,
   } = useMeterStore();
 
-  const activeCompanyId = useWorkspaceStore((s) => s.activeCompanyId);
-  const companies = useWorkspaceStore((s) => s.companies);
-  const deleteCompany = useWorkspaceStore((s) => s.deleteCompany);
-  const renameCompany = useWorkspaceStore((s) => s.renameCompany);
-  const setActiveCompany = useWorkspaceStore((s) => s.setActiveCompany);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const deleteWorkspace = useWorkspaceStore((s) => s.deleteWorkspace);
+  const renameWorkspace = useWorkspaceStore((s) => s.renameWorkspace);
+  const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
 
-  const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? null;
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
+  const activeWorkspace = workspaces.find((c) => c.id === activeWorkspaceId) ?? null;
+  const activeSession = sessions.find((p) => p.id === activeSessionId) ?? null;
 
   const [manageOpen, setManageOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -57,12 +57,12 @@ export function Inspector() {
   }, [inspectorTab, setInspectorTab]);
 
   const handleDeleteWorkspace = async () => {
-    if (!activeCompany) return;
-    trackWorkspaceDeleted({ workspaceId: activeCompany.id, workspaceName: activeCompany.name });
+    if (!activeWorkspace) return;
+    trackWorkspaceDeleted({ workspaceId: activeWorkspace.id, workspaceName: activeWorkspace.name });
     setDeleting(true);
 
     // Soft-delete server-side session (sets deleted_at, retained 7 days)
-    const sessionId = activeCompany.sessionId;
+    const sessionId = activeWorkspace.sessionId;
     if (sessionId) {
       try {
         await fetch(
@@ -75,18 +75,18 @@ export function Inspector() {
     }
 
     // Remove from local stores
-    if (sessionId) removeProject(sessionId);
-    const companyId = activeCompany.id;
-    deleteCompany(companyId);
+    if (sessionId) removeSession(sessionId);
+    const workspaceId = activeWorkspace.id;
+    deleteWorkspace(workspaceId);
 
     // Switch to next available workspace
-    const remaining = companies.filter((c) => c.id !== companyId);
+    const remaining = workspaces.filter((c) => c.id !== workspaceId);
     if (remaining.length > 0) {
-      setActiveCompany(remaining[0].id);
+      setActiveWorkspace(remaining[0].id);
       const nextSession = remaining[0].sessionId;
       if (nextSession) {
-        const { setActiveProject } = useMeterStore.getState();
-        setActiveProject(nextSession);
+        const { setActiveSession } = useMeterStore.getState();
+        setActiveSession(nextSession);
       }
     }
 
@@ -97,8 +97,8 @@ export function Inspector() {
   };
 
   const openManageDialog = () => {
-    if (activeCompany) {
-      setEditingName(activeCompany.name);
+    if (activeWorkspace) {
+      setEditingName(activeWorkspace.name);
       setNameEdited(false);
       setDeleteConfirmText("");
     }
@@ -106,9 +106,9 @@ export function Inspector() {
   };
 
   const handleSaveName = () => {
-    if (!activeCompany || !editingName.trim()) return;
-    trackWorkspaceRenamed({ workspaceId: activeCompany.id, oldName: activeCompany.name, newName: editingName.trim() });
-    renameCompany(activeCompany.id, editingName.trim());
+    if (!activeWorkspace || !editingName.trim()) return;
+    trackWorkspaceRenamed({ workspaceId: activeWorkspace.id, oldName: activeWorkspace.name, newName: editingName.trim() });
+    renameWorkspace(activeWorkspace.id, editingName.trim());
     setNameEdited(false);
   };
 
@@ -155,12 +155,12 @@ export function Inspector() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {inspectorTab === "decisions" && <DecisionsTab activeProjectId={activeProject?.id ?? null} />}
-        {inspectorTab === "documents" && <BlueprintTab activeProjectId={activeProject?.id ?? null} />}
-        {inspectorTab === "timeline" && <TimelineTab activeProjectId={activeProject?.id ?? null} />}
+        {inspectorTab === "decisions" && <DecisionsTab activeProjectId={activeSession?.id ?? null} />}
+        {inspectorTab === "documents" && <BlueprintTab activeProjectId={activeSession?.id ?? null} />}
+        {inspectorTab === "timeline" && <TimelineTab activeProjectId={activeSession?.id ?? null} />}
       </div>
 
-      {activeCompany && (
+      {activeWorkspace && (
         <div className="border-t border-border px-4 py-3 flex items-center justify-between" style={{ paddingBottom: isMobile ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
           <button
             onClick={openManageDialog}
@@ -173,7 +173,7 @@ export function Inspector() {
     </>
   );
 
-  const manageDialog = manageOpen && activeCompany ? (
+  const manageDialog = manageOpen && activeWorkspace ? (
     <>
       <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" onClick={() => setManageOpen(false)} />
       <div className={`fixed z-[70] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card shadow-2xl ${isMobile ? "w-[calc(100%-2rem)]" : "w-[380px]"}`}>
@@ -205,7 +205,7 @@ export function Inspector() {
                 onChange={(e) => { setEditingName(e.target.value); setNameEdited(true); }}
                 className="flex-1 h-9 rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-foreground/30 transition-colors"
               />
-              {nameEdited && editingName.trim() && editingName.trim() !== activeCompany.name && (
+              {nameEdited && editingName.trim() && editingName.trim() !== activeWorkspace.name && (
                 <button
                   onClick={handleSaveName}
                   className="h-9 rounded-lg bg-foreground px-3 font-mono text-[11px] text-background transition-colors hover:bg-foreground/90"
@@ -224,18 +224,18 @@ export function Inspector() {
               Danger Zone
             </div>
             <p className="font-mono text-[11px] text-muted-foreground/60 leading-relaxed">
-              Type <span className="text-foreground/80">{activeCompany.name}</span> to confirm deletion. This removes all messages and data for this workspace.
+              Type <span className="text-foreground/80">{activeWorkspace.name}</span> to confirm deletion. This removes all messages and data for this workspace.
             </p>
             <input
               type="text"
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder={activeCompany.name}
+              placeholder={activeWorkspace.name}
               className="h-9 rounded-lg border border-red-500/20 bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-red-500/40 transition-colors"
             />
             <button
               onClick={handleDeleteWorkspace}
-              disabled={deleting || deleteConfirmText !== activeCompany.name}
+              disabled={deleting || deleteConfirmText !== activeWorkspace.name}
               className="h-9 rounded-lg bg-red-500/10 border border-red-500/20 font-mono text-[11px] text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               {deleting ? "Deleting..." : "Delete Workspace"}
@@ -468,10 +468,10 @@ function formatPinTime(ts: number) {
 }
 
 function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
-  const projects = useMeterStore((s) => s.projects);
+  const sessions = useMeterStore((s) => s.sessions);
   const togglePinMessage = useMeterStore((s) => s.togglePinMessage);
   const setScrollToMessageId = useMeterStore((s) => s.setScrollToMessageId);
-  const project = projects.find((p) => p.id === activeProjectId);
+  const project = sessions.find((p) => p.id === activeProjectId);
   const pinned = project?.messages.filter((m) => m.pinned) ?? [];
 
   if (pinned.length === 0) return null;
@@ -817,21 +817,21 @@ function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
 
 function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: string | null }) {
   // Resolve subtrack → parent workspace so artifacts are scoped to workspace
-  const wsProjects = useWorkspaceStore((s) => s.projects);
-  const wsCompanies = useWorkspaceStore((s) => s.companies);
-  const meterProjects = useMeterStore((s) => s.projects);
+  const wsTracks = useWorkspaceStore((s) => s.tracks);
+  const wsWorkspaces = useWorkspaceStore((s) => s.workspaces);
+  const meterSessions = useMeterStore((s) => s.sessions);
   const activeProjectId = useMemo(() => {
     if (!rawProjectId) return null;
-    const wsProject = wsProjects.find((p) => p.id === rawProjectId);
-    if (wsProject?.isSubtrack) {
-      const company = wsCompanies.find((c) => c.id === wsProject.companyId);
-      if (company?.sessionId) {
-        const parent = meterProjects.find((p) => p.id === company.sessionId);
+    const wsTrack = wsTracks.find((p) => p.id === rawProjectId);
+    if (wsTrack?.isSubtrack) {
+      const workspace = wsWorkspaces.find((c) => c.id === wsTrack.workspaceId);
+      if (workspace?.sessionId) {
+        const parent = meterSessions.find((p) => p.id === workspace.sessionId);
         if (parent) return parent.id;
       }
     }
     return rawProjectId;
-  }, [rawProjectId, wsProjects, wsCompanies, meterProjects]);
+  }, [rawProjectId, wsTracks, wsWorkspaces, meterSessions]);
 
   const { artifacts, loading, pushing, targetRepo, fetchArtifacts, setTargetRepo, setPushing } = useArtifactsStore();
   const setPendingInput = useMeterStore((s) => s.setPendingInput);
@@ -1083,13 +1083,13 @@ const EVENT_ICONS: Record<TimelineEvent["type"], { color: string; path: string }
 };
 
 function TimelineTab({ activeProjectId }: { activeProjectId: string | null }) {
-  const projects = useMeterStore((s) => s.projects);
+  const sessions = useMeterStore((s) => s.sessions);
   const { decisions } = useDecisionsStore();
   const { artifacts } = useArtifactsStore();
   const setScrollToMessageId = useMeterStore((s) => s.setScrollToMessageId);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const project = projects.find((p) => p.id === activeProjectId);
+  const project = sessions.find((p) => p.id === activeProjectId);
   const messages = project?.messages ?? [];
 
   const events = useMemo(() => {

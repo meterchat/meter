@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { DEFAULT_MODEL, getModel } from "@/lib/models";
 import { CONNECTORS } from "@/lib/connectors";
-import { useWorkspaceStore, resolveWorkspaceProjectId } from "@/lib/workspace-store";
+import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-store";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { apiUrl } from "@/lib/api-url";
@@ -107,7 +107,7 @@ export interface SpendLimits {
   perTxnLimit: number | null;
 }
 
-interface ProjectThread {
+interface Session {
   id: string;
   name: string;
   messages: ChatMessage[];
@@ -159,8 +159,8 @@ interface MeterState {
   spendingCapEnabled: boolean;
   spendingCap: number;
 
-  projects: ProjectThread[];
-  activeProjectId: string;
+  sessions: Session[];
+  activeSessionId: string;
 
   pendingCharges: {
     id: string;
@@ -202,18 +202,18 @@ interface MeterState {
   submitApiKey: (provider: string, apiKey: string, metadata?: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
 
-  addProject: (name: string, id?: string) => void;
-  renameProject: (projectId: string, newName: string) => void;
-  removeProject: (id: string) => void;
-  setActiveProject: (id: string) => void;
-  setCardAssigned: (projectId: string) => void;
+  addSession: (name: string, id?: string) => void;
+  renameSession: (sessionId: string, newName: string) => void;
+  removeSession: (id: string) => void;
+  setActiveSession: (id: string) => void;
+  setCardAssigned: (sessionId: string) => void;
 
   togglePinMessage: (messageId: string) => void;
-  addMessage: (msg: ChatMessage, forProjectId?: string) => void;
-  updateLastAssistantMessage: (content: string, tokensOut: number, forProjectId?: string) => void;
-  updateLastAssistantThinking: (thinking: string, forProjectId?: string) => void;
-  finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number, actualCost?: number, forProjectId?: string) => void;
-  setStreaming: (v: boolean, forProjectId?: string) => void;
+  addMessage: (msg: ChatMessage, forSessionId?: string) => void;
+  updateLastAssistantMessage: (content: string, tokensOut: number, forSessionId?: string) => void;
+  updateLastAssistantThinking: (thinking: string, forSessionId?: string) => void;
+  finalizeResponse: (tokensIn: number, tokensOut: number, confidence: number, actualModel?: string, cacheCreationTokens?: number, cacheReadTokens?: number, cacheReadRate?: number, actualCost?: number, forSessionId?: string) => void;
+  setStreaming: (v: boolean, forSessionId?: string) => void;
   markSettled: (messageId: string) => void;
   settleAll: () => Promise<{ success: boolean; error?: string }>;
   getPendingBalance: () => number;
@@ -222,15 +222,15 @@ interface MeterState {
 
   approveCard: (messageId: string, cardId: string) => void;
   rejectCard: (messageId: string, cardId: string) => void;
-  addCardToLastMessage: (card: ActionCard, forProjectId?: string) => void;
+  addCardToLastMessage: (card: ActionCard, forSessionId?: string) => void;
   purchaseDomain: (messageId: string, cardId: string) => Promise<{ success: boolean; error?: string }>;
-  setMessageDecisionId: (decisionId: string, forProjectId?: string) => void;
-  addDocumentToLastMessage: (doc: DocumentPreview, forProjectId?: string) => void;
+  setMessageDecisionId: (decisionId: string, forSessionId?: string) => void;
+  addDocumentToLastMessage: (doc: DocumentPreview, forSessionId?: string) => void;
   markDocumentSaved: (messageId: string, docId: string) => void;
-  setDebateTrace: (trace: DebateTurn[], forProjectId?: string) => void;
-  addClarifyingQuestions: (questions: ClarifyingQuestion[], forProjectId?: string) => void;
+  setDebateTrace: (trace: DebateTurn[], forSessionId?: string) => void;
+  addClarifyingQuestions: (questions: ClarifyingQuestion[], forSessionId?: string) => void;
   updateClarifyingAnswer: (messageId: string, questionId: string, answer: string) => void;
-  setDissectorTrace: (trace: DissectorTurn[], forProjectId?: string) => void;
+  setDissectorTrace: (trace: DissectorTurn[], forSessionId?: string) => void;
 
   setPendingInput: (v: string | null) => void;
 
@@ -248,7 +248,7 @@ interface MeterState {
   setSpendingCap: (v: number) => void;
   setAutoSettleThreshold: (v: number) => void;
   setIsSettling: (v: boolean) => void;
-  incrementCurrentMessageCost: (costDelta: number, forProjectId?: string) => void;
+  incrementCurrentMessageCost: (costDelta: number, forSessionId?: string) => void;
   setDecisionMode: (v: boolean) => void;
 
   fetchCards: () => Promise<void>;
@@ -264,13 +264,13 @@ interface MeterState {
   attemptDailySettlement: () => Promise<void>;
 
   // Pagination actions
-  prependMessages: (projectId: string, messages: ChatMessage[], hasMore: boolean) => void;
-  fetchOlderMessages: (projectId: string) => Promise<void>;
+  prependMessages: (sessionId: string, messages: ChatMessage[], hasMore: boolean) => void;
+  fetchOlderMessages: (sessionId: string) => Promise<void>;
 
   // Branching actions
-  createSubtrackThread: (subtrackId: string, parentProjectId: string, forkMessageId: string) => void;
-  mergeSubtrackIntoParent: (subtrackId: string, parentProjectId: string, forkMessageId: string) => void;
-  clearForkPoint: (parentProjectId: string, forkMessageId: string) => void;
+  createSubtrackSession: (subtrackId: string, parentSessionId: string, forkMessageId: string) => void;
+  mergeSubtrackIntoParent: (subtrackId: string, parentSessionId: string, forkMessageId: string) => void;
+  clearForkPoint: (parentSessionId: string, forkMessageId: string) => void;
 
   reset: () => void;
 }
@@ -299,7 +299,7 @@ function mondayStr() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function createProject(id: string, name: string): ProjectThread {
+function createSession(id: string, name: string): Session {
   return {
     id,
     name,
@@ -332,23 +332,23 @@ function createProject(id: string, name: string): ProjectThread {
 }
 
 /** Reset daily/weekly/monthly counters when period boundaries are crossed. */
-function ensureDaily(project: ProjectThread): ProjectThread {
+function ensureDaily(session: Session): Session {
   const today = todayStr();
   const month = monthStr();
   const week = mondayStr();
 
-  const needsDaily = project.todayDate !== today;
+  const needsDaily = session.todayDate !== today;
   // Only reset if key WAS set and is now stale (actual period boundary).
   // If key is undefined (old data), just stamp the key — don't zero the cost.
-  const needsMonthReset = project.monthKey != null && project.monthKey !== month;
-  const needsWeekReset = project.weekKey != null && project.weekKey !== week;
-  const needsMonthInit = project.monthKey == null;
-  const needsWeekInit = project.weekKey == null;
+  const needsMonthReset = session.monthKey != null && session.monthKey !== month;
+  const needsWeekReset = session.weekKey != null && session.weekKey !== week;
+  const needsMonthInit = session.monthKey == null;
+  const needsWeekInit = session.weekKey == null;
 
-  if (!needsDaily && !needsMonthReset && !needsWeekReset && !needsMonthInit && !needsWeekInit) return project;
+  if (!needsDaily && !needsMonthReset && !needsWeekReset && !needsMonthInit && !needsWeekInit) return session;
 
   return {
-    ...project,
+    ...session,
     ...(needsDaily ? {
       todayCost: 0, todayTokensIn: 0, todayTokensOut: 0,
       todayMessageCount: 0, todayByModel: {}, todayDate: today,
@@ -359,38 +359,38 @@ function ensureDaily(project: ProjectThread): ProjectThread {
     ...(needsWeekInit ? { weekKey: week } : {}),
     // Invariant: week/month totals must never be less than today's spend.
     // Migration or stale localStorage can leave these undercounted.
-    ...(!needsWeekReset && !needsWeekInit && (project.weekCost ?? 0) < (needsDaily ? 0 : project.todayCost)
-      ? { weekCost: project.todayCost } : {}),
-    ...(!needsMonthReset && !needsMonthInit && (project.monthCost ?? 0) < (needsDaily ? 0 : project.todayCost)
-      ? { monthCost: project.todayCost } : {}),
+    ...(!needsWeekReset && !needsWeekInit && (session.weekCost ?? 0) < (needsDaily ? 0 : session.todayCost)
+      ? { weekCost: session.todayCost } : {}),
+    ...(!needsMonthReset && !needsMonthInit && (session.monthCost ?? 0) < (needsDaily ? 0 : session.todayCost)
+      ? { monthCost: session.todayCost } : {}),
   };
 }
 
-function getActiveProject(state: MeterState): ProjectThread {
-  return state.projects.find((p) => p.id === state.activeProjectId) ?? state.projects[0];
+function getActiveSession(state: MeterState): Session {
+  return state.sessions.find((p) => p.id === state.activeSessionId) ?? state.sessions[0];
 }
 
-/** Get the workspace-level project, resolving subtracks to their parent workspace. */
-function getWorkspaceProject(state: MeterState): ProjectThread {
-  const wsId = resolveWorkspaceProjectId(state.activeProjectId);
-  if (wsId && wsId !== state.activeProjectId) {
-    const parent = state.projects.find((p) => p.id === wsId);
+/** Get the workspace-level session, resolving subtracks to their parent workspace. */
+function getWorkspaceSession(state: MeterState): Session {
+  const wsId = resolveWorkspaceSessionId(state.activeSessionId);
+  if (wsId && wsId !== state.activeSessionId) {
+    const parent = state.sessions.find((p) => p.id === wsId);
     if (parent) return parent;
   }
-  return getActiveProject(state);
+  return getActiveSession(state);
 }
 
-/** Resolve a specific project by ID, falling back to the active project. */
-function getProjectByIdOrActive(state: MeterState, forProjectId?: string): ProjectThread {
-  if (forProjectId) {
-    const match = state.projects.find((p) => p.id === forProjectId);
+/** Resolve a specific session by ID, falling back to the active session. */
+function getSessionByIdOrActive(state: MeterState, forSessionId?: string): Session {
+  if (forSessionId) {
+    const match = state.sessions.find((p) => p.id === forSessionId);
     if (match) return match;
   }
-  return getActiveProject(state);
+  return getActiveSession(state);
 }
 
-function replaceActiveProject(state: MeterState, project: ProjectThread): ProjectThread[] {
-  return state.projects.map((p) => (p.id === project.id ? project : p));
+function replaceActiveSession(state: MeterState, session: Session): Session[] {
+  return state.sessions.map((p) => (p.id === session.id ? session : p));
 }
 
 function shortHex() {
@@ -412,8 +412,8 @@ function buildConnectionMessage(providerId: string): ChatMessage | null {
   };
 }
 
-const initialProjects = [
-  createProject("default", "My Workspace"),
+const initialSessions = [
+  createSession("default", "My Workspace"),
 ];
 
 export const useMeterStore = create<MeterState>()(
@@ -436,8 +436,8 @@ export const useMeterStore = create<MeterState>()(
       spendingCapEnabled: false,
       spendingCap: 10,
 
-      projects: initialProjects,
-      activeProjectId: "default",
+      sessions: initialSessions,
+      activeSessionId: "default",
 
       pendingCharges: [],
       autoSettleThreshold: 10,
@@ -469,36 +469,36 @@ export const useMeterStore = create<MeterState>()(
           cardLast4: last4 ?? null,
           cardBrand: brand ?? null,
           ...(v ? {
-            projects: s.projects.map((p) =>
-              p.id === s.activeProjectId ? { ...p, cardAssigned: true } : p
+            sessions: s.sessions.map((p) =>
+              p.id === s.activeSessionId ? { ...p, cardAssigned: true } : p
             ),
           } : {}),
         })),
       setStripeCustomerId: (id) => set({ stripeCustomerId: id }),
       connectService: (id) => {
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getActiveSession(s);
           const updated = { ...active, connectedServices: { ...active.connectedServices, [id]: true } };
-          return { projects: replaceActiveProject(s, updated) };
+          return { sessions: replaceActiveSession(s, updated) };
         });
         const msg = buildConnectionMessage(id);
         if (msg) {
           set((s) => {
-            const active = getActiveProject(s);
+            const active = getActiveSession(s);
             const updated = { ...active, messages: [...active.messages, msg] };
-            return { projects: replaceActiveProject(s, updated) };
+            return { sessions: replaceActiveSession(s, updated) };
           });
         }
       },
       disconnectService: (id) =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getActiveSession(s);
           const updated = { ...active, connectedServices: { ...active.connectedServices, [id]: false } };
-          return { projects: replaceActiveProject(s, updated) };
+          return { sessions: replaceActiveSession(s, updated) };
         }),
 
       fetchConnectionStatus: async () => {
-        const workspaceId = get().activeProjectId;
+        const workspaceId = get().activeSessionId;
         if (!workspaceId) return;
         set({ connectionsLoading: true });
         try {
@@ -506,7 +506,7 @@ export const useMeterStore = create<MeterState>()(
           if (res.ok) {
             const serverStatus = await res.json() as Record<string, boolean>;
             set((s) => {
-              const active = getActiveProject(s);
+              const active = getActiveSession(s);
               // Merge: server is source of truth, but keep local true values
               // until the server explicitly says otherwise
               const merged: Record<string, boolean> = { ...active.connectedServices };
@@ -514,7 +514,7 @@ export const useMeterStore = create<MeterState>()(
                 merged[key] = val;
               }
               const updated = { ...active, connectedServices: merged };
-              return { projects: replaceActiveProject(s, updated) };
+              return { sessions: replaceActiveSession(s, updated) };
             });
           }
         } catch {
@@ -525,12 +525,12 @@ export const useMeterStore = create<MeterState>()(
       },
 
       disconnectServiceRemote: async (id) => {
-        const workspaceId = get().activeProjectId;
+        const workspaceId = get().activeSessionId;
         if (!workspaceId) return;
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getActiveSession(s);
           const updated = { ...active, connectedServices: { ...active.connectedServices, [id]: false } };
-          return { projects: replaceActiveProject(s, updated) };
+          return { sessions: replaceActiveSession(s, updated) };
         });
         try {
           await fetch(apiUrl(`/api/oauth/${id}/disconnect`), {
@@ -544,7 +544,7 @@ export const useMeterStore = create<MeterState>()(
       },
 
       submitApiKey: async (provider, apiKey, metadata) => {
-        const workspaceId = get().activeProjectId;
+        const workspaceId = get().activeSessionId;
         if (!workspaceId) return { ok: false, error: "Not authenticated" };
         try {
           const res = await fetch(apiUrl("/api/oauth/api-key"), {
@@ -554,16 +554,16 @@ export const useMeterStore = create<MeterState>()(
           });
           if (res.ok) {
             set((s) => {
-              const active = getActiveProject(s);
+              const active = getActiveSession(s);
               const updated = { ...active, connectedServices: { ...active.connectedServices, [provider]: true } };
-              return { projects: replaceActiveProject(s, updated) };
+              return { sessions: replaceActiveSession(s, updated) };
             });
             const msg = buildConnectionMessage(provider);
             if (msg) {
               set((s) => {
-                const active = getActiveProject(s);
+                const active = getActiveSession(s);
                 const updated = { ...active, messages: [...active.messages, msg] };
-                return { projects: replaceActiveProject(s, updated) };
+                return { sessions: replaceActiveSession(s, updated) };
               });
             }
             return { ok: true };
@@ -578,31 +578,31 @@ export const useMeterStore = create<MeterState>()(
       logout: async () => {
         // Flush unsaved messages to server BEFORE clearing state.
         // Fire all syncs in parallel (not sequential) to avoid N×latency.
-        const currentProjects = get().projects;
+        const currentSessions = get().sessions;
 
         // Skip subtrack threads — they are local-only forks
         const wsSubtrackIds = new Set(
-          useWorkspaceStore.getState().projects
+          useWorkspaceStore.getState().tracks
             .filter((p) => p.isSubtrack)
             .map((p) => p.id)
         );
 
-        const syncPromises = currentProjects
-          .filter((project) => project.messages.length > 0 && !wsSubtrackIds.has(project.id))
-          .map((project) => {
+        const syncPromises = currentSessions
+          .filter((sess) => sess.messages.length > 0 && !wsSubtrackIds.has(sess.id))
+          .map((sess) => {
             const sessionMeta = {
-              id: project.id,
-              name: project.name,
-              totalCost: project.totalCost,
-              todayCost: project.todayCost,
-              todayTokensIn: project.todayTokensIn,
-              todayTokensOut: project.todayTokensOut,
-              todayMessageCount: project.todayMessageCount,
-              todayDate: project.todayDate,
-              weekCost: project.weekCost ?? 0,
-              weekKey: project.weekKey,
-              monthCost: project.monthCost ?? 0,
-              monthKey: project.monthKey,
+              id: sess.id,
+              name: sess.name,
+              totalCost: sess.totalCost,
+              todayCost: sess.todayCost,
+              todayTokensIn: sess.todayTokensIn,
+              todayTokensOut: sess.todayTokensOut,
+              todayMessageCount: sess.todayMessageCount,
+              todayDate: sess.todayDate,
+              weekCost: sess.weekCost ?? 0,
+              weekKey: sess.weekKey,
+              monthCost: sess.monthCost ?? 0,
+              monthKey: sess.monthKey,
             };
 
             return fetch(apiUrl("/api/sessions"), {
@@ -610,13 +610,13 @@ export const useMeterStore = create<MeterState>()(
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 session: sessionMeta,
-                messages: project.messages,
+                messages: sess.messages,
               }),
             }).catch(() => {
               // Fetch failed — fall back to sendBeacon with size safety
               if (typeof navigator !== "undefined" && navigator.sendBeacon) {
                 const MAX_BEACON_BYTES = 60_000;
-                const recentMessages = project.messages.slice(-50);
+                const recentMessages = sess.messages.slice(-50);
                 const payload = JSON.stringify({ session: sessionMeta, messages: recentMessages });
                 const blob = new Blob([payload], { type: "application/json" });
                 if (blob.size < MAX_BEACON_BYTES) {
@@ -648,8 +648,8 @@ export const useMeterStore = create<MeterState>()(
           cardLast4: null,
           cardBrand: null,
           stripeCustomerId: null,
-          projects: initialProjects,
-          activeProjectId: "default",
+          sessions: initialSessions,
+          activeSessionId: "default",
           inspectorOpen: false,
           pendingCharges: [],
           isSettling: false,
@@ -660,10 +660,10 @@ export const useMeterStore = create<MeterState>()(
 
         // Clear workspace store
         useWorkspaceStore.setState({
-          companies: [],
-          projects: [],
-          activeCompanyId: null,
-          activeProjectId: null,
+          workspaces: [],
+          tracks: [],
+          activeWorkspaceId: null,
+          activeTrackId: null,
         });
 
         // Clear decisions store
@@ -689,26 +689,26 @@ export const useMeterStore = create<MeterState>()(
         }
       },
 
-      addProject: (name, idOverride) =>
+      addSession: (name, idOverride) =>
         set((s) => {
           const cleanName = name.trim();
           if (!cleanName) return s;
           const id = idOverride ?? cleanName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-          if (s.projects.some((p) => p.id === id)) return s;
-          return { projects: [...s.projects, createProject(id, cleanName)] };
+          if (s.sessions.some((p) => p.id === id)) return s;
+          return { sessions: [...s.sessions, createSession(id, cleanName)] };
         }),
 
-      renameProject: (projectId, newName) =>
+      renameSession: (sessionId, newName) =>
         set((s) => ({
-          projects: s.projects.map((p) =>
-            p.id === projectId ? { ...p, name: newName } : p
+          sessions: s.sessions.map((p) =>
+            p.id === sessionId ? { ...p, name: newName } : p
           ),
         })),
 
       togglePinMessage: (messageId) =>
         set((s) => ({
-          projects: s.projects.map((p) =>
-            p.id === s.activeProjectId
+          sessions: s.sessions.map((p) =>
+            p.id === s.activeSessionId
               ? {
                   ...p,
                   messages: p.messages.map((m) =>
@@ -719,21 +719,21 @@ export const useMeterStore = create<MeterState>()(
           ),
         })),
 
-      removeProject: (id) =>
+      removeSession: (id) =>
         set((s) => {
-          const remaining = s.projects.filter((p) => p.id !== id);
+          const remaining = s.sessions.filter((p) => p.id !== id);
           const nextActiveId =
-            s.activeProjectId === id
+            s.activeSessionId === id
               ? remaining[0]?.id ?? "default"
-              : s.activeProjectId;
-          return { projects: remaining, activeProjectId: nextActiveId };
+              : s.activeSessionId;
+          return { sessions: remaining, activeSessionId: nextActiveId };
         }),
 
-      setActiveProject: (id) => {
+      setActiveSession: (id) => {
         set((s) => {
-          if (!s.projects.some((p) => p.id === id)) return s;
-          const projects = s.projects.map((p) => (p.id === id ? ensureDaily(p) : p));
-          return { projects, activeProjectId: id };
+          if (!s.sessions.some((p) => p.id === id)) return s;
+          const sessions = s.sessions.map((p) => (p.id === id ? ensureDaily(p) : p));
+          return { sessions, activeSessionId: id };
         });
         // Re-fetch connection status for the newly active workspace
         get().fetchConnectionStatus();
@@ -741,21 +741,21 @@ export const useMeterStore = create<MeterState>()(
 
       setCardAssigned: (projectId) =>
         set((s) => ({
-          projects: s.projects.map((p) =>
+          sessions: s.sessions.map((p) =>
             p.id === projectId ? { ...p, cardAssigned: true } : p
           ),
         })),
 
-      addMessage: (msg, forProjectId?) =>
+      addMessage: (msg, forSessionId?) =>
         set((s) => {
-          const active = ensureDaily(getProjectByIdOrActive(s, forProjectId));
+          const active = ensureDaily(getSessionByIdOrActive(s, forSessionId));
           const updated = { ...active, messages: [...active.messages, msg] };
-          return { projects: replaceActiveProject(s, updated) };
+          return { sessions: replaceActiveSession(s, updated) };
         }),
 
-      updateLastAssistantMessage: (content, tokensOut, forProjectId?) =>
+      updateLastAssistantMessage: (content, tokensOut, forSessionId?) =>
         set((s) => {
-          const active = ensureDaily(getProjectByIdOrActive(s, forProjectId));
+          const active = ensureDaily(getSessionByIdOrActive(s, forSessionId));
           const pricingModelId = s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId;
           const model = getModel(pricingModelId);
           const msgs = [...active.messages];
@@ -779,23 +779,23 @@ export const useMeterStore = create<MeterState>()(
             currentMessageCost: active.currentMessageCost + costDelta,
           };
 
-          return { projects: replaceActiveProject(s, updated) };
+          return { sessions: replaceActiveSession(s, updated) };
         }),
 
-      updateLastAssistantThinking: (thinking, forProjectId?) =>
+      updateLastAssistantThinking: (thinking, forSessionId?) =>
         set((s) => {
-          const active = getProjectByIdOrActive(s, forProjectId);
+          const active = getSessionByIdOrActive(s, forSessionId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last?.role === "assistant") {
             msgs[msgs.length - 1] = { ...last, thinking };
           }
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
-      finalizeResponse: (tokensIn, tokensOut, confidence, actualModel, cacheCreationTokens, cacheReadTokens, cacheReadRate, actualCost, forProjectId?) => {
+      finalizeResponse: (tokensIn, tokensOut, confidence, actualModel, cacheCreationTokens, cacheReadTokens, cacheReadRate, actualCost, forSessionId?) => {
         set((s) => {
-          const active = ensureDaily(getProjectByIdOrActive(s, forProjectId));
+          const active = ensureDaily(getSessionByIdOrActive(s, forSessionId));
           const pricingModelId = actualModel
             ?? (s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId);
           const model = getModel(pricingModelId);
@@ -884,13 +884,13 @@ export const useMeterStore = create<MeterState>()(
             serverPendingBalance: (active.serverPendingBalance ?? 0) + totalMsgCost,
           };
 
-          return { projects: replaceActiveProject(s, updated) };
+          return { sessions: replaceActiveSession(s, updated) };
         });
       },
 
       markSettled: (messageId) =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getActiveSession(s);
           const updated = {
             ...active,
             messages: active.messages.map((m) =>
@@ -904,12 +904,12 @@ export const useMeterStore = create<MeterState>()(
                 : m
             ),
           };
-          return { projects: replaceActiveProject(s, updated) };
+          return { sessions: replaceActiveSession(s, updated) };
         }),
 
       getPendingBalance: () => {
         const s = get();
-        const active = getWorkspaceProject(s);
+        const active = getWorkspaceSession(s);
         if (!active) return 0;
         // Use server-computed pending balance (covers ALL messages, not just loaded 200).
         // Fall back to loaded-messages sum for local-only sessions.
@@ -925,7 +925,7 @@ export const useMeterStore = create<MeterState>()(
 
       getUnsettledMessages: () => {
         const s = get();
-        const active = getWorkspaceProject(s);
+        const active = getWorkspaceSession(s);
         if (!active) return [];
         return active.messages
           .filter((m) => m.role === "assistant" && m.cost !== undefined && !m.settled);
@@ -935,15 +935,15 @@ export const useMeterStore = create<MeterState>()(
         const s = get();
         if (s.isSettling) return { success: false, error: "Already settling" };
         set((prev) => {
-          const active = getWorkspaceProject(prev);
+          const active = getWorkspaceSession(prev);
           if (!active) return { isSettling: true };
           return {
             isSettling: true,
-            projects: replaceActiveProject(prev, { ...active, settlementError: null }),
+            sessions: replaceActiveSession(prev, { ...active, settlementError: null }),
           };
         });
 
-        const active = getWorkspaceProject(s);
+        const active = getWorkspaceSession(s);
         if (!active) {
           set({ isSettling: false });
           return { success: false, error: "No active workspace" };
@@ -979,11 +979,11 @@ export const useMeterStore = create<MeterState>()(
             const body = await res.json().catch(() => ({ error: "Settlement failed" }));
             const errorMsg = body.error ?? "Settlement failed";
             set((prev) => {
-              const current = prev.projects.find((p) => p.id === active.id);
+              const current = prev.sessions.find((p) => p.id === active.id);
               if (!current) return { isSettling: false };
               return {
                 isSettling: false,
-                projects: prev.projects.map((p) => p.id === active.id ? {
+                sessions: prev.sessions.map((p) => p.id === active.id ? {
                   ...current,
                   settlementError: errorMsg,
                   chatBlocked: true,
@@ -997,9 +997,9 @@ export const useMeterStore = create<MeterState>()(
           const batchTxHash = data.txHash as string | undefined;
 
           set((prev) => {
-            const current = prev.projects.find((p) => p.id === active.id);
+            const current = prev.sessions.find((p) => p.id === active.id);
             if (!current) return { isSettling: false };
-            const updatedProject = {
+            const updatedSession = {
               ...current,
               messages: current.messages.map((m) =>
                 messageIds.includes(m.id)
@@ -1016,7 +1016,7 @@ export const useMeterStore = create<MeterState>()(
             };
             const remainingCharges = prev.pendingCharges.filter((c) => c.workspaceId !== active.id);
             return {
-              projects: prev.projects.map((p) => p.id === active.id ? updatedProject : p),
+              sessions: prev.sessions.map((p) => p.id === active.id ? updatedSession : p),
               pendingCharges: remainingCharges,
               isSettling: false,
             };
@@ -1025,11 +1025,11 @@ export const useMeterStore = create<MeterState>()(
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : "Settlement failed";
           set((prev) => {
-            const current = prev.projects.find((p) => p.id === active.id);
+            const current = prev.sessions.find((p) => p.id === active.id);
             if (!current) return { isSettling: false };
             return {
               isSettling: false,
-              projects: prev.projects.map((p) => p.id === active.id ? {
+              sessions: prev.sessions.map((p) => p.id === active.id ? {
                 ...current,
                 settlementError: errorMsg,
                 chatBlocked: true,
@@ -1042,7 +1042,7 @@ export const useMeterStore = create<MeterState>()(
 
       approveCard: (messageId, cardId) => {
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getActiveSession(s);
           if (!active) return s;
           const updated = {
             ...active,
@@ -1059,13 +1059,13 @@ export const useMeterStore = create<MeterState>()(
             card && card.cost
               ? [...s.pendingCharges, { id: card.id, title: card.title, cost: card.cost, type: "card" as const, workspaceId: active.id, paidAt: Date.now() }]
               : s.pendingCharges;
-          return { projects: replaceActiveProject(s, updated), pendingCharges: newCharge };
+          return { sessions: replaceActiveSession(s, updated), pendingCharges: newCharge };
         });
       },
 
       rejectCard: (messageId, cardId) =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getActiveSession(s);
           const updated = {
             ...active,
             messages: active.messages.map((m) => {
@@ -1076,12 +1076,12 @@ export const useMeterStore = create<MeterState>()(
               return { ...m, cards };
             }),
           };
-          return { projects: replaceActiveProject(s, updated) };
+          return { sessions: replaceActiveSession(s, updated) };
         }),
 
-      addCardToLastMessage: (card, forProjectId?) =>
+      addCardToLastMessage: (card, forSessionId?) =>
         set((s) => {
-          const active = getProjectByIdOrActive(s, forProjectId);
+          const active = getSessionByIdOrActive(s, forSessionId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
@@ -1090,12 +1090,12 @@ export const useMeterStore = create<MeterState>()(
               cards: [...(last.cards ?? []), card],
             };
           }
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
       purchaseDomain: async (messageId, cardId) => {
         const s = get();
-        const active = getActiveProject(s);
+        const active = getActiveSession(s);
         const msg = active.messages.find((m) => m.id === messageId);
         const card = msg?.cards?.find((c) => c.id === cardId);
         if (!card || !card.metadata?.domain) {
@@ -1114,7 +1114,7 @@ export const useMeterStore = create<MeterState>()(
 
         // Set card to purchasing state
         set((prev) => {
-          const proj = getActiveProject(prev);
+          const proj = getActiveSession(prev);
           const updated = {
             ...proj,
             messages: proj.messages.map((m) => {
@@ -1127,7 +1127,7 @@ export const useMeterStore = create<MeterState>()(
               };
             }),
           };
-          return { projects: replaceActiveProject(prev, updated) };
+          return { sessions: replaceActiveSession(prev, updated) };
         });
 
         try {
@@ -1140,7 +1140,7 @@ export const useMeterStore = create<MeterState>()(
           if (!res.ok) {
             // Revert card status on failure
             set((prev) => {
-              const proj = getActiveProject(prev);
+              const proj = getActiveSession(prev);
               const updated = {
                 ...proj,
                 messages: proj.messages.map((m) => {
@@ -1153,7 +1153,7 @@ export const useMeterStore = create<MeterState>()(
                   };
                 }),
               };
-              return { projects: replaceActiveProject(prev, updated) };
+              return { sessions: replaceActiveSession(prev, updated) };
             });
             return { success: false, error: data.error ?? "Registration failed" };
           }
@@ -1176,9 +1176,9 @@ export const useMeterStore = create<MeterState>()(
 
           // Increment today cost
           set((prev) => {
-            const proj = getActiveProject(prev);
+            const proj = getActiveSession(prev);
             return {
-              projects: replaceActiveProject(prev, {
+              sessions: replaceActiveSession(prev, {
                 ...proj,
                 todayCost: proj.todayCost + purchaseCost,
                 weekCost: (proj.weekCost ?? 0) + purchaseCost,
@@ -1192,7 +1192,7 @@ export const useMeterStore = create<MeterState>()(
         } catch {
           // Revert card status on error
           set((prev) => {
-            const proj = getActiveProject(prev);
+            const proj = getActiveSession(prev);
             const updated = {
               ...proj,
               messages: proj.messages.map((m) => {
@@ -1205,38 +1205,38 @@ export const useMeterStore = create<MeterState>()(
                 };
               }),
             };
-            return { projects: replaceActiveProject(prev, updated) };
+            return { sessions: replaceActiveSession(prev, updated) };
           });
           return { success: false, error: "Network error — try again" };
         }
       },
 
-      setMessageDecisionId: (decisionId, forProjectId?) =>
+      setMessageDecisionId: (decisionId, forSessionId?) =>
         set((s) => {
-          const active = getProjectByIdOrActive(s, forProjectId);
+          const active = getSessionByIdOrActive(s, forSessionId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
             msgs[msgs.length - 1] = { ...last, decisionId };
           }
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
-      addDocumentToLastMessage: (doc, forProjectId?) =>
+      addDocumentToLastMessage: (doc, forSessionId?) =>
         set((s) => {
-          const active = getProjectByIdOrActive(s, forProjectId);
+          const active = getSessionByIdOrActive(s, forSessionId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
             const existing = last.documents ?? [];
             msgs[msgs.length - 1] = { ...last, documents: [...existing, doc] };
           }
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
       markDocumentSaved: (messageId, docId) =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getActiveSession(s);
           if (!active) return s;
           const msgs = active.messages.map((m) => {
             if (m.id !== messageId || !m.documents) return m;
@@ -1247,34 +1247,34 @@ export const useMeterStore = create<MeterState>()(
               ),
             };
           });
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
-      setDebateTrace: (trace, forProjectId?) =>
+      setDebateTrace: (trace, forSessionId?) =>
         set((s) => {
-          const active = getProjectByIdOrActive(s, forProjectId);
+          const active = getSessionByIdOrActive(s, forSessionId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
             msgs[msgs.length - 1] = { ...last, debateTrace: trace };
           }
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
-      addClarifyingQuestions: (questions, forProjectId?) =>
+      addClarifyingQuestions: (questions, forSessionId?) =>
         set((s) => {
-          const active = getProjectByIdOrActive(s, forProjectId);
+          const active = getSessionByIdOrActive(s, forSessionId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
             msgs[msgs.length - 1] = { ...last, clarifyingQuestions: questions };
           }
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
       updateClarifyingAnswer: (messageId, questionId, answer) =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getActiveSession(s);
           if (!active) return s;
           const msgs = active.messages.map((m) => {
             if (m.id !== messageId || !m.clarifyingQuestions) return m;
@@ -1285,37 +1285,37 @@ export const useMeterStore = create<MeterState>()(
               ),
             };
           });
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
-      setDissectorTrace: (trace, forProjectId?) =>
+      setDissectorTrace: (trace, forSessionId?) =>
         set((s) => {
-          const active = getProjectByIdOrActive(s, forProjectId);
+          const active = getSessionByIdOrActive(s, forSessionId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
             msgs[msgs.length - 1] = { ...last, dissectorTrace: trace };
           }
-          return { projects: replaceActiveProject(s, { ...active, messages: msgs }) };
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
-      setStreaming: (v, forProjectId?) =>
+      setStreaming: (v, forSessionId?) =>
         set((s) => {
-          const active = getProjectByIdOrActive(s, forProjectId);
+          const active = getSessionByIdOrActive(s, forSessionId);
           const updated = {
             ...active,
             isStreaming: v,
             ...(v ? { currentMessageCost: 0 } : {}),
           };
-          return { projects: replaceActiveProject(s, updated) };
+          return { sessions: replaceActiveSession(s, updated) };
         }),
 
       clearSettlementError: () =>
         set((s) => {
-          const active = getActiveProject(s);
+          const active = getActiveSession(s);
           if (!active) return s;
           return {
-            projects: replaceActiveProject(s, { ...active, settlementError: null }),
+            sessions: replaceActiveSession(s, { ...active, settlementError: null }),
           };
         }),
 
@@ -1368,11 +1368,11 @@ export const useMeterStore = create<MeterState>()(
       },
 
       fetchSettlementHistory: async (workspaceId) => {
-        const projectId = workspaceId ?? get().activeProjectId;
-        if (!projectId) return;
+        const sessionId = workspaceId ?? get().activeSessionId;
+        if (!sessionId) return;
         set({ settlementHistoryLoading: true });
         try {
-          const res = await fetch(apiUrl(`/api/billing/history?workspaceId=${encodeURIComponent(projectId)}`));
+          const res = await fetch(apiUrl(`/api/billing/history?workspaceId=${encodeURIComponent(sessionId)}`));
           if (res.ok) {
             const data = await res.json();
             set({ settlementHistory: data.history ?? [] });
@@ -1383,10 +1383,10 @@ export const useMeterStore = create<MeterState>()(
       },
 
       fetchSpendLimits: async (workspaceId) => {
-        const projectId = resolveWorkspaceProjectId(workspaceId ?? get().activeProjectId);
-        if (!projectId) return;
+        const sessionId = resolveWorkspaceSessionId(workspaceId ?? get().activeSessionId);
+        if (!sessionId) return;
         try {
-          const res = await fetch(apiUrl(`/api/billing/spend-limits?workspaceId=${encodeURIComponent(projectId)}`));
+          const res = await fetch(apiUrl(`/api/billing/spend-limits?workspaceId=${encodeURIComponent(sessionId)}`));
           if (res.ok) {
             const data = await res.json();
             set({ spendLimits: { dailyLimit: data.dailyLimit ?? null, monthlyLimit: data.monthlyLimit ?? null, perTxnLimit: data.perTxnLimit ?? null } });
@@ -1395,15 +1395,15 @@ export const useMeterStore = create<MeterState>()(
       },
 
       updateSpendLimits: async (limits, workspaceId) => {
-        const projectId = resolveWorkspaceProjectId(workspaceId ?? get().activeProjectId);
-        if (!projectId) return;
+        const sessionId = resolveWorkspaceSessionId(workspaceId ?? get().activeSessionId);
+        if (!sessionId) return;
         const merged = { ...get().spendLimits, ...limits };
         set({ spendLimits: merged });
         try {
           await fetch(apiUrl("/api/billing/spend-limits"), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ workspaceId: projectId, ...merged }),
+            body: JSON.stringify({ workspaceId: sessionId, ...merged }),
           });
         } catch { /* silent */ }
       },
@@ -1411,12 +1411,12 @@ export const useMeterStore = create<MeterState>()(
       resetDailyIfNeeded: () =>
         set((s) => {
           let changed = false;
-          const projects = s.projects.map((p) => {
+          const sessions = s.sessions.map((p) => {
             const next = ensureDaily(p);
             if (next !== p) changed = true;
             return next;
           });
-          return changed ? { projects } : {};
+          return changed ? { sessions } : {};
         }),
 
       attemptDailySettlement: async () => {
@@ -1467,12 +1467,12 @@ export const useMeterStore = create<MeterState>()(
       setSpendingCap: (v) => set({ spendingCap: v }),
       setAutoSettleThreshold: (v) => set({ autoSettleThreshold: v }),
       setIsSettling: (v) => set({ isSettling: v }),
-      incrementCurrentMessageCost: (costDelta, forProjectId?) =>
+      incrementCurrentMessageCost: (costDelta, forSessionId?) =>
         set((s) => {
-          const active = ensureDaily(getProjectByIdOrActive(s, forProjectId));
+          const active = ensureDaily(getSessionByIdOrActive(s, forSessionId));
           const scaled = costDelta * s.markupMultiplier;
           return {
-            projects: replaceActiveProject(s, {
+            sessions: replaceActiveSession(s, {
               ...active,
               currentMessageCost: active.currentMessageCost + scaled,
               todayCost: active.todayCost + scaled,
@@ -1485,10 +1485,10 @@ export const useMeterStore = create<MeterState>()(
       setDecisionMode: (v) => set({ decisionMode: v }),
 
       // Pagination: prepend older messages loaded via scroll
-      prependMessages: (projectId, messages, hasMore) =>
+      prependMessages: (sessionId, messages, hasMore) =>
         set((s) => {
-          const projects = s.projects.map((p) => {
-            if (p.id !== projectId) return p;
+          const sessions = s.sessions.map((p) => {
+            if (p.id !== sessionId) return p;
             // Deduplicate by ID
             const existingIds = new Set(p.messages.map((m) => m.id));
             const newMsgs = messages.filter((m) => !existingIds.has(m.id));
@@ -1502,30 +1502,30 @@ export const useMeterStore = create<MeterState>()(
               oldestLoadedTimestamp: oldest,
             };
           });
-          return { projects };
+          return { sessions };
         }),
 
-      fetchOlderMessages: async (projectId) => {
+      fetchOlderMessages: async (sessionId) => {
         const state = get();
-        const project = state.projects.find((p) => p.id === projectId);
-        if (!project || project.loadingOlderMessages || !project.hasOlderMessages) return;
+        const sess = state.sessions.find((p) => p.id === sessionId);
+        if (!sess || sess.loadingOlderMessages || !sess.hasOlderMessages) return;
 
         // Mark loading
         set((s) => ({
-          projects: s.projects.map((p) =>
-            p.id === projectId ? { ...p, loadingOlderMessages: true } : p,
+          sessions: s.sessions.map((p) =>
+            p.id === sessionId ? { ...p, loadingOlderMessages: true } : p,
           ),
         }));
 
         try {
-          const oldest = project.messages[0];
+          const oldest = sess.messages[0];
           const params = new URLSearchParams({ limit: "200" });
           if (oldest) {
             params.set("before", String(oldest.timestamp));
             params.set("before_id", oldest.id);
           }
 
-          const res = await fetch(`/api/sessions/${encodeURIComponent(projectId)}/messages?${params}`);
+          const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/messages?${params}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
 
@@ -1549,13 +1549,13 @@ export const useMeterStore = create<MeterState>()(
             timestamp: m.timestamp as number,
           }));
 
-          get().prependMessages(projectId, mapped, data.hasMore ?? false);
+          get().prependMessages(sessionId, mapped, data.hasMore ?? false);
         } catch (err) {
           console.warn("[meter] Failed to fetch older messages:", err);
           // Clear loading state on error
           set((s) => ({
-            projects: s.projects.map((p) =>
-              p.id === projectId ? { ...p, loadingOlderMessages: false } : p,
+            sessions: s.sessions.map((p) =>
+              p.id === sessionId ? { ...p, loadingOlderMessages: false } : p,
             ),
           }));
         }
@@ -1563,13 +1563,13 @@ export const useMeterStore = create<MeterState>()(
 
       // --- Branching actions ---
 
-      createSubtrackThread: (subtrackId: string, parentProjectId: string, forkMessageId: string) => {
+      createSubtrackSession: (subtrackId: string, parentSessionId: string, forkMessageId: string) => {
         set((s) => {
-          const existing = s.projects.find((p) => p.id === subtrackId);
+          const existing = s.sessions.find((p) => p.id === subtrackId);
           // If subtrack already has messages, skip (idempotent)
           if (existing && existing.messages.length > 0) return s;
 
-          const parent = s.projects.find((p) => p.id === parentProjectId);
+          const parent = s.sessions.find((p) => p.id === parentSessionId);
           if (!parent) return s;
           // Find all messages up to and including the fork message
           const forkIdx = parent.messages.findIndex((m) => m.id === forkMessageId);
@@ -1586,8 +1586,8 @@ export const useMeterStore = create<MeterState>()(
           // If thread shell exists (e.g. from localStorage after refresh), update in place
           if (existing) {
             return {
-              projects: s.projects.map((p) => {
-                if (p.id === parentProjectId) return updatedParent;
+              sessions: s.sessions.map((p) => {
+                if (p.id === parentSessionId) return updatedParent;
                 if (p.id === subtrackId) return { ...p, messages: sharedMessages, connectedServices: { ...parent.connectedServices }, cardAssigned: parent.cardAssigned };
                 return p;
               }),
@@ -1595,21 +1595,21 @@ export const useMeterStore = create<MeterState>()(
           }
 
           // Create new subtrack thread with cloned messages
-          const subtrackThread = createProject(subtrackId, subtrackId);
+          const subtrackThread = createSession(subtrackId, subtrackId);
           subtrackThread.messages = sharedMessages;
           // Copy connected services from parent
           subtrackThread.connectedServices = { ...parent.connectedServices };
           subtrackThread.cardAssigned = parent.cardAssigned;
           return {
-            projects: s.projects.map((p) => (p.id === parentProjectId ? updatedParent : p)).concat(subtrackThread),
+            sessions: s.sessions.map((p) => (p.id === parentSessionId ? updatedParent : p)).concat(subtrackThread),
           };
         });
       },
 
-      mergeSubtrackIntoParent: (subtrackId: string, parentProjectId: string, forkMessageId: string) => {
+      mergeSubtrackIntoParent: (subtrackId: string, parentSessionId: string, forkMessageId: string) => {
         set((s) => {
-          const subtrack = s.projects.find((p) => p.id === subtrackId);
-          const parent = s.projects.find((p) => p.id === parentProjectId);
+          const subtrack = s.sessions.find((p) => p.id === subtrackId);
+          const parent = s.sessions.find((p) => p.id === parentSessionId);
           if (!subtrack || !parent) return s;
           // Get subtrack-only messages (those after the fork point)
           const forkIdx = subtrack.messages.findIndex((m) => m.id === forkMessageId);
@@ -1625,17 +1625,17 @@ export const useMeterStore = create<MeterState>()(
             ],
           };
           // Remove the subtrack thread
-          const projects = s.projects
+          const sessions = s.sessions
             .filter((p) => p.id !== subtrackId)
-            .map((p) => (p.id === parentProjectId ? updatedParent : p));
-          return { projects };
+            .map((p) => (p.id === parentSessionId ? updatedParent : p));
+          return { sessions };
         });
       },
 
-      clearForkPoint: (parentProjectId: string, forkMessageId: string) => {
+      clearForkPoint: (parentSessionId: string, forkMessageId: string) => {
         set((s) => ({
-          projects: s.projects.map((p) => {
-            if (p.id !== parentProjectId) return p;
+          sessions: s.sessions.map((p) => {
+            if (p.id !== parentSessionId) return p;
             return {
               ...p,
               messages: p.messages.map((m) =>
@@ -1648,7 +1648,7 @@ export const useMeterStore = create<MeterState>()(
 
       reset: () =>
         set((s) => ({
-          projects: s.projects.map((p) => ({
+          sessions: s.sessions.map((p) => ({
             ...p,
             messages: [],
             isStreaming: false,
@@ -1661,7 +1661,23 @@ export const useMeterStore = create<MeterState>()(
     }),
     {
       name: "meter-store-v3",
+      version: 2,
       storage: createJSONStorage(() => localStorage),
+      // Migrate old localStorage shape (projects/activeProjectId) → new (sessions/activeSessionId)
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>;
+        if (version < 2) {
+          if (state.projects && !state.sessions) {
+            state.sessions = state.projects;
+            delete state.projects;
+          }
+          if (state.activeProjectId !== undefined && state.activeSessionId === undefined) {
+            state.activeSessionId = state.activeProjectId;
+            delete state.activeProjectId;
+          }
+        }
+        return state as MeterState;
+      },
       partialize: (s) => ({
         userId: s.userId,
         email: s.email,
@@ -1679,8 +1695,8 @@ export const useMeterStore = create<MeterState>()(
         spendingCap: s.spendingCap,
         autoSettleThreshold: s.autoSettleThreshold,
         lastAutoSettleDate: s.lastAutoSettleDate,
-        projects: s.projects.map((p) => ({ ...p, messages: [] })),
-        activeProjectId: s.activeProjectId,
+        sessions: s.sessions.map((p) => ({ ...p, messages: [] })),
+        activeSessionId: s.activeSessionId,
         spendLimits: s.spendLimits,
       }),
       onRehydrateStorage: () => (state) => {
@@ -1696,7 +1712,7 @@ export const useMeterStore = create<MeterState>()(
         const curWeek = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`;
         const weekStart = mon.getTime();
 
-        state.projects = state.projects.map((p) => {
+        state.sessions = state.sessions.map((p) => {
           let proj = p.isStreaming ? { ...p, isStreaming: false } : p;
 
           // Seed monthKey/weekKey if missing (old-format migration).
@@ -1718,13 +1734,13 @@ export const useMeterStore = create<MeterState>()(
 
 /** Selector: connectedServices for the active workspace */
 export const selectConnectedServices = (s: MeterState) => {
-  const active = s.projects.find((p) => p.id === s.activeProjectId);
+  const active = s.sessions.find((p) => p.id === s.activeSessionId);
   return active?.connectedServices ?? {};
 };
 
 /** Selector: whether the active workspace has card access */
 export const selectWorkspaceCardReady = (s: MeterState): boolean => {
-  const active = s.projects.find((p) => p.id === s.activeProjectId);
+  const active = s.sessions.find((p) => p.id === s.activeSessionId);
   if (!active) return s.cardOnFile;
   if (active.cardAssigned === undefined) return s.cardOnFile;
   return active.cardAssigned;

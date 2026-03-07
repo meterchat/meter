@@ -7,14 +7,14 @@ export function ActionsBar() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const projects = useMeterStore((s) => s.projects);
-  const activeProjectId = useMeterStore((s) => s.activeProjectId);
+  const sessions = useMeterStore((s) => s.sessions);
+  const activeSessionId = useMeterStore((s) => s.activeSessionId);
   const approveCard = useMeterStore((s) => s.approveCard);
   const rejectCard = useMeterStore((s) => s.rejectCard);
 
   const activeProject = useMemo(
-    () => projects.find((p) => p.id === activeProjectId) ?? null,
-    [projects, activeProjectId]
+    () => sessions.find((p) => p.id === activeSessionId) ?? null,
+    [sessions, activeSessionId]
   );
 
   // Pending approvals from meter agent (action cards)

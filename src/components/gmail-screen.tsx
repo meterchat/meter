@@ -5,11 +5,11 @@ import { initiateOAuthFlow } from "@/lib/oauth-client";
 import Image from "next/image";
 
 export function GmailScreen() {
-  const { email, userId, activeProjectId, connectService } = useMeterStore();
+  const { email, userId, activeSessionId, connectService } = useMeterStore();
 
   const handleConnect = () => {
     if (userId) {
-      initiateOAuthFlow("gmail", activeProjectId);
+      initiateOAuthFlow("gmail", activeSessionId);
     }
   };
 

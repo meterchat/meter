@@ -1,26 +1,26 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useWorkspaceStore, Company } from "@/lib/workspace-store";
+import { useWorkspaceStore, Workspace } from "@/lib/workspace-store";
 import { useMeterStore } from "@/lib/store";
 import { trackWorkspaceCreated, trackWorkspaceSwitched } from "@/lib/analytics";
 
-interface CompanySwitcherProps {
-  activeCompany: Company | null;
+interface WorkspaceSwitcherProps {
+  activeWorkspace: Workspace | null;
 }
 
-export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
+export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
-  const companies = useWorkspaceStore((s) => s.companies);
-  const createCompany = useWorkspaceStore((s) => s.createCompany);
-  const setActiveCompany = useWorkspaceStore((s) => s.setActiveCompany);
-  const addProject = useMeterStore((s) => s.addProject);
-  const setActiveProjectChat = useMeterStore((s) => s.setActiveProject);
-  const chatProjects = useMeterStore((s) => s.projects);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
+  const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
+  const addSession = useMeterStore((s) => s.addSession);
+  const setActiveSession = useMeterStore((s) => s.setActiveSession);
+  const chatSessions = useMeterStore((s) => s.sessions);
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
 
   // Close on outside click
@@ -40,8 +40,8 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
   const [logLines, setLogLines] = useState<string[]>([]);
 
   const ensureSession = (sessionId: string, name: string) => {
-    if (!chatProjects.some((p) => p.id === sessionId)) {
-      addProject(name, sessionId);
+    if (!chatSessions.some((p) => p.id === sessionId)) {
+      addSession(name, sessionId);
     }
   };
 
@@ -50,7 +50,7 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
     // Show splash with animated log lines
     setSwitchingName(name);
     setLogLines([]);
-    setActiveProjectChat(sessionId);
+    setActiveSession(sessionId);
 
     const lines = [
       `loading workspace "${name}"...`,
@@ -69,17 +69,17 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
   };
 
   const handleSelect = (id: string) => {
-    if (id === activeCompany?.id) {
+    if (id === activeWorkspace?.id) {
       setOpen(false);
       return;
     }
-    const company = companies.find((c) => c.id === id);
-    setActiveCompany(id);
+    const workspace = workspaces.find((w) => w.id === id);
+    setActiveWorkspace(id);
     setOpen(false);
-    if (company) {
-      trackWorkspaceSwitched({ workspaceId: company.id, workspaceName: company.name });
-      const sessionId = company.sessionId ?? company.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      switchToChatThread(sessionId, company.name);
+    if (workspace) {
+      trackWorkspaceSwitched({ workspaceId: workspace.id, workspaceName: workspace.name });
+      const sessionId = workspace.sessionId ?? workspace.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      switchToChatThread(sessionId, workspace.name);
     }
   };
 
@@ -87,7 +87,7 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
     const name = newName.trim();
     if (!name) return;
     const sessionId = `ws_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    createCompany(name, sessionId);
+    createWorkspace(name, sessionId);
     trackWorkspaceCreated({ name, source: "switcher" });
     switchToChatThread(sessionId, name);
     setNewName("");
@@ -121,7 +121,7 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
         disabled={!sessionsLoaded}
         className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-wait"
       >
-        <span>{!sessionsLoaded ? "Loading..." : activeCompany?.name ?? "No workspace"}</span>
+        <span>{!sessionsLoaded ? "Loading..." : activeWorkspace?.name ?? "No workspace"}</span>
         <svg
           width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -136,23 +136,23 @@ export function CompanySwitcher({ activeCompany }: CompanySwitcherProps) {
           <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider px-2 py-1">
             Workspaces
           </div>
-          {companies.length === 0 && !creating && (
+          {workspaces.length === 0 && !creating && (
             <div className="px-2 py-3 text-center font-mono text-[11px] text-muted-foreground/50">
               No workspaces yet
             </div>
           )}
-          {companies.map((c) => (
+          {workspaces.map((w) => (
             <button
-              key={c.id}
-              onClick={() => handleSelect(c.id)}
+              key={w.id}
+              onClick={() => handleSelect(w.id)}
               className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${
-                c.id === activeCompany?.id
+                w.id === activeWorkspace?.id
                   ? "bg-foreground/10 text-foreground"
                   : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
               }`}
             >
-              <span className={`h-1.5 w-1.5 rounded-full ${c.id === activeCompany?.id ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-              {c.name}
+              <span className={`h-1.5 w-1.5 rounded-full ${w.id === activeWorkspace?.id ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+              {w.name}
             </button>
           ))}
           {creating ? (

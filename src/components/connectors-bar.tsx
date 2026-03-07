@@ -9,7 +9,7 @@ import { ApiKeyDialog } from "@/components/api-key-dialog";
 export function ConnectorsBar() {
   const connectedServices = useMeterStore(selectConnectedServices);
   const userId = useMeterStore((s) => s.userId);
-  const activeProjectId = useMeterStore((s) => s.activeProjectId);
+  const activeSessionId = useMeterStore((s) => s.activeSessionId);
   const disconnectServiceRemote = useMeterStore((s) => s.disconnectServiceRemote);
   const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -45,7 +45,7 @@ export function ConnectorsBar() {
     if (isApiKeyProvider(providerId)) {
       setApiKeyProvider(providerId);
     } else {
-      initiateOAuthFlow(providerId, activeProjectId);
+      initiateOAuthFlow(providerId, activeSessionId);
     }
   }
 

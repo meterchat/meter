@@ -2,23 +2,23 @@
 
 import { useMemo } from "react";
 import { useWorkspaceStore } from "@/lib/workspace-store";
-import { CompanySwitcher } from "./company-switcher";
-import { ProjectSwitcher } from "./project-switcher";
+import { WorkspaceSwitcher } from "./workspace-switcher";
+import { TrackSwitcher } from "./track-switcher";
 import { CardSwitcher } from "./card-switcher";
 
 export function WorkspaceBar() {
   // Select primitives + stable arrays — avoids new references on every render
-  const companies = useWorkspaceStore((s) => s.companies);
-  const projects = useWorkspaceStore((s) => s.projects);
-  const activeCompanyId = useWorkspaceStore((s) => s.activeCompanyId);
-  const activeProjectId = useWorkspaceStore((s) => s.activeProjectId);
-  const activeCompany = useMemo(
-    () => companies.find((c) => c.id === activeCompanyId) ?? null,
-    [companies, activeCompanyId]
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const tracks = useWorkspaceStore((s) => s.tracks);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const activeTrackId = useWorkspaceStore((s) => s.activeTrackId);
+  const activeWorkspace = useMemo(
+    () => workspaces.find((w) => w.id === activeWorkspaceId) ?? null,
+    [workspaces, activeWorkspaceId]
   );
-  const activeProject = useMemo(
-    () => projects.find((p) => p.id === activeProjectId) ?? null,
-    [projects, activeProjectId]
+  const activeTrack = useMemo(
+    () => tracks.find((t) => t.id === activeTrackId) ?? null,
+    [tracks, activeTrackId]
   );
 
   return (
@@ -37,10 +37,10 @@ export function WorkspaceBar() {
             <path d="M8 14h.01" />
             <path d="M16 14h.01" />
           </svg>
-          <CompanySwitcher activeCompany={activeCompany} />
+          <WorkspaceSwitcher activeWorkspace={activeWorkspace} />
         </div>
 
-        {activeCompany && (
+        {activeWorkspace && (
           <>
             <span className="text-muted-foreground/20">/</span>
             {/* Path (git-branch icon) */}
@@ -51,7 +51,7 @@ export function WorkspaceBar() {
                 <circle cx="6" cy="18" r="3" />
                 <path d="M18 9a9 9 0 0 1-9 9" />
               </svg>
-              <ProjectSwitcher activeProject={activeProject} companyId={activeCompany.id} />
+              <TrackSwitcher activeTrack={activeTrack} workspaceId={activeWorkspace.id} />
             </div>
           </>
         )}

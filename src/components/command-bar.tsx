@@ -20,7 +20,7 @@ interface CommandBarProps {
 export function CommandBar({ open, onToggle, onSelectCommand }: CommandBarProps) {
   const connectedServices = useMeterStore(selectConnectedServices);
   const userId = useMeterStore((s) => s.userId);
-  const activeProjectId = useMeterStore((s) => s.activeProjectId);
+  const activeSessionId = useMeterStore((s) => s.activeSessionId);
   const disconnectServiceRemote = useMeterStore((s) => s.disconnectServiceRemote);
 
   const [drilledConnector, setDrilledConnector] = useState<ConnectorDef | null>(null);
@@ -63,7 +63,7 @@ export function CommandBar({ open, onToggle, onSelectCommand }: CommandBarProps)
     if (isApiKeyProvider(providerId)) {
       setApiKeyProvider(providerId);
     } else {
-      initiateOAuthFlow(providerId, activeProjectId);
+      initiateOAuthFlow(providerId, activeSessionId);
     }
   }
 

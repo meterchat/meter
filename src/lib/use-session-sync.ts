@@ -31,7 +31,7 @@ interface ServerSession {
 
 export function useSessionSync() {
   const userId = useMeterStore((s) => s.userId);
-  const projects = useMeterStore((s) => s.projects);
+  const sessions = useMeterStore((s) => s.sessions);
   const authenticated = useMeterStore((s) => s.authenticated);
   const resetDailyIfNeeded = useMeterStore((s) => s.resetDailyIfNeeded);
   const attemptDailySettlement = useMeterStore((s) => s.attemptDailySettlement);
@@ -74,7 +74,7 @@ export function useSessionSync() {
     timestamp: m.timestamp as number,
   });
 
-  const buildProjectFromSession = (
+  const buildSessionFromServer = (
     session: ServerSession,
     existingConnectedServices?: Record<string, boolean>,
   ) => {
@@ -124,7 +124,7 @@ export function useSessionSync() {
 
     // Create a snapshot hash to avoid unnecessary syncs
     const snapshot = JSON.stringify(
-      projects.map((p) => ({
+      sessions.map((p) => ({
         id: p.id,
         msgCount: p.messages.length,
         lastMsg: p.messages[p.messages.length - 1]?.id,
@@ -135,16 +135,16 @@ export function useSessionSync() {
     if (snapshot === lastSyncRef.current) return;
     let allOk = true;
 
-    // Sync each project as a session.
+    // Sync each session to the server.
     // Send only delta messages (new since last successful sync) to avoid
     // multi-MB payloads for sessions with thousands of messages.
-    for (const project of projects) {
-      const syncedCount = syncedMessageCountRef.current.get(project.id) ?? 0;
+    for (const session of sessions) {
+      const syncedCount = syncedMessageCountRef.current.get(session.id) ?? 0;
       // On first sync (syncedCount=0) send all messages; otherwise only new ones.
       // Server upserts by message ID, so resending existing ones is safe but wasteful.
       const messagesToSync = syncedCount === 0
-        ? (project.messages ?? [])
-        : project.messages.slice(syncedCount);
+        ? (session.messages ?? [])
+        : session.messages.slice(syncedCount);
 
       try {
         const res = await fetch(apiUrl("/api/sessions"), {
@@ -152,18 +152,18 @@ export function useSessionSync() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session: {
-              id: project.id,
-              name: project.name,
-              totalCost: project.totalCost,
-              todayCost: project.todayCost,
-              todayTokensIn: project.todayTokensIn,
-              todayTokensOut: project.todayTokensOut,
-              todayMessageCount: project.todayMessageCount,
-              todayDate: project.todayDate,
-              weekCost: project.weekCost ?? 0,
-              weekKey: project.weekKey,
-              monthCost: project.monthCost ?? 0,
-              monthKey: project.monthKey,
+              id: session.id,
+              name: session.name,
+              totalCost: session.totalCost,
+              todayCost: session.todayCost,
+              todayTokensIn: session.todayTokensIn,
+              todayTokensOut: session.todayTokensOut,
+              todayMessageCount: session.todayMessageCount,
+              todayDate: session.todayDate,
+              weekCost: session.weekCost ?? 0,
+              weekKey: session.weekKey,
+              monthCost: session.monthCost ?? 0,
+              monthKey: session.monthKey,
             },
             messages: messagesToSync,
           }),
@@ -173,7 +173,7 @@ export function useSessionSync() {
             useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
             return;
           }
-          console.warn(`[meter] Session sync failed for "${project.name}": ${res.status}`);
+          console.warn(`[meter] Session sync failed for "${session.name}": ${res.status}`);
           allOk = false;
         }
       } catch (err) {
@@ -186,8 +186,8 @@ export function useSessionSync() {
       lastSyncRef.current = snapshot;
       syncFailCountRef.current = 0;
       // Track synced message counts for sendBeacon delta
-      for (const project of projects) {
-        syncedMessageCountRef.current.set(project.id, project.messages.length);
+      for (const session of sessions) {
+        syncedMessageCountRef.current.set(session.id, session.messages.length);
       }
     } else {
       syncFailCountRef.current += 1;
@@ -197,7 +197,7 @@ export function useSessionSync() {
         );
       }
     }
-  }, [authenticated, projects]);
+  }, [authenticated, sessions]);
 
   // Periodic sync
   useEffect(() => {
@@ -217,7 +217,7 @@ export function useSessionSync() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [authenticated, projects, syncToServer]);
+  }, [authenticated, sessions, syncToServer]);
 
   // Reset daily counters at local midnight + attempt settlement
   useEffect(() => {
@@ -248,23 +248,23 @@ export function useSessionSync() {
     const handleBeforeUnload = () => {
       // Send only delta messages since last successful sync to stay under
       // the ~64KB sendBeacon payload limit.
-      for (const project of projects) {
-        const syncedCount = syncedMessageCountRef.current.get(project.id) ?? 0;
-        const deltaMessages = project.messages.slice(syncedCount);
+      for (const session of sessions) {
+        const syncedCount = syncedMessageCountRef.current.get(session.id) ?? 0;
+        const deltaMessages = session.messages.slice(syncedCount);
 
         const sessionMeta = {
-          id: project.id,
-          name: project.name,
-          totalCost: project.totalCost,
-          todayCost: project.todayCost,
-          todayTokensIn: project.todayTokensIn,
-          todayTokensOut: project.todayTokensOut,
-          todayMessageCount: project.todayMessageCount,
-          todayDate: project.todayDate,
-          weekCost: project.weekCost ?? 0,
-          weekKey: project.weekKey,
-          monthCost: project.monthCost ?? 0,
-          monthKey: project.monthKey,
+          id: session.id,
+          name: session.name,
+          totalCost: session.totalCost,
+          todayCost: session.todayCost,
+          todayTokensIn: session.todayTokensIn,
+          todayTokensOut: session.todayTokensOut,
+          todayMessageCount: session.todayMessageCount,
+          todayDate: session.todayDate,
+          weekCost: session.weekCost ?? 0,
+          weekKey: session.weekKey,
+          monthCost: session.monthCost ?? 0,
+          monthKey: session.monthKey,
         };
 
         const payload = JSON.stringify({
@@ -292,7 +292,7 @@ export function useSessionSync() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [authenticated, projects]);
+  }, [authenticated, sessions]);
 
   // Load sessions from server on mount
   useEffect(() => {
@@ -324,17 +324,17 @@ export function useSessionSync() {
         const store = useMeterStore.getState();
         const serverSessions = data.sessions as ServerSession[];
 
-        const localById = new Map(store.projects.map((p) => [p.id, p]));
+        const localById = new Map(store.sessions.map((p) => [p.id, p]));
         const serverById = new Map(serverSessions.map((s) => [s.id as string, s]));
 
         // Union merge: combine local and server sessions, merging messages by ID
-        const merged: ReturnType<typeof buildProjectFromSession>[] = [];
+        const merged: ReturnType<typeof buildSessionFromServer>[] = [];
 
         // Process all server sessions (merge with local if exists)
         for (const serverSession of serverSessions) {
           const serverId = serverSession.id as string;
           const localProject = localById.get(serverId);
-          const serverProject = buildProjectFromSession(
+          const serverProject = buildSessionFromServer(
             serverSession,
             localProject?.connectedServices,
           );
@@ -397,28 +397,28 @@ export function useSessionSync() {
         }
 
         // Keep local-only sessions (not yet synced to server)
-        for (const localProject of store.projects) {
+        for (const localProject of store.sessions) {
           if (!serverById.has(localProject.id)) {
-            merged.push(localProject as ReturnType<typeof buildProjectFromSession>);
+            merged.push(localProject as ReturnType<typeof buildSessionFromServer>);
           }
         }
 
         // Choose the best active project:
         // If current active project is a bare default with no messages and the server
         // returned sessions with actual content, switch to the most recently used one.
-        const currentInMerged = merged.find((p) => p.id === store.activeProjectId);
+        const currentInMerged = merged.find((p) => p.id === store.activeSessionId);
         const currentIsEmpty = currentInMerged && currentInMerged.messages.length === 0 && currentInMerged.totalCost === 0;
-        const serverHasContent = merged.some((p) => p.id !== store.activeProjectId && (p.messages.length > 0 || p.totalCost > 0));
+        const serverHasContent = merged.some((p) => p.id !== store.activeSessionId && (p.messages.length > 0 || p.totalCost > 0));
 
-        let nextActiveProjectId: string;
+        let nextActiveSessionId: string;
         if (currentInMerged && !currentIsEmpty) {
-          nextActiveProjectId = store.activeProjectId;
+          nextActiveSessionId = store.activeSessionId;
         } else if (currentIsEmpty && serverHasContent) {
           // Prefer a server session with content over an empty default
-          const best = merged.find((p) => p.id !== store.activeProjectId && (p.messages.length > 0 || p.totalCost > 0));
-          nextActiveProjectId = best?.id ?? store.activeProjectId;
+          const best = merged.find((p) => p.id !== store.activeSessionId && (p.messages.length > 0 || p.totalCost > 0));
+          nextActiveSessionId = best?.id ?? store.activeSessionId;
         } else {
-          nextActiveProjectId = merged[0]?.id ?? store.activeProjectId;
+          nextActiveSessionId = merged[0]?.id ?? store.activeSessionId;
         }
 
         // Clean up stale "signing" messages from interrupted streams.
@@ -434,13 +434,13 @@ export function useSessionSync() {
         }));
 
         useMeterStore.setState(() => ({
-          projects: cleanedMerged,
-          activeProjectId: nextActiveProjectId,
+          sessions: cleanedMerged,
+          activeSessionId: nextActiveSessionId,
         }));
         useMeterStore.getState().resetDailyIfNeeded();
         useMeterStore.getState().attemptDailySettlement();
 
-        useWorkspaceStore.getState().upsertCompaniesFromSessions(serverSessions, nextActiveProjectId);
+        useWorkspaceStore.getState().upsertWorkspacesFromSessions(serverSessions, nextActiveSessionId);
         useMeterStore.getState().fetchConnectionStatus();
 
         // Auto-fetch ALL remaining messages for sessions that have more than
@@ -455,7 +455,7 @@ export function useSessionSync() {
                 let hasMore = true;
                 while (hasMore) {
                   await useMeterStore.getState().fetchOlderMessages(sessionId);
-                  const proj = useMeterStore.getState().projects.find((p) => p.id === sessionId);
+                  const proj = useMeterStore.getState().sessions.find((p) => p.id === sessionId);
                   hasMore = proj?.hasOlderMessages ?? false;
                 }
               } catch {

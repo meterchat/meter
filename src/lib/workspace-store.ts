@@ -1,16 +1,16 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
-export interface Company {
+export interface Workspace {
   id: string;
   name: string;
   sessionId?: string;
   createdAt: number;
 }
 
-export interface Project {
+export interface Track {
   id: string;
-  companyId: string;
+  workspaceId: string;
   name: string;
   createdAt: number;
   // Branching
@@ -21,28 +21,28 @@ export interface Project {
 }
 
 interface WorkspaceState {
-  companies: Company[];
-  projects: Project[];
-  activeCompanyId: string | null;
-  activeProjectId: string | null;
+  workspaces: Workspace[];
+  tracks: Track[];
+  activeWorkspaceId: string | null;
+  activeTrackId: string | null;
 
   // Combined create+activate actions (single set call, no cascading renders)
-  createCompany: (name: string, sessionId?: string) => string;
-  renameCompany: (id: string, name: string) => void;
-  deleteCompany: (id: string) => void;
-  createProject: (companyId: string, name: string) => string;
-  setActiveCompany: (id: string) => void;
-  setActiveProject: (id: string | null) => void;
-  upsertCompaniesFromSessions: (
+  createWorkspace: (name: string, sessionId?: string) => string;
+  renameWorkspace: (id: string, name: string) => void;
+  deleteWorkspace: (id: string) => void;
+  createTrack: (workspaceId: string, name: string) => string;
+  setActiveWorkspace: (id: string) => void;
+  setActiveTrack: (id: string | null) => void;
+  upsertWorkspacesFromSessions: (
     sessions: Array<{ id: string; project_name?: string; name?: string; created_at?: string }>,
     activeSessionId?: string
   ) => void;
 
   // Branching actions
-  forkTrack: (companyId: string, parentTrackId: string | null, forkMessageId: string, names: string[]) => string[];
+  forkTrack: (workspaceId: string, parentTrackId: string | null, forkMessageId: string, names: string[]) => string[];
   commitSubtrack: (subtrackId: string) => void;
   closeAllSubtracks: (parentTrackId: string | null) => void;
-  getActiveSubtracks: (parentTrackId: string | null) => Project[];
+  getActiveSubtracks: (parentTrackId: string | null) => Track[];
 }
 
 function generateId() {
@@ -52,85 +52,85 @@ function generateId() {
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
-      companies: [],
-      projects: [],
-      activeCompanyId: null,
-      activeProjectId: null,
+      workspaces: [],
+      tracks: [],
+      activeWorkspaceId: null,
+      activeTrackId: null,
 
-      // Add company AND activate it in a single set() — no cascading renders
-      createCompany: (name: string, sessionId?: string) => {
+      // Add workspace AND activate it in a single set() — no cascading renders
+      createWorkspace: (name: string, sessionId?: string) => {
         const id = generateId();
         const session = sessionId ?? `ws_${generateId()}`;
         set((s) => ({
-          companies: [...s.companies, { id, name, sessionId: session, createdAt: Date.now() }],
-          activeCompanyId: id,
-          activeProjectId: null,
+          workspaces: [...s.workspaces, { id, name, sessionId: session, createdAt: Date.now() }],
+          activeWorkspaceId: id,
+          activeTrackId: null,
         }));
         return id;
       },
 
-      renameCompany: (id: string, name: string) => {
-        const company = get().companies.find((c) => c.id === id);
+      renameWorkspace: (id: string, name: string) => {
+        const workspace = get().workspaces.find((w) => w.id === id);
         set((s) => ({
-          companies: s.companies.map((c) =>
-            c.id === id ? { ...c, name } : c
+          workspaces: s.workspaces.map((w) =>
+            w.id === id ? { ...w, name } : w
           ),
         }));
-        // Sync renamed workspace name to the meter store project so it
+        // Sync renamed workspace name to the meter store session so it
         // persists to the server on the next session sync.
-        if (company?.sessionId) {
+        if (workspace?.sessionId) {
           // Lazy import to avoid circular dependency
           import("@/lib/store").then(({ useMeterStore }) => {
             useMeterStore.setState((s) => ({
-              projects: s.projects.map((p) =>
-                p.id === company.sessionId ? { ...p, name } : p
+              sessions: s.sessions.map((sess) =>
+                sess.id === workspace.sessionId ? { ...sess, name } : sess
               ),
             }));
           });
         }
       },
 
-      deleteCompany: (id: string) => {
+      deleteWorkspace: (id: string) => {
         set((s) => {
-          const companies = s.companies.filter((c) => c.id !== id);
-          const projects = s.projects.filter((p) => p.companyId !== id);
-          const activeCompanyId = s.activeCompanyId === id
-            ? companies[0]?.id ?? null
-            : s.activeCompanyId;
-          const activeProjectId = s.activeCompanyId === id ? null : s.activeProjectId;
-          return { companies, projects, activeCompanyId, activeProjectId };
+          const workspaces = s.workspaces.filter((w) => w.id !== id);
+          const tracks = s.tracks.filter((t) => t.workspaceId !== id);
+          const activeWorkspaceId = s.activeWorkspaceId === id
+            ? workspaces[0]?.id ?? null
+            : s.activeWorkspaceId;
+          const activeTrackId = s.activeWorkspaceId === id ? null : s.activeTrackId;
+          return { workspaces, tracks, activeWorkspaceId, activeTrackId };
         });
       },
 
-      // Add project AND activate it in a single set()
-      createProject: (companyId: string, name: string) => {
+      // Add track AND activate it in a single set()
+      createTrack: (workspaceId: string, name: string) => {
         const id = generateId();
         set((s) => ({
-          projects: [...s.projects, { id, companyId, name, createdAt: Date.now() }],
-          activeProjectId: id,
+          tracks: [...s.tracks, { id, workspaceId, name, createdAt: Date.now() }],
+          activeTrackId: id,
         }));
         return id;
       },
 
-      setActiveCompany: (id: string) => {
-        set({ activeCompanyId: id, activeProjectId: null });
+      setActiveWorkspace: (id: string) => {
+        set({ activeWorkspaceId: id, activeTrackId: null });
       },
 
-      setActiveProject: (id: string | null) => {
-        set({ activeProjectId: id });
+      setActiveTrack: (id: string | null) => {
+        set({ activeTrackId: id });
       },
 
       // --- Branching actions ---
 
-      forkTrack: (companyId: string, parentTrackId: string | null, forkMessageId: string, names: string[]) => {
+      forkTrack: (workspaceId: string, parentTrackId: string | null, forkMessageId: string, names: string[]) => {
         const ids: string[] = [];
         const now = Date.now();
-        const newProjects: Project[] = names.map((name) => {
+        const newTracks: Track[] = names.map((name) => {
           const id = generateId();
           ids.push(id);
           return {
             id,
-            companyId,
+            workspaceId,
             name,
             createdAt: now,
             parentTrackId: parentTrackId ?? undefined,
@@ -140,7 +140,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           };
         });
         set((s) => ({
-          projects: [...s.projects, ...newProjects],
+          tracks: [...s.tracks, ...newTracks],
           // Stay on main — don't auto-jump to first path.
           // FrozenMainBanner will appear so user can choose which path to enter.
         }));
@@ -149,47 +149,47 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       commitSubtrack: (subtrackId: string) => {
         set((s) => {
-          const subtrack = s.projects.find((p) => p.id === subtrackId);
+          const subtrack = s.tracks.find((t) => t.id === subtrackId);
           if (!subtrack || !subtrack.isSubtrack) return s;
           const parentId = subtrack.parentTrackId ?? null;
           // Archive all sibling subtracks (including the committed one)
-          const projects = s.projects.map((p) => {
-            if (p.isSubtrack && (p.parentTrackId ?? null) === parentId) {
-              return { ...p, status: "archived" as const };
+          const tracks = s.tracks.map((t) => {
+            if (t.isSubtrack && (t.parentTrackId ?? null) === parentId) {
+              return { ...t, status: "archived" as const };
             }
-            return p;
+            return t;
           });
-          return { projects, activeProjectId: parentId };
+          return { tracks, activeTrackId: parentId };
         });
       },
 
       closeAllSubtracks: (parentTrackId: string | null) => {
         set((s) => {
-          const projects = s.projects.map((p) => {
-            if (p.isSubtrack && (p.parentTrackId ?? null) === parentTrackId && p.status === "active") {
-              return { ...p, status: "archived" as const };
+          const tracks = s.tracks.map((t) => {
+            if (t.isSubtrack && (t.parentTrackId ?? null) === parentTrackId && t.status === "active") {
+              return { ...t, status: "archived" as const };
             }
-            return p;
+            return t;
           });
-          return { projects, activeProjectId: parentTrackId };
+          return { tracks, activeTrackId: parentTrackId };
         });
       },
 
-      getActiveSubtracks: (parentTrackId: string | null): Project[] => {
-        return get().projects.filter(
-          (p: Project) => p.isSubtrack && (p.parentTrackId ?? null) === parentTrackId && p.status === "active"
+      getActiveSubtracks: (parentTrackId: string | null): Track[] => {
+        return get().tracks.filter(
+          (t: Track) => t.isSubtrack && (t.parentTrackId ?? null) === parentTrackId && t.status === "active"
         );
       },
 
-      upsertCompaniesFromSessions: (sessions, activeSessionId) => {
+      upsertWorkspacesFromSessions: (sessions, activeSessionId) => {
         if (!sessions || sessions.length === 0) return;
         set((s) => {
-          const companies = [...s.companies];
+          const workspaces = [...s.workspaces];
           const norm = (v: string) => v.toLowerCase();
 
-          // Skip sessions that correspond to subtracks — they're projects, not companies
+          // Skip sessions that correspond to subtracks — they're tracks, not workspaces
           const subtrackSessionIds = new Set(
-            s.projects.filter((p) => p.isSubtrack).map((p) => p.id)
+            s.tracks.filter((t) => t.isSubtrack).map((t) => t.id)
           );
 
           for (const session of sessions) {
@@ -199,23 +199,23 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             const createdAtRaw = session.created_at ? Date.parse(session.created_at) : NaN;
             const createdAt = Number.isFinite(createdAtRaw) ? createdAtRaw : Date.now();
 
-            let idx = companies.findIndex((c) => c.sessionId === sessionId);
+            let idx = workspaces.findIndex((w) => w.sessionId === sessionId);
             if (idx === -1) {
-              idx = companies.findIndex(
-                (c) => !c.sessionId && norm(c.name) === norm(name)
+              idx = workspaces.findIndex(
+                (w) => !w.sessionId && norm(w.name) === norm(name)
               );
             }
 
             if (idx === -1) {
-              companies.push({
+              workspaces.push({
                 id: generateId(),
                 name,
                 sessionId,
                 createdAt,
               });
             } else {
-              const existing = companies[idx];
-              companies[idx] = {
+              const existing = workspaces[idx];
+              workspaces[idx] = {
                 ...existing,
                 // Keep locally renamed name — only use server name if no local name exists
                 name: existing.name || name,
@@ -224,45 +224,75 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             }
           }
 
-          let activeCompanyId = s.activeCompanyId;
+          let activeWorkspaceId = s.activeWorkspaceId;
           if (activeSessionId) {
-            const active = companies.find((c) => c.sessionId === activeSessionId);
-            if (active) activeCompanyId = active.id;
+            const active = workspaces.find((w) => w.sessionId === activeSessionId);
+            if (active) activeWorkspaceId = active.id;
           }
-          if (!activeCompanyId && companies.length > 0) {
-            activeCompanyId = companies[0].id;
+          if (!activeWorkspaceId && workspaces.length > 0) {
+            activeWorkspaceId = workspaces[0].id;
           }
 
-          return { companies, activeCompanyId };
+          return { workspaces, activeWorkspaceId };
         });
       },
     }),
     {
       name: "workspace-store-v1",
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
-        companies: s.companies,
-        projects: s.projects,
-        activeCompanyId: s.activeCompanyId,
-        activeProjectId: s.activeProjectId,
+        workspaces: s.workspaces,
+        tracks: s.tracks,
+        activeWorkspaceId: s.activeWorkspaceId,
+        activeTrackId: s.activeTrackId,
       }),
+      // Migrate old localStorage shape (companies/projects) → new (workspaces/tracks)
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>;
+        if (version < 2) {
+          // Rename companies → workspaces
+          if (state.companies && !state.workspaces) {
+            state.workspaces = state.companies;
+            delete state.companies;
+          }
+          // Rename activeCompanyId → activeWorkspaceId
+          if (state.activeCompanyId !== undefined && state.activeWorkspaceId === undefined) {
+            state.activeWorkspaceId = state.activeCompanyId;
+            delete state.activeCompanyId;
+          }
+          // Rename projects → tracks, companyId → workspaceId
+          const tracks = (state.tracks || state.projects || []) as Record<string, unknown>[];
+          state.tracks = tracks.map((t) => ({
+            ...t,
+            workspaceId: t.workspaceId || t.companyId,
+          }));
+          delete state.projects;
+          // Rename activeProjectId → activeTrackId
+          if (state.activeProjectId !== undefined && state.activeTrackId === undefined) {
+            state.activeTrackId = state.activeProjectId;
+            delete state.activeProjectId;
+          }
+        }
+        return state as WorkspaceState;
+      },
     }
   )
 );
 
 /**
- * Resolve a potentially-subtrack project ID to its parent workspace project ID.
+ * Resolve a potentially-subtrack track ID to its parent workspace session ID.
  * If the given ID belongs to a subtrack, returns the parent workspace's sessionId
- * (which is the meter-store project ID for the workspace). Otherwise returns the
+ * (which is the meter-store session ID for the workspace). Otherwise returns the
  * original ID unchanged.
  */
-export function resolveWorkspaceProjectId(projectId: string | null): string | null {
-  if (!projectId) return null;
+export function resolveWorkspaceSessionId(sessionId: string | null): string | null {
+  if (!sessionId) return null;
   const state = useWorkspaceStore.getState();
-  const wsProject = state.projects.find((p) => p.id === projectId);
-  if (wsProject?.isSubtrack) {
-    const company = state.companies.find((c) => c.id === wsProject.companyId);
-    if (company?.sessionId) return company.sessionId;
+  const track = state.tracks.find((t) => t.id === sessionId);
+  if (track?.isSubtrack) {
+    const workspace = state.workspaces.find((w) => w.id === track.workspaceId);
+    if (workspace?.sessionId) return workspace.sessionId;
   }
-  return projectId;
+  return sessionId;
 }

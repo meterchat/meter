@@ -1,40 +1,40 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useWorkspaceStore, Project } from "@/lib/workspace-store";
+import { useWorkspaceStore, Track } from "@/lib/workspace-store";
 import { useMeterStore } from "@/lib/store";
 
 /** Path colors — teal, indigo, amber, rose for up to 4 paths */
 const PATH_DOT_COLORS = ["bg-teal-500", "bg-indigo-500", "bg-amber-500", "bg-rose-500"];
 const PATH_DOT_MUTED = ["bg-teal-500/30", "bg-indigo-500/30", "bg-amber-500/30", "bg-rose-500/30"];
 
-interface ProjectSwitcherProps {
-  activeProject: Project | null;
-  companyId: string;
+interface TrackSwitcherProps {
+  activeTrack: Track | null;
+  workspaceId: string;
 }
 
-export function ProjectSwitcher({ activeProject, companyId }: ProjectSwitcherProps) {
+export function TrackSwitcher({ activeTrack, workspaceId }: TrackSwitcherProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const allProjects = useWorkspaceStore((s) => s.projects);
-  const setActiveProject = useWorkspaceStore((s) => s.setActiveProject);
+  const allTracks = useWorkspaceStore((s) => s.tracks);
+  const setActiveTrack = useWorkspaceStore((s) => s.setActiveTrack);
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
 
   // Active subtracks sorted by creation (for consistent color assignment)
   const activeSubtracks = useMemo(
-    () => allProjects
-      .filter((p) => p.companyId === companyId && p.isSubtrack && p.status === "active")
+    () => allTracks
+      .filter((t) => t.workspaceId === workspaceId && t.isSubtrack && t.status === "active")
       .sort((a, b) => a.createdAt - b.createdAt),
-    [allProjects, companyId]
+    [allTracks, workspaceId]
   );
 
   // Archived subtracks
   const archivedSubtracks = useMemo(
-    () => allProjects.filter(
-      (p) => p.companyId === companyId && p.isSubtrack && p.status === "archived"
+    () => allTracks.filter(
+      (t) => t.workspaceId === workspaceId && t.isSubtrack && t.status === "archived"
     ),
-    [allProjects, companyId]
+    [allTracks, workspaceId]
   );
 
   // Is main frozen (has active subtracks)?
@@ -55,7 +55,7 @@ export function ProjectSwitcher({ activeProject, companyId }: ProjectSwitcherPro
   }, [open]);
 
   const handleSelect = (id: string | null) => {
-    setActiveProject(id);
+    setActiveTrack(id);
     setOpen(false);
   };
 
@@ -67,9 +67,9 @@ export function ProjectSwitcher({ activeProject, companyId }: ProjectSwitcherPro
   };
 
   // Determine display label
-  const displayLabel = activeProject?.isSubtrack
-    ? `↳ ${activeProject.name}`
-    : activeProject?.name ?? "Main";
+  const displayLabel = activeTrack?.isSubtrack
+    ? `↳ ${activeTrack.name}`
+    : activeTrack?.name ?? "Main";
 
   return (
     <div ref={ref} className="relative">
@@ -98,12 +98,12 @@ export function ProjectSwitcher({ activeProject, companyId }: ProjectSwitcherPro
           <button
             onClick={() => handleSelect(null)}
             className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${
-              !activeProject
+              !activeTrack
                 ? "bg-foreground/10 text-foreground"
                 : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${!activeProject ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${!activeTrack ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
             Main
             {isMainFrozen && (
               <span className="ml-auto font-mono text-[8px] text-muted-foreground/30">forked</span>
@@ -116,23 +116,23 @@ export function ProjectSwitcher({ activeProject, companyId }: ProjectSwitcherPro
               <div className="mt-2 mb-1 font-mono text-[9px] text-muted-foreground/40 uppercase tracking-wider px-2">
                 Exploring
               </div>
-              {activeSubtracks.map((p, idx) => (
+              {activeSubtracks.map((t, idx) => (
                 <button
-                  key={p.id}
-                  onClick={() => handleSelect(p.id)}
+                  key={t.id}
+                  onClick={() => handleSelect(t.id)}
                   className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${
-                    p.id === activeProject?.id
+                    t.id === activeTrack?.id
                       ? "bg-foreground/10 text-foreground"
                       : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
                   }`}
                 >
                   <span className="text-muted-foreground/40 text-[10px]">↳</span>
                   <span className={`h-1.5 w-1.5 rounded-full ${
-                    p.id === activeProject?.id
+                    t.id === activeTrack?.id
                       ? (PATH_DOT_COLORS[idx % PATH_DOT_COLORS.length])
                       : (PATH_DOT_MUTED[idx % PATH_DOT_MUTED.length])
                   }`} />
-                  {p.name}
+                  {t.name}
                 </button>
               ))}
             </>
@@ -154,19 +154,19 @@ export function ProjectSwitcher({ activeProject, companyId }: ProjectSwitcherPro
                 </svg>
                 Archived ({archivedSubtracks.length})
               </button>
-              {showArchived && archivedSubtracks.map((p) => (
+              {showArchived && archivedSubtracks.map((t) => (
                 <button
-                  key={p.id}
-                  onClick={() => handleSelect(p.id)}
+                  key={t.id}
+                  onClick={() => handleSelect(t.id)}
                   className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[10px] transition-colors ${
-                    p.id === activeProject?.id
+                    t.id === activeTrack?.id
                       ? "bg-foreground/5 text-muted-foreground/60"
                       : "text-muted-foreground/30 hover:bg-foreground/5 hover:text-muted-foreground/50"
                   }`}
                 >
                   <span className="text-muted-foreground/20 text-[10px]">↳</span>
                   <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/15" />
-                  <span className="truncate">{p.name}</span>
+                  <span className="truncate">{t.name}</span>
                   <span className="ml-auto text-[8px] text-muted-foreground/20">archived</span>
                 </button>
               ))}
@@ -174,7 +174,7 @@ export function ProjectSwitcher({ activeProject, companyId }: ProjectSwitcherPro
           )}
 
           {/* Explore paths button — manual trigger */}
-          {!isMainFrozen && !activeProject?.isSubtrack && (
+          {!isMainFrozen && !activeTrack?.isSubtrack && (
             <>
               <div className="h-px bg-border/30 my-1.5" />
               <button

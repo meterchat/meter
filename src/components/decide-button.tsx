@@ -6,7 +6,7 @@ export function DecideButton() {
   const decisionMode = useMeterStore((s) => s.decisionMode);
   const setDecisionMode = useMeterStore((s) => s.setDecisionMode);
   const isStreaming = useMeterStore((s) => {
-    const p = s.projects.find((p) => p.id === s.activeProjectId) ?? s.projects[0];
+    const p = s.sessions.find((p) => p.id === s.activeSessionId) ?? s.sessions[0];
     return p?.isStreaming ?? false;
   });
 

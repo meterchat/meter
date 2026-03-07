@@ -57,9 +57,9 @@ type Phase = "idle" | "resetting" | "streaming" | "settling" | "locked";
 
 /* ── MeterPill ─────────────────────────────────────────────────────── */
 export function MeterPill() {
-  const { projects, activeProjectId } = useMeterStore();
+  const { sessions, activeSessionId } = useMeterStore();
   const active =
-    projects.find((p) => p.id === activeProjectId) ?? projects[0];
+    sessions.find((p) => p.id === activeSessionId) ?? sessions[0];
   const isStreaming = active?.isStreaming ?? false;
   const rawCost = active?.currentMessageCost ?? 0;
 
@@ -68,18 +68,18 @@ export function MeterPill() {
   const maxCostRef = useRef(0);
   const wasStreamingRef = useRef(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const prevProjectRef = useRef(activeProjectId);
+  const prevProjectRef = useRef(activeSessionId);
 
   /* Reset when switching workspaces */
   useEffect(() => {
-    if (activeProjectId !== prevProjectRef.current) {
+    if (activeSessionId !== prevProjectRef.current) {
       setPhase("idle");
       setDisplayCost(0);
       maxCostRef.current = 0;
       wasStreamingRef.current = false;
-      prevProjectRef.current = activeProjectId;
+      prevProjectRef.current = activeSessionId;
     }
-  }, [activeProjectId]);
+  }, [activeSessionId]);
 
   /* Detect streaming start / stop */
   useEffect(() => {
