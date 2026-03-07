@@ -4,6 +4,7 @@ import { streamWithFallback, type Send } from "@/lib/fallback";
 import { runDebate } from "@/lib/debate";
 import { runDissection } from "@/lib/dissect";
 import { getSupabaseServer } from "@/lib/supabase";
+import { getModel } from "@/lib/models";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
 import {
   serverTrackChatCompleted,
@@ -151,12 +152,24 @@ export async function POST(req: NextRequest) {
       cost?: number;
       timestamp: number;
       debateTrace?: unknown;
+      dissectorTrace?: unknown;
       thinking?: string;
       receiptStatus?: string;
     }) => {
       try {
         const supabase = getSupabaseServer();
         const dbSessionId = projectId?.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
+
+        // Compute cost server-side from tokens + model pricing if not provided.
+        // This ensures the cost field is populated even if the client disconnects.
+        let cost = msg.cost ?? null;
+        if (cost == null && msg.model && (msg.tokensIn || msg.tokensOut)) {
+          try {
+            const modelInfo = getModel(msg.model);
+            cost = (msg.tokensIn ?? 0) * modelInfo.inputPrice + (msg.tokensOut ?? 0) * modelInfo.outputPrice;
+          } catch { /* unknown model — leave cost null */ }
+        }
+
         await supabase.from("chat_messages").upsert({
           id: msg.id,
           session_id: dbSessionId,
@@ -165,10 +178,11 @@ export async function POST(req: NextRequest) {
           model: msg.model ?? null,
           tokens_in: msg.tokensIn ?? null,
           tokens_out: msg.tokensOut ?? null,
-          cost: msg.cost ?? null,
+          cost,
           settled: false,
           receipt_status: msg.receiptStatus ?? null,
           debate_trace: msg.debateTrace ?? null,
+          dissector_trace: msg.dissectorTrace ?? null,
           thinking: msg.thinking ?? null,
           timestamp: msg.timestamp,
         }, { onConflict: "id" });
@@ -193,6 +207,11 @@ export async function POST(req: NextRequest) {
     // Track the full assistant response for server-side save after completion
     let fullAssistantContent = "";
     let fullThinkingContent = "";
+    // Accumulate debate/dissector traces server-side so they survive page refresh
+    const serverDebateTrace: { model: string; phase: string; content: string }[] = [];
+    let currentDebateTurn: { model: string; phase: string; content: string } | null = null;
+    const serverDissectorTrace: { persona: string; content: string }[] = [];
+    let currentDissectorTurn: { persona: string; content: string } | null = null;
     // Track client connection state — when the client disconnects (e.g. page
     // refresh), we keep the upstream API call running and accumulate the full
     // response so we can save it to DB. Only the SSE push is skipped.
@@ -208,6 +227,24 @@ export async function POST(req: NextRequest) {
           }
           if (data.type === "thinking_delta" && typeof data.content === "string") {
             fullThinkingContent += data.content;
+          }
+          // Accumulate debate trace server-side (survives client disconnect)
+          if (data.type === "debate_turn_start") {
+            currentDebateTurn = { model: data.model as string, phase: data.phase as string, content: "" };
+          } else if (data.type === "debate_turn_delta" && currentDebateTurn) {
+            currentDebateTurn.content += data.content as string;
+          } else if (data.type === "debate_turn_end" && currentDebateTurn) {
+            serverDebateTrace.push({ ...currentDebateTurn });
+            currentDebateTurn = null;
+          }
+          // Accumulate dissector trace server-side
+          if (data.type === "dissector_turn_start") {
+            currentDissectorTurn = { persona: data.persona as string, content: "" };
+          } else if (data.type === "dissector_turn_delta" && currentDissectorTurn) {
+            currentDissectorTurn.content += data.content as string;
+          } else if (data.type === "dissector_turn_end" && currentDissectorTurn) {
+            serverDissectorTrace.push({ ...currentDissectorTurn });
+            currentDissectorTurn = null;
           }
           // Try to send to client — if disconnected, just skip silently
           if (!clientDisconnected) {
@@ -231,7 +268,7 @@ export async function POST(req: NextRequest) {
             send({ type: "error", code: "debate_failed", model: "debate" });
             send({ type: "done", actualModel: "debate" });
           }
-          // Save debate assistant message
+          // Save debate assistant message (with trace + cost)
           if (assistantMessageId && projectId && fullAssistantContent) {
             await saveMessageToDB({
               id: assistantMessageId,
@@ -241,6 +278,7 @@ export async function POST(req: NextRequest) {
               model: "debate",
               receiptStatus: "signed",
               timestamp: Date.now(),
+              debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
             });
           }
           if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
@@ -256,7 +294,7 @@ export async function POST(req: NextRequest) {
             send({ type: "error", code: "dissection_failed", model: "dissect" });
             send({ type: "done", actualModel: "dissect" });
           }
-          // Save dissect assistant message
+          // Save dissect assistant message (with trace)
           if (assistantMessageId && projectId && fullAssistantContent) {
             await saveMessageToDB({
               id: assistantMessageId,
@@ -266,6 +304,7 @@ export async function POST(req: NextRequest) {
               model: "dissect",
               receiptStatus: "signed",
               timestamp: Date.now(),
+              dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
             });
           }
           if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
