@@ -425,31 +425,44 @@ function getProjectRef(url: string): string | null {
   return match?.[1] ?? null;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function runQuery(
   ref: string,
   accessToken: string,
   sql: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const maxRetries = 4;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
-  const res = await fetch(
-    `https://api.supabase.com/v1/projects/${ref}/database/query`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
+    const res = await fetch(
+      `https://api.supabase.com/v1/projects/${ref}/database/query`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ query: sql }),
+        signal: controller.signal,
       },
-      body: JSON.stringify({ query: sql }),
-      signal: controller.signal,
-    },
-  );
+    );
 
-  clearTimeout(timeout);
-  if (res.ok) return { ok: true };
-  const errText = await res.text().catch(() => "unknown");
-  return { ok: false, error: `${res.status}: ${errText}` };
+    clearTimeout(timeout);
+    if (res.ok) return { ok: true };
+
+    // Retry on 429 with exponential backoff
+    if (res.status === 429 && attempt < maxRetries) {
+      await sleep(2000 * Math.pow(2, attempt)); // 2s, 4s, 8s, 16s
+      continue;
+    }
+
+    const errText = await res.text().catch(() => "unknown");
+    return { ok: false, error: `${res.status}: ${errText}` };
+  }
+  return { ok: false, error: "max retries exceeded" };
 }
 
 export async function GET() {
@@ -488,12 +501,22 @@ export async function GET() {
     );
   }
 
+  // Batch statements into groups of ~10 to reduce API calls and avoid 429s.
+  // Each batch is joined with ";\n" and sent as a single query.
+  const BATCH_SIZE = 10;
+  const batches: string[][] = [];
+  for (let i = 0; i < STATEMENTS.length; i += BATCH_SIZE) {
+    batches.push(STATEMENTS.slice(i, i + BATCH_SIZE));
+  }
+
   const results: { sql: string; ok: boolean; error?: string }[] = [];
 
-  for (const sql of STATEMENTS) {
-    const label = sql.replace(/\s+/g, " ").trim().slice(0, 80);
+  for (let b = 0; b < batches.length; b++) {
+    const batch = batches[b];
+    const combined = batch.join(";\n");
+    const label = `batch ${b + 1}/${batches.length} (${batch.length} stmts)`;
     try {
-      const result = await runQuery(ref, accessToken, sql);
+      const result = await runQuery(ref, accessToken, combined);
       results.push({ sql: label, ...result });
     } catch (err) {
       results.push({
@@ -502,6 +525,8 @@ export async function GET() {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+    // Small delay between batches to avoid rate limits
+    if (b < batches.length - 1) await sleep(500);
   }
 
   const allOk = results.every((r) => r.ok);
