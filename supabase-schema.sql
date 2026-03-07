@@ -122,24 +122,8 @@ create table if not exists chat_messages (
 -- alter table chat_messages add column if not exists fork_resolution text;
 
 -- =============================================
--- WORKSPACES
+-- DECISIONS
 -- =============================================
-
--- Workspaces
-create table if not exists workspaces (
-  id text primary key,
-  user_id text not null,
-  name text not null,
-  created_at timestamptz default now()
-);
-
--- Workspace projects / tracks
-create table if not exists workspace_projects (
-  id text primary key,
-  workspace_id text not null references workspaces(id) on delete cascade,
-  name text not null,
-  created_at timestamptz default now()
-);
 
 -- Decisions
 create table if not exists decisions (
@@ -294,8 +278,7 @@ create index if not exists idx_oauth_tokens_workspace on oauth_tokens(workspace_
 create index if not exists idx_chat_messages_session on chat_messages(session_id);
 create index if not exists idx_chat_messages_timestamp on chat_messages(timestamp);
 create index if not exists idx_chat_sessions_user on chat_sessions(user_id);
-create index if not exists idx_workspaces_user on workspaces(user_id);
-create index if not exists idx_workspace_projects_workspace on workspace_projects(workspace_id);
+-- workspaces & workspace_projects indexes removed (tables dropped)
 create index if not exists idx_decisions_user on decisions(user_id);
 create index if not exists idx_decisions_user_session on decisions(user_id, session_id);
 create index if not exists idx_artifacts_user_session on artifacts(user_id, session_id);

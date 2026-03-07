@@ -71,11 +71,6 @@ export async function POST(req: NextRequest) {
     }
 
     await supabase.from("decisions").delete().eq("user_id", userId);
-    await supabase.from("workspace_projects").delete().in(
-      "workspace_id",
-      (await supabase.from("workspaces").select("id").eq("user_id", userId)).data?.map((w: { id: string }) => w.id) ?? []
-    );
-    await supabase.from("workspaces").delete().eq("user_id", userId);
     await supabase.from("settlement_history").delete().eq("user_id", userId);
 
     // Delete all auth sessions

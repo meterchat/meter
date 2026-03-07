@@ -54,12 +54,15 @@ Account (user identity, passkey auth via meter_users)
 The database columns use legacy names that don't match the TypeScript layer.
 This is intentional — renaming SQL columns would require a migration and is not needed.
 
+**`chat_sessions` is the workspace table.** Workspace identity (name, spend limits, cost
+tracking) lives directly on `chat_sessions` rows. The `workspaces` and `workspace_projects`
+tables have been removed — they were never populated.
+
 | DB Name | Actual Concept |
 |---------|---------------|
 | `project_id` column | Session ID (in decisions, artifacts tables) |
 | `project_name` column | Session name (in chat_sessions table) |
 | `workspace_id` column | Workspace ID (in billing, oauth, settlement tables) |
-| `workspace_projects` table | Workspace-Track links (not actively used) |
 
 ## UI Labels (what users see)
 
