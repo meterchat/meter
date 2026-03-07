@@ -92,6 +92,16 @@ export const MODELS: ModelConfig[] = [
     quality: 59,  // GPQA Diamond
     speed: 50,
   },
+  {
+    id: "minimax/minimax-m2.5",
+    name: "MiniMax M2.5",
+    provider: "MiniMax",
+    color: "#FF6B35",
+    inputPrice: (0.30 / 1_000_000),
+    outputPrice: (1.20 / 1_000_000),
+    quality: 85,  // GPQA Diamond
+    speed: 100,
+  },
 ];
 
 /** Virtual model entry for debate receipts — not in the picker */
