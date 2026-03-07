@@ -243,8 +243,14 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
         </svg>
       </button>
 
-      {open && stats && (
+      {open && (
         <div className="absolute top-full right-0 z-50 mt-2 w-[340px] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
+          {!stats ? (
+            <div className="px-4 py-6 text-center font-mono text-[11px] text-muted-foreground/40">
+              loading stats...
+            </div>
+          ) : (
+          <>
           {/* Spend Overview */}
           <div className="px-4 py-3">
             <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
@@ -343,6 +349,8 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
             <StatRow label="Debates" value={stats.counts.debates.toString()} />
             <StatRow label="Forks" value={stats.counts.forks.toString()} />
           </div>
+          </>
+          )}
         </div>
       )}
     </div>
