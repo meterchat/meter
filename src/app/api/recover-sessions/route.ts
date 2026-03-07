@@ -273,6 +273,32 @@ export async function GET() {
   }
 }
 
+/**
+ * POST /api/recover-sessions — Execute recovery with explicit mappings.
+ *
+ * Body format:
+ * {
+ *   "confirm": true,
+ *   "mappings": [
+ *     { "sourceSessionId": "cul6cds6", "targetSessionId": "meter" },
+ *     { "sourceSessionId": "wl7hp31o", "targetSessionId": "meter" },
+ *     { "sourceSessionId": "h2j6w3w1", "targetSessionId": "meter" },
+ *     { "sourceSessionId": "mvqw4hq4", "targetSessionId": "robomart" },
+ *     { "sourceSessionId": "ajx5a1cd", "targetSessionId": "ws_mm6onbug_fhi7vq" }
+ *   ],
+ *   "deleteEmpty": ["0ov13alt", "x8w7nh2t", "9b5gh6qn"]
+ * }
+ *
+ * Each mapping moves ALL messages from sourceSessionId → targetSessionId.
+ * Messages keep their original IDs and timestamps, so they interleave
+ * correctly in chronological order.
+ *
+ * After moving, source sessions are marked is_subtrack=true but NOT deleted.
+ * Use "deleteEmpty" to soft-delete specific empty/phantom sessions.
+ *
+ * POST with { "confirm": true, "cleanup": ["session1", "session2"] }
+ * to soft-delete sessions after you've verified the migration worked.
+ */
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
@@ -282,129 +308,160 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     if (!body.confirm) {
       return NextResponse.json({
-        error: "Must pass { confirm: true } to execute recovery",
+        error: 'Must pass { "confirm": true } to execute recovery',
       }, { status: 400 });
     }
 
-    const targetWorkspace = body.workspace?.toLowerCase().trim();
     const supabase = getSupabaseServer();
-    const summaries = await buildSessionSummaries(supabase, userId);
-    const groups = groupByWorkspace(summaries);
-
     const log: string[] = [];
     let totalMessagesMoved = 0;
     let sessionsMarkedSubtrack = 0;
     let sessionsDeleted = 0;
 
-    for (const group of groups) {
-      // Skip if targeting specific workspace and this isn't it
-      if (targetWorkspace && group.name.toLowerCase() !== targetWorkspace) continue;
-      if (!group.mainSession || group.otherSessions.length === 0) continue;
+    // --- Phase 1: Move messages via explicit mappings ---
+    const mappings: Array<{ sourceSessionId: string; targetSessionId: string }> =
+      body.mappings ?? [];
 
-      const mainScopedId = scopedId(userId, group.mainSession.id);
-      log.push(`\n=== Workspace: "${group.name}" ===`);
-      log.push(`Main session: ${group.mainSession.id} (${group.mainSession.messageCount} messages)`);
+    for (const { sourceSessionId, targetSessionId } of mappings) {
+      const sourceScopedId = scopedId(userId, sourceSessionId);
+      const targetScopedId = scopedId(userId, targetSessionId);
 
-      for (const other of group.otherSessions) {
-        const otherScopedId = scopedId(userId, other.id);
-        log.push(`\nProcessing session: ${other.id} (${other.messageCount} messages, subtrack=${other.isSubtrack})`);
+      log.push(`\n--- Moving: ${sourceSessionId} → ${targetSessionId} ---`);
 
-        if (other.messageCount === 0) {
-          // Empty session — soft-delete it
-          await supabase
-            .from("chat_sessions")
-            .update({ deleted_at: new Date().toISOString() })
-            .eq("id", otherScopedId);
-          log.push(`  → Soft-deleted (empty session)`);
-          sessionsDeleted++;
-          continue;
-        }
+      // Verify source session exists
+      const { data: sourceSession } = await supabase
+        .from("chat_sessions")
+        .select("id, workspace_name, project_name")
+        .eq("id", sourceScopedId)
+        .single();
 
-        // Get all messages from this session
-        const allMessages: Array<{ id: string; timestamp: number }> = [];
-        let offset = 0;
-        const PAGE = 1000;
-        while (true) {
-          const { data: msgs } = await supabase
-            .from("chat_messages")
-            .select("id, timestamp")
-            .eq("session_id", otherScopedId)
-            .order("timestamp", { ascending: true })
-            .range(offset, offset + PAGE - 1);
-          if (!msgs || msgs.length === 0) break;
-          allMessages.push(...(msgs as Array<{ id: string; timestamp: number }>));
-          if (msgs.length < PAGE) break;
-          offset += PAGE;
-        }
-
-        // Check which of these messages also exist in the main session
-        // (these are the stolen messages — same ID, wrong session_id)
-        // Since upsert(onConflict: "id") means each message ID exists exactly once,
-        // if a message is in the "other" session it's NOT in main anymore.
-        // We need to move messages that were originally part of the main conversation.
-
-        // Strategy: Move ALL messages from phantom sessions back to main.
-        // The phantom sessions were created by the bug — they shouldn't exist.
-        // Exception: if the session is a legitimate subtrack with its own
-        // post-fork messages, we only move pre-fork messages.
-
-        // For non-subtrack phantom sessions: move all messages to main
-        // For subtrack sessions: these might have legitimate post-fork messages
-        //   - but they ALSO might have stolen pre-fork messages via the upsert bug
-        //   - we reassign ALL to main since the subtrack should only store post-fork
-        //     messages on the server anyway (fixed by the sync patch)
-
-        // Move messages in batches
-        let moved = 0;
-        for (let i = 0; i < allMessages.length; i += 100) {
-          const batch = allMessages.slice(i, i + 100);
-          const ids = batch.map((m) => m.id);
-
-          const { error: moveErr } = await supabase
-            .from("chat_messages")
-            .update({ session_id: mainScopedId })
-            .in("id", ids);
-
-          if (moveErr) {
-            log.push(`  ✗ Error moving batch ${i}: ${moveErr.message}`);
-          } else {
-            moved += ids.length;
-          }
-        }
-
-        totalMessagesMoved += moved;
-        log.push(`  → Moved ${moved} messages to main session`);
-
-        // Mark this session as a subtrack of main (so it won't create phantom workspaces)
-        await supabase
-          .from("chat_sessions")
-          .update({
-            is_subtrack: true,
-            parent_session_id: mainScopedId,
-          })
-          .eq("id", otherScopedId);
-
-        // If it's now empty, soft-delete it
-        if (moved === other.messageCount) {
-          await supabase
-            .from("chat_sessions")
-            .update({ deleted_at: new Date().toISOString() })
-            .eq("id", otherScopedId);
-          log.push(`  → Soft-deleted (all messages moved)`);
-          sessionsDeleted++;
-        } else {
-          sessionsMarkedSubtrack++;
-          log.push(`  → Marked as subtrack of ${group.mainSession.id}`);
-        }
+      if (!sourceSession) {
+        log.push(`  ✗ Source session "${sourceSessionId}" not found, skipping`);
+        continue;
       }
 
-      // Verify: count messages now in main session
-      const { count: finalCount } = await supabase
+      // Verify target session exists
+      const { data: targetSession } = await supabase
+        .from("chat_sessions")
+        .select("id, workspace_name, project_name")
+        .eq("id", targetScopedId)
+        .single();
+
+      if (!targetSession) {
+        log.push(`  ✗ Target session "${targetSessionId}" not found, skipping`);
+        continue;
+      }
+
+      // Count messages before move
+      const { count: beforeCount } = await supabase
         .from("chat_messages")
         .select("id", { count: "exact", head: true })
-        .eq("session_id", mainScopedId);
+        .eq("session_id", sourceScopedId);
 
-      log.push(`\nMain session "${group.mainSession.id}" now has ${finalCount} messages`);
+      log.push(`  Source has ${beforeCount ?? 0} messages`);
+
+      if (!beforeCount || beforeCount === 0) {
+        log.push(`  → No messages to move, skipping`);
+        continue;
+      }
+
+      // Move all messages in batches (paginate to handle >1000)
+      let moved = 0;
+      let offset = 0;
+      const PAGE = 500;
+
+      while (true) {
+        // Get batch of message IDs from source
+        const { data: batch } = await supabase
+          .from("chat_messages")
+          .select("id")
+          .eq("session_id", sourceScopedId)
+          .order("timestamp", { ascending: true })
+          .range(offset, offset + PAGE - 1);
+
+        if (!batch || batch.length === 0) break;
+
+        const ids = batch.map((m) => m.id as string);
+
+        const { error: moveErr } = await supabase
+          .from("chat_messages")
+          .update({ session_id: targetScopedId })
+          .in("id", ids);
+
+        if (moveErr) {
+          log.push(`  ✗ Error moving batch at offset ${offset}: ${moveErr.message}`);
+          // Don't increment offset — the failed batch is still in source
+          break;
+        }
+
+        moved += ids.length;
+        // Don't increment offset — moved messages are gone from source,
+        // so next query at offset 0 gets the next batch
+      }
+
+      totalMessagesMoved += moved;
+      log.push(`  → Moved ${moved}/${beforeCount} messages`);
+
+      // Mark source as subtrack of target (prevents phantom workspace recreation)
+      await supabase
+        .from("chat_sessions")
+        .update({
+          is_subtrack: true,
+          parent_session_id: targetScopedId,
+        })
+        .eq("id", sourceScopedId);
+
+      sessionsMarkedSubtrack++;
+      log.push(`  → Marked source as subtrack of target`);
+
+      // Verify target message count after move
+      const { count: targetAfter } = await supabase
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("session_id", targetScopedId);
+
+      log.push(`  → Target "${targetSessionId}" now has ${targetAfter} messages`);
+    }
+
+    // --- Phase 2: Delete empty/phantom sessions ---
+    const deleteEmpty: string[] = body.deleteEmpty ?? [];
+
+    for (const sessionId of deleteEmpty) {
+      const dbId = scopedId(userId, sessionId);
+
+      // Safety: verify session has 0 messages before deleting
+      const { count } = await supabase
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("session_id", dbId);
+
+      if (count && count > 0) {
+        log.push(`\n⚠ Session "${sessionId}" has ${count} messages — NOT deleting (safety check)`);
+        continue;
+      }
+
+      await supabase
+        .from("chat_sessions")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", dbId);
+
+      sessionsDeleted++;
+      log.push(`\n→ Soft-deleted empty session "${sessionId}"`);
+    }
+
+    // --- Phase 3: Cleanup previously-migrated sessions ---
+    const cleanup: string[] = body.cleanup ?? [];
+
+    for (const sessionId of cleanup) {
+      const dbId = scopedId(userId, sessionId);
+
+      await supabase
+        .from("chat_sessions")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", dbId);
+
+      sessionsDeleted++;
+      log.push(`\n→ Soft-deleted migrated session "${sessionId}"`);
     }
 
     return NextResponse.json({
