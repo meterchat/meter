@@ -155,9 +155,9 @@ export function Inspector() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {inspectorTab === "decisions" && <DecisionsTab activeProjectId={activeSession?.id ?? null} />}
-        {inspectorTab === "documents" && <BlueprintTab activeProjectId={activeSession?.id ?? null} />}
-        {inspectorTab === "timeline" && <TimelineTab activeProjectId={activeSession?.id ?? null} />}
+        {inspectorTab === "decisions" && <DecisionsTab activeSessionId={activeSession?.id ?? null} />}
+        {inspectorTab === "documents" && <BlueprintTab activeSessionId={activeSession?.id ?? null} />}
+        {inspectorTab === "timeline" && <TimelineTab activeSessionId={activeSession?.id ?? null} />}
       </div>
 
       {activeWorkspace && (
@@ -467,12 +467,12 @@ function formatPinTime(ts: number) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
+function PinsSection({ activeSessionId }: { activeSessionId: string | null }) {
   const sessions = useMeterStore((s) => s.sessions);
   const togglePinMessage = useMeterStore((s) => s.togglePinMessage);
   const setScrollToMessageId = useMeterStore((s) => s.setScrollToMessageId);
-  const project = sessions.find((p) => p.id === activeProjectId);
-  const pinned = project?.messages.filter((m) => m.pinned) ?? [];
+  const session = sessions.find((p) => p.id === activeSessionId);
+  const pinned = session?.messages.filter((m) => m.pinned) ?? [];
 
   if (pinned.length === 0) return null;
 
@@ -524,13 +524,13 @@ function PinsSection({ activeProjectId }: { activeProjectId: string | null }) {
   );
 }
 
-function DecisionsTab({ activeProjectId }: { activeProjectId: string | null }) {
+function DecisionsTab({ activeSessionId }: { activeSessionId: string | null }) {
   const { decisions } = useDecisionsStore();
 
   // Combine scoped + legacy, filter non-archived
   const allDecisions = decisions.filter((d) => !d.archived);
   const scoped = allDecisions
-    .filter((d) => d.projectId && d.projectId === activeProjectId)
+    .filter((d) => d.projectId && d.projectId === activeSessionId)
     .sort((a, b) => {
       if (a.status !== b.status) return a.status === "undecided" ? -1 : 1;
       return b.updatedAt - a.updatedAt;
@@ -553,11 +553,11 @@ function DecisionsTab({ activeProjectId }: { activeProjectId: string | null }) {
       (a, b) => CATEGORY_ORDER.indexOf(a[0]) - CATEGORY_ORDER.indexOf(b[0])
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decisions, activeProjectId]);
+  }, [decisions, activeSessionId]);
 
   return (
     <div className="flex flex-col gap-4">
-      <PinsSection activeProjectId={activeProjectId} />
+      <PinsSection activeSessionId={activeSessionId} />
       {allVisible.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <span className="font-mono text-xs text-muted-foreground/40">
@@ -815,14 +815,14 @@ function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
   );
 }
 
-function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: string | null }) {
+function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: string | null }) {
   // Resolve subtrack → parent workspace so artifacts are scoped to workspace
   const wsTracks = useWorkspaceStore((s) => s.tracks);
   const wsWorkspaces = useWorkspaceStore((s) => s.workspaces);
   const meterSessions = useMeterStore((s) => s.sessions);
-  const activeProjectId = useMemo(() => {
-    if (!rawProjectId) return null;
-    const wsTrack = wsTracks.find((p) => p.id === rawProjectId);
+  const activeSessionId = useMemo(() => {
+    if (!rawSessionId) return null;
+    const wsTrack = wsTracks.find((p) => p.id === rawSessionId);
     if (wsTrack?.isSubtrack) {
       const workspace = wsWorkspaces.find((c) => c.id === wsTrack.workspaceId);
       if (workspace?.sessionId) {
@@ -830,8 +830,8 @@ function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: stri
         if (parent) return parent.id;
       }
     }
-    return rawProjectId;
-  }, [rawProjectId, wsTracks, wsWorkspaces, meterSessions]);
+    return rawSessionId;
+  }, [rawSessionId, wsTracks, wsWorkspaces, meterSessions]);
 
   const { artifacts, loading, pushing, targetRepo, fetchArtifacts, setTargetRepo, setPushing } = useArtifactsStore();
   const setPendingInput = useMeterStore((s) => s.setPendingInput);
@@ -843,16 +843,16 @@ function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: stri
   const [showRepoSelector, setShowRepoSelector] = useState(false);
 
   useEffect(() => {
-    if (activeProjectId) {
-      fetchArtifacts(activeProjectId);
+    if (activeSessionId) {
+      fetchArtifacts(activeSessionId);
     }
-  }, [activeProjectId, fetchArtifacts]);
+  }, [activeSessionId, fetchArtifacts]);
 
   const fetchRepos = async () => {
-    if (!githubConnected || !activeProjectId) return;
+    if (!githubConnected || !activeSessionId) return;
     setReposLoading(true);
     try {
-      const res = await fetch(`/api/github/repos?workspaceId=${encodeURIComponent(activeProjectId)}`);
+      const res = await fetch(`/api/github/repos?workspaceId=${encodeURIComponent(activeSessionId)}`);
       if (res.ok) {
         const data = await res.json();
         setRepos((data.repos ?? []).map((r: { fullName: string; name: string; private: boolean }) => ({
@@ -866,18 +866,18 @@ function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: stri
   };
 
   const handleGenerate = () => {
-    trackArtifactGenerated({ projectId: activeProjectId ?? undefined });
+    trackArtifactGenerated({ projectId: activeSessionId ?? undefined });
     setPendingInput("Generate strategy artifacts for this project based on all our decisions and conversation so far. Create README.md, ARCHITECTURE.md, DESIGN.md, DECISIONS.md, CLAUDE.md, BRAND.md, and .cursorrules files.");
   };
 
   const handleRegenerate = (filePath: string) => {
-    trackArtifactRegenerated({ filePath, projectId: activeProjectId ?? undefined });
+    trackArtifactRegenerated({ filePath, projectId: activeSessionId ?? undefined });
     setPendingInput(`Regenerate the ${filePath} strategy artifact based on the latest decisions and conversation context.`);
   };
 
   const handlePush = async (artifactIds?: string[]) => {
     if (!githubConnected) {
-      if (activeProjectId) initiateOAuthFlow("github", activeProjectId);
+      if (activeSessionId) initiateOAuthFlow("github", activeSessionId);
       return;
     }
     if (!targetRepo) {
@@ -889,7 +889,7 @@ function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: stri
     try {
       const body: Record<string, unknown> = {
         repo: targetRepo,
-        workspaceId: activeProjectId,
+        workspaceId: activeSessionId,
       };
       if (artifactIds) body.artifactIds = artifactIds;
       const res = await fetch("/api/artifacts/push", {
@@ -897,9 +897,9 @@ function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: stri
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (res.ok && activeProjectId) {
-        trackArtifactPushed({ repo: targetRepo, artifactCount: artifactIds?.length, projectId: activeProjectId });
-        await fetchArtifacts(activeProjectId);
+      if (res.ok && activeSessionId) {
+        trackArtifactPushed({ repo: targetRepo, artifactCount: artifactIds?.length, projectId: activeSessionId });
+        await fetchArtifacts(activeSessionId);
       }
     } catch { /* silent */ }
     setPushing(false);
@@ -913,7 +913,7 @@ function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: stri
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `documents-${activeProjectId ?? "project"}.txt`;
+    link.download = `documents-${activeSessionId ?? "session"}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -1027,7 +1027,7 @@ function BlueprintTab({ activeProjectId: rawProjectId }: { activeProjectId: stri
       {!githubConnected && artifacts.length > 0 && (
         <div className="mt-2 rounded-lg border border-border/50 bg-foreground/[0.02] px-3 py-2">
           <button
-            onClick={() => activeProjectId && initiateOAuthFlow("github", activeProjectId)}
+            onClick={() => activeSessionId && initiateOAuthFlow("github", activeSessionId)}
             className="font-mono text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
           >
             Connect GitHub to push artifacts
@@ -1082,15 +1082,15 @@ const EVENT_ICONS: Record<TimelineEvent["type"], { color: string; path: string }
   },
 };
 
-function TimelineTab({ activeProjectId }: { activeProjectId: string | null }) {
+function TimelineTab({ activeSessionId }: { activeSessionId: string | null }) {
   const sessions = useMeterStore((s) => s.sessions);
   const { decisions } = useDecisionsStore();
   const { artifacts } = useArtifactsStore();
   const setScrollToMessageId = useMeterStore((s) => s.setScrollToMessageId);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const project = sessions.find((p) => p.id === activeProjectId);
-  const messages = project?.messages ?? [];
+  const session = sessions.find((p) => p.id === activeSessionId);
+  const messages = session?.messages ?? [];
 
   const events = useMemo(() => {
     const items: TimelineEvent[] = [];
@@ -1098,7 +1098,7 @@ function TimelineTab({ activeProjectId }: { activeProjectId: string | null }) {
     // Decisions
     for (const d of decisions) {
       if (d.archived) continue;
-      if (d.projectId && d.projectId !== activeProjectId) continue;
+      if (d.projectId && d.projectId !== activeSessionId) continue;
       items.push({
         id: `decision-${d.id}`,
         type: "decision",
@@ -1150,7 +1150,7 @@ function TimelineTab({ activeProjectId }: { activeProjectId: string | null }) {
 
     // Artifacts (generated spec kit files)
     for (const a of artifacts) {
-      if (a.projectId && a.projectId !== activeProjectId) continue;
+      if (a.projectId && a.projectId !== activeSessionId) continue;
       if (a.lastGeneratedAt) {
         items.push({
           id: `artifact-${a.id}`,
@@ -1175,7 +1175,7 @@ function TimelineTab({ activeProjectId }: { activeProjectId: string | null }) {
       }
       return true;
     });
-  }, [decisions, messages, artifacts, activeProjectId]);
+  }, [decisions, messages, artifacts, activeSessionId]);
 
   // Group by date
   const grouped = useMemo(() => {
