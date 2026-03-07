@@ -157,6 +157,9 @@ const STATEMENTS: string[] = [
   `alter table chat_messages add column if not exists debate_trace jsonb`,
   `alter table chat_messages add column if not exists thinking text`,
 
+  // Dissector trace persistence
+  `alter table chat_messages add column if not exists dissector_trace jsonb`,
+
   // Decision versioning, categories, and revisit tracking
   `alter table decisions add column if not exists category text`,
   `alter table decisions add column if not exists parent_decision_id text`,
