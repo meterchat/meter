@@ -81,7 +81,6 @@ const STATEMENTS: string[] = [
   `drop table if exists workspace_projects cascade`,
   `drop table if exists workspaces cascade`,
   `drop table if exists challenges cascade`,        -- superseded by auth_challenges
-  `drop table if exists tx_history cascade`,         -- superseded by settlement_history
   `drop table if exists webauthn_credentials cascade`, -- superseded by passkey_credentials
 
   `create or replace view workspaces as
@@ -95,7 +94,7 @@ const STATEMENTS: string[] = [
   `create or replace view tracks as
    select id, parent_session_id as workspace_id, user_id,
           coalesce(workspace_name, project_name) as name,
-          archived, total_cost, today_cost,
+          total_cost, today_cost,
           created_at, updated_at, deleted_at
    from chat_sessions
    where is_subtrack = true and parent_session_id is not null`,
@@ -155,6 +154,19 @@ const STATEMENTS: string[] = [
     user_id text not null references meter_users(id) on delete cascade,
     created_at timestamptz default now(),
     expires_at timestamptz not null
+  )`,
+
+  `create table if not exists tx_history (
+    id text primary key,
+    user_id text not null references meter_users(id) on delete cascade,
+    type text not null,
+    description text,
+    amount numeric,
+    currency text default 'usd',
+    status text default 'pending',
+    metadata jsonb,
+    session_id text,
+    created_at timestamptz default now()
   )`,
 
   // Alter statements for existing deployments
@@ -257,6 +269,7 @@ const STATEMENTS: string[] = [
   `create index if not exists idx_artifacts_user_session on artifacts(user_id, session_id)`,
   `create index if not exists idx_settlement_history_user on settlement_history(user_id)`,
   `create index if not exists idx_settlement_history_workspace on settlement_history(workspace_id)`,
+  `create index if not exists idx_tx_history_user on tx_history(user_id)`,
   `create index if not exists idx_auth_sessions_user on auth_sessions(user_id)`,
   `create index if not exists idx_auth_sessions_expires on auth_sessions(expires_at)`,
 
@@ -298,6 +311,7 @@ const STATEMENTS: string[] = [
   `alter table meter_users enable row level security`,
   `alter table passkey_credentials enable row level security`,
   `alter table auth_sessions enable row level security`,
+  `alter table tx_history enable row level security`,
   // workspaces & tracks are views — RLS inherited from chat_sessions
   `alter table oauth_state enable row level security`,
   `alter table auth_challenges enable row level security`,
@@ -345,6 +359,11 @@ const STATEMENTS: string[] = [
 
   `do $$ begin
      create policy auth_sessions_owner on auth_sessions for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy tx_history_owner on tx_history for all
        using (user_id = current_setting('app.user_id', true));
    exception when duplicate_object then null; end $$`,
 
