@@ -222,7 +222,10 @@ export async function POST(req: NextRequest) {
     const abortHandler = () => {
       if (!clientDisconnected) {
         clientDisconnected = true;
-        if (assistantMessageId && projectId && fullAssistantContent) {
+        // Always save the assistant message on disconnect — even during thinking
+        // (empty content). This creates a DB record so the reload refetch can
+        // poll for the completed response once the server-side stream finishes.
+        if (assistantMessageId && projectId) {
           saveMessageToDB({
             id: assistantMessageId,
             sessionId: projectId,
@@ -601,9 +604,9 @@ export async function POST(req: NextRequest) {
         // Client disconnected (e.g. page refresh). Don't abort the upstream
         // API call — let it finish so we can save the complete response.
         clientDisconnected = true;
-        // Immediately persist partial content so the user sees it on refresh.
+        // Always persist to DB (even during thinking with empty content).
         // The final save at stream completion will overwrite with full content.
-        if (assistantMessageId && projectId && fullAssistantContent) {
+        if (assistantMessageId && projectId) {
           saveMessageToDB({
             id: assistantMessageId,
             sessionId: projectId,
