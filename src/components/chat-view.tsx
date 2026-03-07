@@ -990,7 +990,7 @@ export function ChatView() {
 
   useEffect(() => {
     if (!defaultSessionId) return;
-    const unassigned = decisions.filter((d) => !d.sessionId && !d.projectId);
+    const unassigned = decisions.filter((d) => !d.sessionId);
     if (unassigned.length === 0) return;
     unassigned.forEach((d) => {
       updateDecision(d.id, { sessionId: defaultSessionId });

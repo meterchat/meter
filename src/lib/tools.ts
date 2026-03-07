@@ -643,13 +643,21 @@ async function listDecisions(ctx: ToolContext): Promise<string> {
   if (!ctx.userId) return "Cannot list decisions: not authenticated.";
   try {
     const supabase = getSupabaseServer();
-    const { data } = await supabase
+    let query = supabase
       .from("decisions")
       .select("*")
       .eq("user_id", ctx.userId)
       .eq("archived", false)
       .order("created_at", { ascending: false })
       .limit(20);
+
+    // Scope to active workspace session
+    const wsId = ctx.workspaceId ?? ctx.sessionId;
+    if (wsId) {
+      query = query.or(`session_id.eq.${wsId},project_id.eq.${wsId}`);
+    }
+
+    const { data } = await query;
 
     if (!data || data.length === 0) return "No decisions saved yet.";
 

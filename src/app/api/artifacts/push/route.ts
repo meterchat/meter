@@ -30,11 +30,12 @@ export async function POST(req: NextRequest) {
     const [owner, repoName] = repo.split("/");
     const supabase = getSupabaseServer();
 
-    // Load artifacts to push
+    // Load artifacts to push — scoped to workspace
     let query = supabase
       .from("artifacts")
       .select("*")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .or(`session_id.eq.${workspaceId},project_id.eq.${workspaceId}`);
 
     if (artifactIds && Array.isArray(artifactIds) && artifactIds.length > 0) {
       query = query.in("id", artifactIds);
