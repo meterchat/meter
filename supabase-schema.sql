@@ -68,6 +68,7 @@ create table if not exists chat_sessions (
   workspace_name text,                  -- canonical workspace/track display name
   is_subtrack boolean default false,    -- true for forked track sessions (not standalone workspaces)
   parent_session_id text,               -- points to parent workspace session when is_subtrack=true
+  fork_message_id text,                 -- last shared message ID before fork divergence
   total_cost numeric default 0,
   today_cost numeric default 0,
   today_tokens_in integer default 0,
@@ -141,7 +142,7 @@ where is_subtrack = false;
 create or replace view tracks as
 select id, parent_session_id as workspace_id, user_id,
        coalesce(workspace_name, project_name) as name,
-       archived, committed, total_cost, today_cost,
+       archived, committed, fork_message_id, total_cost, today_cost,
        created_at, updated_at, deleted_at
 from chat_sessions
 where is_subtrack = true and parent_session_id is not null;
