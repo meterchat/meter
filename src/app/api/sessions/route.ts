@@ -216,6 +216,9 @@ export async function POST(req: NextRequest) {
     if (session.weekKey != null) upsertData.week_key = session.weekKey;
     if (session.monthCost != null) upsertData.month_cost = session.monthCost;
     if (session.monthKey != null) upsertData.month_key = session.monthKey;
+    // Track lifecycle state
+    if (session.archived != null) upsertData.archived = session.archived;
+    if (session.committed != null) upsertData.committed = session.committed;
 
     const { error: sessErr } = await supabase.from("chat_sessions").upsert(
       upsertData,
