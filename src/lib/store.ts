@@ -77,6 +77,7 @@ export interface ChatMessage {
   dissectorTrace?: DissectorTurn[];
   isForkPoint?: boolean;
   forkResolution?: "merged" | "closed";
+  isMergeEnd?: boolean;  // last message in a merged block (shows end-of-merge divider)
 }
 
 export interface PaymentCard {
@@ -1615,6 +1616,10 @@ export const useMeterStore = create<MeterState>()(
           // Get subtrack-only messages (those after the fork point)
           const forkIdx = subtrack.messages.findIndex((m) => m.id === forkMessageId);
           const newMessages = forkIdx === -1 ? [] : subtrack.messages.slice(forkIdx + 1);
+          // Mark the last merged message so we can render an end-of-merge divider
+          if (newMessages.length > 0) {
+            newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], isMergeEnd: true };
+          }
           // Append to parent and mark fork as merged (keep divider permanently)
           const updatedParent = {
             ...parent,

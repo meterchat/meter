@@ -17,6 +17,7 @@ export interface Track {
   parentTrackId?: string;         // set on subtracks — points to the main/parent track
   forkMessageId?: string;         // last message ID before fork (shared history boundary)
   status?: "active" | "archived"; // archived = not chosen / closed
+  committed?: boolean;            // true for the subtrack that was merged into main
   isSubtrack?: boolean;           // true for forked subtracks
 }
 
@@ -152,10 +153,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const subtrack = s.tracks.find((t) => t.id === subtrackId);
           if (!subtrack || !subtrack.isSubtrack) return s;
           const parentId = subtrack.parentTrackId ?? null;
-          // Archive all sibling subtracks (including the committed one)
+          // Archive all sibling subtracks; mark the committed one
           const tracks = s.tracks.map((t) => {
             if (t.isSubtrack && (t.parentTrackId ?? null) === parentId) {
-              return { ...t, status: "archived" as const };
+              return { ...t, status: "archived" as const, committed: t.id === subtrackId };
             }
             return t;
           });

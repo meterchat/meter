@@ -353,6 +353,21 @@ function ResolvedForkDivider({ timestamp, resolution }: { timestamp: number; res
   );
 }
 
+function MergeEndDivider() {
+  return (
+    <div className="flex items-center gap-3 my-4">
+      <div className="flex-1 h-px bg-foreground/10" />
+      <div className="flex items-center gap-1.5">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        <span className="font-mono text-[10px] text-muted-foreground/40">End of merged path</span>
+      </div>
+      <div className="flex-1 h-px bg-foreground/10" />
+    </div>
+  );
+}
+
 /* ─── Frozen Main Banner ─── */
 
 function FrozenMainBanner({
@@ -484,10 +499,12 @@ function SubtrackCommitBar({
 
 /* ─── Archived Subtrack Banner ─── */
 
-function ArchivedSubtrackBanner({ onReturnToMain }: { onReturnToMain: () => void }) {
+function ArchivedSubtrackBanner({ committed, onReturnToMain }: { committed?: boolean; onReturnToMain: () => void }) {
   return (
     <div className="rounded-xl border border-border/30 bg-foreground/[0.02] p-4 text-center">
-      <div className="font-mono text-[11px] text-muted-foreground/40 mb-2">This path was archived</div>
+      <div className="font-mono text-[11px] text-muted-foreground/40 mb-2">
+        {committed ? "This path was merged into main" : "This path was archived"}
+      </div>
       <button
         onClick={onReturnToMain}
         className="inline-flex items-center gap-1.5 rounded-lg border border-border/30 px-3 py-1.5 font-mono text-[10px] text-muted-foreground/50 transition-colors hover:border-foreground/20 hover:text-foreground/60"
@@ -2052,10 +2069,12 @@ export function ChatView() {
     await streamResponse("Dissect this.", "dissect");
   };
 
-  /** Triggered by "Explore paths" button — AI auto-names and creates paths */
+  /** Triggered by "Explore paths" button — AI auto-names and creates paths.
+   *  Always uses the standard model (never debate/dissect) regardless of toggle state. */
   handleForkPathsRef.current = async () => {
     if (isStreaming || !workspaceCardReady || isMainFrozen || isSubtrack) return;
-    await streamResponse("Fork this into paths.");
+    const forkModel = selectedModelId === "auto" ? "openai/gpt-5.2" : selectedModelId;
+    await streamResponse("Fork this into paths.", forkModel);
   };
   const handleForkPaths = () => handleForkPathsRef.current();
 
@@ -2580,6 +2599,9 @@ export function ChatView() {
 
                   {/* Branch divider — shown in subtracks at the fork boundary, after the fork divider */}
                   {isSubtrack && forkMessageId === msg.id && <BranchDivider timestamp={msg.timestamp} colorIndex={currentPathColorIndex} />}
+
+                  {/* Merge-end divider — marks where merged path content ends */}
+                  {msg.isMergeEnd && <MergeEndDivider />}
                 </div>
               );
             })}
@@ -2662,7 +2684,7 @@ export function ChatView() {
 
             {/* Archived subtrack banner — replaces composer for archived subtracks */}
             {isArchivedSubtrack && (
-              <ArchivedSubtrackBanner onReturnToMain={handleReturnToMain} />
+              <ArchivedSubtrackBanner committed={currentWsTrack?.committed} onReturnToMain={handleReturnToMain} />
             )}
 
             {/* Unified box — normal composer (hidden when frozen or archived) */}
