@@ -318,6 +318,41 @@ function BranchDivider({ timestamp, colorIndex }: { timestamp: number; colorInde
   );
 }
 
+/* ─── Resolved Fork Divider (shown after merge or close) ─── */
+
+function ResolvedForkDivider({ timestamp, resolution }: { timestamp: number; resolution: "merged" | "closed" }) {
+  const date = new Date(timestamp);
+  const label = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const isMerged = resolution === "merged";
+  return (
+    <div className="flex items-center gap-3 my-4">
+      <div className="flex-1 h-px bg-foreground/10" />
+      <div className="flex items-center gap-1.5">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
+          {isMerged ? (
+            <>
+              <circle cx="12" cy="18" r="3" />
+              <circle cx="6" cy="6" r="3" />
+              <circle cx="18" cy="6" r="3" />
+              <path d="M6 9v3a6 6 0 0 0 6 6" />
+              <path d="M18 9v3a6 6 0 0 1-6 6" />
+            </>
+          ) : (
+            <>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </>
+          )}
+        </svg>
+        <span className="font-mono text-[10px] text-muted-foreground/40">
+          {isMerged ? "Paths merged" : "Paths closed without merge"} &middot; {label}
+        </span>
+      </div>
+      <div className="flex-1 h-px bg-foreground/10" />
+    </div>
+  );
+}
+
 /* ─── Frozen Main Banner ─── */
 
 function FrozenMainBanner({
@@ -2516,8 +2551,12 @@ export function ChatView() {
                   </div>
 
                   {/* Fork point divider — shown on main when active subtracks exist, and on all subtracks at the fork boundary.
-                      Derived from workspace store (forkMessageIds) so it survives refresh. */}
-                  {(forkMessageIds.has(msg.id) || (isSubtrack && forkMessageId === msg.id)) && <ForkPointDivider timestamp={msg.timestamp} />}
+                      Derived from workspace store (forkMessageIds) so it survives refresh.
+                      Also shown permanently for resolved forks (merged/closed) via isForkPoint flag. */}
+                  {(forkMessageIds.has(msg.id) || (isSubtrack && forkMessageId === msg.id) || (msg.isForkPoint && !forkMessageIds.has(msg.id))) && <ForkPointDivider timestamp={msg.timestamp} />}
+
+                  {/* Resolved fork divider — permanently marks where paths were merged or closed */}
+                  {msg.isForkPoint && msg.forkResolution && <ResolvedForkDivider timestamp={msg.timestamp} resolution={msg.forkResolution} />}
 
                   {/* Branch divider — shown in subtracks at the fork boundary, after the fork divider */}
                   {isSubtrack && forkMessageId === msg.id && <BranchDivider timestamp={msg.timestamp} colorIndex={currentPathColorIndex} />}

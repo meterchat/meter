@@ -107,11 +107,13 @@ create table if not exists chat_messages (
   created_at timestamptz default now()
 );
 
--- Add columns for debate trace / thinking / attachments / dissector (run if table exists)
+-- Add columns for debate trace / thinking / attachments / dissector / fork state (run if table exists)
 -- alter table chat_messages add column if not exists attachments jsonb;
 -- alter table chat_messages add column if not exists debate_trace jsonb;
 -- alter table chat_messages add column if not exists dissector_trace jsonb;
 -- alter table chat_messages add column if not exists thinking text;
+-- alter table chat_messages add column if not exists is_fork_point boolean default false;
+-- alter table chat_messages add column if not exists fork_resolution text;
 
 -- =============================================
 -- WORKSPACES

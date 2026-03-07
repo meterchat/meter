@@ -267,14 +267,24 @@ export async function POST(req: NextRequest) {
         dissector_trace: m.dissectorTrace ?? null,
         thinking: m.thinking ?? null,
         timestamp: m.timestamp,
+        is_fork_point: m.isForkPoint ?? null,
+        fork_resolution: m.forkResolution ?? null,
       }));
 
       // Batch upsert in chunks of 100
       for (let i = 0; i < rows.length; i += 100) {
         const chunk = rows.slice(i, i + 100);
-        const { error: msgErr } = await supabase
+        let { error: msgErr } = await supabase
           .from("chat_messages")
           .upsert(chunk, { onConflict: "id" });
+        // If upsert fails due to missing fork columns, retry without them
+        if (msgErr && msgErr.message?.includes("column")) {
+          const stripped = chunk.map(({ is_fork_point: _fp, fork_resolution: _fr, ...rest }) => rest);
+          const retry = await supabase
+            .from("chat_messages")
+            .upsert(stripped, { onConflict: "id" });
+          msgErr = retry.error;
+        }
         if (msgErr) throw msgErr;
       }
     }

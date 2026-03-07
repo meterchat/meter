@@ -76,6 +76,7 @@ export interface ChatMessage {
   clarifyingQuestions?: ClarifyingQuestion[];
   dissectorTrace?: DissectorTurn[];
   isForkPoint?: boolean;
+  forkResolution?: "merged" | "closed";
 }
 
 export interface PaymentCard {
@@ -1614,12 +1615,12 @@ export const useMeterStore = create<MeterState>()(
           // Get subtrack-only messages (those after the fork point)
           const forkIdx = subtrack.messages.findIndex((m) => m.id === forkMessageId);
           const newMessages = forkIdx === -1 ? [] : subtrack.messages.slice(forkIdx + 1);
-          // Append to parent and remove fork marker
+          // Append to parent and mark fork as merged (keep divider permanently)
           const updatedParent = {
             ...parent,
             messages: [
               ...parent.messages.map((m) =>
-                m.id === forkMessageId ? { ...m, isForkPoint: false } : m
+                m.id === forkMessageId ? { ...m, isForkPoint: true, forkResolution: "merged" as const } : m
               ),
               ...newMessages,
             ],
@@ -1639,7 +1640,7 @@ export const useMeterStore = create<MeterState>()(
             return {
               ...p,
               messages: p.messages.map((m) =>
-                m.id === forkMessageId ? { ...m, isForkPoint: false } : m
+                m.id === forkMessageId ? { ...m, isForkPoint: true, forkResolution: "closed" as const } : m
               ),
             };
           }),
