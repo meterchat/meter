@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { apiUrl } from "@/lib/api-url";
+
+const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), { ssr: false });
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -40,6 +43,8 @@ interface LogStats {
   totalMessages: number;
   byModel: Record<string, { cost: number; count: number; tokensIn: number; tokensOut: number }>;
   counts: { debates: number; dissects: number; forks: number; documents: number };
+  spendTimeline: { time: number; value: number }[];
+  tokensTimeline: { time: number; value: number }[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -163,6 +168,24 @@ function LogMeterBar() {
               <StatSpendRow label="Weekly average" amount={stats.weeklyAverage} />
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
+            {/* Spend Liveline */}
+            {stats.spendTimeline.length > 1 && (
+              <div className="mt-2 h-[80px]">
+                <Liveline
+                  data={stats.spendTimeline}
+                  value={stats.totalSpend}
+                  theme="dark"
+                  color="#f59e0b"
+                  grid={false}
+                  badge={false}
+                  fill
+                  pulse={false}
+                  momentum={false}
+                  scrub
+                  formatValue={(v: number) => `$${v.toFixed(2)}`}
+                />
+              </div>
+            )}
           </div>
 
           <div className="h-px bg-border" />
@@ -175,6 +198,24 @@ function LogMeterBar() {
             <StatRow label="Total In" value={(stats.totalTokensIn).toLocaleString()} />
             <StatRow label="Total Out" value={(stats.totalTokensOut).toLocaleString()} />
             <StatRow label="Messages" value={stats.totalMessages.toLocaleString()} />
+            {/* Tokens Liveline */}
+            {stats.tokensTimeline.length > 1 && (
+              <div className="mt-2 h-[80px]">
+                <Liveline
+                  data={stats.tokensTimeline}
+                  value={stats.totalTokensIn + stats.totalTokensOut}
+                  theme="dark"
+                  color="#3b82f6"
+                  grid={false}
+                  badge={false}
+                  fill
+                  pulse={false}
+                  momentum={false}
+                  scrub
+                  formatValue={(v: number) => v.toLocaleString()}
+                />
+              </div>
+            )}
           </div>
 
           {/* By Model */}
