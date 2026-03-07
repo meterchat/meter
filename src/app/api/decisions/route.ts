@@ -55,13 +55,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ decisions: (data ?? []).map(mapDecision) });
     }
 
-    // Default: non-archived decisions
-    const { data, error } = await supabase
+    // Default: non-archived decisions, scoped to workspace if specified
+    let listQuery = supabase
       .from("decisions")
       .select("*")
       .eq("user_id", userId)
       .eq("archived", false)
       .order("created_at", { ascending: false });
+
+    if (sessionId) {
+      listQuery = listQuery.or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`);
+    }
+
+    const { data, error } = await listQuery;
 
     if (error) throw error;
 

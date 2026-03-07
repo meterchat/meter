@@ -333,6 +333,9 @@ async function runQuery(
   accessToken: string,
   sql: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
   const res = await fetch(
     `https://api.supabase.com/v1/projects/${ref}/database/query`,
     {
@@ -342,8 +345,11 @@ async function runQuery(
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ query: sql }),
+      signal: controller.signal,
     },
   );
+
+  clearTimeout(timeout);
   if (res.ok) return { ok: true };
   const errText = await res.text().catch(() => "unknown");
   return { ok: false, error: `${res.status}: ${errText}` };
