@@ -6,9 +6,9 @@ export async function GET() {
   try {
     const supabase = getSupabaseServer();
 
-    // Fetch aggregate stats from messages table
+    // Fetch aggregate stats from chat_messages table
     const { data: msgStats, error: msgError } = await supabase
-      .from("messages")
+      .from("chat_messages")
       .select("cost, model, tokens_in, tokens_out, created_at")
       .not("cost", "is", null);
 

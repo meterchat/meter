@@ -407,7 +407,7 @@ export default function LogPage() {
         ]);
         const entriesData = await entriesRes.json();
         const decisionsData = await decisionsRes.json();
-        setEntries(entriesData.entries ?? []);
+        setEntries((entriesData.entries ?? []).reverse());
         setDecisions(decisionsData.decisions ?? []);
       } catch {
         // Silent fail
@@ -431,7 +431,7 @@ export default function LogPage() {
       try {
         const res = await fetch(apiUrl("/api/log?limit=200"));
         const data = await res.json();
-        const newEntries = data.entries ?? [];
+        const newEntries = (data.entries ?? []).reverse();
         setEntries((prev: LogEntry[]) => {
           if (newEntries.length !== prev.length) {
             if (isAtBottom) {

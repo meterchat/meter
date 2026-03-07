@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 
-// GET /api/log/decisions — public locked decisions scoped to the Meter workspace
+// GET /api/log/decisions — public locked decisions scoped to a single workspace
+// Env vars:
+//   METER_FOUNDER_USER_ID  — meter_users.id (e.g. "usr_b582...")
+//   METER_WORKSPACE_SESSION_ID — chat_sessions.id for the workspace to display
 export async function GET() {
   const userId = process.env.METER_FOUNDER_USER_ID;
-  const sessionId = process.env.METER_MAIN_SESSION_ID;
+  const sessionId = process.env.METER_WORKSPACE_SESSION_ID;
 
   if (!userId || !sessionId) {
     return NextResponse.json({ decisions: [] });
@@ -16,9 +19,9 @@ export async function GET() {
       .from("decisions")
       .select("id, title, status, choice, reasoning, category, version, revisit_count, created_at, updated_at")
       .eq("user_id", userId)
+      .eq("session_id", sessionId)
       .eq("status", "decided")
       .eq("archived", false)
-      .or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`)
       .order("updated_at", { ascending: false });
 
     if (error) throw error;
