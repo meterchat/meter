@@ -203,15 +203,13 @@ export function useSessionSync() {
           : session.messages.slice(syncedCount);
       }
 
-      // Do NOT sync in-progress assistant messages during streaming.
-      // The server-side chat route saves the message directly to DB via
-      // its abort/cancel/completion handlers. Client-side sync would race
-      // with those writes and can overwrite the completed response with
-      // stale partial content.
-      if (session.isStreaming) {
-        messagesToSync = messagesToSync.filter(
-          (m) => !(m.role === "assistant" && m.receiptStatus === "signing")
-        );
+      // During streaming, always resend the last assistant message even if it was
+      // already synced — its content has changed since the last sync.
+      if (session.isStreaming && messagesToSync.length === 0 && session.messages.length > 0) {
+        const lastMsg = session.messages[session.messages.length - 1];
+        if (lastMsg.role === "assistant") {
+          messagesToSync = [lastMsg];
+        }
       }
 
       try {
@@ -352,14 +350,13 @@ export function useSessionSync() {
           deltaMessages = session.messages.slice(syncedCount);
         }
 
-        // Do NOT send in-progress assistant messages via beacon.
-        // The server-side chat route handles saving via its abort/cancel/completion
-        // handlers. Sending the client-side partial here races with the server save
-        // and can overwrite the completed response with stale partial content.
-        if (session.isStreaming) {
-          deltaMessages = deltaMessages.filter(
-            (m) => !(m.role === "assistant" && m.receiptStatus === "signing")
-          );
+        // During streaming, always include the last assistant message in the
+        // beacon so in-progress content is preserved after page refresh.
+        if (session.isStreaming && deltaMessages.length === 0 && session.messages.length > 0) {
+          const lastMsg = session.messages[session.messages.length - 1];
+          if (lastMsg.role === "assistant") {
+            deltaMessages = [lastMsg];
+          }
         }
 
         const sessionMeta: Record<string, unknown> = {
@@ -584,24 +581,16 @@ export function useSessionSync() {
         }
 
         // Clean up stale "signing" messages from interrupted streams.
-        // Keep messages with content (upgrade to "signed"). Keep empty shells
-        // too — they act as placeholders while the server-side stream completes;
-        // the polling refetch below will replace them with the full content.
-        const signingMessageIds: string[] = [];
+        // Clean up stale "signing" messages from interrupted streams.
+        // If a message has content, upgrade to "signed". If empty shell, remove it.
         const cleanedMerged = merged.map((p) => ({
           ...p,
-          messages: p.messages.map((m) => {
-            if (m.role === "assistant" && m.receiptStatus === "signing") {
-              signingMessageIds.push(m.id);
-              if (m.content) {
-                return { ...m, receiptStatus: "signed" as const };
-              }
-              // Empty signing message (thinking was in progress) — keep as
-              // placeholder so the user sees a loading state, not a wipe.
-              return m;
-            }
-            return m;
-          }),
+          messages: p.messages
+            .filter((m) => !(m.role === "assistant" && !m.content && m.receiptStatus === "signing"))
+            .map((m) => (m.role === "assistant" && m.receiptStatus === "signing" && m.content)
+              ? { ...m, receiptStatus: "signed" as const }
+              : m
+            ),
         }));
 
         useMeterStore.setState(() => ({
@@ -614,17 +603,13 @@ export function useSessionSync() {
         useWorkspaceStore.getState().upsertWorkspacesFromSessions(serverSessions, nextActiveSessionId);
         useMeterStore.getState().fetchConnectionStatus();
 
-        // Poll for completed responses from the server-side stream.
-        // The server continues the upstream API call after client disconnect,
-        // so the response will eventually be saved with receipt_status "signed".
-        // For thinking models this can take 30+ seconds, so poll repeatedly.
-        if (signingMessageIds.length > 0 && !cancelled) {
-          const POLL_INTERVALS = [2000, 3000, 5000, 5000, 5000, 10000, 10000]; // ~40s total
-          let pollIdx = 0;
-          const pollForCompletion = async () => {
-            if (cancelled || pollIdx >= POLL_INTERVALS.length) return;
-            const delay = POLL_INTERVALS[pollIdx++];
-            await new Promise((r) => setTimeout(r, delay));
+        // If any messages were mid-stream ("signing"), refetch after a delay
+        // to pick up the completed response from the server.
+        const hadSigningMessages = merged.some((p) =>
+          p.messages.some((m) => m.role === "assistant" && m.receiptStatus === "signing")
+        );
+        if (hadSigningMessages && !cancelled) {
+          setTimeout(async () => {
             if (cancelled) return;
             try {
               const retryRes = await fetch(apiUrl("/api/sessions"));
@@ -633,25 +618,18 @@ export function useSessionSync() {
               if (!retryData.sessions?.length || cancelled) return;
               const retrySessions = retryData.sessions as ServerSession[];
               const currentStore = useMeterStore.getState();
-              let allResolved = true;
+              // Update only messages that have been upgraded from signing to signed
               for (const serverSess of retrySessions) {
                 const localSess = currentStore.sessions.find((p) => p.id === serverSess.id);
                 if (!localSess) continue;
                 const serverMsgs = Array.isArray(serverSess.messages) ? serverSess.messages : [];
                 let changed = false;
                 const updatedMessages = localSess.messages.map((lm) => {
-                  if (!signingMessageIds.includes(lm.id)) return lm;
                   const sm = serverMsgs.find((m: Record<string, unknown>) => m.id === lm.id);
-                  if (!sm) { allResolved = false; return lm; }
-                  const serverContent = (sm.content as string) ?? "";
-                  const serverStatus = sm.receipt_status as string;
-                  // Server has more content or upgraded to signed — use it
-                  if (serverContent.length > (lm.content?.length ?? 0) || serverStatus === "signed") {
+                  if (sm && lm.receiptStatus === "signed" && (sm.content as string)?.length > (lm.content?.length ?? 0)) {
                     changed = true;
                     return mapServerMessage(sm);
                   }
-                  // Still signing with no/same content — stream hasn't finished yet
-                  if (serverStatus === "signing") allResolved = false;
                   return lm;
                 });
                 if (changed) {
@@ -662,11 +640,8 @@ export function useSessionSync() {
                   }));
                 }
               }
-              // Keep polling if any signing messages are still unresolved
-              if (!allResolved) pollForCompletion();
-            } catch { /* background poll — non-critical */ }
-          };
-          pollForCompletion();
+            } catch { /* background retry — non-critical */ }
+          }, 3000);
         }
 
         // Auto-fetch ALL remaining messages for sessions that have more than

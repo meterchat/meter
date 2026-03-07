@@ -257,9 +257,34 @@ export async function POST(req: NextRequest) {
         fork_resolution: m.forkResolution ?? null,
       }));
 
+      // Guard: don't let a stale "signing" upsert overwrite a "signed" row.
+      // This prevents the race where sendBeacon or periodic sync arrives after
+      // the server-side chat route has already saved the completed response.
+      const signingIds = rows
+        .filter((r: Record<string, unknown>) => r.receipt_status === "signing")
+        .map((r: Record<string, unknown>) => r.id as string);
+
+      let alreadySignedIds = new Set<string>();
+      if (signingIds.length > 0) {
+        const { data: signedRows } = await supabase
+          .from("chat_messages")
+          .select("id")
+          .in("id", signingIds)
+          .eq("receipt_status", "signed");
+        if (signedRows) {
+          alreadySignedIds = new Set(signedRows.map((r: { id: string }) => r.id));
+        }
+      }
+
+      const filteredRows = alreadySignedIds.size > 0
+        ? rows.filter((r: Record<string, unknown>) =>
+            !(r.receipt_status === "signing" && alreadySignedIds.has(r.id as string))
+          )
+        : rows;
+
       // Batch upsert in chunks of 100
-      for (let i = 0; i < rows.length; i += 100) {
-        const chunk = rows.slice(i, i + 100);
+      for (let i = 0; i < filteredRows.length; i += 100) {
+        const chunk = filteredRows.slice(i, i + 100);
         const { error: msgErr } = await supabase
           .from("chat_messages")
           .upsert(chunk, { onConflict: "id" });
