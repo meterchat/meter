@@ -48,9 +48,14 @@ const STATEMENTS: string[] = [
     today_tokens_out integer default 0,
     today_message_count integer default 0,
     today_date text,
+    week_cost numeric default 0,
+    week_key text,
+    month_cost numeric default 0,
+    month_key text,
     daily_limit numeric,
     monthly_limit numeric,
     per_txn_limit numeric,
+    settlement_failed boolean default false,
     created_at timestamptz default now(),
     updated_at timestamptz default now(),
     deleted_at timestamptz default null
@@ -64,6 +69,10 @@ const STATEMENTS: string[] = [
     cost numeric, confidence numeric,
     settled boolean default false, receipt_status text,
     signature text, tx_hash text, cards jsonb,
+    attachments jsonb, debate_trace jsonb,
+    dissector_trace jsonb, thinking text,
+    is_fork_point boolean default false,
+    fork_resolution text,
     timestamp bigint not null,
     created_at timestamptz default now()
   )`,
@@ -165,6 +174,16 @@ const STATEMENTS: string[] = [
 
   // Dissector trace persistence
   `alter table chat_messages add column if not exists dissector_trace jsonb`,
+
+  // Fork state persistence (divider lines survive merge/close)
+  `alter table chat_messages add column if not exists is_fork_point boolean default false`,
+  `alter table chat_messages add column if not exists fork_resolution text`,
+
+  // Week/month cost tracking on sessions
+  `alter table chat_sessions add column if not exists week_cost numeric default 0`,
+  `alter table chat_sessions add column if not exists week_key text`,
+  `alter table chat_sessions add column if not exists month_cost numeric default 0`,
+  `alter table chat_sessions add column if not exists month_key text`,
 
   // Decision versioning, categories, and revisit tracking
   `alter table decisions add column if not exists category text`,
