@@ -11,6 +11,7 @@ function mapDecision(d: Record<string, unknown>) {
     choice: d.choice ?? undefined,
     alternatives: d.alternatives ?? undefined,
     reasoning: d.reasoning ?? undefined,
+    sessionId: d.project_id ?? undefined,
     projectId: d.project_id ?? undefined,
     chatMessageId: d.chat_message_id ?? undefined,
     category: d.category ?? undefined,

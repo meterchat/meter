@@ -127,7 +127,7 @@ export class MeterClient {
     const { sessions } = await res.json();
     return (sessions ?? []).map((s: Record<string, unknown>) => ({
       id: s.id,
-      name: s.project_name,
+      name: s.workspace_name ?? s.project_name,
       totalCost: Number(s.total_cost ?? 0),
       createdAt: s.created_at,
       updatedAt: s.updated_at,

@@ -990,10 +990,10 @@ export function ChatView() {
 
   useEffect(() => {
     if (!defaultSessionId) return;
-    const unassigned = decisions.filter((d) => !d.projectId);
+    const unassigned = decisions.filter((d) => !d.sessionId && !d.projectId);
     if (unassigned.length === 0) return;
     unassigned.forEach((d) => {
-      updateDecision(d.id, { projectId: defaultSessionId });
+      updateDecision(d.id, { sessionId: defaultSessionId });
     });
   }, [decisions, defaultSessionId, updateDecision]);
 
@@ -1160,7 +1160,7 @@ export function ChatView() {
       choice: currentWsTrack.name,
       alternatives: siblingSubtracks.map((s) => s.name),
       reasoning: "Explored multiple paths and committed to this one.",
-      projectId: parent,
+      sessionId: parent,
     });
   };
 
@@ -1561,7 +1561,7 @@ export function ChatView() {
         body: JSON.stringify({
           messages: allMessages,
           model: effectiveModel,
-          projectId: streamSessionId,
+          sessionId: streamSessionId,
           userMessageId: userMsg.id,
           assistantMessageId: assistantMsg.id,
           connectedServices: Object.keys(connectedServices).filter(
@@ -1754,7 +1754,7 @@ export function ChatView() {
                   choice: d.choice,
                   alternatives: d.alternatives,
                   reasoning: d.reasoning ?? undefined,
-                  projectId: streamSessionId,
+                  sessionId: streamSessionId,
                 });
                 useMeterStore.getState().setMessageDecisionId(decId, streamSessionId);
                 trackDecisionStaged({ decisionId: decId, title: d.title, projectId: streamSessionId });

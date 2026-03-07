@@ -10,7 +10,7 @@ const BASE_EXPLORER = "https://basescan.org/tx/";
 export default function ReceiptPage() {
   const params = useParams<{ id: string }>();
   const search = useSearchParams();
-  const projectId = search.get("project");
+  const projectId = search.get("session") ?? search.get("project");
   const sessions = useMeterStore((s) => s.sessions);
 
   const message = useMemo(() => {

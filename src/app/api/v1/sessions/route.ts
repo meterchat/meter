@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const { data: sessions } = await supabase
     .from("chat_sessions")
-    .select("id, project_name, total_cost, created_at, updated_at")
+    .select("id, project_name, workspace_name, total_cost, created_at, updated_at")
     .eq("user_id", userId)
     .is("deleted_at", null)
     .order("updated_at", { ascending: false })
@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
     id: sessionId,
     user_id: userId,
     project_name: projectName,
+    workspace_name: projectName,
     developer_id: keyRecord.user_id,
   });
 

@@ -254,6 +254,8 @@ export const SYSTEM_PROMPT = buildSystemPrompt([]);
 
 interface ToolContext {
   userId?: string;
+  sessionId?: string;
+  /** @deprecated Use sessionId */
   projectId?: string;
   workspaceId?: string;
 }
@@ -408,7 +410,7 @@ async function withConnectorToken(
   ctx: ToolContext,
   handler: (accessToken: string, metadata?: Record<string, unknown> | null) => Promise<unknown>
 ): Promise<string> {
-  const wsId = ctx.workspaceId ?? ctx.projectId;
+  const wsId = ctx.workspaceId ?? ctx.sessionId ?? ctx.projectId;
   if (!ctx.userId || !wsId) {
     return "Missing user session. Please sign in and connect the service.";
   }
@@ -521,7 +523,7 @@ async function saveDecision(
       choice: args.choice as string,
       alternatives: args.alternatives || [],
       reasoning: (args.reasoning as string) || null,
-      project_id: ctx.projectId || null,
+      project_id: ctx.sessionId ?? ctx.projectId ?? null,
       category,
       parent_decision_id: parentDecisionId,
       version,
@@ -555,7 +557,7 @@ async function saveArtifact(
     const supabase = getSupabaseServer();
     const filePath = args.file_path as string;
     const content = args.content as string;
-    const projectId = ctx.projectId || null;
+    const projectId = ctx.sessionId ?? ctx.projectId ?? null;
 
     // Upsert by user_id + project_id + file_path
     let existingId: string | undefined;

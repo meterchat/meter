@@ -60,11 +60,14 @@ create table if not exists oauth_tokens (
 -- CHAT & SESSIONS
 -- =============================================
 
--- Chat sessions (one per project thread)
+-- Chat sessions (one per workspace, or one per track when forked)
 create table if not exists chat_sessions (
   id text primary key,
   user_id text not null,
-  project_name text not null,
+  project_name text not null,           -- legacy alias; use workspace_name going forward
+  workspace_name text,                  -- canonical workspace/track display name
+  is_subtrack boolean default false,    -- true for forked track sessions (not standalone workspaces)
+  parent_session_id text,               -- points to parent workspace session when is_subtrack=true
   total_cost numeric default 0,
   today_cost numeric default 0,
   today_tokens_in integer default 0,
@@ -232,6 +235,11 @@ create table if not exists settlement_history (
 
 -- Workspace id on settlement history
 -- alter table settlement_history add column if not exists workspace_id text;
+
+-- Subtrack metadata on chat_sessions (track vs workspace distinction)
+-- alter table chat_sessions add column if not exists workspace_name text;
+-- alter table chat_sessions add column if not exists is_subtrack boolean default false;
+-- alter table chat_sessions add column if not exists parent_session_id text;
 
 -- SDK: developer scoping on chat sessions
 -- alter table chat_sessions add column if not exists developer_id uuid;

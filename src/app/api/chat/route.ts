@@ -36,7 +36,10 @@ export async function POST(req: NextRequest) {
   const { userId } = auth;
 
   try {
-    const { messages, model, projectId, connectedServices, attachments, debateRoster, userMessageId, assistantMessageId } = await req.json();
+    const body = await req.json();
+    const { messages, model, connectedServices, attachments, debateRoster, userMessageId, assistantMessageId } = body;
+    // Accept both sessionId (new) and projectId (legacy) for backward compatibility
+    const projectId: string | undefined = body.sessionId ?? body.projectId;
 
     // Server-side spend limit + exposure cap enforcement (skip for superadmin)
     if (projectId && !(await isSuperAdmin(userId))) {
@@ -362,7 +365,7 @@ export async function POST(req: NextRequest) {
               }
 
               toolsUsedSet.add(tc.name);
-              const toolResult = await executeTool(tc.name, args, { userId, projectId, workspaceId: projectId });
+              const toolResult = await executeTool(tc.name, args, { userId, sessionId: projectId, projectId, workspaceId: projectId });
 
               const toolResultEvent: Record<string, unknown> = { type: "tool_result", name: tc.name };
               if (tc.name === "save_decision") {
