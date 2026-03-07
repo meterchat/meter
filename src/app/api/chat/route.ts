@@ -252,6 +252,22 @@ export async function POST(req: NextRequest) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
             } catch {
               clientDisconnected = true;
+              // Client just disconnected — immediately save partial content to DB
+              // so the user sees it on refresh (before the full stream completes).
+              if (assistantMessageId && projectId && fullAssistantContent) {
+                saveMessageToDB({
+                  id: assistantMessageId,
+                  sessionId: projectId,
+                  role: "assistant",
+                  content: fullAssistantContent,
+                  model: resolvedModel,
+                  receiptStatus: "signing",
+                  timestamp: Date.now(),
+                  thinking: fullThinkingContent || undefined,
+                  debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
+                  dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+                }).catch(() => { /* best-effort */ });
+              }
             }
           }
         };
@@ -561,6 +577,22 @@ export async function POST(req: NextRequest) {
         // Client disconnected (e.g. page refresh). Don't abort the upstream
         // API call — let it finish so we can save the complete response.
         clientDisconnected = true;
+        // Immediately persist partial content so the user sees it on refresh.
+        // The final save at stream completion will overwrite with full content.
+        if (assistantMessageId && projectId && fullAssistantContent) {
+          saveMessageToDB({
+            id: assistantMessageId,
+            sessionId: projectId,
+            role: "assistant",
+            content: fullAssistantContent,
+            model: resolvedModel,
+            receiptStatus: "signing",
+            timestamp: Date.now(),
+            thinking: fullThinkingContent || undefined,
+            debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
+            dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+          }).catch(() => { /* best-effort */ });
+        }
       },
     });
 
