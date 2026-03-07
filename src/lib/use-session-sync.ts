@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn } from "@/lib/store";
+import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn, type DissectorTurn } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { apiUrl } from "@/lib/api-url";
 import { useDecisionsStore } from "@/lib/decisions-store";
@@ -69,6 +69,7 @@ export function useSessionSync() {
     cards: m.cards as ActionCard[] | undefined,
     attachments: m.attachments as Attachment[] | undefined,
     debateTrace: m.debate_trace as DebateTurn[] | undefined,
+    dissectorTrace: m.dissector_trace as DissectorTurn[] | undefined,
     thinking: m.thinking as string | undefined,
     timestamp: m.timestamp as number,
   });
@@ -121,18 +122,9 @@ export function useSessionSync() {
   const syncToServer = useCallback(async () => {
     if (!authenticated) return;
 
-    // Skip subtrack threads — they are local-only forks, not standalone sessions.
-    // Subtrack IDs match workspace store Projects with isSubtrack=true.
-    const wsSubtrackIds = new Set(
-      useWorkspaceStore.getState().projects
-        .filter((p) => p.isSubtrack)
-        .map((p) => p.id)
-    );
-    const syncableProjects = projects.filter((p) => !wsSubtrackIds.has(p.id));
-
     // Create a snapshot hash to avoid unnecessary syncs
     const snapshot = JSON.stringify(
-      syncableProjects.map((p) => ({
+      projects.map((p) => ({
         id: p.id,
         msgCount: p.messages.length,
         lastMsg: p.messages[p.messages.length - 1]?.id,
@@ -143,10 +135,10 @@ export function useSessionSync() {
     if (snapshot === lastSyncRef.current) return;
     let allOk = true;
 
-    // Sync each project as a session (excluding subtracks).
+    // Sync each project as a session.
     // Send only delta messages (new since last successful sync) to avoid
     // multi-MB payloads for sessions with thousands of messages.
-    for (const project of syncableProjects) {
+    for (const project of projects) {
       const syncedCount = syncedMessageCountRef.current.get(project.id) ?? 0;
       // On first sync (syncedCount=0) send all messages; otherwise only new ones.
       // Server upserts by message ID, so resending existing ones is safe but wasteful.
@@ -194,7 +186,7 @@ export function useSessionSync() {
       lastSyncRef.current = snapshot;
       syncFailCountRef.current = 0;
       // Track synced message counts for sendBeacon delta
-      for (const project of syncableProjects) {
+      for (const project of projects) {
         syncedMessageCountRef.current.set(project.id, project.messages.length);
       }
     } else {
@@ -256,14 +248,7 @@ export function useSessionSync() {
     const handleBeforeUnload = () => {
       // Send only delta messages since last successful sync to stay under
       // the ~64KB sendBeacon payload limit.
-      // Skip subtrack threads — they are local-only forks, not standalone sessions.
-      const wsSubtrackIds = new Set(
-        useWorkspaceStore.getState().projects
-          .filter((p) => p.isSubtrack)
-          .map((p) => p.id)
-      );
       for (const project of projects) {
-        if (wsSubtrackIds.has(project.id)) continue;
         const syncedCount = syncedMessageCountRef.current.get(project.id) ?? 0;
         const deltaMessages = project.messages.slice(syncedCount);
 
@@ -455,14 +440,7 @@ export function useSessionSync() {
         useMeterStore.getState().resetDailyIfNeeded();
         useMeterStore.getState().attemptDailySettlement();
 
-        // Filter out any subtrack sessions that may have been synced before the fix
-        const wsSubIds = new Set(
-          useWorkspaceStore.getState().projects
-            .filter((p) => p.isSubtrack)
-            .map((p) => p.id)
-        );
-        const mainSessions = serverSessions.filter((s) => !wsSubIds.has(s.id));
-        useWorkspaceStore.getState().upsertCompaniesFromSessions(mainSessions, nextActiveProjectId);
+        useWorkspaceStore.getState().upsertCompaniesFromSessions(serverSessions, nextActiveProjectId);
         useMeterStore.getState().fetchConnectionStatus();
 
         // Auto-fetch ALL remaining messages for sessions that have more than
@@ -470,7 +448,7 @@ export function useSessionSync() {
         // is responsive immediately, and messages fill in as they arrive.
         // We loop fetchOlderMessages until hasOlderMessages becomes false.
         for (const session of serverSessions) {
-          if (session.has_more_messages && !wsSubIds.has(session.id)) {
+          if (session.has_more_messages) {
             const sessionId = session.id as string;
             (async () => {
               try {

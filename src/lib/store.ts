@@ -1679,13 +1679,7 @@ export const useMeterStore = create<MeterState>()(
         spendingCap: s.spendingCap,
         autoSettleThreshold: s.autoSettleThreshold,
         lastAutoSettleDate: s.lastAutoSettleDate,
-        // Keep messages for subtracks (not synced to server, would be lost otherwise).
-        // Main workspace messages are fetched from server on load, so strip them to save space.
-        projects: s.projects.map((p) => {
-          const wsProjects = useWorkspaceStore.getState().projects;
-          const isSubtrack = wsProjects.some((wp) => wp.id === p.id && wp.isSubtrack);
-          return { ...p, messages: isSubtrack ? p.messages : [] };
-        }),
+        projects: s.projects.map((p) => ({ ...p, messages: [] })),
         activeProjectId: s.activeProjectId,
         spendLimits: s.spendLimits,
       }),

@@ -257,6 +257,7 @@ export async function POST(req: NextRequest) {
         cards: m.cards ?? null,
         attachments: m.attachments ?? null,
         debate_trace: m.debateTrace ?? null,
+        dissector_trace: m.dissectorTrace ?? null,
         thinking: m.thinking ?? null,
         timestamp: m.timestamp,
       }));
