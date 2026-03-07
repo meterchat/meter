@@ -187,7 +187,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const companies = [...s.companies];
           const norm = (v: string) => v.toLowerCase();
 
+          // Skip sessions that correspond to subtracks — they're projects, not companies
+          const subtrackSessionIds = new Set(
+            s.projects.filter((p) => p.isSubtrack).map((p) => p.id)
+          );
+
           for (const session of sessions) {
+            if (subtrackSessionIds.has(session.id)) continue;
             const sessionId = session.id;
             const name = session.project_name ?? session.name ?? session.id;
             const createdAtRaw = session.created_at ? Date.parse(session.created_at) : NaN;

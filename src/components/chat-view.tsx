@@ -66,7 +66,7 @@ const PATH_COLORS = [
 ] as const;
 
 function getPathColor(index: number) {
-  return PATH_COLORS[index % PATH_COLORS.length];
+  return PATH_COLORS[Math.abs(index) % PATH_COLORS.length];
 }
 
 function statusLabel(msg: ChatMessage) {
@@ -1130,7 +1130,8 @@ export function ChatView() {
     const allSiblings = wsProjects
       .filter((p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === parentTrackId)
       .sort((a, b) => a.createdAt - b.createdAt);
-    return allSiblings.findIndex((p) => p.id === currentWsProject.id);
+    const idx = allSiblings.findIndex((p) => p.id === currentWsProject.id);
+    return idx >= 0 ? idx : 0;
   }, [wsProjects, activeCompanyId, isSubtrack, currentWsProject, parentTrackId]);
 
   // Ref for fork handler — assigned after streamResponse is defined
