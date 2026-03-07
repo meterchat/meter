@@ -217,6 +217,29 @@ export async function POST(req: NextRequest) {
     // response so we can save it to DB. Only the SSE push is skipped.
     let clientDisconnected = false;
 
+    // Listen for client disconnect via the request's AbortSignal.
+    // This is more reliable than ReadableStream.cancel() in Node.js runtime.
+    const abortHandler = () => {
+      if (!clientDisconnected) {
+        clientDisconnected = true;
+        if (assistantMessageId && projectId && fullAssistantContent) {
+          saveMessageToDB({
+            id: assistantMessageId,
+            sessionId: projectId,
+            role: "assistant",
+            content: fullAssistantContent,
+            model: resolvedModel,
+            receiptStatus: "signing",
+            timestamp: Date.now(),
+            thinking: fullThinkingContent || undefined,
+            debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
+            dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+          }).catch(() => { /* best-effort */ });
+        }
+      }
+    };
+    req.signal.addEventListener("abort", abortHandler);
+
     const stream = new ReadableStream({
       async start(controller) {
         const send: Send = (data) => {
@@ -571,6 +594,7 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        req.signal.removeEventListener("abort", abortHandler);
         if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
       },
       cancel() {

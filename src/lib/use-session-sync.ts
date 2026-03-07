@@ -313,6 +313,13 @@ export function useSessionSync() {
     if (!authenticated) return;
 
     const handleBeforeUnload = () => {
+      // Flag if any session was streaming so the next page load can delay
+      // the session fetch to avoid racing with the beacon save.
+      const anyStreaming = sessions.some((s) => s.isStreaming);
+      if (anyStreaming) {
+        try { sessionStorage.setItem("meter:was-streaming", "1"); } catch { /* quota */ }
+      }
+
       // Send only delta messages since last successful sync to stay under
       // the ~64KB sendBeacon payload limit.
       const beaconTracks = useWorkspaceStore.getState().tracks;
@@ -406,6 +413,15 @@ export function useSessionSync() {
 
     async function loadSessions() {
       try {
+        // If any session was streaming when the page unloaded, the beacon/cancel
+        // save might still be in flight. Wait briefly to avoid a race condition
+        // where we fetch before the partial content is persisted.
+        const wasStreaming = sessionStorage.getItem("meter:was-streaming");
+        if (wasStreaming) {
+          sessionStorage.removeItem("meter:was-streaming");
+          await new Promise((r) => setTimeout(r, 500));
+          if (cancelled) return;
+        }
         const res = await fetch(apiUrl("/api/sessions"));
         if (!res.ok) {
           // Server session expired — clear client auth so user re-authenticates
@@ -585,6 +601,47 @@ export function useSessionSync() {
 
         useWorkspaceStore.getState().upsertWorkspacesFromSessions(serverSessions, nextActiveSessionId);
         useMeterStore.getState().fetchConnectionStatus();
+
+        // If any messages were mid-stream ("signing"), refetch after a delay
+        // to pick up the completed response from the server.
+        const hadSigningMessages = merged.some((p) =>
+          p.messages.some((m) => m.role === "assistant" && m.receiptStatus === "signing")
+        );
+        if (hadSigningMessages && !cancelled) {
+          setTimeout(async () => {
+            if (cancelled) return;
+            try {
+              const retryRes = await fetch(apiUrl("/api/sessions"));
+              if (!retryRes.ok) return;
+              const retryData = await retryRes.json();
+              if (!retryData.sessions?.length || cancelled) return;
+              const retrySessions = retryData.sessions as ServerSession[];
+              const currentStore = useMeterStore.getState();
+              // Update only messages that have been upgraded from signing to signed
+              for (const serverSess of retrySessions) {
+                const localSess = currentStore.sessions.find((p) => p.id === serverSess.id);
+                if (!localSess) continue;
+                const serverMsgs = Array.isArray(serverSess.messages) ? serverSess.messages : [];
+                let changed = false;
+                const updatedMessages = localSess.messages.map((lm) => {
+                  const sm = serverMsgs.find((m: Record<string, unknown>) => m.id === lm.id);
+                  if (sm && lm.receiptStatus === "signed" && (sm.content as string)?.length > (lm.content?.length ?? 0)) {
+                    changed = true;
+                    return mapServerMessage(sm);
+                  }
+                  return lm;
+                });
+                if (changed) {
+                  useMeterStore.setState((s) => ({
+                    sessions: s.sessions.map((p) =>
+                      p.id === serverSess.id ? { ...p, messages: updatedMessages } : p
+                    ),
+                  }));
+                }
+              }
+            } catch { /* background retry — non-critical */ }
+          }, 3000);
+        }
 
         // Auto-fetch ALL remaining messages for sessions that have more than
         // the initial 200 loaded. This runs in the background so the UI
