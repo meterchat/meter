@@ -2229,10 +2229,7 @@ export function ChatView() {
   }, []);
 
   const lastMsg = messages[messages.length - 1];
-  // Show thinking indicator during active streaming OR when an empty "signing"
-  // message is awaiting the server-side stream to complete (after page refresh).
-  const hasEmptySigningMessage = lastMsg?.role === "assistant" && !lastMsg.content && lastMsg.receiptStatus === "signing";
-  const showThinking = hasEmptySigningMessage || (isStreaming && (rerouting || activeTool || (lastMsg?.role === "assistant" && lastMsg.content === "")));
+  const showThinking = isStreaming && (rerouting || activeTool || (lastMsg?.role === "assistant" && lastMsg.content === ""));
   const lastUserMsg = messages.length >= 2 ? messages[messages.length - 2] : null;
   const hasImageAttachment = lastUserMsg?.attachments?.some(a => a.mimeType.startsWith("image/")) ?? false;
   const hasPdfAttachment = lastUserMsg?.attachments?.some(a => a.mimeType === "application/pdf") ?? false;
@@ -2432,9 +2429,6 @@ export function ChatView() {
             )}
 
             {visibleMessages.map((msg, msgIdx) => {
-              // Skip rendering empty signing messages — the ThinkingIndicator
-              // already shows a loading state for these.
-              if (msg.role === "assistant" && !msg.content && msg.receiptStatus === "signing") return null;
               const isLastAssistant = msg.role === "assistant" && msgIdx === visibleMessages.length - 1;
               const displayContent = msg.role === "assistant" ? stripDecisionPoint(msg.content) : msg.content;
               const isDecisionPoint = hasDecisionPoint(msg.content);
