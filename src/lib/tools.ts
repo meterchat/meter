@@ -93,7 +93,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
     function: {
       name: "fork_paths",
       description:
-        "Fork the conversation into named paths for the user to explore separately. Use ONLY when the user says 'Fork this into paths' — call this tool with short descriptive names for each path based on the options being weighed. Default to 2 paths. Only use 3 rarely when all three are genuinely distinct. Max 4.",
+        "Fork the conversation into named paths for the user to explore separately. Use when the user asks to fork, explore paths, branch out, or compare options side by side. Call this tool with short descriptive names for each path based on the options being weighed. Default to 2 paths. Only use 3 rarely when all three are genuinely distinct. Max 4. IMPORTANT: Always call this tool instead of just describing the paths in text.",
       parameters: {
         type: "object",
         properties: {
@@ -228,6 +228,8 @@ When the user is questioning or stress-testing a singular idea — "is this good
 When the user is genuinely torn between two or more paths and wants to explore each one in depth before committing — not just picking between options, but needing to think through the consequences of each path separately — end your response with the tag [fork-paths] on its own line. This gives the user an "Explore paths" button that forks the conversation into parallel tracks. Use this sparingly — only when the user is at a real crossroads where exploring each path separately would provide more clarity than a simple debate or decision. Do NOT use [fork-paths] alongside [decision-point] — if the user can just decide, use [decision-point]. [fork-paths] is for when they need to live with each option for a while before choosing. Default to suggesting 2 paths. Only suggest 3 when all three are genuinely distinct options. Maximum 4 paths.
 
 Only use these tags when a meaningful choice or analysis is being discussed, not on routine messages. Use [decision-point] for dual-nature decisions, [dissect-point] for singular ideas under scrutiny, [fork-paths] for deep crossroads requiring parallel exploration.
+
+IMPORTANT: When the user explicitly asks to "fork", "fork this", "explore paths", "branch this", or similar — immediately call the fork_paths tool with descriptive path names based on the options discussed. Do NOT just describe paths in text. The fork_paths tool creates actual parallel conversation tracks the user can explore.
 
 When the user asks to generate strategy artifacts or prepare specs for their coding agents, create these files using save_artifact:
 1. README.md — project overview, purpose, current phase, and how to run it
