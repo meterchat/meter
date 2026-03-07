@@ -431,7 +431,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
             <p className="font-mono text-[11px] text-muted-foreground/30 italic">No details recorded</p>
           )}
           {version > 1 && (
-            <VersionHistory title={decision.title} projectId={decision.projectId} />
+            <VersionHistory title={decision.title} projectId={decision.sessionId} />
           )}
         </div>
       )}
@@ -524,22 +524,34 @@ function PinsSection({ activeSessionId }: { activeSessionId: string | null }) {
   );
 }
 
-function DecisionsTab({ activeSessionId }: { activeSessionId: string | null }) {
+function DecisionsTab({ activeSessionId: rawSessionId }: { activeSessionId: string | null }) {
   const { decisions } = useDecisionsStore();
 
-  // Combine scoped + legacy, filter non-archived
+  // Resolve subtrack → parent workspace so decisions are scoped to workspace
+  const wsTracks = useWorkspaceStore((s) => s.tracks);
+  const wsWorkspaces = useWorkspaceStore((s) => s.workspaces);
+  const meterSessions = useMeterStore((s) => s.sessions);
+  const activeSessionId = useMemo(() => {
+    if (!rawSessionId) return null;
+    const wsTrack = wsTracks.find((p) => p.id === rawSessionId);
+    if (wsTrack?.isSubtrack) {
+      const workspace = wsWorkspaces.find((c) => c.id === wsTrack.workspaceId);
+      if (workspace?.sessionId) {
+        const parent = meterSessions.find((p) => p.id === workspace.sessionId);
+        if (parent) return parent.id;
+      }
+    }
+    return rawSessionId;
+  }, [rawSessionId, wsTracks, wsWorkspaces, meterSessions]);
+
+  // Only show decisions scoped to the active workspace
   const allDecisions = decisions.filter((d) => !d.archived);
-  const scoped = allDecisions
-    .filter((d) => d.projectId && d.projectId === activeSessionId)
+  const allVisible = allDecisions
+    .filter((d) => d.sessionId === activeSessionId)
     .sort((a, b) => {
       if (a.status !== b.status) return a.status === "undecided" ? -1 : 1;
       return b.updatedAt - a.updatedAt;
     });
-  const legacy = allDecisions
-    .filter((d) => !d.projectId)
-    .sort((a, b) => b.updatedAt - a.updatedAt);
-
-  const allVisible = [...scoped, ...legacy];
 
   // Group by category
   const grouped = useMemo(() => {
@@ -1098,7 +1110,7 @@ function TimelineTab({ activeSessionId }: { activeSessionId: string | null }) {
     // Decisions
     for (const d of decisions) {
       if (d.archived) continue;
-      if (d.projectId && d.projectId !== activeSessionId) continue;
+      if (d.sessionId !== activeSessionId) continue;
       items.push({
         id: `decision-${d.id}`,
         type: "decision",
@@ -1150,7 +1162,7 @@ function TimelineTab({ activeSessionId }: { activeSessionId: string | null }) {
 
     // Artifacts (generated spec kit files)
     for (const a of artifacts) {
-      if (a.projectId && a.projectId !== activeSessionId) continue;
+      if (a.sessionId !== activeSessionId) continue;
       if (a.lastGeneratedAt) {
         items.push({
           id: `artifact-${a.id}`,
