@@ -213,6 +213,23 @@ const STATEMENTS: string[] = [
   `alter table auth_challenges alter column email drop not null`,
   `alter table auth_challenges add column if not exists user_id text`,
 
+  // Public development log
+  `create table if not exists log_entries (
+    id text primary key,
+    type text not null check (type in (
+      'message_sent', 'decision_locked', 'debate_started',
+      'path_forked', 'path_merged', 'workspace_created',
+      'feedback_logged', 'commit_pushed'
+    )),
+    actor text not null default 'anon',
+    commit_sha text,
+    commit_url text,
+    commit_repo text,
+    feedback_text text,
+    created_at timestamptz default now()
+  )`,
+  `create index if not exists idx_log_entries_created_at on log_entries(created_at desc)`,
+
   // Indexes
   `create index if not exists idx_oauth_tokens_user on oauth_tokens(user_id)`,
   `create index if not exists idx_oauth_tokens_workspace on oauth_tokens(workspace_id)`,
@@ -338,6 +355,13 @@ const STATEMENTS: string[] = [
   // auth_challenges must be open for unauthenticated register/login flows
   `do $$ begin
      create policy auth_challenges_open on auth_challenges for all
+       using (true);
+   exception when duplicate_object then null; end $$`,
+
+  // log_entries is public — open read/write for all (no user ownership)
+  `alter table log_entries enable row level security`,
+  `do $$ begin
+     create policy log_entries_open on log_entries for all
        using (true);
    exception when duplicate_object then null; end $$`,
 ];
