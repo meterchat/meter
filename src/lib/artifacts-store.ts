@@ -13,7 +13,7 @@ export interface Artifact {
   lastPushedAt?: number;
   lastCommittedContent?: string;
   lastCommittedAt?: number;
-  projectId?: string;
+  sessionId?: string;
 }
 
 interface ArtifactsState {
@@ -22,7 +22,7 @@ interface ArtifactsState {
   pushing: boolean;
   targetRepo: string | null;
 
-  fetchArtifacts: (projectId: string | null) => Promise<void>;
+  fetchArtifacts: (sessionId: string | null) => Promise<void>;
   upsertArtifact: (artifact: Partial<Artifact> & { id: string; filePath: string }) => void;
   setTargetRepo: (repo: string | null) => void;
   setPushing: (v: boolean) => void;
@@ -37,11 +37,11 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
   pushing: false,
   targetRepo: null,
 
-  fetchArtifacts: async (projectId) => {
+  fetchArtifacts: async (sessionId) => {
     set({ loading: true });
     try {
       const params = new URLSearchParams();
-      if (projectId) params.set("projectId", projectId);
+      if (sessionId) params.set("sessionId", sessionId);
       const res = await fetch(apiUrl(`/api/artifacts?${params}`));
       if (!res.ok) {
         set({ loading: false });

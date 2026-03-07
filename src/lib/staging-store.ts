@@ -8,7 +8,7 @@ export interface StagedDecision {
   choice?: string;
   alternatives?: string[];
   reasoning?: string;
-  projectId?: string;
+  sessionId?: string;
   chatMessageId?: string;
   stagedAt: number;
 }
@@ -20,7 +20,7 @@ interface StagingState {
   unstageDecision: (id: string) => void;
   clearStaged: () => void;
 
-  commit: (projectId: string) => void;
+  commit: (sessionId: string) => void;
 
   getStagedCount: () => number;
   getModifiedArtifacts: () => { filePath: string; status: "new" | "modified" | "unchanged" }[];
@@ -53,7 +53,7 @@ export const useStagingStore = create<StagingState>()((set, get) => ({
 
   clearStaged: () => set({ stagedDecisions: [] }),
 
-  commit: (projectId: string) => {
+  commit: (sessionId: string) => {
     const { stagedDecisions } = get();
     const decisionsStore = useDecisionsStore.getState();
     const artifactsStore = useArtifactsStore.getState();
@@ -67,7 +67,7 @@ export const useStagingStore = create<StagingState>()((set, get) => ({
         choice: staged.choice,
         alternatives: staged.alternatives,
         reasoning: staged.reasoning,
-        projectId: staged.projectId ?? projectId,
+        sessionId: staged.sessionId ?? sessionId,
         chatMessageId: staged.chatMessageId,
       });
     }

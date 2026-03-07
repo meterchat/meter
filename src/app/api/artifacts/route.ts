@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 
-// GET /api/artifacts?projectId=xxx — load all artifacts for the authenticated user + project
+// GET /api/artifacts?sessionId=xxx — load all artifacts for the authenticated user + workspace session
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
   const { userId } = auth;
 
-  const projectId = req.nextUrl.searchParams.get("projectId") || null;
+  const sessionId = req.nextUrl.searchParams.get("sessionId") ?? req.nextUrl.searchParams.get("projectId") ?? null;
 
   try {
     const supabase = getSupabaseServer();
@@ -18,10 +18,10 @@ export async function GET(req: NextRequest) {
       .select("*")
       .eq("user_id", userId);
 
-    if (projectId) {
-      query = query.eq("project_id", projectId);
+    if (sessionId) {
+      query = query.or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`);
     } else {
-      query = query.is("project_id", null);
+      query = query.is("session_id", null).is("project_id", null);
     }
 
     const { data, error } = await query.order("created_at", { ascending: true });
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       githubSha: a.github_sha ?? undefined,
       lastGeneratedAt: a.last_generated_at ? new Date(a.last_generated_at).getTime() : undefined,
       lastPushedAt: a.last_pushed_at ? new Date(a.last_pushed_at).getTime() : undefined,
-      projectId: a.project_id ?? undefined,
+      sessionId: a.session_id ?? a.project_id ?? undefined,
     }));
 
     return NextResponse.json({ artifacts });

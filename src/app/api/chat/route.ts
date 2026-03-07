@@ -365,7 +365,7 @@ export async function POST(req: NextRequest) {
               }
 
               toolsUsedSet.add(tc.name);
-              const toolResult = await executeTool(tc.name, args, { userId, sessionId: projectId, projectId, workspaceId: projectId });
+              const toolResult = await executeTool(tc.name, args, { userId, sessionId: projectId, workspaceId: projectId });
 
               const toolResultEvent: Record<string, unknown> = { type: "tool_result", name: tc.name };
               if (tc.name === "save_decision") {

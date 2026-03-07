@@ -86,7 +86,7 @@ const STATEMENTS: string[] = [
     status text not null default 'undecided',
     archived boolean default false,
     choice text, alternatives jsonb, reasoning text,
-    project_id text, chat_message_id text,
+    session_id text, project_id text, chat_message_id text,
     category text, parent_decision_id text,
     version integer default 1, revisit_count integer default 0,
     created_at timestamptz default now(),
@@ -172,6 +172,12 @@ const STATEMENTS: string[] = [
   `alter table decisions add column if not exists version integer default 1`,
   `alter table decisions add column if not exists revisit_count integer default 0`,
 
+  // Rename project_id → session_id on decisions and artifacts
+  `alter table decisions add column if not exists session_id text`,
+  `update decisions set session_id = project_id where session_id is null and project_id is not null`,
+  `alter table artifacts add column if not exists session_id text`,
+  `update artifacts set session_id = project_id where session_id is null and project_id is not null`,
+
   // Soft-delete support for workspace deletion (7-day retention)
   `alter table chat_sessions add column if not exists deleted_at timestamptz default null`,
 
@@ -208,6 +214,7 @@ const STATEMENTS: string[] = [
   `create table if not exists artifacts (
     id text primary key,
     user_id text not null references meter_users(id) on delete cascade,
+    session_id text,
     project_id text,
     file_path text not null,
     content text not null default '',
@@ -221,7 +228,9 @@ const STATEMENTS: string[] = [
   )`,
   `create index if not exists idx_artifacts_user on artifacts(user_id)`,
   `create index if not exists idx_artifacts_project on artifacts(project_id)`,
+  `create index if not exists idx_artifacts_session on artifacts(session_id)`,
   `create unique index if not exists idx_artifacts_user_project_path on artifacts(user_id, coalesce(project_id, ''), file_path)`,
+  `create unique index if not exists idx_artifacts_user_session_path on artifacts(user_id, coalesce(session_id, ''), file_path)`,
 
   // ── RLS: helper function to set app context ──
   `create or replace function set_app_user(p_user_id text)

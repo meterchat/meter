@@ -11,8 +11,6 @@ export interface Decision {
   alternatives?: string[];
   reasoning?: string;
   sessionId?: string;
-  /** @deprecated Use sessionId */
-  projectId?: string;
   chatMessageId?: string;
   category?: string;
   parentDecisionId?: string;
@@ -123,10 +121,9 @@ export const useDecisionsStore = create<DecisionsState>()(
           set((s) => {
             // Merge server decisions into local, deduplicating by ID and by title+sessionId
             const localIds = new Set(s.decisions.map((d) => d.id));
-            const sessionKey = (d: Decision) => d.sessionId ?? d.projectId ?? "";
-            const localKeys = new Set(s.decisions.map((d) => `${d.title}::${sessionKey(d)}`));
+            const localKeys = new Set(s.decisions.map((d) => `${d.title}::${d.sessionId ?? ""}`));
             const newFromServer = serverDecisions.filter(
-              (d) => !localIds.has(d.id) && !localKeys.has(`${d.title}::${sessionKey(d)}`)
+              (d) => !localIds.has(d.id) && !localKeys.has(`${d.title}::${d.sessionId ?? ""}`)
             );
             if (newFromServer.length === 0) return s;
             return { decisions: [...newFromServer, ...s.decisions] };
@@ -139,7 +136,7 @@ export const useDecisionsStore = create<DecisionsState>()(
       fetchDecisionHistory: async (title: string, sessionId?: string) => {
         try {
           const params = new URLSearchParams({ history_for: title });
-          if (sessionId) params.set("project_id", sessionId);
+          if (sessionId) params.set("session_id", sessionId);
           const res = await fetch(apiUrl(`/api/decisions?${params}`));
           if (!res.ok) return [];
           const data = await res.json();

@@ -739,10 +739,10 @@ export const useMeterStore = create<MeterState>()(
         get().fetchConnectionStatus();
       },
 
-      setCardAssigned: (projectId) =>
+      setCardAssigned: (sessionId) =>
         set((s) => ({
           sessions: s.sessions.map((p) =>
-            p.id === projectId ? { ...p, cardAssigned: true } : p
+            p.id === sessionId ? { ...p, cardAssigned: true } : p
           ),
         })),
 
