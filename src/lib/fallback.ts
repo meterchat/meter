@@ -64,6 +64,7 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "google/gemini-3.1-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3.1-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
   "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4-1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
+  "minimax/minimax-m2.5": { envKey: "MINIMAX_API_KEY", nativeModel: "MiniMax-M2.5", sdk: "openai", baseURL: "https://api.minimax.io/v1", cacheReadRate: 0.1 },
 };
 
 /** Models where direct API should be preferred over OpenRouter.
@@ -109,6 +110,7 @@ const AUTO_ROUTE_ORDER = [
   "openai/gpt-5.2",
   "google/gemini-3.1-pro-preview",
   "x-ai/grok-4.1-fast",
+  "minimax/minimax-m2.5",
   "deepseek/deepseek-chat-v3-0324",
 ];
 
