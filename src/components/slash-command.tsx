@@ -45,7 +45,7 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
       connected: true,
     };
 
-    // Top-level slash commands (/money, /revenue, /users, /code)
+    // Top-level slash commands (/debate, /decide, /fork, etc.)
     const slashCommands: FlatCommand[] = useMemo(() =>
       SLASH_COMMANDS.map((sc) => ({
         connectorId: sc.connectorId,
@@ -53,8 +53,8 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
         connectorIcon: sc.iconPath,
         commandLabel: sc.label,
         chatPrompt: sc.chatPrompt,
-        description: `${sc.command} — powered by ${CONNECTORS.find((c) => c.id === sc.connectorId)?.name ?? sc.connectorId}`,
-        connected: !!connectedServices[sc.connectorId],
+        description: sc.command,
+        connected: sc.connectorId === "_builtin" || !!connectedServices[sc.connectorId],
         isSlashCommand: true,
       })),
       [connectedServices]
@@ -190,23 +190,12 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
                           globalIdx === highlightIndex ? "bg-foreground/5" : "hover:bg-foreground/[0.03]"
                         } ${!cmd.connected ? "opacity-60" : ""}`}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground/60 shrink-0">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/60 shrink-0">
                           <path d={cmd.connectorIcon} />
                         </svg>
                         <span className="font-mono text-[11px] text-foreground/80 shrink-0 font-semibold">
                           {cmd.commandLabel}
                         </span>
-                        <div className="ml-auto shrink-0">
-                          {cmd.connected ? (
-                            <span className="font-mono text-[9px] text-emerald-500/50">
-                              ready
-                            </span>
-                          ) : (
-                            <span className="rounded-md border border-border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
-                              connect
-                            </span>
-                          )}
-                        </div>
                       </button>
                     );
                   })}

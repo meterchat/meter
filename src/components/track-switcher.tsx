@@ -54,8 +54,11 @@ export function TrackSwitcher({ activeTrack, workspaceId }: TrackSwitcherProps) 
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const setDebateMode = useMeterStore((s) => s.setDebateMode);
+
   const handleSelect = (id: string | null) => {
     setActiveTrack(id);
+    setDebateMode(false);
     setOpen(false);
   };
 

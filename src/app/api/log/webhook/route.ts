@@ -48,6 +48,12 @@ export async function POST(request: NextRequest) {
     }
 
     const event = request.headers.get("x-github-event");
+
+    // GitHub sends a "ping" event when the webhook is first created — acknowledge it
+    if (event === "ping") {
+      return NextResponse.json({ ok: true, event: "ping" });
+    }
+
     if (event !== "push") {
       return NextResponse.json({ ok: true, skipped: true });
     }

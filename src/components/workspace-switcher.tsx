@@ -68,6 +68,8 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
     }, 120 * lines.length + 500);
   };
 
+  const setDebateMode = useMeterStore((s) => s.setDebateMode);
+
   const handleSelect = (id: string) => {
     if (id === activeWorkspace?.id) {
       setOpen(false);
@@ -75,6 +77,7 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
     }
     const workspace = workspaces.find((w) => w.id === id);
     setActiveWorkspace(id);
+    setDebateMode(false);
     setOpen(false);
     if (workspace) {
       trackWorkspaceSwitched({ workspaceId: workspace.id, workspaceName: workspace.name });

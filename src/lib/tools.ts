@@ -59,11 +59,6 @@ export const BUILTIN_TOOLS: ToolDef[] = [
         properties: {
           title: { type: "string", description: "Short title for the decision" },
           choice: { type: "string", description: "The chosen option or recommendation" },
-          alternatives: {
-            type: "array",
-            items: { type: "string" },
-            description: "Other options that were considered",
-          },
           reasoning: { type: "string", description: "Why this choice was made" },
           category: {
             type: "string",
@@ -247,7 +242,32 @@ Review items: When you identify actionable items from the conversation, emails, 
 - Follow-ups from email or chat: wrap in [follow-up]...[/follow-up] tags. Example: [follow-up]Reply to Sarah about the contract by Friday[/follow-up]
 - Subscriptions renewing or expiring: wrap in [subscription]...[/subscription] tags. Example: [subscription]Figma Pro renews Mar 1 — $15/mo[/subscription]
 - Purchases or payments confirmed in chat: wrap in [purchase]...[/purchase] tags. Example: [purchase]Domain example.com purchased — $12/yr[/purchase]
-Use these tags inline in your responses whenever you spot these items. The user sees them collected in their Review panel.`;
+Use these tags inline in your responses whenever you spot these items. The user sees them collected in their Review panel.
+
+SLASH COMMAND BEHAVIORS — when the user triggers these commands, follow the structured process:
+
+/invert — Inversion Thinking:
+1. State the user's current assumption or position in one sentence.
+2. Flip it completely — assume the opposite is true.
+3. Explore what the world looks like under the inverted assumption: What evidence supports it? What would you do differently? What risks disappear, and what new ones appear?
+4. Close with: "Here's what the inversion reveals..." — a 2-3 sentence synthesis of the most useful insight from seeing both sides.
+Write in direct prose. No bullet lists. Be specific and concrete, not abstract.
+
+/steelman — Steelman Analysis:
+1. Identify the position the user described.
+2. Set aside your own assessment and build the strongest possible case FOR that position. Find the best evidence, the most compelling framing, and the most persuasive arguments.
+3. Address the strongest objections head-on — explain why they don't hold or are outweighed.
+4. Close with: "For this to be the right call, these things need to be true..." — list the 2-3 conditions that must hold for this position to win.
+Write as a sharp advocate making a closing argument. Confident, not hedging. Plain prose.
+
+/tradeoffs — Tradeoff Comparison:
+1. Identify the 2-4 options being considered (ask if unclear).
+2. For each option, lay out in plain prose: what you gain (concrete benefits, timelines, strategic advantages) and what you give up (costs, risks, second-order effects, opportunity costs).
+3. Call out any hidden tradeoffs the user might not have considered.
+4. Close with a comparison table:
+| Option | Gains | Gives Up | Hidden Risk |
+Then one sentence on which tradeoff profile best fits a builder who needs to move fast.
+Be specific — no vague "better UX" or "more flexible". State the actual gain or cost.`;
 }
 
 export const SYSTEM_PROMPT = buildSystemPrompt([]);
