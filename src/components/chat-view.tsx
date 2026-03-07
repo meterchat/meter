@@ -26,6 +26,7 @@ import {
   trackInspectorToggled,
   resetUser,
 } from "@/lib/analytics";
+import { emitLogEvent } from "@/lib/log-event";
 import { MeterPill } from "@/components/meter-pill";
 import { HeaderMeter } from "@/components/header-meter";
 // CommitButton removed from header — decisions now log directly
@@ -2042,6 +2043,7 @@ export function ChatView() {
       attachmentCount: attachmentsToSend?.length ?? 0,
       messageLength: userContent.length,
     });
+    emitLogEvent("message_sent", userId);
 
     input.value = "";
     input.style.height = "auto";
@@ -2069,6 +2071,7 @@ export function ChatView() {
   const handleDebate = async () => {
     if (isStreaming || !workspaceCardReady) return;
     trackDebateStarted({ projectId: activeSessionId });
+    emitLogEvent("debate_started", userId);
     await streamResponse("Debate this.", "debate");
   };
 

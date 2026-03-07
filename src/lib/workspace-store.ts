@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { emitLogEvent } from "@/lib/log-event";
 
 export interface Workspace {
   id: string;
@@ -62,6 +63,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       createWorkspace: (name: string, sessionId?: string) => {
         const id = generateId();
         const session = sessionId ?? `ws_${generateId()}`;
+        emitLogEvent("workspace_created");
         set((s) => ({
           workspaces: [...s.workspaces, { id, name, sessionId: session, createdAt: Date.now() }],
           activeWorkspaceId: id,
@@ -124,6 +126,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       // --- Branching actions ---
 
       forkTrack: (workspaceId: string, parentTrackId: string | null, forkMessageId: string, names: string[]) => {
+        emitLogEvent("path_forked");
         const ids: string[] = [];
         const now = Date.now();
         const newTracks: Track[] = names.map((name) => {
@@ -149,6 +152,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       commitSubtrack: (subtrackId: string) => {
+        emitLogEvent("path_merged");
         set((s) => {
           const subtrack = s.tracks.find((t) => t.id === subtrackId);
           if (!subtrack || !subtrack.isSubtrack) return s;
