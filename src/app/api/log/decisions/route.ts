@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 
-// GET /api/log/decisions — public locked decisions scoped to the Meter workspace
+// GET /api/log/decisions — public locked decisions for the Meter founder
 export async function GET() {
   const userId = process.env.METER_FOUNDER_USER_ID;
-  const sessionId = process.env.METER_MAIN_SESSION_ID;
 
-  if (!userId || !sessionId) {
+  if (!userId) {
     return NextResponse.json({ decisions: [] });
   }
 
@@ -18,7 +17,6 @@ export async function GET() {
       .eq("user_id", userId)
       .eq("status", "decided")
       .eq("archived", false)
-      .or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`)
       .order("updated_at", { ascending: false });
 
     if (error) throw error;
