@@ -78,28 +78,28 @@ export function HeaderMeter() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  const projects = useMeterStore((s) => s.projects);
-  const activeProjectId = useMeterStore((s) => s.activeProjectId);
-  const rawActiveProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
+  const sessions = useMeterStore((s) => s.sessions);
+  const activeSessionId = useMeterStore((s) => s.activeSessionId);
+  const rawActiveSession = sessions.find((p) => p.id === activeSessionId) ?? sessions[0];
 
-  // When on a subtrack (forked path), resolve to the parent workspace project
+  // When on a subtrack (forked path), resolve to the parent workspace session
   // so the header shows the workspace's stats, not the subtrack's $0 stats.
-  const wsProjects = useWorkspaceStore((s) => s.projects);
-  const wsCompanies = useWorkspaceStore((s) => s.companies);
+  const wsTracks = useWorkspaceStore((s) => s.tracks);
+  const wsWorkspaces = useWorkspaceStore((s) => s.workspaces);
   const activeProject = useMemo(() => {
-    const wsProject = wsProjects.find((p) => p.id === activeProjectId);
-    if (wsProject?.isSubtrack) {
-      // Find the parent workspace's session and use that project for billing
-      const company = wsCompanies.find((c) => c.id === wsProject.companyId);
-      if (company?.sessionId) {
-        const parent = projects.find((p) => p.id === company.sessionId);
+    const wsTrack = wsTracks.find((p) => p.id === activeSessionId);
+    if (wsTrack?.isSubtrack) {
+      // Find the parent workspace's session and use that session for billing
+      const workspace = wsWorkspaces.find((c) => c.id === wsTrack.workspaceId);
+      if (workspace?.sessionId) {
+        const parent = sessions.find((p) => p.id === workspace.sessionId);
         if (parent) return parent;
       }
     }
-    return rawActiveProject;
-  }, [activeProjectId, rawActiveProject, wsProjects, wsCompanies, projects]);
+    return rawActiveSession;
+  }, [activeSessionId, rawActiveSession, wsTracks, wsWorkspaces, sessions]);
 
-  const isStreaming = rawActiveProject?.isStreaming ?? false;
+  const isStreaming = rawActiveSession?.isStreaming ?? false;
 
   // Payment cards
   const cards = useMeterStore((s) => s.cards);
@@ -109,7 +109,7 @@ export function HeaderMeter() {
   const removeCard = useMeterStore((s) => s.removeCard);
 
   // Settlement — compute pending balance from the resolved workspace project,
-  // not the raw activeProjectId (which may be a subtrack with $0).
+  // not the raw activeSessionId (which may be a subtrack with $0).
   const pendingCharges = useMeterStore((s) => s.pendingCharges);
   const getWorkspacePendingBalance = useMemo(() => {
     return () => {
@@ -219,7 +219,7 @@ export function HeaderMeter() {
   }, [open]);
 
   // Fetch cards and spend limits when dropdown opens — use the workspace project ID
-  const workspaceProjectId = activeProject?.id ?? activeProjectId;
+  const workspaceProjectId = activeProject?.id ?? activeSessionId;
   useEffect(() => {
     if (!open) return;
     fetchCards();
@@ -241,8 +241,8 @@ export function HeaderMeter() {
   const saveLimitOnBlur = (field: keyof typeof spendLimits, raw: string) => {
     const val = raw.trim() === "" ? null : Number(raw);
     if (val !== null && isNaN(val)) return;
-    trackSpendLimitUpdated({ field, value: val, projectId: activeProjectId ?? undefined });
-    updateSpendLimits({ [field]: val }, activeProjectId ?? undefined);
+    trackSpendLimitUpdated({ field, value: val, projectId: activeSessionId ?? undefined });
+    updateSpendLimits({ [field]: val }, activeSessionId ?? undefined);
   };
 
   const handleSetDefault = async (cardId: string) => {
@@ -402,7 +402,7 @@ export function HeaderMeter() {
           <div className="h-px bg-border" />
 
           {/* Spend Limits */}
-          {activeProjectId && (
+          {activeSessionId && (
             <>
               <div className="px-4 py-3">
                 <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">

@@ -39,7 +39,7 @@ import { SlashCommandPopover, type SlashCommandHandle } from "@/components/slash
 import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
 import { WorkspaceBar } from "@/components/workspace-bar";
-import { useWorkspaceStore, resolveWorkspaceProjectId } from "@/lib/workspace-store";
+import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS } from "@/lib/models";
@@ -715,7 +715,7 @@ const mdComponents = {
   ),
 };
 
-function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string }) {
+function MessageFooter({ msg, sessionId }: { msg: ChatMessage; sessionId: string }) {
   const hasCost = msg.cost !== undefined;
 
   const modelName = msg.model ? shortModelName(msg.model) : "—";
@@ -738,7 +738,7 @@ function MessageFooter({ msg, projectId }: { msg: ChatMessage; projectId: string
       <span className="text-muted-foreground/30">&middot;</span>
       {isSigned ? (
         <a
-          href={`/receipt/${msg.id}?project=${projectId}`}
+          href={`/receipt/${msg.id}?session=${sessionId}`}
           target="_blank"
           rel="noopener noreferrer"
           className={`inline-flex items-center gap-1 transition-colors ${msg.receiptStatus === "settled" ? "text-emerald-500/80 hover:text-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
@@ -931,12 +931,12 @@ export function ChatView() {
   const isMobile = useIsMobile();
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
 
-  const activeProjectId = useMeterStore((s) => s.activeProjectId);
-  const activeProject = useMeterStore((s) => s.projects.find((p) => p.id === s.activeProjectId) ?? s.projects[0]);
-  // Full projects list — only used for infrequent lookups (defaultProjectId, sourceWorkspace, project switching).
+  const activeSessionId = useMeterStore((s) => s.activeSessionId);
+  const activeSession = useMeterStore((s) => s.sessions.find((p) => p.id === s.activeSessionId) ?? s.sessions[0]);
+  // Full sessions list — only used for infrequent lookups (defaultSessionId, sourceWorkspace, session switching).
   // Avoid using for hot-path renders.
-  const projects = useMeterStore((s) => s.projects);
-  const setActiveProject = useMeterStore((s) => s.setActiveProject);
+  const sessions = useMeterStore((s) => s.sessions);
+  const setActiveSession = useMeterStore((s) => s.setActiveSession);
   const addMessage = useMeterStore((s) => s.addMessage);
   const updateLastAssistantMessage = useMeterStore((s) => s.updateLastAssistantMessage);
   const finalizeResponse = useMeterStore((s) => s.finalizeResponse);
@@ -953,49 +953,49 @@ export function ChatView() {
   const spendLimits = useMeterStore((s) => s.spendLimits);
   const markupMultiplier = useMeterStore((s) => s.markupMultiplier);
 
-  const messages = activeProject?.messages ?? [];
+  const messages = activeSession?.messages ?? [];
   const allVisibleMessages = useMemo(() => messages.filter((m) => !m.hidden), [messages]);
   // Render only the last RENDER_WINDOW messages for performance.
   // Users with 5000+ messages would freeze the UI if all were in the DOM.
   // Scrolling up reveals more via the existing fetchOlderMessages mechanism.
   const RENDER_WINDOW = 200;
   const [renderLimit, setRenderLimit] = useState(RENDER_WINDOW);
-  // Reset render limit when switching projects
-  useEffect(() => { setRenderLimit(RENDER_WINDOW); }, [activeProjectId]);
+  // Reset render limit when switching sessions
+  useEffect(() => { setRenderLimit(RENDER_WINDOW); }, [activeSessionId]);
   const visibleMessages = useMemo(() => {
     if (allVisibleMessages.length <= renderLimit) return allVisibleMessages;
     return allVisibleMessages.slice(allVisibleMessages.length - renderLimit);
   }, [allVisibleMessages, renderLimit]);
-  const isStreaming = activeProject?.isStreaming ?? false;
-  const todayCost = activeProject?.todayCost ?? 0;
-  const todayMessageCount = activeProject?.todayMessageCount ?? 0;
+  const isStreaming = activeSession?.isStreaming ?? false;
+  const todayCost = activeSession?.todayCost ?? 0;
+  const todayMessageCount = activeSession?.todayMessageCount ?? 0;
 
-  // Fetch spend limits on mount and when project changes — can't rely on
+  // Fetch spend limits on mount and when session changes — can't rely on
   // Inspector since it's unmounted when closed, and limits aren't persisted
   // across page reloads without this.
   const fetchSpendLimits = useMeterStore((s) => s.fetchSpendLimits);
   useEffect(() => {
-    if (activeProjectId) fetchSpendLimits(activeProjectId);
-  }, [activeProjectId, fetchSpendLimits]);
+    if (activeSessionId) fetchSpendLimits(activeSessionId);
+  }, [activeSessionId, fetchSpendLimits]);
 
   const decisions = useDecisionsStore((s) => s.decisions);
   const updateDecision = useDecisionsStore((s) => s.updateDecision);
 
-  const defaultProjectId = useMemo(() => {
-    const match = projects.find(
+  const defaultSessionId = useMemo(() => {
+    const match = sessions.find(
       (p) => p.id === "default" || p.id === "meter" || p.name?.toLowerCase() === "meter"
     );
-    return match?.id ?? projects[0]?.id ?? null;
-  }, [projects]);
+    return match?.id ?? sessions[0]?.id ?? null;
+  }, [sessions]);
 
   useEffect(() => {
-    if (!defaultProjectId) return;
+    if (!defaultSessionId) return;
     const unassigned = decisions.filter((d) => !d.projectId);
     if (unassigned.length === 0) return;
     unassigned.forEach((d) => {
-      updateDecision(d.id, { projectId: defaultProjectId });
+      updateDecision(d.id, { projectId: defaultSessionId });
     });
-  }, [decisions, defaultProjectId, updateDecision]);
+  }, [decisions, defaultSessionId, updateDecision]);
 
   const userId = useMeterStore((s) => s.userId);
   const cardOnFile = useMeterStore((s) => s.cardOnFile);
@@ -1003,33 +1003,33 @@ export function ChatView() {
   const cardBrand = useMeterStore((s) => s.cardBrand);
   const workspaceCardReady = useMeterStore(selectWorkspaceCardReady);
   const setCardAssigned = useMeterStore((s) => s.setCardAssigned);
-  const chatBlocked = activeProject?.chatBlocked ?? false;
+  const chatBlocked = activeSession?.chatBlocked ?? false;
 
   const sourceWorkspaceName = useMemo(() => {
     if (workspaceCardReady || !cardOnFile) return null;
-    const source = projects.find(
-      (p) => p.id !== activeProjectId && p.cardAssigned === true
+    const source = sessions.find(
+      (p) => p.id !== activeSessionId && p.cardAssigned === true
     );
     return source?.name ?? null;
-  }, [workspaceCardReady, cardOnFile, projects, activeProjectId]);
+  }, [workspaceCardReady, cardOnFile, sessions, activeSessionId]);
 
   // Onboarding state: first-time users go name → card → explainer
   const [onboardingWorkspaceName, setOnboardingWorkspaceName] = useState(
-    activeProject?.name ?? "My Workspace"
+    activeSession?.name ?? "My Workspace"
   );
   const [onboardingStep, setOnboardingStep] = useState<"name" | "card">("name");
   const [showExplainer, setShowExplainer] = useState(false);
-  const createCompany = useWorkspaceStore((s) => s.createCompany);
-  const renameProject = useMeterStore((s) => s.renameProject);
-  const addProject = useMeterStore((s) => s.addProject);
-  const setActiveProjectChat = useMeterStore((s) => s.setActiveProject);
+  const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
+  const renameSession = useMeterStore((s) => s.renameSession);
+  const addSession = useMeterStore((s) => s.addSession);
+  const setActiveSessionChat = useMeterStore((s) => s.setActiveSession);
 
   // First-workspace onboarding: rename existing default workspace
   const handleOnboardingRenameWorkspace = () => {
     const name = onboardingWorkspaceName.trim() || "My Workspace";
-    renameProject(activeProjectId, name);
-    // Create company in workspace store to link with this project
-    createCompany(name, activeProjectId);
+    renameSession(activeSessionId, name);
+    // Create workspace in workspace store to link with this session
+    createWorkspace(name, activeSessionId);
     trackWorkspaceCreated({ name, source: "chat_onboarding" });
     trackOnboardingStepViewed({ step: "card" });
     setOnboardingStep("card");
@@ -1040,112 +1040,112 @@ export function ChatView() {
     const name = onboardingWorkspaceName.trim();
     if (!name) return;
     const sessionId = `ws_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    createCompany(name, sessionId);
-    addProject(name, sessionId);
-    setActiveProjectChat(sessionId);
+    createWorkspace(name, sessionId);
+    addSession(name, sessionId);
+    setActiveSessionChat(sessionId);
     trackWorkspaceCreated({ name, source: "chat_onboarding" });
   };
 
   // --- Track branching state ---
-  const wsProjects = useWorkspaceStore((s) => s.projects);
-  const wsCompanies = useWorkspaceStore((s) => s.companies);
-  const activeCompanyId = useWorkspaceStore((s) => s.activeCompanyId);
-  const wsActiveProjectId = useWorkspaceStore((s) => s.activeProjectId);
+  const wsTracks = useWorkspaceStore((s) => s.tracks);
+  const wsWorkspaces = useWorkspaceStore((s) => s.workspaces);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const wsActiveTrackId = useWorkspaceStore((s) => s.activeTrackId);
   const forkTrack = useWorkspaceStore((s) => s.forkTrack);
   const commitSubtrackWs = useWorkspaceStore((s) => s.commitSubtrack);
   const closeAllSubtracksWs = useWorkspaceStore((s) => s.closeAllSubtracks);
-  const setActiveProjectWs = useWorkspaceStore((s) => s.setActiveProject);
-  const createSubtrackThread = useMeterStore((s) => s.createSubtrackThread);
+  const setActiveTrackWs = useWorkspaceStore((s) => s.setActiveTrack);
+  const createSubtrackSession = useMeterStore((s) => s.createSubtrackSession);
   const mergeSubtrackIntoParent = useMeterStore((s) => s.mergeSubtrackIntoParent);
   const clearForkPoint = useMeterStore((s) => s.clearForkPoint);
   const addDecision = useDecisionsStore((s) => s.addDecision);
 
-  // Sync workspace store's active project to main store's active project.
+  // Sync workspace store's active track to main store's active session.
   // When switching to a subtrack, main store must also switch so messages route correctly.
-  // When switching to null (main), main store should use the company's sessionId.
+  // When switching to null (main), main store should use the workspace's sessionId.
   useEffect(() => {
-    if (wsActiveProjectId) {
-      // Subtrack selected — switch main store to the subtrack's ProjectThread
-      const mainProjects = useMeterStore.getState().projects;
-      const subtrackThread = mainProjects.find((p) => p.id === wsActiveProjectId);
+    if (wsActiveTrackId) {
+      // Subtrack selected — switch main store to the subtrack's Session
+      const mainSessions = useMeterStore.getState().sessions;
+      const subtrackThread = mainSessions.find((p) => p.id === wsActiveTrackId);
       if (subtrackThread) {
         // If subtrack has 0 messages (lost after refresh), re-clone from parent
         if (subtrackThread.messages.length === 0) {
-          const wsProject = wsProjects.find((p) => p.id === wsActiveProjectId);
-          if (wsProject?.isSubtrack && wsProject.forkMessageId) {
-            const company = wsCompanies.find((c) => c.id === wsProject.companyId);
-            if (company?.sessionId) {
-              createSubtrackThread(wsActiveProjectId, company.sessionId, wsProject.forkMessageId);
+          const wsTrack = wsTracks.find((p) => p.id === wsActiveTrackId);
+          if (wsTrack?.isSubtrack && wsTrack.forkMessageId) {
+            const workspace = wsWorkspaces.find((c) => c.id === wsTrack.workspaceId);
+            if (workspace?.sessionId) {
+              createSubtrackSession(wsActiveTrackId, workspace.sessionId, wsTrack.forkMessageId);
             }
           }
         }
-        setActiveProjectChat(wsActiveProjectId);
+        setActiveSessionChat(wsActiveTrackId);
       }
-    } else if (activeCompanyId) {
-      // Main selected (null) — switch main store to company's session thread
-      const company = wsCompanies.find((c) => c.id === activeCompanyId);
-      if (company?.sessionId) {
-        setActiveProjectChat(company.sessionId);
+    } else if (activeWorkspaceId) {
+      // Main selected (null) — switch main store to workspace's session thread
+      const workspace = wsWorkspaces.find((c) => c.id === activeWorkspaceId);
+      if (workspace?.sessionId) {
+        setActiveSessionChat(workspace.sessionId);
       }
     }
-  }, [wsActiveProjectId, activeCompanyId, wsCompanies, wsProjects, setActiveProjectChat, createSubtrackThread]);
+  }, [wsActiveTrackId, activeWorkspaceId, wsWorkspaces, wsTracks, setActiveSessionChat, createSubtrackSession]);
 
-  // Current workspace project (from workspace store, has branching metadata)
-  const currentWsProject = useMemo(
-    () => wsProjects.find((p) => p.id === wsActiveProjectId) ?? null,
-    [wsProjects, wsActiveProjectId]
+  // Current workspace track (from workspace store, has branching metadata)
+  const currentWsTrack = useMemo(
+    () => wsTracks.find((p) => p.id === wsActiveTrackId) ?? null,
+    [wsTracks, wsActiveTrackId]
   );
-  const isSubtrack = currentWsProject?.isSubtrack ?? false;
-  const isArchivedSubtrack = isSubtrack && currentWsProject?.status === "archived";
-  const parentTrackId = currentWsProject?.parentTrackId ?? null;
-  const forkMessageId = currentWsProject?.forkMessageId ?? null;
+  const isSubtrack = currentWsTrack?.isSubtrack ?? false;
+  const isArchivedSubtrack = isSubtrack && currentWsTrack?.status === "archived";
+  const parentTrackId = currentWsTrack?.parentTrackId ?? null;
+  const forkMessageId = currentWsTrack?.forkMessageId ?? null;
 
-  // Active subtracks for the current parent — scoped to current company, sorted by creation for consistent color assignment
+  // Active subtracks for the current parent — scoped to current workspace, sorted by creation for consistent color assignment
   const activeSubtracks = useMemo(
-    () => wsProjects.filter(
-      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (isSubtrack ? parentTrackId : wsActiveProjectId)
+    () => wsTracks.filter(
+      (p) => p.workspaceId === activeWorkspaceId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (isSubtrack ? parentTrackId : wsActiveTrackId)
     ).sort((a, b) => a.createdAt - b.createdAt),
-    [wsProjects, activeCompanyId, isSubtrack, parentTrackId, wsActiveProjectId]
+    [wsTracks, activeWorkspaceId, isSubtrack, parentTrackId, wsActiveTrackId]
   );
 
-  // Is main frozen? (has active subtracks pointing to it) — scoped to current company
+  // Is main frozen? (has active subtracks pointing to it) — scoped to current workspace
   const isMainFrozen = useMemo(() => {
     if (isSubtrack) return false;
-    return wsProjects.some(
-      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (wsActiveProjectId ?? null)
+    return wsTracks.some(
+      (p) => p.workspaceId === activeWorkspaceId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === (wsActiveTrackId ?? null)
     );
-  }, [wsProjects, activeCompanyId, isSubtrack, wsActiveProjectId]);
+  }, [wsTracks, activeWorkspaceId, isSubtrack, wsActiveTrackId]);
 
-  // Sibling subtracks (other active subtracks sharing same parent) — scoped to current company
+  // Sibling subtracks (other active subtracks sharing same parent) — scoped to current workspace
   const siblingSubtracks = useMemo(() => {
-    if (!isSubtrack || !currentWsProject) return [];
-    return wsProjects.filter(
-      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && p.id !== currentWsProject.id && (p.parentTrackId ?? null) === parentTrackId
+    if (!isSubtrack || !currentWsTrack) return [];
+    return wsTracks.filter(
+      (p) => p.workspaceId === activeWorkspaceId && p.isSubtrack && p.status === "active" && p.id !== currentWsTrack.id && (p.parentTrackId ?? null) === parentTrackId
     );
-  }, [wsProjects, activeCompanyId, isSubtrack, currentWsProject, parentTrackId]);
+  }, [wsTracks, activeWorkspaceId, isSubtrack, currentWsTrack, parentTrackId]);
 
   // Color index for current subtrack (based on creation order among active subtracks with same parent)
   const currentPathColorIndex = useMemo(() => {
-    if (!isSubtrack || !currentWsProject) return 0;
-    const allSiblings = wsProjects
-      .filter((p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === parentTrackId)
+    if (!isSubtrack || !currentWsTrack) return 0;
+    const allSiblings = wsTracks
+      .filter((p) => p.workspaceId === activeWorkspaceId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === parentTrackId)
       .sort((a, b) => a.createdAt - b.createdAt);
-    const idx = allSiblings.findIndex((p) => p.id === currentWsProject.id);
+    const idx = allSiblings.findIndex((p) => p.id === currentWsTrack.id);
     return idx >= 0 ? idx : 0;
-  }, [wsProjects, activeCompanyId, isSubtrack, currentWsProject, parentTrackId]);
+  }, [wsTracks, activeWorkspaceId, isSubtrack, currentWsTrack, parentTrackId]);
 
   // Ref for fork handler — assigned after streamResponse is defined
   const handleForkPathsRef = useRef<() => void>(() => {});
 
   const handleCommitSubtrack = () => {
-    if (!currentWsProject || !isSubtrack) return;
-    const subtrackId = currentWsProject.id;
-    // Resolve the parent meter-store project ID — parentTrackId is null for root-level subtracks,
-    // so fall back to the company's sessionId (the actual meter-store project ID for the workspace).
+    if (!currentWsTrack || !isSubtrack) return;
+    const subtrackId = currentWsTrack.id;
+    // Resolve the parent meter-store session ID — parentTrackId is null for root-level subtracks,
+    // so fall back to the workspace's sessionId (the actual meter-store session ID for the workspace).
     let parent = parentTrackId;
     if (!parent) {
-      const company = wsCompanies.find((c) => c.id === currentWsProject.companyId);
-      parent = company?.sessionId ?? "default";
+      const workspace = wsWorkspaces.find((c) => c.id === currentWsTrack.workspaceId);
+      parent = workspace?.sessionId ?? "default";
     }
     const fork = forkMessageId;
     if (!fork) return;
@@ -1155,9 +1155,9 @@ export function ChatView() {
     commitSubtrackWs(subtrackId);
     // Auto-log decision
     addDecision({
-      title: `Committed to "${currentWsProject.name}"`,
+      title: `Committed to "${currentWsTrack.name}"`,
       status: "decided",
-      choice: currentWsProject.name,
+      choice: currentWsTrack.name,
       alternatives: siblingSubtracks.map((s) => s.name),
       reasoning: "Explored multiple paths and committed to this one.",
       projectId: parent,
@@ -1165,19 +1165,19 @@ export function ChatView() {
   };
 
   const handleCloseAllPaths = () => {
-    const wsParent = isSubtrack ? parentTrackId : (wsActiveProjectId ?? null);
-    // Find the fork message to clear — scoped to current company
-    const subtracks = wsProjects.filter(
-      (p) => p.companyId === activeCompanyId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === wsParent
+    const wsParent = isSubtrack ? parentTrackId : (wsActiveTrackId ?? null);
+    // Find the fork message to clear — scoped to current workspace
+    const subtracks = wsTracks.filter(
+      (p) => p.workspaceId === activeWorkspaceId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === wsParent
     );
     const fork = subtracks[0]?.forkMessageId;
     // Archive all subtracks
     closeAllSubtracksWs(wsParent);
-    // Resolve to meter-store project ID for clearing fork point
+    // Resolve to meter-store session ID for clearing fork point
     let meterParent = wsParent;
-    if (!meterParent && activeCompanyId) {
-      const company = wsCompanies.find((c) => c.id === activeCompanyId);
-      meterParent = company?.sessionId ?? "default";
+    if (!meterParent && activeWorkspaceId) {
+      const workspace = wsWorkspaces.find((c) => c.id === activeWorkspaceId);
+      meterParent = workspace?.sessionId ?? "default";
     }
     // Clear fork point marker
     if (fork) {
@@ -1186,28 +1186,28 @@ export function ChatView() {
   };
 
   const handleReturnToMain = () => {
-    setActiveProjectWs(parentTrackId ?? null);
+    setActiveTrackWs(parentTrackId ?? null);
   };
 
   const handleConfirmFork = (names: string[]) => {
-    const projectId = pendingForkProjectId ?? activeProjectId;
+    const sessionId = pendingForkSessionId ?? activeSessionId;
     const store = useMeterStore.getState();
-    const project = store.projects.find((p) => p.id === projectId);
-    const lastAssistantMsg = project?.messages.filter((m) => m.role === "assistant").pop();
-    if (lastAssistantMsg && activeCompanyId) {
-      const parentId = wsActiveProjectId ?? null;
-      const ids = forkTrack(activeCompanyId, parentId, lastAssistantMsg.id, names);
+    const session = store.sessions.find((p) => p.id === sessionId);
+    const lastAssistantMsg = session?.messages.filter((m) => m.role === "assistant").pop();
+    if (lastAssistantMsg && activeWorkspaceId) {
+      const parentId = wsActiveTrackId ?? null;
+      const ids = forkTrack(activeWorkspaceId, parentId, lastAssistantMsg.id, names);
       for (const id of ids) {
-        createSubtrackThread(id, projectId, lastAssistantMsg.id);
+        createSubtrackSession(id, sessionId, lastAssistantMsg.id);
       }
     }
     setPendingForkNames(null);
-    setPendingForkProjectId(null);
+    setPendingForkSessionId(null);
   };
 
   const handleCancelFork = () => {
     setPendingForkNames(null);
-    setPendingForkProjectId(null);
+    setPendingForkSessionId(null);
   };
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1215,8 +1215,8 @@ export function ChatView() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const modelPickerRef = useRef<HTMLDivElement>(null);
-  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
-  const [switchingProjectName, setSwitchingProjectName] = useState<string | null>(null);
+  const [showSessionDropdown, setShowSessionDropdown] = useState(false);
+  const [switchingSessionName, setSwitchingSessionName] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [rerouting, setRerouting] = useState<{ provider: string; toModel: string } | null>(null);
   const [thinkingStartedAt, setThinkingStartedAt] = useState<number>(0);
@@ -1244,10 +1244,10 @@ export function ChatView() {
   const isProgrammaticScrollRef = useRef(false);
   const hasInitialScrolled = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
-  const streamingForProjectRef = useRef<string | null>(null);
+  const streamingForSessionRef = useRef<string | null>(null);
   const pendingForkRef = useRef<string[] | null>(null);
   const [pendingForkNames, setPendingForkNames] = useState<string[] | null>(null);
-  const [pendingForkProjectId, setPendingForkProjectId] = useState<string | null>(null);
+  const [pendingForkSessionId, setPendingForkSessionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -1294,7 +1294,7 @@ export function ChatView() {
   useEffect(() => {
     hasInitialScrolled.current = false;
     userScrolledAwayRef.current = false;
-    // Reset debate/dissector state so it doesn't leak across projects/tracks
+    // Reset debate/dissector state so it doesn't leak across sessions/tracks
     setDebateTraceLocal([]);
     setActiveDebateTurn(null);
     setDebatePhase(null);
@@ -1302,22 +1302,22 @@ export function ChatView() {
     setActiveDissectorTurn(null);
     setDissectorPhase(null);
     setActiveTool(null);
-    // Snap to bottom on project switch
+    // Snap to bottom on session switch
     requestAnimationFrame(() => {
       const el = scrollRef.current;
       if (el) el.scrollTop = el.scrollHeight;
     });
-  }, [activeProjectId]);
+  }, [activeSessionId]);
 
-  // Restore draft from localStorage on mount / project switch
+  // Restore draft from localStorage on mount / session switch
   useEffect(() => {
-    const saved = localStorage.getItem(DRAFT_KEY(activeProjectId));
+    const saved = localStorage.getItem(DRAFT_KEY(activeSessionId));
     if (saved && inputRef.current) {
       inputRef.current.value = saved;
       inputRef.current.style.height = "auto";
       inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px";
     }
-  }, [activeProjectId]);
+  }, [activeSessionId]);
 
   const pendingInput = useMeterStore((s) => s.pendingInput);
   const setPendingInput = useMeterStore((s) => s.setPendingInput);
@@ -1348,17 +1348,17 @@ export function ChatView() {
 
   // Inspector starts closed; user can open it manually
 
-  const handleProjectSwitch = (projectId: string) => {
-    if (projectId === activeProjectId) {
-      setShowProjectDropdown(false);
+  const handleSessionSwitch = (sessionId: string) => {
+    if (sessionId === activeSessionId) {
+      setShowSessionDropdown(false);
       return;
     }
-    const next = projects.find((p) => p.id === projectId);
+    const next = sessions.find((p) => p.id === sessionId);
     if (!next) return;
-    setShowProjectDropdown(false);
-    setSwitchingProjectName(next.name);
-    setActiveProject(projectId);
-    setTimeout(() => setSwitchingProjectName(null), 700);
+    setShowSessionDropdown(false);
+    setSwitchingSessionName(next.name);
+    setActiveSession(sessionId);
+    setTimeout(() => setSwitchingSessionName(null), 700);
   };
 
   // Detect user-initiated scroll-up via wheel / touch to pause auto-scroll.
@@ -1415,12 +1415,12 @@ export function ChatView() {
           el.scrollTop = newScrollHeight - prevScrollHeight;
         });
       } else if (
-        activeProject?.hasOlderMessages &&
-        !activeProject?.loadingOlderMessages
+        activeSession?.hasOlderMessages &&
+        !activeSession?.loadingOlderMessages
       ) {
         // All locally loaded messages are rendered — fetch more from server
         const prevScrollHeight = el.scrollHeight;
-        fetchOlderMessages(activeProjectId).then(() => {
+        fetchOlderMessages(activeSessionId).then(() => {
           requestAnimationFrame(() => {
             const newScrollHeight = el.scrollHeight;
             el.scrollTop = newScrollHeight - prevScrollHeight;
@@ -1428,7 +1428,7 @@ export function ChatView() {
         });
       }
     }
-  }, [activeProject?.hasOlderMessages, activeProject?.loadingOlderMessages, activeProjectId, fetchOlderMessages, renderLimit, allVisibleMessages.length]);
+  }, [activeSession?.hasOlderMessages, activeSession?.loadingOlderMessages, activeSessionId, fetchOlderMessages, renderLimit, allVisibleMessages.length]);
 
   // Auto-scroll using instant scrollTop (no smooth animation that fights
   // with user scroll). Guarded by isProgrammaticScrollRef so our own scroll
@@ -1465,14 +1465,14 @@ export function ChatView() {
 
   /** Core streaming function shared by handleSend, handleDebate, and handleDissect */
   const streamResponse = async (userContent: string, modelOverride?: string, userAttachments?: Attachment[], options?: { hiddenUser?: boolean }) => {
-    // Pin the project ID at stream start so all mutations target the correct
-    // workspace even if the user switches workspaces mid-stream.
-    const streamProjectId = activeProjectId;
-    streamingForProjectRef.current = streamProjectId;
+    // Pin the session ID at stream start so all mutations target the correct
+    // session even if the user switches sessions mid-stream.
+    const streamSessionId = activeSessionId;
+    streamingForSessionRef.current = streamSessionId;
 
     // Guard: only update local UI state (debate trace, phase, etc.) if this
-    // stream's project is still the active one. Prevents cross-track contamination.
-    const isActiveStream = () => streamingForProjectRef.current === streamProjectId;
+    // stream's session is still the active one. Prevents cross-track contamination.
+    const isActiveStream = () => streamingForSessionRef.current === streamSessionId;
 
     isNearBottomRef.current = true;
     userScrolledAwayRef.current = false;
@@ -1483,7 +1483,7 @@ export function ChatView() {
     // store has the authoritative todayCost since it tracks every message.
     if (spendLimits.dailyLimit != null && spendLimits.dailyLimit > 0) {
       const state = useMeterStore.getState();
-      const active = state.projects.find((p) => p.id === streamProjectId);
+      const active = state.sessions.find((p) => p.id === streamSessionId);
       const todayCost = active?.todayCost ?? 0;
       if (todayCost >= spendLimits.dailyLimit) {
         addMessage({
@@ -1491,7 +1491,7 @@ export function ChatView() {
           role: "assistant",
           content: `Daily spend limit reached ($${todayCost.toFixed(2)} / $${spendLimits.dailyLimit.toFixed(2)}). Adjust your limit or wait until tomorrow.`,
           timestamp: Date.now(),
-        }, streamProjectId);
+        }, streamSessionId);
         return;
       }
     }
@@ -1504,7 +1504,7 @@ export function ChatView() {
       ...(userAttachments?.length ? { attachments: userAttachments } : {}),
       ...(options?.hiddenUser ? { hidden: true } : {}),
     };
-    addMessage(userMsg, streamProjectId);
+    addMessage(userMsg, streamSessionId);
 
     const assistantMsg: ChatMessage = {
       id: Math.random().toString(36).slice(2, 10),
@@ -1514,8 +1514,8 @@ export function ChatView() {
       receiptStatus: "signing",
       timestamp: Date.now(),
     };
-    addMessage(assistantMsg, streamProjectId);
-    setStreaming(true, streamProjectId);
+    addMessage(assistantMsg, streamSessionId);
+    setStreaming(true, streamSessionId);
     setThinkingStartedAt(Date.now());
 
     // If debate mode is on and no explicit override, route to debate
@@ -1561,7 +1561,7 @@ export function ChatView() {
         body: JSON.stringify({
           messages: allMessages,
           model: effectiveModel,
-          projectId: streamProjectId,
+          projectId: streamSessionId,
           userMessageId: userMsg.id,
           assistantMessageId: assistantMsg.id,
           connectedServices: Object.keys(connectedServices).filter(
@@ -1595,7 +1595,7 @@ export function ChatView() {
 
       if (res.status === 429) {
         const body = await res.json().catch(() => ({ error: "Spend limit reached" }));
-        updateLastAssistantMessage(body.error ?? "Spend limit reached. Please adjust your limits or wait for the next period.", 0, streamProjectId);
+        updateLastAssistantMessage(body.error ?? "Spend limit reached. Please adjust your limits or wait for the next period.", 0, streamSessionId);
         return;
       }
       if (!res.ok) throw new Error(`Chat API failed (${res.status})`);
@@ -1614,7 +1614,7 @@ export function ChatView() {
        *  polluting todayCost in the store. */
       const checkSpendLimits = (): boolean => {
         const state = useMeterStore.getState();
-        const active = state.projects.find((p) => p.id === streamProjectId);
+        const active = state.sessions.find((p) => p.id === streamSessionId);
         // currentMessageCost tracks output cost accumulated during streaming.
         // Add the local input estimate for a more accurate per-txn check.
         const cost = (active?.currentMessageCost ?? 0) + estimatedInputCost;
@@ -1625,8 +1625,8 @@ export function ChatView() {
           const notice = `\n\n---\n*Per-transaction limit ($${txnLimit.toFixed(2)}) reached. Response stopped at ~$${cost.toFixed(2)}.*`;
           fullContent += notice;
           const lastMsg = (active?.messages ?? []).at(-1);
-          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0, streamProjectId);
-          trackPerTxnLimitHit({ projectId: streamProjectId, limit: txnLimit, actualCost: cost, model: effectiveModel });
+          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0, streamSessionId);
+          trackPerTxnLimitHit({ projectId: streamSessionId, limit: txnLimit, actualCost: cost, model: effectiveModel });
           abort.abort();
           return true;
         }
@@ -1639,7 +1639,7 @@ export function ChatView() {
           const notice = `\n\n---\n*Daily limit ($${dailyLimit.toFixed(2)}) reached. Response stopped at ~$${todayCost.toFixed(2)} today.*`;
           fullContent += notice;
           const lastMsg = (active?.messages ?? []).at(-1);
-          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0, streamProjectId);
+          updateLastAssistantMessage(fullContent, lastMsg?.tokensOut ?? 0, streamSessionId);
           abort.abort();
           return true;
         }
@@ -1677,7 +1677,7 @@ export function ChatView() {
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
                 const turnModel = getModel(currentTurn.model);
-                incrementCurrentMessageCost(estTokens * turnModel.outputPrice, streamProjectId);
+                incrementCurrentMessageCost(estTokens * turnModel.outputPrice, streamSessionId);
                 if (checkSpendLimits()) break;
               }
             } else if (data.type === "debate_turn_end") {
@@ -1703,7 +1703,7 @@ export function ChatView() {
                 question: q,
               }));
               if (isActiveStream()) setDissectorPhase(null);
-              useMeterStore.getState().addClarifyingQuestions(questions, streamProjectId);
+              useMeterStore.getState().addClarifyingQuestions(questions, streamSessionId);
             } else if (data.type === "dissector_turn_start") {
               currentDissTurn = { persona: data.persona as string, content: "" };
               if (isActiveStream()) setActiveDissectorTurn(currentDissTurn);
@@ -1714,7 +1714,7 @@ export function ChatView() {
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
                 const dissModel = getModel("anthropic/claude-opus-4.6");
-                incrementCurrentMessageCost(estTokens * dissModel.outputPrice, streamProjectId);
+                incrementCurrentMessageCost(estTokens * dissModel.outputPrice, streamSessionId);
                 if (checkSpendLimits()) break;
               }
             } else if (data.type === "dissector_turn_end") {
@@ -1732,11 +1732,11 @@ export function ChatView() {
             // ── Standard events ───────────────────────────────
             } else if (data.type === "thinking_delta") {
               thinkingContent += data.content;
-              useMeterStore.getState().updateLastAssistantThinking(thinkingContent, streamProjectId);
+              useMeterStore.getState().updateLastAssistantThinking(thinkingContent, streamSessionId);
             } else if (data.type === "delta") {
               fullContent += data.content;
               if (isActiveStream()) setRerouting(null);
-              updateLastAssistantMessage(fullContent, data.tokensOut, streamProjectId);
+              updateLastAssistantMessage(fullContent, data.tokensOut, streamSessionId);
               if (checkSpendLimits()) break;
             } else if (data.type === "tool_call") {
               if (isActiveStream()) setActiveTool(data.name as string);
@@ -1754,10 +1754,10 @@ export function ChatView() {
                   choice: d.choice,
                   alternatives: d.alternatives,
                   reasoning: d.reasoning ?? undefined,
-                  projectId: streamProjectId,
+                  projectId: streamSessionId,
                 });
-                useMeterStore.getState().setMessageDecisionId(decId, streamProjectId);
-                trackDecisionStaged({ decisionId: decId, title: d.title, projectId: streamProjectId });
+                useMeterStore.getState().setMessageDecisionId(decId, streamSessionId);
+                trackDecisionStaged({ decisionId: decId, title: d.title, projectId: streamSessionId });
               }
               if (data.name === "save_artifact" && data.artifact) {
                 const a = data.artifact as { id?: string; filePath: string; content?: string; category?: string; status: string };
@@ -1777,7 +1777,7 @@ export function ChatView() {
                     filePath: a.filePath,
                     content: a.content,
                     category: a.category || "other",
-                  }, streamProjectId);
+                  }, streamSessionId);
                 }
               }
               if (data.name === "fork_paths" && data.forkPaths) {
@@ -1807,7 +1807,7 @@ export function ChatView() {
                     status: dc.status as "pending" | "rejected",
                     metadata: dc.metadata,
                   },
-                  streamProjectId
+                  streamSessionId
                 );
               }
             } else if (data.type === "rerouting") {
@@ -1815,7 +1815,7 @@ export function ChatView() {
             } else if (data.type === "error") {
               const errorPayload = JSON.stringify({ code: data.code, model: data.model });
               fullContent = `__error__${errorPayload}`;
-              updateLastAssistantMessage(fullContent, 0, streamProjectId);
+              updateLastAssistantMessage(fullContent, 0, streamSessionId);
             } else if (data.type === "done") {
               if (data.actualModel) actualModelUsed = data.actualModel as string;
             } else if (data.type === "usage") {
@@ -1837,12 +1837,12 @@ export function ChatView() {
 
       // Persist debate trace to the message
       if (isDebateMode && localTrace.length > 0) {
-        useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
-        trackDebateCompleted({ projectId: streamProjectId, turnCount: localTrace.length });
+        useMeterStore.getState().setDebateTrace(localTrace, streamSessionId);
+        trackDebateCompleted({ projectId: streamSessionId, turnCount: localTrace.length });
       }
       // Persist dissector trace to the message
       if (isDissectorMode && localDissTrace.length > 0) {
-        useMeterStore.getState().setDissectorTrace(localDissTrace, streamProjectId);
+        useMeterStore.getState().setDissectorTrace(localDissTrace, streamSessionId);
       }
 
       if (finalUsage) {
@@ -1855,17 +1855,17 @@ export function ChatView() {
           finalUsage.cacheReadTokens,
           finalUsage.cacheReadRate,
           finalUsage.actualCost,
-          streamProjectId,
+          streamSessionId,
         );
       }
     } catch {
       // Abort or network error — persist whatever we have so far.
       // Partial responses are still billed upstream (industry standard).
       if (isDebateMode && localTrace.length > 0) {
-        useMeterStore.getState().setDebateTrace(localTrace, streamProjectId);
+        useMeterStore.getState().setDebateTrace(localTrace, streamSessionId);
       }
       if (isDissectorMode && localDissTrace.length > 0) {
-        useMeterStore.getState().setDissectorTrace(localDissTrace, streamProjectId);
+        useMeterStore.getState().setDissectorTrace(localDissTrace, streamSessionId);
       }
       if (finalUsage) {
         finalizeResponse(
@@ -1877,16 +1877,16 @@ export function ChatView() {
           finalUsage.cacheReadTokens,
           finalUsage.cacheReadRate,
           finalUsage.actualCost,
-          streamProjectId,
+          streamSessionId,
         );
       }
     } finally {
-      if (streamingForProjectRef.current === streamProjectId) {
-        streamingForProjectRef.current = null;
+      if (streamingForSessionRef.current === streamSessionId) {
+        streamingForSessionRef.current = null;
       }
       abortRef.current = null;
-      // Only reset local UI state if this stream's project is still active
-      if (isActiveStream() || streamingForProjectRef.current === null) {
+      // Only reset local UI state if this stream's session is still active
+      if (isActiveStream() || streamingForSessionRef.current === null) {
         setActiveTool(null);
         setDebatePhase(null);
         setActiveDebateTurn(null);
@@ -1895,14 +1895,14 @@ export function ChatView() {
       }
       // Delay setStreaming(false) so the meter pill slot animation has
       // time to roll to the final cost value before locking.
-      setTimeout(() => setStreaming(false, streamProjectId), 350);
+      setTimeout(() => setStreaming(false, streamSessionId), 350);
 
       // Show fork confirmation form if the AI called fork_paths
       if (pendingForkRef.current && pendingForkRef.current.length >= 2) {
         const pathNames = pendingForkRef.current;
         pendingForkRef.current = null;
         setPendingForkNames(pathNames);
-        setPendingForkProjectId(streamProjectId);
+        setPendingForkSessionId(streamSessionId);
       }
     }
   };
@@ -1915,11 +1915,11 @@ export function ChatView() {
     if (!input || (!hasText && !hasAttachments) || isStreaming || !workspaceCardReady) return;
 
     if (chatBlocked) {
-      trackChatBlocked({ projectId: activeProjectId });
+      trackChatBlocked({ projectId: activeSessionId });
       const userContent = input.value.trim();
       input.value = "";
       input.style.height = "auto";
-      localStorage.removeItem(DRAFT_KEY(activeProjectId));
+      localStorage.removeItem(DRAFT_KEY(activeSessionId));
       isNearBottomRef.current = true;
       userScrolledAwayRef.current = false;
       addMessage({
@@ -1944,7 +1944,7 @@ export function ChatView() {
 
     trackMessageSent({
       model: selectedModelId,
-      projectId: activeProjectId,
+      projectId: activeSessionId,
       hasAttachments: !!attachmentsToSend,
       attachmentCount: attachmentsToSend?.length ?? 0,
       messageLength: userContent.length,
@@ -1952,7 +1952,7 @@ export function ChatView() {
 
     input.value = "";
     input.style.height = "auto";
-    localStorage.removeItem(DRAFT_KEY(activeProjectId));
+    localStorage.removeItem(DRAFT_KEY(activeSessionId));
     setPendingAttachments([]);
 
     await streamResponse(userContent, undefined, attachmentsToSend);
@@ -1972,14 +1972,14 @@ export function ChatView() {
   /** Triggered by the "Debate" button on a decision-point message */
   const handleDebate = async () => {
     if (isStreaming || !workspaceCardReady) return;
-    trackDebateStarted({ projectId: activeProjectId });
+    trackDebateStarted({ projectId: activeSessionId });
     await streamResponse("Debate this.", "debate");
   };
 
   /** Triggered by the "Dissect" button on a decision-point message */
   const handleDissect = async () => {
     if (isStreaming || !workspaceCardReady) return;
-    trackDissectClicked({ projectId: activeProjectId });
+    trackDissectClicked({ projectId: activeSessionId });
     await streamResponse("Dissect this.", "dissect");
   };
 
@@ -1990,7 +1990,7 @@ export function ChatView() {
   };
   const handleForkPaths = () => handleForkPathsRef.current();
 
-  // Listen for manual "Explore paths" trigger from project-switcher dropdown
+  // Listen for manual "Explore paths" trigger from track-switcher dropdown
   useEffect(() => {
     const handler = () => { handleForkPathsRef.current(); };
     window.addEventListener("meter:explore-paths", handler);
@@ -2020,7 +2020,7 @@ export function ChatView() {
   /** Triggered by the "Decide" button on a decision-point message */
   const handleDecide = async () => {
     if (isStreaming || !workspaceCardReady) return;
-    trackDecideClicked({ projectId: activeProjectId });
+    trackDecideClicked({ projectId: activeSessionId });
     await streamResponse("Yes, log that as a decision.");
   };
 
@@ -2030,8 +2030,8 @@ export function ChatView() {
     store.commitArtifact(docId);
     useMeterStore.getState().markDocumentSaved(messageId, docId);
     // Refresh artifacts so the Documents tab picks up the change
-    store.fetchArtifacts(resolveWorkspaceProjectId(activeProjectId));
-  }, [activeProjectId]);
+    store.fetchArtifacts(resolveWorkspaceSessionId(activeSessionId));
+  }, [activeSessionId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // When slash popover is open, forward navigation keys
@@ -2068,8 +2068,8 @@ export function ChatView() {
     clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
       const v = inputRef.current?.value ?? "";
-      if (v) localStorage.setItem(DRAFT_KEY(activeProjectId), v);
-      else localStorage.removeItem(DRAFT_KEY(activeProjectId));
+      if (v) localStorage.setItem(DRAFT_KEY(activeSessionId), v);
+      else localStorage.removeItem(DRAFT_KEY(activeSessionId));
     }, 250);
   };
 
@@ -2094,11 +2094,11 @@ export function ChatView() {
     if (isApiKeyProvider(providerId)) {
       setApiKeyProvider(providerId);
     } else {
-      initiateOAuthFlow(providerId, activeProjectId);
+      initiateOAuthFlow(providerId, activeSessionId);
     }
     setSlashOpen(false);
     setSlashQuery("");
-  }, [userId, activeProjectId]);
+  }, [userId, activeSessionId]);
 
   const handleSlashFile = useCallback(() => {
     setSlashOpen(false);
@@ -2139,11 +2139,11 @@ export function ChatView() {
   return (
     <div className="flex h-screen bg-background">
       <ProfileSettings open={profileOpen} onClose={() => setProfileOpen(false)} />
-      {switchingProjectName && (
+      {switchingSessionName && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 backdrop-blur-sm">
           <div className="rounded-2xl border border-border bg-card px-8 py-6 text-center shadow-xl">
             <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">Switching workspace</p>
-            <p className="mt-2 text-xl text-foreground">{switchingProjectName}</p>
+            <p className="mt-2 text-xl text-foreground">{switchingSessionName}</p>
           </div>
         </div>
       )}
@@ -2277,10 +2277,10 @@ export function ChatView() {
                 <div className="flex gap-3 justify-start">
                   <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
                     <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
-                      <p>Welcome to <strong>{activeProject?.name ?? "this workspace"}</strong>. Use your existing card or add a new one.</p>
+                      <p>Welcome to <strong>{activeSession?.name ?? "this workspace"}</strong>. Use your existing card or add a new one.</p>
                     </div>
                     <button
-                      onClick={() => { trackCardAssignedToWorkspace({ projectId: activeProjectId }); setCardAssigned(activeProjectId); }}
+                      onClick={() => { trackCardAssignedToWorkspace({ projectId: activeSessionId }); setCardAssigned(activeSessionId); }}
                       className="mt-3 w-full rounded-lg border border-foreground/20 bg-foreground/5 py-2.5 font-mono text-xs text-foreground transition-colors hover:bg-foreground/10"
                     >
                       Use {cardBrand ? cardBrand.charAt(0).toUpperCase() + cardBrand.slice(1) : "card"} ****{cardLast4 ?? ""}{sourceWorkspaceName ? ` from ${sourceWorkspaceName}` : ""}
@@ -2313,18 +2313,18 @@ export function ChatView() {
             )}
             {messages.length === 0 && workspaceCardReady && !showExplainer && (
               <div className="flex flex-col items-center justify-center gap-3 py-24">
-                <p className="text-sm text-muted-foreground">What are you building in {activeProject?.name ?? "this workspace"}?</p>
+                <p className="text-sm text-muted-foreground">What are you building in {activeSession?.name ?? "this workspace"}?</p>
                 <p className="font-mono text-[10px] text-muted-foreground/40">Every model available. The meter runs in dollars.</p>
               </div>
             )}
 
-            {activeProject?.loadingOlderMessages && (
+            {activeSession?.loadingOlderMessages && (
               <div className="flex items-center justify-center py-4">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
                 <span className="ml-2 text-xs text-muted-foreground">Loading older messages...</span>
               </div>
             )}
-            {(renderLimit < allVisibleMessages.length || (activeProject?.hasOlderMessages && !activeProject?.loadingOlderMessages)) && (
+            {(renderLimit < allVisibleMessages.length || (activeSession?.hasOlderMessages && !activeSession?.loadingOlderMessages)) && (
               <div className="flex items-center justify-center py-2">
                 <span className="text-[10px] text-muted-foreground/40">Scroll up for older messages</span>
               </div>
@@ -2497,7 +2497,7 @@ export function ChatView() {
                       {msg.role === "assistant" && msg.decisionId && (
                         <DecisionPill decisionId={msg.decisionId} onOpen={() => { trackInspectorToggled({ open: true }); setInspectorOpen(true); setInspectorTab("decisions"); }} />
                       )}
-                      {msg.role === "assistant" && <MessageFooter msg={msg} projectId={activeProjectId} />}
+                      {msg.role === "assistant" && <MessageFooter msg={msg} sessionId={activeSessionId} />}
                     </div>
                   </div>
 
@@ -2568,9 +2568,9 @@ export function ChatView() {
             )}
 
             {/* Subtrack commit bar — shown above composer when in active subtrack */}
-            {isSubtrack && !isArchivedSubtrack && currentWsProject && (
+            {isSubtrack && !isArchivedSubtrack && currentWsTrack && (
               <SubtrackCommitBar
-                trackName={currentWsProject.name}
+                trackName={currentWsTrack.name}
                 siblingNames={siblingSubtracks.map((s) => s.name)}
                 onCommit={handleCommitSubtrack}
                 colorIndex={currentPathColorIndex}
@@ -2581,7 +2581,7 @@ export function ChatView() {
             {isMainFrozen && !isSubtrack && (
               <FrozenMainBanner
                 subtracks={activeSubtracks.map((s) => ({ id: s.id, name: s.name }))}
-                onSelectTrack={(id) => setActiveProjectWs(id)}
+                onSelectTrack={(id) => setActiveTrackWs(id)}
                 onCloseAll={handleCloseAllPaths}
               />
             )}

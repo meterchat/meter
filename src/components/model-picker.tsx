@@ -100,7 +100,7 @@ export function ModelSelectorBar({
   const debateMode = useMeterStore((s) => s.debateMode);
   const debateRoster = useMeterStore((s) => s.debateRoster);
   const isStreaming = useMeterStore((s) => {
-    const project = s.projects.find((p) => p.id === s.activeProjectId) ?? s.projects[0];
+    const project = s.sessions.find((p) => p.id === s.activeSessionId) ?? s.sessions[0];
     return project?.isStreaming ?? false;
   });
   const displayId = overrideModelId ?? selectedModelId;

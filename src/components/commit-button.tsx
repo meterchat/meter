@@ -30,7 +30,7 @@ export function CommitButton() {
   const stagedDecisions = useStagingStore((s) => s.stagedDecisions);
   const unstageDecision = useStagingStore((s) => s.unstageDecision);
   const commit = useStagingStore((s) => s.commit);
-  const activeProjectId = useMeterStore((s) => s.activeProjectId);
+  const activeSessionId = useMeterStore((s) => s.activeSessionId);
 
   const artifacts = useArtifactsStore((s) => s.artifacts);
 
@@ -78,10 +78,10 @@ export function CommitButton() {
     setCommitting(true);
     const decisionCount = stagedDecisions.length;
     const artifactCount = modifiedArtifacts.length;
-    trackCommitExecuted({ decisionCount, artifactCount, projectId: activeProjectId });
+    trackCommitExecuted({ decisionCount, artifactCount, projectId: activeSessionId });
     // Small delay so the action feels processed, not instant
     await new Promise((r) => setTimeout(r, 600));
-    commit(activeProjectId);
+    commit(activeSessionId);
     setCommitting(false);
     setOpen(false);
   };

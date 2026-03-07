@@ -13,8 +13,8 @@ export function SettlePill() {
   const [settled, setSettled] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const projects = useMeterStore((s) => s.projects);
-  const activeProjectId = useMeterStore((s) => s.activeProjectId);
+  const sessions = useMeterStore((s) => s.sessions);
+  const activeSessionId = useMeterStore((s) => s.activeSessionId);
   const pendingCharges = useMeterStore((s) => s.pendingCharges);
   const isSettling = useMeterStore((s) => s.isSettling);
   const settleAll = useMeterStore((s) => s.settleAll);
@@ -25,7 +25,7 @@ export function SettlePill() {
 
   const isSuperAdmin = accountType === "superadmin";
 
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
+  const activeProject = sessions.find((p) => p.id === activeSessionId) ?? null;
   const settlementError = activeProject?.settlementError ?? null;
 
   const pendingBalance = useMemo(() => {

@@ -11,12 +11,12 @@ export default function ReceiptPage() {
   const params = useParams<{ id: string }>();
   const search = useSearchParams();
   const projectId = search.get("project");
-  const projects = useMeterStore((s) => s.projects);
+  const sessions = useMeterStore((s) => s.sessions);
 
   const message = useMemo(() => {
-    const inProject = projects.find((p) => p.id === projectId) ?? projects[0];
-    return inProject?.messages.find((m) => m.id === params.id);
-  }, [projects, projectId, params.id]);
+    const inSession = sessions.find((p) => p.id === projectId) ?? sessions[0];
+    return inSession?.messages.find((m) => m.id === params.id);
+  }, [sessions, projectId, params.id]);
 
   if (!message) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Receipt not found.</div>;
