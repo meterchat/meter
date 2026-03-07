@@ -33,6 +33,15 @@ interface ServerSession {
   [key: string]: unknown;
 }
 
+/**
+ * Synchronizes local session state with the server and manages related periodic and lifecycle tasks.
+ *
+ * Manages syncing of session deltas (including subtrack-aware post-fork delta logic), periodic and debounced uploads,
+ * and a beforeunload beacon to flush recent changes. On mount it loads and merges sessions from the server,
+ * reconstructs subtracks by prepending parent pre-fork messages, cleans up incomplete signing messages, and
+ * triggers background fetches for remaining older messages. Also schedules daily resets and settlement attempts
+ * at local midnight.
+ */
 export function useSessionSync() {
   const userId = useMeterStore((s) => s.userId);
   const sessions = useMeterStore((s) => s.sessions);
@@ -148,11 +157,6 @@ export function useSessionSync() {
 
     for (const session of sessions) {
       const syncedCount = syncedMessageCountRef.current.get(session.id) ?? 0;
-      // On first sync (syncedCount=0) send all messages; otherwise only new ones.
-      // Server upserts by message ID, so resending existing ones is safe but wasteful.
-      const messagesToSync = syncedCount === 0
-        ? (session.messages ?? [])
-        : session.messages.slice(syncedCount);
 
       // Determine if this session is a subtrack by checking workspace store tracks
       const track = wsTracks.find((t) => t.id === session.id && t.isSubtrack);
@@ -162,6 +166,26 @@ export function useSessionSync() {
       if (isSubtrack && track) {
         const parentWs = wsWorkspaces.find((w) => w.id === track.workspaceId);
         parentSessionId = parentWs?.sessionId ?? undefined;
+      }
+
+      // For subtracks, NEVER sync pre-fork messages — they share IDs with
+      // the parent session and upsert would reassign them to this subtrack's
+      // session_id, wiping them from main. Only sync post-fork messages.
+      let messagesToSync: typeof session.messages;
+      if (isSubtrack && track?.forkMessageId) {
+        const forkIdx = session.messages.findIndex((m) => m.id === track.forkMessageId);
+        const postForkMessages = forkIdx === -1 ? [] : session.messages.slice(forkIdx + 1);
+        // Apply delta logic on post-fork messages only
+        const postForkSyncedCount = Math.max(0, syncedCount - (forkIdx + 1));
+        messagesToSync = postForkSyncedCount === 0
+          ? postForkMessages
+          : postForkMessages.slice(postForkSyncedCount);
+      } else {
+        // On first sync (syncedCount=0) send all messages; otherwise only new ones.
+        // Server upserts by message ID, so resending existing ones is safe but wasteful.
+        messagesToSync = syncedCount === 0
+          ? (session.messages ?? [])
+          : session.messages.slice(syncedCount);
       }
 
       try {
@@ -267,11 +291,35 @@ export function useSessionSync() {
     const handleBeforeUnload = () => {
       // Send only delta messages since last successful sync to stay under
       // the ~64KB sendBeacon payload limit.
+      const beaconTracks = useWorkspaceStore.getState().tracks;
+      const beaconWorkspaces = useWorkspaceStore.getState().workspaces;
+
       for (const session of sessions) {
         const syncedCount = syncedMessageCountRef.current.get(session.id) ?? 0;
-        const deltaMessages = session.messages.slice(syncedCount);
 
-        const sessionMeta = {
+        // Check if this session is a subtrack
+        const beaconTrack = beaconTracks.find((t) => t.id === session.id && t.isSubtrack);
+        const beaconIsSubtrack = !!beaconTrack;
+        let beaconParentSessionId: string | undefined;
+        if (beaconIsSubtrack && beaconTrack) {
+          const parentWs = beaconWorkspaces.find((w) => w.id === beaconTrack.workspaceId);
+          beaconParentSessionId = parentWs?.sessionId ?? undefined;
+        }
+
+        // For subtracks, only send post-fork messages (same logic as periodic sync)
+        let deltaMessages: typeof session.messages;
+        if (beaconIsSubtrack && beaconTrack?.forkMessageId) {
+          const forkIdx = session.messages.findIndex((m) => m.id === beaconTrack.forkMessageId);
+          const postForkMessages = forkIdx === -1 ? [] : session.messages.slice(forkIdx + 1);
+          const postForkSyncedCount = Math.max(0, syncedCount - (forkIdx + 1));
+          deltaMessages = postForkSyncedCount === 0
+            ? postForkMessages
+            : postForkMessages.slice(postForkSyncedCount);
+        } else {
+          deltaMessages = session.messages.slice(syncedCount);
+        }
+
+        const sessionMeta: Record<string, unknown> = {
           id: session.id,
           name: session.name,
           totalCost: session.totalCost,
@@ -285,6 +333,10 @@ export function useSessionSync() {
           monthCost: session.monthCost ?? 0,
           monthKey: session.monthKey,
         };
+        if (beaconIsSubtrack) {
+          sessionMeta.isSubtrack = true;
+          sessionMeta.parentSessionId = beaconParentSessionId;
+        }
 
         const payload = JSON.stringify({
           session: sessionMeta,
@@ -438,6 +490,45 @@ export function useSessionSync() {
           nextActiveSessionId = best?.id ?? store.activeSessionId;
         } else {
           nextActiveSessionId = merged[0]?.id ?? store.activeSessionId;
+        }
+
+        // Reconstruct subtrack sessions: prepend parent's pre-fork messages.
+        // Server only stores post-fork messages for subtracks (to avoid ID conflicts
+        // with the parent session). The workspace store tracks tell us the fork point.
+        const wsState = useWorkspaceStore.getState();
+        for (let i = 0; i < merged.length; i++) {
+          const session = merged[i];
+          const serverSess = serverSessions.find((s) => s.id === session.id);
+          if (!serverSess?.is_subtrack) continue;
+
+          // Find the track in workspace store to get the forkMessageId
+          const wsTrack = wsState.tracks.find((t) => t.id === session.id && t.isSubtrack);
+          if (!wsTrack?.forkMessageId) continue;
+
+          // Find the parent session (either by server's parent_session_id or workspace lookup)
+          const parentId = serverSess.parent_session_id
+            ?? wsState.workspaces.find((w) => w.id === wsTrack.workspaceId)?.sessionId;
+          if (!parentId) continue;
+
+          const parentSession = merged.find((p) => p.id === parentId);
+          if (!parentSession) continue;
+
+          // Get parent's messages up to and including the fork point
+          const forkIdx = parentSession.messages.findIndex((m) => m.id === wsTrack.forkMessageId);
+          if (forkIdx === -1) continue;
+
+          const preForkMessages = parentSession.messages.slice(0, forkIdx + 1);
+
+          // Check if the subtrack already has pre-fork messages (from local state)
+          const firstSubtrackMsg = session.messages[0];
+          const alreadyHasPreFork = firstSubtrackMsg && preForkMessages.some((m) => m.id === firstSubtrackMsg.id);
+          if (alreadyHasPreFork) continue;
+
+          // Prepend parent's pre-fork messages
+          merged[i] = {
+            ...session,
+            messages: [...preForkMessages.map((m) => ({ ...m })), ...session.messages],
+          };
         }
 
         // Clean up stale "signing" messages from interrupted streams.
