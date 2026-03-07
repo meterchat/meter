@@ -266,6 +266,8 @@ create index if not exists idx_chat_sessions_user on chat_sessions(user_id);
 create index if not exists idx_workspaces_user on workspaces(user_id);
 create index if not exists idx_workspace_projects_workspace on workspace_projects(workspace_id);
 create index if not exists idx_decisions_user on decisions(user_id);
+create index if not exists idx_decisions_user_session on decisions(user_id, session_id);
+create index if not exists idx_artifacts_user_session on artifacts(user_id, session_id);
 create index if not exists idx_settlement_history_user on settlement_history(user_id);
 create index if not exists idx_settlement_history_workspace on settlement_history(workspace_id);
 create index if not exists idx_sdk_end_users_developer on sdk_end_users(developer_id);
