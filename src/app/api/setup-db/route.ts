@@ -345,6 +345,12 @@ const STATEMENTS: string[] = [
        using (true);
    exception when duplicate_object then null; end $$`,
 
+  // Enforce: subtracks must always have a parent_session_id
+  `do $$ begin
+     alter table chat_sessions add constraint chk_subtrack_has_parent
+       check (is_subtrack = false or parent_session_id is not null);
+   exception when duplicate_object then null; end $$`,
+
   // ── RLS: v1 API tables (users, api_keys, usage_records, sdk_end_users) ──
   `do $$ begin alter table users enable row level security; exception when undefined_table then null; end $$`,
   `do $$ begin alter table api_keys enable row level security; exception when undefined_table then null; end $$`,
