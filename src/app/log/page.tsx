@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import dynamic from "next/dynamic";
 import { apiUrl } from "@/lib/api-url";
 
@@ -18,19 +18,8 @@ interface LogEntry {
   commit_sha?: string;
   commit_url?: string;
   commit_repo?: string;
+  feedback_text?: string;
   created_at: string;
-}
-
-interface Decision {
-  id: string;
-  title: string;
-  choice?: string;
-  reasoning?: string;
-  category?: string;
-  version: number;
-  revisitCount: number;
-  createdAt: number;
-  updatedAt: number;
 }
 
 interface LogStats {
@@ -191,7 +180,6 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
     fetch(apiUrl("/api/log/stats"))
       .then((r) => r.json())
       .then((d) => {
-        // Only set stats if the response has expected fields (not an error response)
         if (d && typeof d.totalSpend === "number") setStats(d);
       })
       .catch(() => {});
@@ -206,7 +194,6 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Spin meter icon when new log entries arrive
   useEffect(() => {
     if (prevEntryCount.current === null) {
       prevEntryCount.current = entryCount;
@@ -220,6 +207,14 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
     }
     prevEntryCount.current = entryCount;
   }, [entryCount]);
+
+  // Compute window size to cover full timeline range
+  const spendWindow = stats?.spendTimeline && stats.spendTimeline.length > 1
+    ? Math.ceil(stats.spendTimeline[stats.spendTimeline.length - 1].time - stats.spendTimeline[0].time) + 86400
+    : 86400;
+  const tokensWindow = stats?.tokensTimeline && stats.tokensTimeline.length > 1
+    ? Math.ceil(stats.tokensTimeline[stats.tokensTimeline.length - 1].time - stats.tokensTimeline[0].time) + 86400
+    : 86400;
 
   return (
     <div className="relative" ref={ref}>
@@ -263,12 +258,12 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatSpendRow label="Weekly average" amount={stats.weeklyAverage} />
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
-            {/* Spend Liveline */}
             {Array.isArray(stats.spendTimeline) && stats.spendTimeline.length > 1 && (
               <div className="mt-2 h-[80px]">
                 <Liveline
                   data={stats.spendTimeline}
                   value={stats.totalSpend}
+                  window={spendWindow}
                   theme="dark"
                   color="#f59e0b"
                   grid={false}
@@ -293,12 +288,12 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
             <StatRow label="Total In" value={(stats.totalTokensIn).toLocaleString()} />
             <StatRow label="Total Out" value={(stats.totalTokensOut).toLocaleString()} />
             <StatRow label="Messages" value={stats.totalMessages.toLocaleString()} />
-            {/* Tokens Liveline */}
             {Array.isArray(stats.tokensTimeline) && stats.tokensTimeline.length > 1 && (
               <div className="mt-2 h-[80px]">
                 <Liveline
                   data={stats.tokensTimeline}
                   value={stats.totalTokensIn + stats.totalTokensOut}
+                  window={tokensWindow}
                   theme="dark"
                   color="#3b82f6"
                   grid={false}
@@ -375,13 +370,127 @@ function StatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ── Entry Detail Panel ────────────────────────────────────────
+
+function EntryDetail({ entry }: { entry: LogEntry }) {
+  const dotColor = EVENT_DOTS[entry.type] ?? "bg-foreground/20";
+  const label = EVENT_LABELS[entry.type] ?? entry.type;
+
+  return (
+    <div className="px-6 py-6 flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full shrink-0 ${dotColor}`} />
+        <span className="font-mono text-[13px] font-medium text-foreground">{label}</span>
+      </div>
+
+      {/* Metadata */}
+      <div className="space-y-2">
+        <DetailRow label="Actor" value={formatActor(entry.actor, entry.type)} />
+        <DetailRow label="Time" value={exactTime(entry.created_at)} />
+        <DetailRow label="Relative" value={relativeTime(entry.created_at)} />
+        <DetailRow label="Type" value={entry.type} />
+        <DetailRow label="ID" value={entry.id} />
+      </div>
+
+      {/* Commit details */}
+      {entry.type === "commit_pushed" && (entry.commit_sha || entry.commit_repo) && (
+        <>
+          <div className="h-px bg-border" />
+          <div className="space-y-2">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
+              Commit
+            </div>
+            {entry.commit_repo && (
+              <DetailRow label="Repo" value={entry.commit_repo} />
+            )}
+            {entry.commit_sha && (
+              <div className="flex items-start justify-between gap-4">
+                <span className="font-mono text-[11px] text-muted-foreground/60 shrink-0">SHA</span>
+                {entry.commit_url ? (
+                  <a
+                    href={entry.commit_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-[11px] text-blue-400 hover:text-blue-300 text-right break-all"
+                  >
+                    {entry.commit_sha}
+                  </a>
+                ) : (
+                  <span className="font-mono text-[11px] text-foreground text-right break-all">
+                    {entry.commit_sha}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Feedback text */}
+      {entry.type === "feedback_logged" && entry.feedback_text && (
+        <>
+          <div className="h-px bg-border" />
+          <div className="space-y-2">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
+              Feedback
+            </div>
+            <p className="font-mono text-[12px] text-foreground/80 leading-relaxed whitespace-pre-wrap">
+              {entry.feedback_text}
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* Debate info */}
+      {entry.type === "debate_started" && (
+        <>
+          <div className="h-px bg-border" />
+          <div className="space-y-2">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
+              Debate
+            </div>
+            <p className="font-mono text-[11px] text-muted-foreground/60">
+              Multi-model debate initiated by {formatActor(entry.actor, entry.type)}
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* Workspace created */}
+      {entry.type === "workspace_created" && (
+        <>
+          <div className="h-px bg-border" />
+          <div className="space-y-2">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
+              Workspace
+            </div>
+            <p className="font-mono text-[11px] text-muted-foreground/60">
+              New workspace created by {formatActor(entry.actor, entry.type)}
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span className="font-mono text-[11px] text-muted-foreground/60 shrink-0">{label}</span>
+      <span className="font-mono text-[11px] text-foreground text-right break-all">{value}</span>
+    </div>
+  );
+}
+
 // ── Main Page ────────────────────────────────────────────────
 
 export default function LogPage() {
   const [entries, setEntries] = useState<LogEntry[]>([]);
-  const [decisions, setDecisions] = useState<Decision[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mobileTab, setMobileTab] = useState<"feed" | "decisions">("feed");
+  const [mobileTab, setMobileTab] = useState<"feed" | "detail">("feed");
   const feedEndRef = useRef<HTMLDivElement>(null);
   const feedContainerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -397,18 +506,12 @@ export default function LogPage() {
     setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < threshold);
   }, []);
 
-  // Fetch data
   useEffect(() => {
     async function load() {
       try {
-        const [entriesRes, decisionsRes] = await Promise.all([
-          fetch(apiUrl("/api/log?limit=200")),
-          fetch(apiUrl("/api/log/decisions")),
-        ]);
-        const entriesData = await entriesRes.json();
-        const decisionsData = await decisionsRes.json();
-        setEntries((entriesData.entries ?? []).reverse());
-        setDecisions(decisionsData.decisions ?? []);
+        const res = await fetch(apiUrl("/api/log?limit=200"));
+        const data = await res.json();
+        setEntries((data.entries ?? []).reverse());
       } catch {
         // Silent fail
       } finally {
@@ -418,7 +521,6 @@ export default function LogPage() {
     load();
   }, []);
 
-  // Auto-scroll to bottom on initial load (logs start at bottom)
   useEffect(() => {
     if (!loading && entries.length > 0) {
       setTimeout(() => scrollToBottom(), 100);
@@ -448,6 +550,11 @@ export default function LogPage() {
     return () => clearInterval(interval);
   }, [isAtBottom, scrollToBottom]);
 
+  const handleSelectEntry = useCallback((entry: LogEntry) => {
+    setSelectedEntry(entry);
+    setMobileTab("detail");
+  }, []);
+
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   if (loading) {
@@ -467,7 +574,6 @@ export default function LogPage() {
           <span className="font-mono text-[10px] text-muted-foreground/50">live feed</span>
         </div>
         <div className="flex items-center gap-3">
-          {/* Mobile tab switcher */}
           {isMobile && (
             <div className="flex gap-1">
               <button
@@ -477,14 +583,13 @@ export default function LogPage() {
                 feed
               </button>
               <button
-                onClick={() => setMobileTab("decisions")}
-                className={`px-2 py-1 font-mono text-[10px] rounded transition-colors ${mobileTab === "decisions" ? "bg-foreground/10 text-foreground" : "text-muted-foreground"}`}
+                onClick={() => setMobileTab("detail")}
+                className={`px-2 py-1 font-mono text-[10px] rounded transition-colors ${mobileTab === "detail" ? "bg-foreground/10 text-foreground" : "text-muted-foreground"}`}
               >
-                decisions
+                detail
               </button>
             </div>
           )}
-          {/* MeterBar */}
           <LogMeterBar entryCount={entries.length} />
         </div>
       </header>
@@ -507,14 +612,18 @@ export default function LogPage() {
                 </div>
               ) : (
                 entries.map((entry) => (
-                  <LogRow key={entry.id} entry={entry} />
+                  <LogRow
+                    key={entry.id}
+                    entry={entry}
+                    selected={selectedEntry?.id === entry.id}
+                    onSelect={handleSelectEntry}
+                  />
                 ))
               )}
               <div ref={feedEndRef} />
             </div>
           </div>
 
-          {/* Scroll to bottom button */}
           {!isAtBottom && entries.length > 0 && (
             <button
               onClick={scrollToBottom}
@@ -525,26 +634,24 @@ export default function LogPage() {
           )}
         </div>
 
-        {/* Right: Decisions panel (50%) */}
+        {/* Right: Detail panel (50%) */}
         <div
-          className={`${isMobile && mobileTab !== "decisions" ? "hidden" : ""} ${isMobile ? "w-full" : "w-1/2"} flex flex-col border-l border-border bg-card`}
+          className={`${isMobile && mobileTab !== "detail" ? "hidden" : ""} ${isMobile ? "w-full" : "w-1/2"} flex flex-col border-l border-border bg-card`}
         >
           <div className="px-6 py-4 border-b border-border">
-            <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">Decisions</h2>
+            <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">Detail</h2>
             <p className="font-mono text-[10px] text-muted-foreground/50 mt-0.5">
-              {decisions.length} locked decision{decisions.length !== 1 ? "s" : ""}
+              {selectedEntry ? "click an event to inspect" : "select an event from the feed"}
             </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-2">
-            {decisions.length === 0 ? (
+          <div className="flex-1 overflow-y-auto">
+            {!selectedEntry ? (
               <div className="font-mono text-xs text-muted-foreground/40 py-12 text-center">
-                no decisions yet
+                select an event from the feed
               </div>
             ) : (
-              decisions.map((d) => (
-                <DecisionCard key={d.id} decision={d} />
-              ))
+              <EntryDetail entry={selectedEntry} />
             )}
           </div>
         </div>
@@ -555,7 +662,7 @@ export default function LogPage() {
 
 // ── Log Row ──────────────────────────────────────────────────
 
-function LogRow({ entry }: { entry: LogEntry }) {
+function LogRow({ entry, selected, onSelect }: { entry: LogEntry; selected: boolean; onSelect: (e: LogEntry) => void }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const actor = formatActor(entry.actor, entry.type);
   const action = EVENT_LABELS[entry.type] ?? entry.type;
@@ -563,9 +670,10 @@ function LogRow({ entry }: { entry: LogEntry }) {
 
   return (
     <div
-      className="flex items-center justify-between py-[3px] group"
+      className={`flex items-center justify-between py-[3px] group cursor-pointer rounded-sm px-1 -mx-1 transition-colors ${selected ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.03]"}`}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
+      onClick={() => onSelect(entry)}
     >
       <div className="flex items-center gap-2 font-mono text-[12px] min-w-0">
         <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />
@@ -573,18 +681,7 @@ function LogRow({ entry }: { entry: LogEntry }) {
         <span className="text-foreground/60">{action}</span>
         {entry.commit_sha && (
           <span className="text-muted-foreground/40 text-[10px]">
-            {entry.commit_url ? (
-              <a
-                href={entry.commit_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline hover:text-foreground/60"
-              >
-                {entry.commit_sha}
-              </a>
-            ) : (
-              entry.commit_sha
-            )}
+            {entry.commit_sha}
           </span>
         )}
       </div>
@@ -598,45 +695,6 @@ function LogRow({ entry }: { entry: LogEntry }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ── Decision Card ────────────────────────────────────────────
-
-function DecisionCard({ decision }: { decision: Decision }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div
-      className="rounded-lg border border-border p-3 flex flex-col gap-1.5 cursor-pointer transition-colors hover:bg-foreground/[0.02]"
-      onClick={() => setExpanded(!expanded)}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <span className="font-mono text-[12px] font-medium leading-tight text-foreground">{decision.title}</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {decision.category && (
-            <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border text-muted-foreground/60">
-              {decision.category}
-            </span>
-          )}
-          {decision.version > 1 && (
-            <span className="font-mono text-[9px] text-muted-foreground/50">v{decision.version}</span>
-          )}
-        </div>
-      </div>
-      {decision.choice && (
-        <p className="font-mono text-[11px] text-muted-foreground leading-relaxed">{decision.choice}</p>
-      )}
-      {expanded && decision.reasoning && (
-        <div className="mt-1 pt-1.5 border-t border-border/50">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/40">Reasoning</span>
-          <p className="font-mono text-[11px] text-muted-foreground/70 mt-0.5">{decision.reasoning}</p>
-        </div>
-      )}
-      <span className="font-mono text-[9px] text-muted-foreground/40">
-        {relativeTime(new Date(decision.updatedAt).toISOString())}
-      </span>
     </div>
   );
 }
