@@ -230,7 +230,7 @@ export function useSessionSync() {
               weekKey: session.weekKey,
               monthCost: session.monthCost ?? 0,
               monthKey: session.monthKey,
-              ...(isSubtrack ? { isSubtrack: true, parentSessionId } : {}),
+              ...(isSubtrack ? { isSubtrack: true, parentSessionId, archived: track?.status === "archived", committed: track?.committed ?? false } : {}),
             },
             messages: messagesToSync,
           }),
@@ -376,6 +376,8 @@ export function useSessionSync() {
         if (beaconIsSubtrack) {
           sessionMeta.isSubtrack = true;
           sessionMeta.parentSessionId = beaconParentSessionId;
+          sessionMeta.archived = beaconTrack?.status === "archived";
+          sessionMeta.committed = beaconTrack?.committed ?? false;
         }
 
         const payload = JSON.stringify({
