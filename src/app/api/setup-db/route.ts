@@ -88,6 +88,7 @@ const STATEMENTS: string[] = [
    from chat_sessions
    where is_subtrack = false`,
 
+  `drop view if exists tracks`,
   `create or replace view tracks as
    select id, parent_session_id as workspace_id, user_id,
           coalesce(workspace_name, project_name) as name,
@@ -364,7 +365,7 @@ const STATEMENTS: string[] = [
 
   `do $$ begin
      create policy tx_history_owner on tx_history for all
-       using (user_id = current_setting('app.user_id', true));
+       using (user_id::text = current_setting('app.user_id', true));
    exception when duplicate_object then null; end $$`,
 
   // workspaces & tracks views inherit chat_sessions_owner policy — no separate policies needed
