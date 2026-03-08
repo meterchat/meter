@@ -31,36 +31,20 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseServer();
-
-    // Store preview in feedback_text for message_sent (feedback_text is a
-    // guaranteed column; preview may not be visible via PostgREST yet).
     const previewStr = preview ? String(preview).slice(0, 120) : null;
-    const row: Record<string, unknown> = {
+
+    // Always store preview in feedback_text (guaranteed column in schema).
+    // For feedback_logged, use feedbackText; for message_sent, use preview.
+    const feedbackValue =
+      type === "feedback_logged" ? feedbackText :
+      type === "message_sent" ? previewStr : null;
+
+    const { error } = await supabase.from("log_entries").insert({
       id: generateId(),
       type,
       actor: actor || "anon",
-      feedback_text:
-        type === "feedback_logged"
-          ? feedbackText
-          : type === "message_sent"
-            ? previewStr
-            : null,
-    };
-
-    // Try to also set the preview column (may fail if PostgREST cache is stale)
-    try {
-      const { error: previewErr } = await supabase
-        .from("log_entries")
-        .insert({ ...row, preview: previewStr });
-      if (!previewErr) {
-        return NextResponse.json({ ok: true });
-      }
-    } catch {
-      // preview column not in schema cache — fall through
-    }
-
-    // Fallback: insert without preview column
-    const { error } = await supabase.from("log_entries").insert(row);
+      feedback_text: feedbackValue,
+    });
 
     if (error) throw error;
 
@@ -82,34 +66,25 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 500);
     const before = searchParams.get("before"); // cursor-based pagination
 
-    // Primary: use RPC function (bypasses PostgREST schema cache, always returns all columns)
-    const rpcParams: Record<string, unknown> = { p_limit: limit };
-    if (before) rpcParams.p_before = before;
+    // Use only columns guaranteed to exist in the original schema
+    let query = supabase
+      .from("log_entries")
+      .select("id, type, actor, commit_sha, commit_url, commit_repo, commit_message, feedback_text, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-    let { data, error } = await supabase.rpc("get_log_entries", rpcParams);
-
-    // Fallback: if RPC function doesn't exist yet, use table query
-    if (error) {
-      const q = supabase
-        .from("log_entries")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(limit);
-
-      if (before) q.lt("created_at", before);
-
-      const result = await q;
-      data = result.data;
-      error = result.error;
+    if (before) {
+      query = query.lt("created_at", before);
     }
 
+    const { data, error } = await query;
     if (error) throw error;
 
     return NextResponse.json(
       { entries: data ?? [] },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30",
+          "Cache-Control": "no-store",
         },
       }
     );

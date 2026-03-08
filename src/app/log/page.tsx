@@ -305,7 +305,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 z-50 mt-2 w-[340px] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
+        <div className="absolute top-full right-0 z-50 mt-2 w-[340px] max-h-[70vh] overflow-y-auto overflow-x-hidden rounded-xl border border-border bg-card shadow-xl">
           {!stats ? (
             <div className="px-4 py-6 text-center font-mono text-[11px] text-muted-foreground/40">
               loading stats...
@@ -325,7 +325,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
             {Array.isArray(spendData) && spendData.length > 1 && (
-              <div className="mt-2 py-2 h-[180px]">
+              <div className="mt-2 py-2 h-[180px] overflow-hidden">
                 <Liveline
                   data={spendData}
                   value={stats.totalSpend}
@@ -333,8 +333,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   theme="dark"
                   color="#f59e0b"
                   grid
-                  badge
-                  badgeVariant="minimal"
+                  badge={false}
                   fill
                   pulse
                   momentum={false}
@@ -367,7 +366,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatRow label="Tokens Out" value={(stats.totalTokensOut).toLocaleString()} />
             </div>
             {Array.isArray(messagesData) && messagesData.length > 1 && (
-              <div className="mt-2 py-2 h-[180px]">
+              <div className="mt-2 py-2 h-[180px] overflow-hidden">
                 <Liveline
                   data={messagesData}
                   value={stats.totalMessages}
@@ -375,8 +374,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   theme="dark"
                   color="#3b82f6"
                   grid
-                  badge
-                  badgeVariant="minimal"
+                  badge={false}
                   fill
                   pulse
                   momentum={false}
