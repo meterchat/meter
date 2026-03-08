@@ -227,6 +227,13 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
   const [spendWindow, setSpendWindow] = useState(604800); // default 1w
   const [messagesWindow, setMessagesWindow] = useState(604800);
 
+  // Refs so the formatTime closure always reads the latest window value
+  // (Liveline's canvas rAF loop may hold a stale function reference)
+  const spendWindowRef = useRef(spendWindow);
+  spendWindowRef.current = spendWindow;
+  const messagesWindowRef = useRef(messagesWindow);
+  messagesWindowRef.current = messagesWindow;
+
   useEffect(() => {
     fetch(apiUrl("/api/log/stats"))
       .then((r) => r.json())
@@ -339,17 +346,18 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   formatValue={(v: number) => `$${v.toFixed(2)}`}
                   formatTime={(t: number) => {
                     const d = new Date(t * 1000);
-                    if (spendWindow <= 60) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    if (spendWindow <= 86400) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                    const w = spendWindowRef.current;
+                    if (w <= 60) return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    if (w <= 86400) return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                   }}
                   windows={[
-                    { label: "1w", secs: 604800 },
-                    { label: "1s", secs: 1 },
-                    { label: "1m", secs: 60 },
-                    { label: "1h", secs: 3600 },
-                    { label: "1d", secs: 86400 },
                     { label: "1mo", secs: 2592000 },
+                    { label: "1w", secs: 604800 },
+                    { label: "1d", secs: 86400 },
+                    { label: "1h", secs: 3600 },
+                    { label: "1m", secs: 60 },
+                    { label: "1s", secs: 1 },
                   ]}
                   windowStyle="default"
                   onWindowChange={(secs: number) => setSpendWindow(secs)}
@@ -389,17 +397,18 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   formatValue={(v: number) => v.toLocaleString()}
                   formatTime={(t: number) => {
                     const d = new Date(t * 1000);
-                    if (messagesWindow <= 60) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    if (messagesWindow <= 86400) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                    const w = messagesWindowRef.current;
+                    if (w <= 60) return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    if (w <= 86400) return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                   }}
                   windows={[
-                    { label: "1w", secs: 604800 },
-                    { label: "1s", secs: 1 },
-                    { label: "1m", secs: 60 },
-                    { label: "1h", secs: 3600 },
-                    { label: "1d", secs: 86400 },
                     { label: "1mo", secs: 2592000 },
+                    { label: "1w", secs: 604800 },
+                    { label: "1d", secs: 86400 },
+                    { label: "1h", secs: 3600 },
+                    { label: "1m", secs: 60 },
+                    { label: "1s", secs: 1 },
                   ]}
                   windowStyle="default"
                   onWindowChange={(secs: number) => setMessagesWindow(secs)}
