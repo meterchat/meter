@@ -27,8 +27,8 @@ export const MODELS: ModelConfig[] = [
     name: "Auto",
     provider: "Meter",
     color: "#E4E4E7",
-    inputPrice: (1.75 / 1_000_000),
-    outputPrice: (14.0 / 1_000_000),
+    inputPrice: (2.50 / 1_000_000),
+    outputPrice: (15.0 / 1_000_000),
     quality: 92,  // GPQA Diamond — routes to GPT-5.4
     speed: 90,
   },
@@ -57,8 +57,8 @@ export const MODELS: ModelConfig[] = [
     name: "GPT-5.4",
     provider: "OpenAI",
     color: "#10A37F",
-    inputPrice: (2.0 / 1_000_000),
-    outputPrice: (16.0 / 1_000_000),
+    inputPrice: (2.50 / 1_000_000),
+    outputPrice: (15.0 / 1_000_000),
     quality: 92,  // GPQA Diamond
     speed: 90,
   },
@@ -67,8 +67,8 @@ export const MODELS: ModelConfig[] = [
     name: "GPT-5.4 Pro",
     provider: "OpenAI",
     color: "#10A37F",
-    inputPrice: (5.0 / 1_000_000),
-    outputPrice: (30.0 / 1_000_000),
+    inputPrice: (30.0 / 1_000_000),
+    outputPrice: (180.0 / 1_000_000),
     quality: 95,  // GPQA Diamond
     speed: 60,
   },

@@ -83,8 +83,8 @@ export default function DocsPage() {
                 <tbody className="text-muted-foreground">
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Sonnet 4.6</td><td className="py-1.5 pr-4">$6.00</td><td className="py-1.5 pr-4">$30.00</td><td className="py-1.5">~$0.02</td></tr>
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Opus 4.6</td><td className="py-1.5 pr-4">$10.00</td><td className="py-1.5 pr-4">$50.00</td><td className="py-1.5">~$0.03</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.4</td><td className="py-1.5 pr-4">$4.00</td><td className="py-1.5 pr-4">$32.00</td><td className="py-1.5">~$0.01</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.4 Pro</td><td className="py-1.5 pr-4">$10.00</td><td className="py-1.5 pr-4">$60.00</td><td className="py-1.5">~$0.03</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.4</td><td className="py-1.5 pr-4">$5.00</td><td className="py-1.5 pr-4">$30.00</td><td className="py-1.5">~$0.02</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.4 Pro</td><td className="py-1.5 pr-4">$60.00</td><td className="py-1.5 pr-4">$360.00</td><td className="py-1.5">~$0.24</td></tr>
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Gemini 3.1 Pro</td><td className="py-1.5 pr-4">$4.00</td><td className="py-1.5 pr-4">$24.00</td><td className="py-1.5">~$0.01</td></tr>
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Grok 4.1 Fast</td><td className="py-1.5 pr-4">$0.40</td><td className="py-1.5 pr-4">$1.00</td><td className="py-1.5">~$0.001</td></tr>
                   <tr className="border-b border-border/50"><td className="py-1.5 pr-4">DeepSeek V3</td><td className="py-1.5 pr-4">$0.54</td><td className="py-1.5 pr-4">$2.20</td><td className="py-1.5">~$0.001</td></tr>
