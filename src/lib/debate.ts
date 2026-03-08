@@ -210,7 +210,7 @@ export async function runDebate(conversation: Message[], send: Send, roster?: st
       },
       {
         role: "user",
-        content: `Here's the full debate on "${topic}":\n\n${fullDebateText}\n\nWhich model's position is strongest? You can pick yourself or another model. Reply with ONLY the model name, then a colon, then one sentence explaining why. Example: "GPT-5.2: because their reasoning about X was strongest."`,
+        content: `Here's the full debate on "${topic}":\n\n${fullDebateText}\n\nWhich model's position is strongest? You can pick yourself or another model. Reply with ONLY the model name, then a colon, then one sentence explaining why. Example: "GPT-5.4: because their reasoning about X was strongest."`,
       },
     ];
 

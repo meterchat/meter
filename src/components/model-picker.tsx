@@ -34,9 +34,21 @@ function SpeedBar({ speed }: { speed: number }) {
 function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number }) {
   switch (provider) {
     case "Anthropic":
+      // Starburst / sunburst logo — 11 radiating rays from a central disc
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
-          <path d="M13.827 3.52l5.99 16.96h-3.354l-1.27-3.727H9.78l1.27 3.727H7.696L13.827 3.52zm-.353 4.613L11.07 14.48h4.809l-2.405-6.347z" />
+          <circle cx="12" cy="12" r="3.2" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(0 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(33 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(65 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(98 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(131 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(164 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(196 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(229 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(262 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(294 12 12)" />
+          <rect x="10.9" y="1.5" width="2.2" height="7" rx="1.1" transform="rotate(327 12 12)" />
         </svg>
       );
     case "OpenAI":
@@ -52,26 +64,18 @@ function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number
         </svg>
       );
     case "DeepSeek":
+      // Whale logo — simplified whale silhouette curled in a circle
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5c-2.49 0-4.5-2.01-4.5-4.5S8.51 7.5 11 7.5c1.25 0 2.38.51 3.19 1.33l-1.29 1.25A2.99 2.99 0 0 0 11 9.5c-1.38 0-2.5 1.12-2.5 2.5s1.12 2.5 2.5 2.5c1.19 0 2.19-.83 2.44-1.95H11v-1.55h4.44c.05.28.06.56.06.85 0 2.49-2.01 4.15-4.5 4.15z" />
+          <path d="M12 2C6.48 2 2 6.48 2 12c0 3.04 1.36 5.76 3.5 7.6C4.57 17.88 4 15.56 4 14c0-4.42 3.58-8 8-8 1.56 0 3.01.45 4.24 1.22C17.76 5.53 15.08 4 12 4V2zm7.42 4.98C20.44 8.54 21 10.2 21 12c0 5.52-4.48 10-10 10-1.8 0-3.5-.48-4.96-1.32l.52-.86C7.9 20.58 9.88 21.2 12 21.2c4.86 0 8.8-3.94 8.8-8.8 0-1.7-.48-3.28-1.32-4.62l.94-.8zM12 7c-3.31 0-6 2.69-6 6 0 2.07 1.06 3.9 2.66 4.98.1-.58.38-1.1.78-1.48C8.56 15.56 8 14.36 8 13c0-2.76 2.24-5 5-5 1.36 0 2.6.55 3.5 1.44.4-.4.92-.68 1.48-.78C16.9 7.06 14.6 6 12 6v1zm3.5 4.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z" />
         </svg>
       );
     case "xAI":
+      // Grok logo — circle with diagonal slash/bolt
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
-          <path d="M2.3 4h4.3l5.4 8.1L17.4 4h4.3l-7.7 11.3L21.7 20h-4.3l-5.4-8.1L6.6 20H2.3l7.7-11.3L2.3 4z" />
-        </svg>
-      );
-    case "MiniMax":
-      // Sound-wave logo — 5 rounded bars matching the brand mark
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
-          <rect x="1" y="10" width="2.8" height="7" rx="1.4" />
-          <rect x="5.8" y="4" width="2.8" height="16" rx="1.4" />
-          <rect x="10.6" y="6" width="2.8" height="14" rx="1.4" />
-          <rect x="15.4" y="4" width="2.8" height="16" rx="1.4" />
-          <rect x="20.2" y="7" width="2.8" height="10" rx="1.4" />
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 2.5c4.14 0 7.5 3.36 7.5 7.5s-3.36 7.5-7.5 7.5S4.5 16.14 4.5 12 7.86 4.5 12 4.5z" />
+          <path d="M6.7 3.3l14 17.4-1.4 1.1-14-17.4z" />
         </svg>
       );
     case "Meter":

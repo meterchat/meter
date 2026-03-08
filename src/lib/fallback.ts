@@ -60,11 +60,11 @@ interface DirectProvider {
 const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "anthropic/claude-sonnet-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-sonnet-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
   "anthropic/claude-opus-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-opus-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
-  "openai/gpt-5.2": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.2", sdk: "openai", cacheReadRate: 0.5 },
+  "openai/gpt-5.4": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.4", sdk: "openai", cacheReadRate: 0.5 },
+  "openai/gpt-5.4-pro": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.4-pro", sdk: "openai", cacheReadRate: 0.5 },
   "google/gemini-3.1-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3.1-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
   "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4-1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
-  "minimax/minimax-m2.5": { envKey: "MINIMAX_API_KEY", nativeModel: "MiniMax-M2.5", sdk: "openai", baseURL: "https://api.minimax.io/v1", cacheReadRate: 0.1 },
 };
 
 /** Models where direct API should be preferred over OpenRouter.
@@ -107,10 +107,10 @@ function supportsCacheControl(model: string): boolean {
  */
 const AUTO_ROUTE_ORDER = [
   "anthropic/claude-sonnet-4.6",
-  "openai/gpt-5.2",
+  "openai/gpt-5.4",
+  "openai/gpt-5.4-pro",
   "google/gemini-3.1-pro-preview",
   "x-ai/grok-4.1-fast",
-  "minimax/minimax-m2.5",
   "deepseek/deepseek-chat-v3-0324",
 ];
 
@@ -1024,7 +1024,7 @@ export interface FallbackResult {
  * Tier 3: AWS Bedrock for Claude models (silent — no client notification)
  * Tier 4: Different model via OpenRouter → direct → Bedrock (sends "rerouting" event)
  *
- * Final fallback: GPT 5.2 (via OpenRouter or direct OpenAI key).
+ * Final fallback: GPT 5.4 (via OpenRouter or direct OpenAI key).
  * Throws only if ALL tiers fail.
  */
 export async function streamWithFallback(
@@ -1099,7 +1099,7 @@ export async function streamWithFallback(
 
   // ── Tier 4: Auto-route to a different model ─────────────────────
   // For each candidate, try OpenRouter → direct key → Bedrock (if Claude).
-  // GPT 5.2 serves as the final fallback for all models.
+  // GPT 5.4 serves as the final fallback for all models.
   const excluded = options?.excludeModels ?? [];
   const candidates = AUTO_ROUTE_ORDER.filter((m) => m !== requestedModel && !excluded.includes(m));
 
