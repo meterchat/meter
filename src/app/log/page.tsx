@@ -258,12 +258,21 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
     prevEntryCount.current = entryCount;
   }, [entryCount]);
 
+  // Add a "now" data point so Liveline animates to the present moment
+  const nowSec = Math.floor(Date.now() / 1000);
+  const spendData = stats?.spendTimeline && stats.spendTimeline.length > 0
+    ? [...stats.spendTimeline, { time: nowSec, value: stats.totalSpend }]
+    : stats?.spendTimeline;
+  const tokensData = stats?.tokensTimeline && stats.tokensTimeline.length > 0
+    ? [...stats.tokensTimeline, { time: nowSec, value: stats.totalTokensIn + stats.totalTokensOut }]
+    : stats?.tokensTimeline;
+
   // Compute window size to cover full timeline range
-  const spendWindow = stats?.spendTimeline && stats.spendTimeline.length > 1
-    ? Math.ceil(stats.spendTimeline[stats.spendTimeline.length - 1].time - stats.spendTimeline[0].time) + 86400
+  const spendWindow = spendData && spendData.length > 1
+    ? Math.ceil(spendData[spendData.length - 1].time - spendData[0].time) + 86400
     : 86400;
-  const tokensWindow = stats?.tokensTimeline && stats.tokensTimeline.length > 1
-    ? Math.ceil(stats.tokensTimeline[stats.tokensTimeline.length - 1].time - stats.tokensTimeline[0].time) + 86400
+  const tokensWindow = tokensData && tokensData.length > 1
+    ? Math.ceil(tokensData[tokensData.length - 1].time - tokensData[0].time) + 86400
     : 86400;
 
   return (
@@ -308,10 +317,10 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatSpendRow label="Weekly average" amount={stats.weeklyAverage} />
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
-            {Array.isArray(stats.spendTimeline) && stats.spendTimeline.length > 1 && (
+            {Array.isArray(spendData) && spendData.length > 1 && (
               <div className="mt-2 h-[160px]">
                 <Liveline
-                  data={stats.spendTimeline}
+                  data={spendData}
                   value={stats.totalSpend}
                   window={spendWindow}
                   theme="dark"
@@ -319,8 +328,8 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   grid={false}
                   badge={false}
                   fill
-                  pulse={false}
-                  momentum={false}
+                  pulse
+                  momentum
                   scrub
                   exaggerate
                   formatValue={(v: number) => `$${v.toFixed(2)}`}
@@ -343,10 +352,10 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatRow label="Total Out" value={(stats.totalTokensOut).toLocaleString()} />
               <StatRow label="Messages" value={stats.totalMessages.toLocaleString()} />
             </div>
-            {Array.isArray(stats.tokensTimeline) && stats.tokensTimeline.length > 1 && (
+            {Array.isArray(tokensData) && tokensData.length > 1 && (
               <div className="mt-2 h-[160px]">
                 <Liveline
-                  data={stats.tokensTimeline}
+                  data={tokensData}
                   value={stats.totalTokensIn + stats.totalTokensOut}
                   window={tokensWindow}
                   theme="dark"
@@ -354,8 +363,8 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   grid={false}
                   badge={false}
                   fill
-                  pulse={false}
-                  momentum={false}
+                  pulse
+                  momentum
                   scrub
                   exaggerate
                   formatValue={(v: number) => v.toLocaleString()}
@@ -899,23 +908,23 @@ function Heartbeat({ entries }: { entries: LogEntry[] }) {
   }, []);
 
   return (
-    <div className="border-t border-border h-[48px] shrink-0 relative">
+    <div className="border-t border-border h-[80px] shrink-0 relative">
       <Liveline
         data={data}
         value={currentRate}
         window={120}
         theme="dark"
-        color="#525252"
+        color="#10b981"
         grid={false}
         badge={false}
-        fill={false}
-        pulse={false}
+        fill
+        pulse
         momentum={false}
         scrub={false}
-        exaggerate={false}
-        padding={{ top: 4, right: 4, bottom: 4, left: 4 }}
+        exaggerate
+        padding={{ top: 6, right: 8, bottom: 6, left: 8 }}
       />
-      <div className="absolute bottom-1 left-2 font-mono text-[9px] text-muted-foreground/30 pointer-events-none">
+      <div className="absolute bottom-1.5 left-2.5 font-mono text-[9px] text-muted-foreground/50 pointer-events-none">
         {currentRate > 0 ? `${currentRate.toFixed(1)} evt/s` : "idle"}
       </div>
     </div>
