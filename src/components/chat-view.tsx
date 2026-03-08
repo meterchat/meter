@@ -2664,7 +2664,7 @@ export function ChatView() {
               onSelect={handleCommandSelect}
               onConnect={handleSlashConnect}
               onFile={handleSlashFile}
-              onClose={() => { setSlashOpen(false); setSlashQuery(""); if (inputRef.current) inputRef.current.value = ""; }}
+              onClose={() => { setSlashOpen(false); setSlashQuery(""); }}
             />
 
             {/* Fork confirmation form — shown when AI suggests paths */}

@@ -47,19 +47,8 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
       return () => document.removeEventListener("mousedown", handler);
     }, [open, onClose]);
 
-    // Built-in "Add file" command — always first
-    const fileCommand: FlatCommand = {
-      connectorId: "__file__",
-      connectorName: "Built-in",
-      connectorIcon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M12 18v-6 M9 15h6",
-      commandLabel: "Add file",
-      chatPrompt: "",
-      description: "Attach an image or PDF to the conversation",
-      connected: true,
-    };
-
     // Top-level slash commands (/debate, /decide, /fork, etc.)
-    const slashCommands: FlatCommand[] = useMemo(() =>
+    const allCommands: FlatCommand[] = useMemo(() =>
       SLASH_COMMANDS.map((sc) => ({
         connectorId: sc.connectorId,
         connectorName: sc.label,
@@ -71,14 +60,6 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
         isSlashCommand: true,
       })),
       [connectedServices]
-    );
-
-    // Build flat command list: file + slash commands only
-    const allCommands: FlatCommand[] = useMemo(() => [
-      fileCommand,
-      ...slashCommands,
-    ],
-      [slashCommands] // eslint-disable-line react-hooks/exhaustive-deps
     );
 
     // Filter by query (matches connector name, command label, or description)
@@ -114,16 +95,12 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
     const handleSelect = useCallback((index: number) => {
       const cmd = filtered[index];
       if (!cmd) return;
-      if (cmd.connectorId === "__file__") {
-        onFile();
-        return;
-      }
       if (cmd.connected) {
         onSelect(cmd.chatPrompt);
       } else {
         onConnect(cmd.connectorId);
       }
-    }, [filtered, onSelect, onConnect, onFile]);
+    }, [filtered, onSelect, onConnect]);
 
     // Expose keyboard handler to parent
     useImperativeHandle(ref, () => ({
@@ -169,7 +146,7 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
             <div ref={listRef} className="max-h-[280px] overflow-y-auto py-0.5">
               {filtered.map((cmd, idx) => (
                 <button
-                  key={cmd.connectorId === "__file__" ? "__file__" : cmd.commandLabel}
+                  key={cmd.commandLabel}
                   data-highlighted={idx === highlightIndex ? "" : undefined}
                   onClick={() => handleSelect(idx)}
                   onMouseEnter={() => setHighlightIndex(idx)}
@@ -178,9 +155,7 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
                   }`}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/60 shrink-0">
-                    <path d={cmd.connectorId === "__file__"
-                      ? "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
-                      : cmd.connectorIcon} />
+                    <path d={cmd.connectorIcon} />
                   </svg>
                   <span className="font-mono text-[11px] text-foreground/80 shrink-0 font-semibold">
                     {cmd.commandLabel}
