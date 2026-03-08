@@ -1783,7 +1783,7 @@ export function ChatView() {
                 // Track output cost incrementally using the actual model's rate
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
-                brainwaveRef.current?.push(estTokens);
+                if (isActiveStream()) brainwaveRef.current?.push(estTokens);
                 const turnModel = getModel(currentTurn.model);
                 incrementCurrentMessageCost(estTokens * turnModel.outputPrice, streamSessionId);
                 if (checkSpendLimits()) break;
@@ -1824,7 +1824,7 @@ export function ChatView() {
                 if (isActiveStream()) setActiveDissectorTurn(currentDissTurn);
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
-                brainwaveRef.current?.push(estTokens);
+                if (isActiveStream()) brainwaveRef.current?.push(estTokens);
                 const dissModel = getModel("anthropic/claude-opus-4.6");
                 incrementCurrentMessageCost(estTokens * dissModel.outputPrice, streamSessionId);
                 if (checkSpendLimits()) break;
@@ -1852,7 +1852,7 @@ export function ChatView() {
               if (isActiveStream()) setRerouting(null);
               updateLastAssistantMessage(fullContent, data.tokensOut, streamSessionId);
               // Feed brainwave with estimated token count from this chunk
-              brainwaveRef.current?.push(Math.ceil((data.content as string).length / 4));
+              if (isActiveStream()) brainwaveRef.current?.push(Math.ceil((data.content as string).length / 4));
               if (checkSpendLimits()) break;
             } else if (data.type === "tool_call") {
               if (isActiveStream()) setActiveTool(data.name as string);
@@ -2778,6 +2778,7 @@ export function ChatView() {
               />
               {/* Brainwave — AI activity pulse, colored by active model */}
               <Brainwave
+                key={activeSessionId}
                 handleRef={brainwaveRef}
                 activeColor={
                   debateMode
