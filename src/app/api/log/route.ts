@@ -64,7 +64,25 @@ export async function GET(request: NextRequest) {
       query = query.lt("created_at", before);
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+
+    // Fallback: if commit_message column doesn't exist yet, retry without it
+    if (error && error.message?.includes("commit_message")) {
+      const fallback = supabase
+        .from("log_entries")
+        .select("id, type, actor, commit_sha, commit_url, commit_repo, feedback_text, created_at")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (before) {
+        fallback.lt("created_at", before);
+      }
+
+      const result = await fallback;
+      data = result.data;
+      error = result.error;
+    }
+
     if (error) throw error;
 
     return NextResponse.json(

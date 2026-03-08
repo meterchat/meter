@@ -6,13 +6,18 @@ export async function GET() {
   try {
     const supabase = getSupabaseServer();
 
-    // Fetch aggregate stats from chat_messages table
+    // Fetch aggregate stats from chat_messages table (messages with cost data for spend calculations)
     const { data: msgStats, error: msgError } = await supabase
       .from("chat_messages")
       .select("cost, model, tokens_in, tokens_out, created_at")
       .not("cost", "is", null);
 
     if (msgError) throw msgError;
+
+    // Count ALL messages (including those without cost) for accurate message total
+    const { count: allMessageCount } = await supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true });
 
     // Fetch total_cost from chat_sessions (source of truth for lifetime spend)
     // Only count main workspaces (not subtracks) to avoid double-counting
@@ -62,7 +67,7 @@ export async function GET() {
     let monthSpend = 0;
     let totalTokensIn = 0;
     let totalTokensOut = 0;
-    let totalMessages = messages.length;
+    let totalMessages = allMessageCount ?? messages.length;
     const byModel: Record<string, { cost: number; count: number; tokensIn: number; tokensOut: number }> = {};
 
     // Count first message date for daily average calculation
