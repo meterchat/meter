@@ -36,9 +36,12 @@ export interface SlashCommandDef {
   connectorId: string;
   /** SVG path data for the icon (24×24 viewBox) — uses connector's icon */
   iconPath: string;
+  /** Which modes this command appears in (omit = both) */
+  modes?: ("meter" | "metric")[];
 }
 
 export const SLASH_COMMANDS: SlashCommandDef[] = [
+  // ── Think mode commands ──────────────────────────────
   {
     command: "debate",
     label: "/debate",
@@ -47,6 +50,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+    modes: ["meter"],
   },
   {
     command: "decide",
@@ -56,6 +60,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
+    modes: ["meter"],
   },
   {
     command: "fork",
@@ -65,6 +70,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M6 3v12 M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M18 9a9 9 0 0 1-9 9",
+    modes: ["meter"],
   },
   {
     command: "dissect",
@@ -74,6 +80,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+    modes: ["meter"],
   },
   {
     command: "invert",
@@ -83,6 +90,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M21 12a9 9 0 1 1-9-9 M21 3v9h-9",
+    modes: ["meter"],
   },
   {
     command: "steelman",
@@ -92,6 +100,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+    modes: ["meter"],
   },
   {
     command: "tradeoffs",
@@ -101,7 +110,70 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M3 3v18h18 M18.7 8l-5.1 5.2-2.8-2.7L7 14.3",
+    modes: ["meter"],
   },
+  // ── Code mode commands ──────────────────────────────
+  {
+    command: "build",
+    label: "/build",
+    chatPrompt:
+      "Build this. Write the code, create the files, and implement what we've been discussing. Start with the most critical piece and work outward.",
+    connectorId: "_builtin",
+    iconPath:
+      "M6 3v12l6 6 6-6V3 M6 8h12",
+    modes: ["metric"],
+  },
+  {
+    command: "fix",
+    label: "/fix",
+    chatPrompt:
+      "Fix this. Find the bug, explain why it's broken, and write the corrected code.",
+    connectorId: "_builtin",
+    iconPath:
+      "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+    modes: ["metric"],
+  },
+  {
+    command: "refactor",
+    label: "/refactor",
+    chatPrompt:
+      "Refactor this. Improve the code structure, readability, and maintainability without changing behavior. Show the before and after.",
+    connectorId: "_builtin",
+    iconPath:
+      "M21 12a9 9 0 1 1-9-9 M21 3v9h-9",
+    modes: ["metric"],
+  },
+  {
+    command: "test",
+    label: "/test",
+    chatPrompt:
+      "Write tests for this. Cover the happy path, edge cases, and error handling. Use the testing patterns already in this project.",
+    connectorId: "_builtin",
+    iconPath:
+      "M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
+    modes: ["metric"],
+  },
+  {
+    command: "review",
+    label: "/review",
+    chatPrompt:
+      "Review this code. Check for bugs, security issues, performance problems, and style inconsistencies. Be specific about what to change and why.",
+    connectorId: "_builtin",
+    iconPath:
+      "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 9v2 M12 15h.01",
+    modes: ["metric"],
+  },
+  {
+    command: "explain",
+    label: "/explain",
+    chatPrompt:
+      "Explain this code. Walk through what it does, why it's structured this way, and any non-obvious design choices.",
+    connectorId: "_builtin",
+    iconPath:
+      "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z",
+    modes: ["metric"],
+  },
+  // ── Both modes ──────────────────────────────────────
   {
     command: "blueprint",
     label: "/blueprint",
