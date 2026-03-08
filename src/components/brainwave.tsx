@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 
 const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), {
   ssr: false,
-  loading: () => <div className="h-[28px]" />,
+  loading: () => <div className="h-[24px]" />,
 });
 
 /**
@@ -86,7 +86,7 @@ export function Brainwave({
   const color = isActive ? activeColor : dimColor(activeColor);
 
   return (
-    <div className="h-[28px] w-full relative">
+    <div className="h-[24px] w-full relative overflow-hidden -my-px">
       <Liveline
         data={data}
         value={currentRate}
@@ -100,8 +100,9 @@ export function Brainwave({
         scrub={false}
         grid={false}
         badge={false}
-        padding={{ top: 2, right: 8, bottom: 2, left: 8 }}
-        className="!bg-transparent"
+        padding={{ top: 0, right: 8, bottom: 0, left: 8 }}
+        className="!bg-transparent !border-none"
+        style={{ border: "none" }}
       />
     </div>
   );
