@@ -105,6 +105,29 @@ function formatActor(actor: string, type: string): string {
   return actor;
 }
 
+function getEntryTitle(entry: LogEntry): string {
+  switch (entry.type) {
+    case "commit_pushed":
+      return entry.commit_message?.split("\n")[0] ?? entry.commit_sha ?? "Commit pushed";
+    case "message_sent":
+      return "Message sent";
+    case "debate_started":
+      return "Multi-model debate";
+    case "decision_locked":
+      return "Decision locked";
+    case "feedback_logged":
+      return entry.feedback_text?.slice(0, 60) ?? "Feedback logged";
+    case "path_forked":
+      return "Path forked";
+    case "path_merged":
+      return "Paths merged";
+    case "workspace_created":
+      return "Workspace created";
+    default:
+      return EVENT_LABELS[entry.type] ?? entry.type;
+  }
+}
+
 // ── Meter Icon (animated sprite, same as main app) ───────────
 
 const FRAMES = [
@@ -756,11 +779,18 @@ export default function LogPage() {
           <div className="px-6 py-4 border-b border-border">
             {selectedEntry ? (
               <>
-                <div className="flex items-center gap-2">
+                <h2 className="font-mono text-sm font-semibold text-foreground leading-tight">
+                  {getEntryTitle(selectedEntry)}
+                </h2>
+                <div className="flex items-center gap-2 mt-1.5">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${EVENT_DOTS[selectedEntry.type] ?? "bg-foreground/20"}`} />
-                  <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
                     {EVENT_LABELS[selectedEntry.type] ?? selectedEntry.type}
-                  </h2>
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground/30">&middot;</span>
+                  <span className="font-mono text-[10px] text-muted-foreground/30">
+                    {relativeTime(selectedEntry.created_at)}
+                  </span>
                 </div>
               </>
             ) : (
