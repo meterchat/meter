@@ -108,21 +108,21 @@ function formatActor(actor: string, type: string): string {
 function getEntryTitle(entry: LogEntry): string {
   switch (entry.type) {
     case "commit_pushed":
-      return entry.commit_message?.split("\n")[0] ?? entry.commit_sha ?? "Commit pushed";
+      return entry.commit_message?.split("\n")[0] ?? entry.commit_sha ?? "commit pushed";
     case "message_sent":
-      return "Message sent";
+      return "sent message";
     case "debate_started":
-      return "Multi-model debate";
+      return "multi-model debate";
     case "decision_locked":
-      return "Decision locked";
+      return "locked decision";
     case "feedback_logged":
-      return entry.feedback_text?.slice(0, 60) ?? "Feedback logged";
+      return entry.feedback_text?.slice(0, 80) ?? "logged feedback";
     case "path_forked":
-      return "Path forked";
+      return "forked path";
     case "path_merged":
-      return "Paths merged";
+      return "merged paths";
     case "workspace_created":
-      return "Workspace created";
+      return "created workspace";
     default:
       return EVENT_LABELS[entry.type] ?? entry.type;
   }
@@ -635,8 +635,12 @@ export default function LogPage() {
   const feedContainerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
+  const initialLoadRef = useRef(true);
+
   const scrollToBottom = useCallback(() => {
-    feedEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const behavior = initialLoadRef.current ? "instant" as ScrollBehavior : "smooth" as ScrollBehavior;
+    feedEndRef.current?.scrollIntoView({ behavior });
+    initialLoadRef.current = false;
   }, []);
 
   const handleScroll = useCallback(() => {
@@ -663,7 +667,8 @@ export default function LogPage() {
 
   useEffect(() => {
     if (!loading && entries.length > 0) {
-      setTimeout(() => scrollToBottom(), 100);
+      // Instant snap on first load (no delay needed for instant scroll)
+      requestAnimationFrame(() => scrollToBottom());
     }
   }, [loading, entries.length, scrollToBottom]);
 
@@ -786,10 +791,6 @@ export default function LogPage() {
                 </h2>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${EVENT_DOTS[selectedEntry.type] ?? "bg-foreground/20"}`} />
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
-                    {EVENT_LABELS[selectedEntry.type] ?? selectedEntry.type}
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground/30">&middot;</span>
                   <span className="font-mono text-[10px] text-muted-foreground/30">
                     {relativeTime(selectedEntry.created_at)}
                   </span>
@@ -822,8 +823,11 @@ export default function LogPage() {
 function LogRow({ entry, selected, onSelect }: { entry: LogEntry; selected: boolean; onSelect: (e: LogEntry) => void }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const actor = formatActor(entry.actor, entry.type);
-  const action = EVENT_LABELS[entry.type] ?? entry.type;
+  const label = EVENT_LABELS[entry.type] ?? entry.type;
+  const title = getEntryTitle(entry);
   const dotColor = EVENT_DOTS[entry.type] ?? "bg-foreground/20";
+  // Show the richer title when it differs from the generic label
+  const showTitle = title !== label;
 
   return (
     <div
@@ -832,11 +836,16 @@ function LogRow({ entry, selected, onSelect }: { entry: LogEntry; selected: bool
       onMouseLeave={() => setShowTooltip(false)}
       onClick={() => onSelect(entry)}
     >
-      <div className="flex items-center gap-2 font-mono text-[12px] min-w-0">
+      <div className="flex items-center gap-2 font-mono text-[12px] min-w-0 overflow-hidden">
         <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />
         <span className="text-muted-foreground shrink-0">{actor}</span>
-        <span className="text-foreground/60">{action}</span>
-        {entry.commit_sha && (
+        <span className="text-foreground/60 shrink-0">{label}</span>
+        {showTitle && (
+          <span className="text-foreground/40 truncate" title={title}>
+            {title}
+          </span>
+        )}
+        {!showTitle && entry.commit_sha && (
           <span className="text-muted-foreground/40 text-[10px]">
             {entry.commit_sha}
           </span>
