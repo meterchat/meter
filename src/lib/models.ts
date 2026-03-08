@@ -26,7 +26,7 @@ export const MODELS: ModelConfig[] = [
     id: "auto",
     name: "Auto",
     provider: "Meter",
-    color: "#A1A1AA",
+    color: "#E4E4E7",
     inputPrice: (1.75 / 1_000_000),
     outputPrice: (14.0 / 1_000_000),
     quality: 90,  // GPQA Diamond — routes to GPT-5.2
@@ -109,7 +109,7 @@ export const DEBATE_MODEL: ModelConfig = {
   id: "debate",
   name: "Meter 1.0",
   provider: "Meter",
-  color: "#F59E0B",
+  color: "#E4E4E7",
   inputPrice: (3.0 / 1_000_000),
   outputPrice: (15.0 / 1_000_000),
 };
@@ -119,7 +119,7 @@ export const DISSECT_MODEL: ModelConfig = {
   id: "dissect",
   name: "Meter 1.0",
   provider: "Meter",
-  color: "#A1A1AA",
+  color: "#E4E4E7",
   inputPrice: (5.0 / 1_000_000),
   outputPrice: (25.0 / 1_000_000),
 };
