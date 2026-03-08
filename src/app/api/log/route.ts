@@ -14,6 +14,10 @@ const VALID_TYPES = [
   "workspace_created",
   "feedback_logged",
   "commit_pushed",
+  "payment_succeeded",
+  "payment_failed",
+  "auth_hold_created",
+  "refund_issued",
 ] as const;
 
 // POST /api/log — create a log entry (no auth required)

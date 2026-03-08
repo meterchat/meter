@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const isMobileBuild = process.env.CAPACITOR_BUILD === "1";
 
@@ -11,7 +12,7 @@ const csp = `
   object-src 'none';
   base-uri 'self';
   form-action 'self';
-  connect-src 'self' https://openrouter.ai https://js.stripe.com https://api.stripe.com https://*.supabase.co https://accounts.google.com https://oauth2.googleapis.com https://github.com https://api.github.com https://vercel.com https://api.vercel.com https://connect.stripe.com https://api.mercury.com https://api.ramp.com;
+  connect-src 'self' https://openrouter.ai https://js.stripe.com https://api.stripe.com https://*.supabase.co https://accounts.google.com https://oauth2.googleapis.com https://github.com https://api.github.com https://vercel.com https://api.vercel.com https://connect.stripe.com https://api.mercury.com https://api.ramp.com https://*.ingest.sentry.io;
   frame-src https://js.stripe.com https://accounts.google.com;
   worker-src 'self' blob:;
   manifest-src 'self';
@@ -55,4 +56,10 @@ const nextConfig: NextConfig = {
   },
 } as NextConfig;
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: true,
+  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+  disableClientWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+});

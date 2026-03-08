@@ -256,6 +256,14 @@ const STATEMENTS: string[] = [
   `create index if not exists idx_log_entries_created_at on log_entries(created_at desc)`,
   `alter table log_entries add column if not exists commit_message text`,
   `alter table log_entries add column if not exists preview text`,
+  // Expand type check constraint to include Stripe events
+  `alter table log_entries drop constraint if exists log_entries_type_check`,
+  `alter table log_entries add constraint log_entries_type_check check (type in (
+    'message_sent', 'decision_locked', 'debate_started',
+    'path_forked', 'path_merged', 'workspace_created',
+    'feedback_logged', 'commit_pushed',
+    'payment_succeeded', 'payment_failed', 'auth_hold_created', 'refund_issued'
+  ))`,
 
   // Indexes
   `create index if not exists idx_oauth_tokens_user on oauth_tokens(user_id)`,
