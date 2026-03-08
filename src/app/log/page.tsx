@@ -322,7 +322,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
             {spendLive.length > 1 && (
-              <div className="mt-2 py-2 h-[180px] overflow-hidden">
+              <div className="mt-2 py-2 h-[200px]">
                 <Liveline
                   data={spendLive}
                   value={stats.totalSpend}
@@ -347,7 +347,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   ]}
                   windowStyle="default"
                   onWindowChange={(secs: number) => setSpendWindow(secs)}
-                  padding={{ top: 12, right: 60, bottom: 32, left: 12 }}
+                  padding={{ top: 12, right: 60, bottom: 32, left: 40 }}
                 />
               </div>
             )}
@@ -366,7 +366,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatRow label="Tokens Out" value={(stats.totalTokensOut).toLocaleString()} />
             </div>
             {messagesLive.length > 1 && (
-              <div className="mt-2 py-2 h-[180px] overflow-hidden">
+              <div className="mt-2 py-2 h-[200px]">
                 <Liveline
                   data={messagesLive}
                   value={stats.totalMessages}
@@ -391,7 +391,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   ]}
                   windowStyle="default"
                   onWindowChange={(secs: number) => setMessagesWindow(secs)}
-                  padding={{ top: 12, right: 60, bottom: 32, left: 12 }}
+                  padding={{ top: 12, right: 60, bottom: 32, left: 40 }}
                 />
               </div>
             )}
