@@ -337,6 +337,12 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   scrub
                   exaggerate
                   formatValue={(v: number) => `$${v.toFixed(2)}`}
+                  formatTime={(t: number) => {
+                    const d = new Date(t * 1000);
+                    if (spendWindow <= 60) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    if (spendWindow <= 86400) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                  }}
                   windows={[
                     { label: "1w", secs: 604800 },
                     { label: "1s", secs: 1 },
@@ -347,7 +353,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   ]}
                   windowStyle="default"
                   onWindowChange={(secs: number) => setSpendWindow(secs)}
-                  padding={{ top: 12, right: 60, bottom: 32, left: 40 }}
+                  padding={{ top: 12, right: 60, bottom: 32, left: 12 }}
                 />
               </div>
             )}
@@ -381,6 +387,12 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   scrub
                   exaggerate
                   formatValue={(v: number) => v.toLocaleString()}
+                  formatTime={(t: number) => {
+                    const d = new Date(t * 1000);
+                    if (messagesWindow <= 60) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    if (messagesWindow <= 86400) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                  }}
                   windows={[
                     { label: "1w", secs: 604800 },
                     { label: "1s", secs: 1 },
@@ -391,7 +403,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   ]}
                   windowStyle="default"
                   onWindowChange={(secs: number) => setMessagesWindow(secs)}
-                  padding={{ top: 12, right: 60, bottom: 32, left: 40 }}
+                  padding={{ top: 12, right: 60, bottom: 32, left: 12 }}
                 />
               </div>
             )}
