@@ -121,7 +121,7 @@ export function ModelSelectorBar({
     <button
       onClick={onToggle}
       disabled={isStreaming}
-      className="flex w-full items-center gap-2 bg-foreground/[0.03] px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground/80 hover:bg-foreground/5 disabled:opacity-40"
+      className="flex w-full items-center gap-2 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground/80 hover:bg-foreground/5 disabled:opacity-40"
     >
       {debateMode ? (
         <>

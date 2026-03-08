@@ -2831,7 +2831,7 @@ export function ChatView() {
                 )}
 
                 {/* Composer — input row */}
-                <div className="flex items-end gap-2 border-t border-border/50 p-2">
+                <div className="flex items-end gap-2 p-2">
                   <textarea
                     ref={inputRef}
                     onKeyDown={handleKeyDown}
