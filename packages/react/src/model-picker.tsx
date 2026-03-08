@@ -1,6 +1,21 @@
 import React, { useState, useRef, useEffect } from "react";
 import type { MeterModel } from "./types";
 
+/** Cost badge: $ (cheapest) to $$$$ (most expensive) */
+function costBadge(m: MeterModel): string {
+  const perThought = 2000 * m.inputPrice + 1000 * m.outputPrice;
+  if (perThought < 0.005) return "$";
+  if (perThought < 0.03) return "$$";
+  if (perThought < 0.10) return "$$$";
+  return "$$$$";
+}
+
+function badgeColor(badge: string): string {
+  if (badge.length >= 4) return "#fb923c";
+  if (badge.length >= 3) return "#facc15a0";
+  return "#34d399a0";
+}
+
 /* ─── Provider logos (inline SVGs, same as main app) ─── */
 
 function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number }) {
@@ -189,6 +204,9 @@ export function ModelSelectorBar({
                 <span style={{ fontWeight: 500 }}>{m.name}</span>
                 <span style={{ marginLeft: "6px", color: "var(--meter-text-secondary, #888)", fontFamily: "monospace", fontSize: "10px" }}>
                   {m.provider}
+                </span>
+                <span style={{ marginLeft: "6px", color: badgeColor(costBadge(m)), fontFamily: "monospace", fontSize: "10px" }}>
+                  {costBadge(m)}
                 </span>
               </span>
               {m.id === selectedModelId && (

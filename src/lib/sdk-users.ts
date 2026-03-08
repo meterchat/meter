@@ -56,6 +56,6 @@ export async function getEndUserBillingStatus(endUserId: string) {
     cardOnFile: !!(data?.stripe_customer_id && data?.card_last4),
     cardLast4: data?.card_last4 ?? null,
     cardBrand: data?.card_brand ?? null,
-    markupMultiplier: Number(data?.markup_multiplier ?? 1),
+    markupMultiplier: Number(data?.markup_multiplier ?? 2),
   };
 }

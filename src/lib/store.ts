@@ -424,7 +424,7 @@ export const useMeterStore = create<MeterState>()(
       userId: null,
       email: null,
       accountType: "standard" as const,
-      markupMultiplier: 1,
+      markupMultiplier: 2,
       authenticated: false,
       cardOnFile: false,
       cardLast4: null,
@@ -462,7 +462,7 @@ export const useMeterStore = create<MeterState>()(
       inspectorTab: "decisions",
       scrollToMessageId: null,
 
-      setAuth: (userId: string, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? 1, authenticated: true }),
+      setAuth: (userId: string, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? 2, authenticated: true }),
       setSessionsLoaded: (v) => set({ sessionsLoaded: v }),
       setEmail: (email) => set({ email }),
       setCardOnFile: (v, last4, brand) =>

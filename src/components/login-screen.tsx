@@ -470,7 +470,7 @@ export function LoginScreen() {
       await useMeterStore.getState().logout();
     }
 
-    setAuth(user.id, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard", user.markupMultiplier ?? 1);
+    setAuth(user.id, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard", user.markupMultiplier ?? 2);
 
     identifyUser(user.id, {
       email: user.email,
