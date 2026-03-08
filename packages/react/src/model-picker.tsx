@@ -16,6 +16,14 @@ function badgeColor(badge: string): string {
   return "#34d399a0";
 }
 
+/** Format a per-token price as a human-readable $/M string */
+function fmtPrice(pricePerToken: number): string {
+  const perM = pricePerToken * 1_000_000;
+  if (perM < 1) return `$${perM.toFixed(2)}`;
+  if (perM % 1 === 0) return `$${perM}`;
+  return `$${perM.toFixed(2)}`;
+}
+
 /* ─── Provider logos (inline SVGs, same as main app) ─── */
 
 function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number }) {
@@ -204,6 +212,9 @@ export function ModelSelectorBar({
                 <span style={{ fontWeight: 500 }}>{m.name}</span>
                 <span style={{ marginLeft: "6px", color: "var(--meter-text-secondary, #888)", fontFamily: "monospace", fontSize: "10px" }}>
                   {m.provider}
+                </span>
+                <span style={{ marginLeft: "6px", color: "var(--meter-text-secondary, #666)", fontFamily: "monospace", fontSize: "10px" }}>
+                  {fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M
                 </span>
                 <span style={{ marginLeft: "6px", color: badgeColor(costBadge(m)), fontFamily: "monospace", fontSize: "10px" }}>
                   {costBadge(m)}

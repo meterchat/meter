@@ -218,6 +218,8 @@ export function ModelPickerPanel({
                   <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 flex-wrap">
                     <span>{m.provider}</span>
                     <span className="text-muted-foreground/40">&middot;</span>
+                    <span className="text-muted-foreground/50">{fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M</span>
+                    <span className="text-muted-foreground/40">&middot;</span>
                     <span className={costBadge(m).length >= 4 ? "text-orange-400" : costBadge(m).length >= 3 ? "text-yellow-400/70" : "text-emerald-400/70"}>{costBadge(m)}</span>
                     {m.quality != null && (
                       <>
