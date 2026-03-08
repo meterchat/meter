@@ -5,12 +5,13 @@ import dynamic from "next/dynamic";
 
 const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), {
   ssr: false,
-  loading: () => <div className="h-[32px]" />,
+  loading: () => <div className="h-[28px]" />,
 });
 
 /**
- * Brainwave — a compact heartbeat line that sits above the model picker.
+ * Brainwave — a compact heartbeat line that sits below the model picker.
  * Driven by token arrival bursts during streaming. Flatlines when idle.
+ * Color matches the active model — feels like the model's neural activity.
  *
  * The parent pushes token deltas via the `push` ref callback.
  */
@@ -22,7 +23,27 @@ export interface BrainwaveHandle {
 
 const WINDOW_SECS = 30;
 
-export function Brainwave({ handleRef }: { handleRef: React.MutableRefObject<BrainwaveHandle | null> }) {
+/** Dim a hex color to ~30% opacity equivalent for idle state */
+function dimColor(hex: string): string {
+  // Parse hex
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  // Blend toward dark background (#0a0a0a ≈ 10,10,10) at 30%
+  const blend = (c: number, bg: number) => Math.round(bg + (c - bg) * 0.3);
+  const dr = blend(r, 10);
+  const dg = blend(g, 10);
+  const db = blend(b, 10);
+  return `#${dr.toString(16).padStart(2, "0")}${dg.toString(16).padStart(2, "0")}${db.toString(16).padStart(2, "0")}`;
+}
+
+export function Brainwave({
+  handleRef,
+  activeColor,
+}: {
+  handleRef: React.MutableRefObject<BrainwaveHandle | null>;
+  activeColor: string;
+}) {
   const [data, setData] = useState<{ time: number; value: number }[]>([]);
   const [currentRate, setCurrentRate] = useState(0);
   const tokenBucketRef = useRef(0);
@@ -60,12 +81,12 @@ export function Brainwave({ handleRef }: { handleRef: React.MutableRefObject<Bra
     return () => clearInterval(interval);
   }, []);
 
-  // Color shifts: idle → muted gray, active → green
+  // Color: active → model color, idle → dimmed model color
   const isActive = currentRate > 0;
-  const color = isActive ? "#10b981" : "#6b7280";
+  const color = isActive ? activeColor : dimColor(activeColor);
 
   return (
-    <div className="h-[32px] w-full relative">
+    <div className="h-[28px] w-full relative">
       <Liveline
         data={data}
         value={currentRate}
@@ -79,7 +100,7 @@ export function Brainwave({ handleRef }: { handleRef: React.MutableRefObject<Bra
         scrub={false}
         grid={false}
         badge={false}
-        padding={{ top: 4, right: 8, bottom: 4, left: 8 }}
+        padding={{ top: 2, right: 8, bottom: 2, left: 8 }}
         className="!bg-transparent"
       />
     </div>
