@@ -43,7 +43,7 @@ import { WorkspaceBar } from "@/components/workspace-bar";
 import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
-import { getModel, shortModelName, DEBATE_MODELS } from "@/lib/models";
+import { getModel, shortModelName, DEBATE_MODELS, DEBATE_MODEL } from "@/lib/models";
 import { useSessionSync } from "@/lib/use-session-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { apiUrl } from "@/lib/api-url";
@@ -1002,6 +1002,7 @@ export function ChatView() {
   const spendingCapEnabled = useMeterStore((s) => s.spendingCapEnabled);
   const selectedModelId = useMeterStore((s) => s.selectedModelId);
   const setSelectedModelId = useMeterStore((s) => s.setSelectedModelId);
+  const debateMode = useMeterStore((s) => s.debateMode);
   const approveCard = useMeterStore((s) => s.approveCard);
   const rejectCard = useMeterStore((s) => s.rejectCard);
   const spendLimits = useMeterStore((s) => s.spendLimits);
@@ -2769,14 +2770,20 @@ export function ChatView() {
                   </div>
                 </div>
               )}
-              {/* Brainwave — AI activity pulse */}
-              <Brainwave handleRef={brainwaveRef} />
-
-              {/* Model selector bar — top section (replaces connections bar) */}
+              {/* Model selector bar — top section */}
               <ModelSelectorBar
                 open={modelPickerOpen}
                 onToggle={() => setModelPickerOpen(!modelPickerOpen)}
                 overrideModelId={rerouting?.toModel ?? null}
+              />
+              {/* Brainwave — AI activity pulse, colored by active model */}
+              <Brainwave
+                handleRef={brainwaveRef}
+                activeColor={
+                  debateMode
+                    ? DEBATE_MODEL.color
+                    : getModel(rerouting?.toModel ?? selectedModelId).color
+                }
               />
 
               {/* Model picker + composer area */}

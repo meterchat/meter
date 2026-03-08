@@ -109,7 +109,7 @@ export const DEBATE_MODEL: ModelConfig = {
   id: "debate",
   name: "Meter 1.0",
   provider: "Meter",
-  color: "#A1A1AA",
+  color: "#F59E0B",
   inputPrice: (3.0 / 1_000_000),
   outputPrice: (15.0 / 1_000_000),
 };
