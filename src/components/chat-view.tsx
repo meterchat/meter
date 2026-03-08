@@ -595,11 +595,16 @@ function InlineForkForm({
 function DiscussDebateToggle() {
   const debateMode = useMeterStore((s) => s.debateMode);
   const toggleDebateMode = useMeterStore((s) => s.toggleDebateMode);
+  const isStreaming = useMeterStore((s) => {
+    const project = s.sessions.find((p) => p.id === s.activeSessionId) ?? s.sessions[0];
+    return project?.isStreaming ?? false;
+  });
 
   return (
     <button
       onClick={toggleDebateMode}
-      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors ${
+      disabled={isStreaming}
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors disabled:opacity-40 disabled:pointer-events-none ${
         debateMode
           ? "text-foreground/70 hover:bg-foreground/5 hover:text-foreground"
           : "text-muted-foreground/60 hover:bg-foreground/5 hover:text-muted-foreground"
