@@ -52,11 +52,29 @@ export async function getSessionUserId(): Promise<string | null> {
   if (!token) return null;
 
   const supabase = getSupabaseServer();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("auth_sessions")
     .select("user_id, expires_at")
     .eq("token", token)
     .single();
+
+  if (error) {
+    // PGRST116 = row not found — genuine "no session"
+    if (error.code === "PGRST116") return null;
+    // Any other error is a transient DB issue — retry once before giving up
+    const retry = await supabase
+      .from("auth_sessions")
+      .select("user_id, expires_at")
+      .eq("token", token)
+      .single();
+    if (retry.error || !retry.data) return null;
+    // Use retry result
+    if (new Date(retry.data.expires_at) < new Date()) {
+      await supabase.from("auth_sessions").delete().eq("token", token);
+      return null;
+    }
+    return retry.data.user_id;
+  }
 
   if (!data) return null;
 
