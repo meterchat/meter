@@ -188,6 +188,7 @@ create table if not exists log_entries (
   commit_sha text,
   commit_url text,
   commit_repo text,
+  commit_message text,
   -- feedback-specific
   feedback_text text,
   created_at timestamptz default now()

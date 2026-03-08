@@ -289,7 +289,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
             {Array.isArray(stats.spendTimeline) && stats.spendTimeline.length > 1 && (
-              <div className="mt-2 h-[80px]">
+              <div className="mt-2 h-[120px] w-full">
                 <Liveline
                   data={stats.spendTimeline}
                   value={stats.totalSpend}
@@ -302,6 +302,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   pulse={false}
                   momentum={false}
                   scrub
+                  exaggerate
                   formatValue={(v: number) => `$${v.toFixed(2)}`}
                 />
               </div>
@@ -319,7 +320,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
             <StatRow label="Total Out" value={(stats.totalTokensOut).toLocaleString()} />
             <StatRow label="Messages" value={stats.totalMessages.toLocaleString()} />
             {Array.isArray(stats.tokensTimeline) && stats.tokensTimeline.length > 1 && (
-              <div className="mt-2 h-[80px]">
+              <div className="mt-2 h-[120px] w-full">
                 <Liveline
                   data={stats.tokensTimeline}
                   value={stats.totalTokensIn + stats.totalTokensOut}
@@ -332,6 +333,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   pulse={false}
                   momentum={false}
                   scrub
+                  exaggerate
                   formatValue={(v: number) => v.toLocaleString()}
                 />
               </div>
