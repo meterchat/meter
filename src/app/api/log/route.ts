@@ -66,8 +66,8 @@ export async function GET(request: NextRequest) {
 
     let { data, error } = await query;
 
-    // Fallback: if commit_message column doesn't exist yet, retry without it
-    if (error && error.message?.includes("commit_message")) {
+    // Fallback: if query fails (e.g. commit_message column not yet migrated), retry without it
+    if (error) {
       const fallback = supabase
         .from("log_entries")
         .select("id, type, actor, commit_sha, commit_url, commit_repo, feedback_text, created_at")
