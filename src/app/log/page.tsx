@@ -338,16 +338,16 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   exaggerate
                   formatValue={(v: number) => `$${v.toFixed(2)}`}
                   windows={[
+                    { label: "1w", secs: 604800 },
                     { label: "1s", secs: 1 },
                     { label: "1m", secs: 60 },
                     { label: "1h", secs: 3600 },
                     { label: "1d", secs: 86400 },
-                    { label: "1w", secs: 604800 },
                     { label: "1mo", secs: 2592000 },
                   ]}
                   windowStyle="default"
                   onWindowChange={(secs: number) => setSpendWindow(secs)}
-                  padding={{ top: 12, right: 12, bottom: 28, left: 12 }}
+                  padding={{ top: 12, right: 60, bottom: 32, left: 12 }}
                 />
               </div>
             )}
@@ -382,16 +382,16 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   exaggerate
                   formatValue={(v: number) => v.toLocaleString()}
                   windows={[
+                    { label: "1w", secs: 604800 },
                     { label: "1s", secs: 1 },
                     { label: "1m", secs: 60 },
                     { label: "1h", secs: 3600 },
                     { label: "1d", secs: 86400 },
-                    { label: "1w", secs: 604800 },
                     { label: "1mo", secs: 2592000 },
                   ]}
                   windowStyle="default"
                   onWindowChange={(secs: number) => setMessagesWindow(secs)}
-                  padding={{ top: 12, right: 12, bottom: 28, left: 12 }}
+                  padding={{ top: 12, right: 60, bottom: 32, left: 12 }}
                 />
               </div>
             )}
