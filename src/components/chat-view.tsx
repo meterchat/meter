@@ -1134,6 +1134,15 @@ export function ChatView() {
           }
         }
         setActiveSessionChat(wsActiveTrackId);
+        // Fire pending auto-analyze after session is synced.
+        // Use setTimeout to yield to React so activeSessionId reflects the new track.
+        if (pendingAutoAnalyzeNameRef.current) {
+          const name = pendingAutoAnalyzeNameRef.current;
+          pendingAutoAnalyzeNameRef.current = null;
+          setTimeout(() => {
+            handleAutoAnalyzeRef.current(name);
+          }, 50);
+        }
       }
     } else if (activeWorkspaceId) {
       // Main selected (null) — switch main store to workspace's session thread
@@ -1204,6 +1213,8 @@ export function ChatView() {
   const handleForkPathsRef = useRef<() => void>(() => {});
   // Ref for auto-analyze path handler — assigned after streamResponse is defined
   const handleAutoAnalyzeRef = useRef<(name: string) => void>(() => {});
+  // Ref for pending auto-analyze — set before track switch, consumed after session sync
+  const pendingAutoAnalyzeNameRef = useRef<string | null>(null);
 
   const handleCommitSubtrack = () => {
     if (!currentWsTrack || !isSubtrack) return;
@@ -2113,13 +2124,14 @@ export function ChatView() {
       `Analyze the "${name}" pathway in detail. Cover the key trade-offs, risks, implementation specifics, and why this path might be the right choice.`
     );
   };
+  // Listen for pending auto-analyze signals from track-switcher (sets ref, useEffect fires after session sync)
   useEffect(() => {
     const handler = (e: Event) => {
       const name = (e as CustomEvent).detail?.name;
-      if (name) handleAutoAnalyzeRef.current(name);
+      if (name) pendingAutoAnalyzeNameRef.current = name;
     };
-    window.addEventListener("meter:auto-analyze-path", handler);
-    return () => window.removeEventListener("meter:auto-analyze-path", handler);
+    window.addEventListener("meter:pending-auto-analyze", handler);
+    return () => window.removeEventListener("meter:pending-auto-analyze", handler);
   }, []);
 
   /** Triggered when user submits answers to a clarifying question (dissector Q&A) */
@@ -2714,7 +2726,21 @@ export function ChatView() {
             {isMainFrozen && !isSubtrack && (
               <FrozenMainBanner
                 subtracks={activeSubtracks.map((s) => ({ id: s.id, name: s.name }))}
-                onSelectTrack={(id) => setActiveTrackWs(id)}
+                onSelectTrack={(id) => {
+                  // Check if this is a fresh subtrack (no user messages after fork point) — auto-analyze if so
+                  const track = wsTracks.find((t) => t.id === id);
+                  if (track?.isSubtrack && track.forkMessageId) {
+                    const session = useMeterStore.getState().sessions.find((s) => s.id === id);
+                    if (session) {
+                      const forkIdx = session.messages.findIndex((m) => m.id === track.forkMessageId);
+                      const hasUserMessagesAfterFork = session.messages.slice(forkIdx + 1).some((m) => m.role === "user");
+                      if (!hasUserMessagesAfterFork) {
+                        pendingAutoAnalyzeNameRef.current = track.name;
+                      }
+                    }
+                  }
+                  setActiveTrackWs(id);
+                }}
                 onCloseAll={handleCloseAllPaths}
               />
             )}
