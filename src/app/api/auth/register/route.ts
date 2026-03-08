@@ -11,12 +11,14 @@ import { serverTrackAccountCreated } from "@/lib/analytics-server";
 const RP_NAME = "Meter";
 const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID || "meter.chat";
 const BASE_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://meter.chat";
-// Accept both www and non-www origins for WebAuthn verification
 const EXPECTED_ORIGINS = [
   BASE_ORIGIN,
   BASE_ORIGIN.replace("://", "://www."),
   BASE_ORIGIN.replace("://www.", "://"),
-].filter((v, i, a) => a.indexOf(v) === i);
+  // Preview/dev subdomains for Vercel preview deployments
+  // (RP ID "meter.chat" is a valid suffix of "dev.meter.chat")
+  ...(process.env.WEBAUTHN_PREVIEW_ORIGINS?.split(",") || []),
+].filter((v, i, a) => v && a.indexOf(v) === i);
 
 // POST /api/auth/register — start or verify passkey registration
 export async function POST(req: NextRequest) {

@@ -628,6 +628,27 @@ function DiscussDebateToggle() {
   );
 }
 
+/* ─── Mode-aware composer buttons ─── */
+
+function ModeAwareComposerButtons() {
+  const appMode = useMeterStore((s) => s.appMode);
+
+  if (appMode === "metric") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 font-mono text-[11px] text-muted-foreground/60">
+        {/* Terminal icon */}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="4 17 10 11 4 5" />
+          <line x1="12" y1="19" x2="20" y2="19" />
+        </svg>
+        Code
+      </span>
+    );
+  }
+
+  return <DiscussDebateToggle />;
+}
+
 /** Check if a message contains the [decision-point] tag (dual-nature A-vs-B decisions) */
 function hasDecisionPoint(content: string): boolean {
   return content.includes("[decision-point]");
@@ -1680,6 +1701,7 @@ export function ChatView() {
             (k) => connectedServices[k]
           ),
           ...(userAttachments?.length ? { attachments: userAttachments } : {}),
+          appMode: useMeterStore.getState().appMode,
           ...(effectiveModel === "debate" ? { debateRoster: useMeterStore.getState().debateRoster } : {}),
         }),
       });
@@ -2878,7 +2900,7 @@ export function ChatView() {
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
                   </button>
-                  <DiscussDebateToggle />
+                  <ModeAwareComposerButtons />
                   <div className="flex-1" />
                   <MeterPill />
                   {isStreaming ? (

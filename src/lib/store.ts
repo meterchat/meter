@@ -154,6 +154,8 @@ interface MeterState {
   connectionsLoading: boolean;
 
   selectedModelId: string;
+  /** App mode — "meter" for think/plan, "metric" for code/build */
+  appMode: "meter" | "metric";
   /** Debate mode — when true, selected models debate instead of single-model chat */
   debateMode: boolean;
   /** Models checked in the picker for debate (2+ models = auto-debate) */
@@ -242,6 +244,8 @@ interface MeterState {
   setScrollToMessageId: (id: string | null) => void;
 
   setSelectedModelId: (id: string) => void;
+  setAppMode: (mode: "meter" | "metric") => void;
+  toggleAppMode: () => void;
   setDebateMode: (on: boolean) => void;
   toggleDebateMode: () => void;
   setDebateRoster: (models: string[]) => void;
@@ -433,6 +437,7 @@ export const useMeterStore = create<MeterState>()(
       connectionsLoading: false,
 
       selectedModelId: DEFAULT_MODEL.id,
+      appMode: "meter" as const,
       debateMode: false,
       debateRoster: [],
       spendingCapEnabled: false,
@@ -1441,6 +1446,8 @@ export const useMeterStore = create<MeterState>()(
       setInspectorTab: (tab) => set({ inspectorTab: tab }),
       setScrollToMessageId: (id) => set({ scrollToMessageId: id }),
       setSelectedModelId: (id) => set({ selectedModelId: id }),
+      setAppMode: (mode) => set({ appMode: mode }),
+      toggleAppMode: () => set((s) => ({ appMode: s.appMode === "meter" ? "metric" : "meter" })),
       setDebateMode: (on) => set({ debateMode: on }),
       toggleDebateMode: () => set((s) => {
         if (s.debateMode) {
@@ -1695,6 +1702,7 @@ export const useMeterStore = create<MeterState>()(
         cardBrand: s.cardBrand,
         stripeCustomerId: s.stripeCustomerId,
         selectedModelId: s.selectedModelId,
+        appMode: s.appMode,
         debateMode: s.debateMode,
         debateRoster: s.debateRoster,
         spendingCapEnabled: s.spendingCapEnabled,

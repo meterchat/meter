@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
 import { SLASH_COMMANDS } from "@/lib/connectors";
+import { useMeterStore } from "@/lib/store";
 
 export interface SlashCommandHandle {
   handleKey: (key: string) => boolean;
@@ -47,19 +48,23 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
       return () => document.removeEventListener("mousedown", handler);
     }, [open, onClose]);
 
-    // Top-level slash commands (/debate, /decide, /fork, etc.)
+    const appMode = useMeterStore((s) => s.appMode);
+
+    // Top-level slash commands, filtered by current mode
     const allCommands: FlatCommand[] = useMemo(() =>
-      SLASH_COMMANDS.map((sc) => ({
-        connectorId: sc.connectorId,
-        connectorName: sc.label,
-        connectorIcon: sc.iconPath,
-        commandLabel: sc.label,
-        chatPrompt: sc.chatPrompt,
-        description: sc.command,
-        connected: sc.connectorId === "_builtin" || !!connectedServices[sc.connectorId],
-        isSlashCommand: true,
-      })),
-      [connectedServices]
+      SLASH_COMMANDS
+        .filter((sc) => !sc.modes || sc.modes.includes(appMode))
+        .map((sc) => ({
+          connectorId: sc.connectorId,
+          connectorName: sc.label,
+          connectorIcon: sc.iconPath,
+          commandLabel: sc.label,
+          chatPrompt: sc.chatPrompt,
+          description: sc.command,
+          connected: sc.connectorId === "_builtin" || !!connectedServices[sc.connectorId],
+          isSlashCommand: true,
+        })),
+      [connectedServices, appMode]
     );
 
     // Filter by query (matches connector name, command label, or description)

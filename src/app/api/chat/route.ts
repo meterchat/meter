@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { messages, model, connectedServices, attachments, debateRoster, userMessageId, assistantMessageId } = body;
+    const { messages, model, connectedServices, attachments, debateRoster, userMessageId, assistantMessageId, appMode } = body;
     // Accept both sessionId (new) and projectId (legacy) for backward compatibility
     const projectId: string | undefined = body.sessionId ?? body.projectId;
 
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const resolvedModel = !model || model === "auto" ? "openai/gpt-5.2" : model;
     const encoder = new TextEncoder();
     const tools = getToolsForConnectors(connectedIds);
-    const systemPrompt = buildSystemPrompt(connectedIds);
+    const systemPrompt = buildSystemPrompt(connectedIds, appMode === "metric" ? "metric" : "meter");
 
     // Build conversation with context window management.
     // Cap input context to avoid sending 100k+ tokens of history on every call.
