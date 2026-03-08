@@ -2220,10 +2220,12 @@ export function ChatView() {
     if (!inputRef.current) return;
     trackSlashCommandUsed({ command: chatPrompt.slice(0, 50) });
 
-    // If we're in debate mode and the command isn't /debate itself, drop back to discuss.
-    // Running e.g. /dissect or /decide in debate mode doesn't make sense.
+    // Switch modes to match the command: /debate activates debate mode,
+    // any other command drops back to discuss mode.
     const isDebateCommand = chatPrompt === "Debate this.";
-    if (!isDebateCommand && useMeterStore.getState().debateMode) {
+    if (isDebateCommand && !useMeterStore.getState().debateMode) {
+      useMeterStore.getState().toggleDebateMode();
+    } else if (!isDebateCommand && useMeterStore.getState().debateMode) {
       useMeterStore.getState().setDebateMode(false);
     }
 
