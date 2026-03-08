@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
-import { CONNECTORS, SLASH_COMMANDS } from "@/lib/connectors";
+import { SLASH_COMMANDS } from "@/lib/connectors";
 
 export interface SlashCommandHandle {
   handleKey: (key: string) => boolean;
@@ -33,6 +33,19 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
   function SlashCommandPopover({ open, query, connectedServices, onSelect, onConnect, onFile, onClose }, ref) {
     const [highlightIndex, setHighlightIndex] = useState(0);
     const listRef = useRef<HTMLDivElement>(null);
+    const popoverRef = useRef<HTMLDivElement>(null);
+
+    // Click outside to close
+    useEffect(() => {
+      if (!open) return;
+      const handler = (e: MouseEvent) => {
+        if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+          onClose();
+        }
+      };
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }, [open, onClose]);
 
     // Built-in "Add file" command — always first
     const fileCommand: FlatCommand = {
@@ -60,29 +73,12 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
       [connectedServices]
     );
 
-    // Connector sub-commands
-    const connectorCommands: FlatCommand[] = useMemo(() =>
-      CONNECTORS.flatMap((c) =>
-        c.tools.map((t) => ({
-          connectorId: c.id,
-          connectorName: c.name,
-          connectorIcon: c.iconPath,
-          commandLabel: t.commandLabel,
-          chatPrompt: t.chatPrompt,
-          description: t.function.description,
-          connected: !!connectedServices[c.id],
-        }))
-      ),
-      [connectedServices]
-    );
-
-    // Build flat command list: file, slash commands, then connector tools
+    // Build flat command list: file + slash commands only
     const allCommands: FlatCommand[] = useMemo(() => [
       fileCommand,
       ...slashCommands,
-      ...connectorCommands,
     ],
-      [slashCommands, connectorCommands] // eslint-disable-line react-hooks/exhaustive-deps
+      [slashCommands] // eslint-disable-line react-hooks/exhaustive-deps
     );
 
     // Filter by query (matches connector name, command label, or description)
@@ -155,12 +151,8 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
 
     if (!open || filtered.length === 0) return null;
 
-    // Split into slash commands and regular commands for rendering
-    const slashSection = filtered.filter((c) => c.isSlashCommand);
-    const otherSection = filtered.filter((c) => !c.isSlashCommand);
-
     return (
-      <div className="absolute bottom-full left-0 right-0 mb-1 z-50">
+      <div ref={popoverRef} className="absolute bottom-full left-0 right-0 mb-1 z-50">
         <div className="mx-auto max-w-2xl">
           <div className="rounded-lg border border-border bg-card shadow-lg overflow-hidden">
             {/* Header */}
@@ -175,78 +167,26 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
 
             {/* Command list */}
             <div ref={listRef} className="max-h-[280px] overflow-y-auto py-0.5">
-              {/* Slash commands section */}
-              {slashSection.length > 0 && (
-                <>
-                  {slashSection.map((cmd) => {
-                    const globalIdx = filtered.indexOf(cmd);
-                    return (
-                      <button
-                        key={`slash-${cmd.commandLabel}`}
-                        data-highlighted={globalIdx === highlightIndex ? "" : undefined}
-                        onClick={() => handleSelect(globalIdx)}
-                        onMouseEnter={() => setHighlightIndex(globalIdx)}
-                        className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors ${
-                          globalIdx === highlightIndex ? "bg-foreground/5" : "hover:bg-foreground/[0.03]"
-                        } ${!cmd.connected ? "opacity-60" : ""}`}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/60 shrink-0">
-                          <path d={cmd.connectorIcon} />
-                        </svg>
-                        <span className="font-mono text-[11px] text-foreground/80 shrink-0 font-semibold">
-                          {cmd.commandLabel}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  {otherSection.length > 0 && (
-                    <div className="mx-3 my-0.5 border-t border-border/30" />
-                  )}
-                </>
-              )}
-
-              {/* Regular commands */}
-              {otherSection.map((cmd) => {
-                const globalIdx = filtered.indexOf(cmd);
-                return (
-                  <button
-                    key={`${cmd.connectorId}-${cmd.commandLabel}`}
-                    data-highlighted={globalIdx === highlightIndex ? "" : undefined}
-                    onClick={() => handleSelect(globalIdx)}
-                    onMouseEnter={() => setHighlightIndex(globalIdx)}
-                    className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors ${
-                      globalIdx === highlightIndex ? "bg-foreground/5" : "hover:bg-foreground/[0.03]"
-                    } ${!cmd.connected ? "opacity-60" : ""}`}
-                  >
-                    {cmd.connectorId === "__file__" ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/60 shrink-0">
-                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground/60 shrink-0">
-                        <path d={cmd.connectorIcon} />
-                      </svg>
-                    )}
-                    <span className="font-mono text-[11px] text-foreground/80 shrink-0">
-                      {cmd.commandLabel}
-                    </span>
-                    <span className="font-mono text-[10px] text-muted-foreground/30 shrink-0">
-                      {cmd.connectorName}
-                    </span>
-                    <div className="ml-auto shrink-0">
-                      {cmd.connected ? (
-                        <span className="font-mono text-[9px] text-emerald-500/50">
-                          ready
-                        </span>
-                      ) : (
-                        <span className="rounded-md border border-border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
-                          connect
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+              {filtered.map((cmd, idx) => (
+                <button
+                  key={cmd.connectorId === "__file__" ? "__file__" : cmd.commandLabel}
+                  data-highlighted={idx === highlightIndex ? "" : undefined}
+                  onClick={() => handleSelect(idx)}
+                  onMouseEnter={() => setHighlightIndex(idx)}
+                  className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors ${
+                    idx === highlightIndex ? "bg-foreground/5" : "hover:bg-foreground/[0.03]"
+                  }`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/60 shrink-0">
+                    <path d={cmd.connectorId === "__file__"
+                      ? "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+                      : cmd.connectorIcon} />
+                  </svg>
+                  <span className="font-mono text-[11px] text-foreground/80 shrink-0 font-semibold">
+                    {cmd.commandLabel}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
