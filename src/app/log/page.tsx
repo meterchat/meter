@@ -18,8 +18,15 @@ interface LogEntry {
   commit_sha?: string;
   commit_url?: string;
   commit_repo?: string;
+  commit_message?: string;
   feedback_text?: string;
   created_at: string;
+}
+
+interface EnrichmentData {
+  userMessage?: { content: string; model?: string; cost?: number; tokens_in?: number; tokens_out?: number; created_at: string };
+  debateMessage?: { content: string; cost?: number; tokens_in?: number; tokens_out?: number; debate_trace?: { model: string; phase: string; content: string }[]; created_at: string };
+  decision?: { title: string; choice?: string; reasoning?: string; category?: string };
 }
 
 interface LogStats {
@@ -373,34 +380,41 @@ function StatRow({ label, value }: { label: string; value: string }) {
 // ── Entry Detail Panel ────────────────────────────────────────
 
 function EntryDetail({ entry }: { entry: LogEntry }) {
-  const dotColor = EVENT_DOTS[entry.type] ?? "bg-foreground/20";
-  const label = EVENT_LABELS[entry.type] ?? entry.type;
+  const [enrichment, setEnrichment] = useState<EnrichmentData | null>(null);
+  const [enrichLoading, setEnrichLoading] = useState(false);
+
+  useEffect(() => {
+    setEnrichment(null);
+    setEnrichLoading(true);
+    fetch(apiUrl(`/api/log/detail?id=${encodeURIComponent(entry.id)}`))
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.enrichment) setEnrichment(d.enrichment);
+      })
+      .catch(() => {})
+      .finally(() => setEnrichLoading(false));
+  }, [entry.id]);
 
   return (
-    <div className="px-6 py-6 flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <span className={`h-2 w-2 rounded-full shrink-0 ${dotColor}`} />
-        <span className="font-mono text-[13px] font-medium text-foreground">{label}</span>
+    <div className="px-6 py-5 flex flex-col gap-4">
+      {/* Metadata bar */}
+      <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground/50">
+        <span>{formatActor(entry.actor, entry.type)}</span>
+        <span>&middot;</span>
+        <span>{exactTime(entry.created_at)}</span>
+        <span>&middot;</span>
+        <span>{relativeTime(entry.created_at)}</span>
       </div>
 
-      {/* Metadata */}
-      <div className="space-y-2">
-        <DetailRow label="Actor" value={formatActor(entry.actor, entry.type)} />
-        <DetailRow label="Time" value={exactTime(entry.created_at)} />
-        <DetailRow label="Relative" value={relativeTime(entry.created_at)} />
-        <DetailRow label="Type" value={entry.type} />
-        <DetailRow label="ID" value={entry.id} />
-      </div>
-
-      {/* Commit details */}
-      {entry.type === "commit_pushed" && (entry.commit_sha || entry.commit_repo) && (
-        <>
-          <div className="h-px bg-border" />
-          <div className="space-y-2">
-            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
-              Commit
-            </div>
+      {/* ── Commit pushed ─────────────────────────────────── */}
+      {entry.type === "commit_pushed" && (
+        <div className="flex flex-col gap-3">
+          {entry.commit_message && (
+            <p className="font-mono text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">
+              {entry.commit_message}
+            </p>
+          )}
+          <div className="space-y-1.5">
             {entry.commit_repo && (
               <DetailRow label="Repo" value={entry.commit_repo} />
             )}
@@ -424,52 +438,153 @@ function EntryDetail({ entry }: { entry: LogEntry }) {
               </div>
             )}
           </div>
-        </>
-      )}
-
-      {/* Feedback text */}
-      {entry.type === "feedback_logged" && entry.feedback_text && (
-        <>
-          <div className="h-px bg-border" />
-          <div className="space-y-2">
-            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
-              Feedback
-            </div>
-            <p className="font-mono text-[12px] text-foreground/80 leading-relaxed whitespace-pre-wrap">
-              {entry.feedback_text}
+          {!entry.commit_message && (
+            <p className="font-mono text-[11px] text-muted-foreground/40 italic">
+              commit message not stored (older entry)
             </p>
-          </div>
-        </>
+          )}
+        </div>
       )}
 
-      {/* Debate info */}
+      {/* ── Message sent ──────────────────────────────────── */}
+      {entry.type === "message_sent" && (
+        <div className="flex flex-col gap-3">
+          {enrichLoading ? (
+            <p className="font-mono text-[11px] text-muted-foreground/40 animate-pulse">loading message...</p>
+          ) : enrichment?.userMessage ? (
+            <>
+              <p className="font-mono text-[13px] text-foreground leading-relaxed whitespace-pre-wrap break-words">
+                {enrichment.userMessage.content}
+              </p>
+              <div className="space-y-1">
+                {enrichment.userMessage.model && (
+                  <DetailRow label="Model" value={enrichment.userMessage.model} />
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="font-mono text-[11px] text-muted-foreground/40 italic">
+              message content not available
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── Debate started ────────────────────────────────── */}
       {entry.type === "debate_started" && (
-        <>
-          <div className="h-px bg-border" />
-          <div className="space-y-2">
-            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
-              Debate
-            </div>
-            <p className="font-mono text-[11px] text-muted-foreground/60">
-              Multi-model debate initiated by {formatActor(entry.actor, entry.type)}
+        <div className="flex flex-col gap-3">
+          {enrichLoading ? (
+            <p className="font-mono text-[11px] text-muted-foreground/40 animate-pulse">loading debate...</p>
+          ) : enrichment?.debateMessage ? (
+            <>
+              {/* Debate trace — show each model's turns */}
+              {Array.isArray(enrichment.debateMessage.debate_trace) && enrichment.debateMessage.debate_trace.length > 0 ? (
+                <div className="flex flex-col gap-3">
+                  {enrichment.debateMessage.debate_trace.map((turn, i) => (
+                    <div key={i} className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
+                          {turn.model}
+                        </span>
+                        <span className="font-mono text-[9px] text-muted-foreground/30">
+                          {turn.phase}
+                        </span>
+                      </div>
+                      <p className="font-mono text-[12px] text-foreground/80 leading-relaxed whitespace-pre-wrap break-words">
+                        {turn.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="font-mono text-[13px] text-foreground leading-relaxed whitespace-pre-wrap break-words">
+                  {enrichment.debateMessage.content}
+                </p>
+              )}
+              <div className="h-px bg-border" />
+              <div className="space-y-1">
+                {enrichment.debateMessage.cost != null && (
+                  <DetailRow label="Cost" value={`$${Number(enrichment.debateMessage.cost).toFixed(4)}`} />
+                )}
+                {(enrichment.debateMessage.tokens_in != null || enrichment.debateMessage.tokens_out != null) && (
+                  <DetailRow
+                    label="Tokens"
+                    value={`${(enrichment.debateMessage.tokens_in ?? 0).toLocaleString()} in / ${(enrichment.debateMessage.tokens_out ?? 0).toLocaleString()} out`}
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="font-mono text-[11px] text-muted-foreground/40 italic">
+              debate content not available
             </p>
-          </div>
-        </>
+          )}
+        </div>
       )}
 
-      {/* Workspace created */}
-      {entry.type === "workspace_created" && (
-        <>
-          <div className="h-px bg-border" />
-          <div className="space-y-2">
-            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
-              Workspace
-            </div>
-            <p className="font-mono text-[11px] text-muted-foreground/60">
-              New workspace created by {formatActor(entry.actor, entry.type)}
+      {/* ── Decision locked ───────────────────────────────── */}
+      {entry.type === "decision_locked" && (
+        <div className="flex flex-col gap-3">
+          {enrichLoading ? (
+            <p className="font-mono text-[11px] text-muted-foreground/40 animate-pulse">loading decision...</p>
+          ) : enrichment?.decision ? (
+            <>
+              <p className="font-mono text-[13px] font-medium text-foreground">
+                {enrichment.decision.title}
+              </p>
+              {enrichment.decision.choice && (
+                <p className="font-mono text-[12px] text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                  {enrichment.decision.choice}
+                </p>
+              )}
+              {enrichment.decision.reasoning && (
+                <>
+                  <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
+                    Reasoning
+                  </div>
+                  <p className="font-mono text-[11px] text-muted-foreground/70 leading-relaxed whitespace-pre-wrap">
+                    {enrichment.decision.reasoning}
+                  </p>
+                </>
+              )}
+              {enrichment.decision.category && (
+                <DetailRow label="Category" value={enrichment.decision.category} />
+              )}
+            </>
+          ) : (
+            <p className="font-mono text-[11px] text-muted-foreground/40 italic">
+              decision details not available
             </p>
-          </div>
-        </>
+          )}
+        </div>
+      )}
+
+      {/* ── Feedback logged ───────────────────────────────── */}
+      {entry.type === "feedback_logged" && entry.feedback_text && (
+        <p className="font-mono text-[13px] text-foreground/80 leading-relaxed whitespace-pre-wrap">
+          {entry.feedback_text}
+        </p>
+      )}
+
+      {/* ── Path forked / merged ──────────────────────────── */}
+      {(entry.type === "path_forked" || entry.type === "path_merged") && (
+        <p className="font-mono text-[12px] text-muted-foreground/60">
+          {entry.type === "path_forked" ? "Conversation forked into parallel paths" : "Paths merged back together"}
+        </p>
+      )}
+
+      {/* ── Workspace created ─────────────────────────────── */}
+      {entry.type === "workspace_created" && (
+        <p className="font-mono text-[12px] text-muted-foreground/60">
+          New workspace created
+        </p>
+      )}
+
+      {/* ── Fallback for unknown types ────────────────────── */}
+      {!["commit_pushed", "message_sent", "debate_started", "decision_locked", "feedback_logged", "path_forked", "path_merged", "workspace_created"].includes(entry.type) && (
+        <p className="font-mono text-[12px] text-muted-foreground/60">
+          {entry.type}
+        </p>
       )}
     </div>
   );
@@ -639,10 +754,20 @@ export default function LogPage() {
           className={`${isMobile && mobileTab !== "detail" ? "hidden" : ""} ${isMobile ? "w-full" : "w-1/2"} flex flex-col border-l border-border bg-card`}
         >
           <div className="px-6 py-4 border-b border-border">
-            <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">Detail</h2>
-            <p className="font-mono text-[10px] text-muted-foreground/50 mt-0.5">
-              {selectedEntry ? "click an event to inspect" : "select an event from the feed"}
-            </p>
+            {selectedEntry ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${EVENT_DOTS[selectedEntry.type] ?? "bg-foreground/20"}`} />
+                  <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
+                    {EVENT_LABELS[selectedEntry.type] ?? selectedEntry.type}
+                  </h2>
+                </div>
+              </>
+            ) : (
+              <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground/40">
+                select an event
+              </h2>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">
