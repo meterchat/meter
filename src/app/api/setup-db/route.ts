@@ -429,6 +429,28 @@ const STATEMENTS: string[] = [
      create policy sdk_end_users_owner on sdk_end_users for all
        using (developer_id::text = current_setting('app.user_id', true));
    exception when duplicate_object then null; when undefined_table then null; end $$`,
+
+  // Reload PostgREST schema cache so new columns (preview, commit_message) are visible via REST API
+  `notify pgrst, 'reload schema'`,
+
+  // Function to fetch log entries with all columns (bypasses PostgREST schema cache)
+  `create or replace function get_log_entries(p_limit int default 100, p_before timestamptz default null)
+   returns table(
+     id text, type text, actor text, commit_sha text, commit_url text,
+     commit_repo text, commit_message text, feedback_text text, preview text,
+     created_at timestamptz
+   ) as $$
+   begin
+     return query
+       select le.id, le.type, le.actor, le.commit_sha, le.commit_url,
+              le.commit_repo, le.commit_message, le.feedback_text, le.preview,
+              le.created_at
+       from log_entries le
+       where (p_before is null or le.created_at < p_before)
+       order by le.created_at desc
+       limit p_limit;
+   end;
+   $$ language plpgsql security definer`,
 ];
 
 function getProjectRef(url: string): string | null {

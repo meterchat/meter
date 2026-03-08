@@ -59,31 +59,24 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 500);
     const before = searchParams.get("before"); // cursor-based pagination
 
-    // Cascading column queries — try with newest columns first, fall back gracefully
-    const COLUMN_SETS = [
-      "id, type, actor, commit_sha, commit_url, commit_repo, commit_message, feedback_text, preview, created_at",
-      "id, type, actor, commit_sha, commit_url, commit_repo, commit_message, feedback_text, created_at",
-      "id, type, actor, commit_sha, commit_url, commit_repo, feedback_text, created_at",
-    ];
+    // Primary: use RPC function (bypasses PostgREST schema cache, always returns all columns)
+    const rpcParams: Record<string, unknown> = { p_limit: limit };
+    if (before) rpcParams.p_before = before;
 
-    let data: Record<string, unknown>[] | null = null;
-    let error: unknown = null;
+    let { data, error } = await supabase.rpc("get_log_entries", rpcParams);
 
-    for (const cols of COLUMN_SETS) {
+    // Fallback: if RPC function doesn't exist yet, use table query
+    if (error) {
       const q = supabase
         .from("log_entries")
-        .select(cols)
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(limit);
 
       if (before) q.lt("created_at", before);
 
       const result = await q;
-      if (!result.error) {
-        data = result.data;
-        error = null;
-        break;
-      }
+      data = result.data;
       error = result.error;
     }
 
