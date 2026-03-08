@@ -2788,6 +2788,7 @@ export function ChatView() {
               <Brainwave
                 key={activeSessionId}
                 handleRef={brainwaveRef}
+                streaming={isStreaming}
                 activeColor={
                   debateMode
                     ? DEBATE_MODEL.color

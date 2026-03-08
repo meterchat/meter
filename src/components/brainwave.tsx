@@ -40,9 +40,12 @@ function dimColor(hex: string): string {
 export function Brainwave({
   handleRef,
   activeColor,
+  streaming = false,
 }: {
   handleRef: React.MutableRefObject<BrainwaveHandle | null>;
   activeColor: string;
+  /** Keep the line "lit" (active color) for the entire duration of a response */
+  streaming?: boolean;
 }) {
   const [data, setData] = useState<{ time: number; value: number }[]>([]);
   const [currentRate, setCurrentRate] = useState(0);
@@ -81,8 +84,8 @@ export function Brainwave({
     return () => clearInterval(interval);
   }, []);
 
-  // Color: active → model color, idle → dimmed model color
-  const isActive = currentRate > 0;
+  // Color: active color while streaming or tokens flowing, dimmed only when fully idle
+  const isActive = streaming || currentRate > 0;
   const color = isActive ? activeColor : dimColor(activeColor);
 
   return (
