@@ -31,13 +31,36 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseServer();
-    const { error } = await supabase.from("log_entries").insert({
+
+    // Store preview in feedback_text for message_sent (feedback_text is a
+    // guaranteed column; preview may not be visible via PostgREST yet).
+    const previewStr = preview ? String(preview).slice(0, 120) : null;
+    const row: Record<string, unknown> = {
       id: generateId(),
       type,
       actor: actor || "anon",
-      feedback_text: type === "feedback_logged" ? feedbackText : null,
-      preview: preview ? String(preview).slice(0, 120) : null,
-    });
+      feedback_text:
+        type === "feedback_logged"
+          ? feedbackText
+          : type === "message_sent"
+            ? previewStr
+            : null,
+    };
+
+    // Try to also set the preview column (may fail if PostgREST cache is stale)
+    try {
+      const { error: previewErr } = await supabase
+        .from("log_entries")
+        .insert({ ...row, preview: previewStr });
+      if (!previewErr) {
+        return NextResponse.json({ ok: true });
+      }
+    } catch {
+      // preview column not in schema cache — fall through
+    }
+
+    // Fallback: insert without preview column
+    const { error } = await supabase.from("log_entries").insert(row);
 
     if (error) throw error;
 

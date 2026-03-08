@@ -45,6 +45,7 @@ interface LogStats {
   counts: { debates: number; dissects: number; forks: number; documents: number };
   spendTimeline: { time: number; value: number }[];
   tokensTimeline: { time: number; value: number }[];
+  messagesTimeline: { time: number; value: number }[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -125,7 +126,7 @@ function getEntryTitle(entry: LogEntry): string {
     case "commit_pushed":
       return entry.commit_message?.split("\n")[0] ?? entry.commit_sha ?? "commit pushed";
     case "message_sent":
-      return entry.preview || "sent message";
+      return entry.preview || entry.feedback_text || "sent message";
     case "debate_started":
       return "multi-model debate";
     case "decision_locked":
@@ -266,6 +267,9 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
   const tokensData = stats?.tokensTimeline && stats.tokensTimeline.length > 0
     ? [...stats.tokensTimeline, { time: nowSec, value: stats.totalTokensIn + stats.totalTokensOut }]
     : stats?.tokensTimeline;
+  const messagesData = stats?.messagesTimeline && stats.messagesTimeline.length > 0
+    ? [...stats.messagesTimeline, { time: nowSec, value: stats.totalMessages }]
+    : stats?.messagesTimeline;
 
   // Compute window size to cover full timeline range
   const spendWindow = spendData && spendData.length > 1
@@ -273,6 +277,9 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
     : 86400;
   const tokensWindow = tokensData && tokensData.length > 1
     ? Math.ceil(tokensData[tokensData.length - 1].time - tokensData[0].time) + 86400
+    : 86400;
+  const messagesWindow = messagesData && messagesData.length > 1
+    ? Math.ceil(messagesData[messagesData.length - 1].time - messagesData[0].time) + 86400
     : 86400;
 
   return (
@@ -318,23 +325,30 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
             {Array.isArray(spendData) && spendData.length > 1 && (
-              <div className="mt-2 h-[160px]">
+              <div className="mt-2 py-2 h-[180px]">
                 <Liveline
                   data={spendData}
                   value={stats.totalSpend}
                   window={spendWindow}
                   theme="dark"
                   color="#f59e0b"
-                  grid={false}
-                  badge={false}
+                  grid
+                  badge
+                  badgeVariant="minimal"
                   fill
                   pulse
-                  momentum
+                  momentum={false}
                   scrub
                   exaggerate
                   formatValue={(v: number) => `$${v.toFixed(2)}`}
                   formatTime={formatDate}
-                  padding={{ top: 8, right: 12, bottom: 28, left: 12 }}
+                  windows={[
+                    { label: "1d", secs: 86400 },
+                    { label: "1w", secs: 604800 },
+                    { label: "1mo", secs: 2592000 },
+                  ]}
+                  windowStyle="default"
+                  padding={{ top: 12, right: 12, bottom: 28, left: 12 }}
                 />
               </div>
             )}
@@ -342,34 +356,41 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
 
           <div className="h-px bg-border" />
 
-          {/* Tokens */}
+          {/* Messages */}
           <div className="py-3">
             <div className="px-4 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
-              Tokens
+              Messages
             </div>
             <div className="px-4">
-              <StatRow label="Total In" value={(stats.totalTokensIn).toLocaleString()} />
-              <StatRow label="Total Out" value={(stats.totalTokensOut).toLocaleString()} />
-              <StatRow label="Messages" value={stats.totalMessages.toLocaleString()} />
+              <StatRow label="Total" value={stats.totalMessages.toLocaleString()} />
+              <StatRow label="Tokens In" value={(stats.totalTokensIn).toLocaleString()} />
+              <StatRow label="Tokens Out" value={(stats.totalTokensOut).toLocaleString()} />
             </div>
-            {Array.isArray(tokensData) && tokensData.length > 1 && (
-              <div className="mt-2 h-[160px]">
+            {Array.isArray(messagesData) && messagesData.length > 1 && (
+              <div className="mt-2 py-2 h-[180px]">
                 <Liveline
-                  data={tokensData}
-                  value={stats.totalTokensIn + stats.totalTokensOut}
-                  window={tokensWindow}
+                  data={messagesData}
+                  value={stats.totalMessages}
+                  window={messagesWindow}
                   theme="dark"
                   color="#3b82f6"
-                  grid={false}
-                  badge={false}
+                  grid
+                  badge
+                  badgeVariant="minimal"
                   fill
                   pulse
-                  momentum
+                  momentum={false}
                   scrub
                   exaggerate
                   formatValue={(v: number) => v.toLocaleString()}
                   formatTime={formatDate}
-                  padding={{ top: 8, right: 12, bottom: 28, left: 12 }}
+                  windows={[
+                    { label: "1d", secs: 86400 },
+                    { label: "1w", secs: 604800 },
+                    { label: "1mo", secs: 2592000 },
+                  ]}
+                  windowStyle="default"
+                  padding={{ top: 12, right: 12, bottom: 28, left: 12 }}
                 />
               </div>
             )}
@@ -908,25 +929,24 @@ function Heartbeat({ entries }: { entries: LogEntry[] }) {
   }, []);
 
   return (
-    <div className="border-t border-border h-[80px] shrink-0 relative">
+    <div className="border-t border-border h-[120px] shrink-0 relative">
       <Liveline
         data={data}
         value={currentRate}
         window={120}
         theme="dark"
         color="#10b981"
-        grid={false}
-        badge={false}
+        grid
+        badge
+        badgeVariant="minimal"
         fill
         pulse
         momentum={false}
         scrub={false}
         exaggerate
-        padding={{ top: 6, right: 8, bottom: 6, left: 8 }}
+        formatValue={(v: number) => `${v.toFixed(1)} evt/s`}
+        padding={{ top: 10, right: 80, bottom: 28, left: 40 }}
       />
-      <div className="absolute bottom-1.5 left-2.5 font-mono text-[9px] text-muted-foreground/50 pointer-events-none">
-        {currentRate > 0 ? `${currentRate.toFixed(1)} evt/s` : "idle"}
-      </div>
     </div>
   );
 }

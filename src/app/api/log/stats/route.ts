@@ -85,6 +85,7 @@ export async function GET() {
     // Build time-series data for Liveline charts (daily buckets)
     const spendByBucket: Record<number, number> = {};
     const tokensByBucket: Record<number, number> = {};
+    const messagesByBucket: Record<number, number> = {};
 
     for (const m of messages) {
       const cost = Number(m.cost) || 0;
@@ -120,6 +121,7 @@ export async function GET() {
         const bucketTs = Math.floor(new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime() / 1000);
         spendByBucket[bucketTs] = (spendByBucket[bucketTs] || 0) + cost;
         tokensByBucket[bucketTs] = (tokensByBucket[bucketTs] || 0) + tokIn + tokOut;
+        messagesByBucket[bucketTs] = (messagesByBucket[bucketTs] || 0) + 1;
       }
     }
 
@@ -149,6 +151,13 @@ export async function GET() {
       return { time: ts, value: cumTokens };
     });
 
+    const messageBuckets = Object.keys(messagesByBucket).map(Number).sort((a, b) => a - b);
+    let cumMessages = 0;
+    const messagesTimeline = messageBuckets.map((ts) => {
+      cumMessages += messagesByBucket[ts];
+      return { time: ts, value: cumMessages };
+    });
+
     const counts = {
       debates: debateCount ?? 0,
       dissects: 0,
@@ -172,6 +181,7 @@ export async function GET() {
         counts,
         spendTimeline,
         tokensTimeline,
+        messagesTimeline,
       },
       {
         headers: {
