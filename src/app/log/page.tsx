@@ -20,6 +20,7 @@ interface LogEntry {
   commit_repo?: string;
   commit_message?: string;
   feedback_text?: string;
+  preview?: string;
   created_at: string;
 }
 
@@ -60,12 +61,12 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 const EVENT_DOTS: Record<string, string> = {
-  message_sent: "bg-sky-400",
+  message_sent: "bg-violet-400",
   decision_locked: "bg-emerald-500",
   debate_started: "bg-amber-500",
   path_forked: "bg-indigo-500",
   path_merged: "bg-teal-500",
-  workspace_created: "bg-blue-500",
+  workspace_created: "bg-cyan-500",
   feedback_logged: "bg-purple-500",
   commit_pushed: "bg-blue-500",
 };
@@ -116,7 +117,7 @@ function getEntryTitle(entry: LogEntry): string {
     case "commit_pushed":
       return entry.commit_message?.split("\n")[0] ?? entry.commit_sha ?? "commit pushed";
     case "message_sent":
-      return "sent message";
+      return entry.preview || "sent message";
     case "debate_started":
       return "multi-model debate";
     case "decision_locked":
@@ -311,6 +312,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   exaggerate
                   formatValue={(v: number) => `$${v.toFixed(2)}`}
                   formatTime={formatDate}
+                  padding={{ top: 8, right: 12, bottom: 28, left: 12 }}
                 />
               </div>
             )}
@@ -345,6 +347,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   exaggerate
                   formatValue={(v: number) => v.toLocaleString()}
                   formatTime={formatDate}
+                  padding={{ top: 8, right: 12, bottom: 28, left: 12 }}
                 />
               </div>
             )}

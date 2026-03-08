@@ -20,7 +20,7 @@ const VALID_TYPES = [
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, actor, feedbackText } = body;
+    const { type, actor, feedbackText, preview } = body;
 
     if (!type || !VALID_TYPES.includes(type)) {
       return NextResponse.json({ error: "Invalid type" }, { status: 400 });
@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       type,
       actor: actor || "anon",
       feedback_text: type === "feedback_logged" ? feedbackText : null,
+      preview: preview ? String(preview).slice(0, 120) : null,
     });
 
     if (error) throw error;
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("log_entries")
-      .select("id, type, actor, commit_sha, commit_url, commit_repo, commit_message, feedback_text, created_at")
+      .select("id, type, actor, commit_sha, commit_url, commit_repo, commit_message, feedback_text, preview, created_at")
       .order("created_at", { ascending: false })
       .limit(limit);
 
