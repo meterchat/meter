@@ -50,6 +50,7 @@ import { apiUrl } from "@/lib/api-url";
 import { useArtifactsStore } from "@/lib/artifacts-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
+import { Brainwave, type BrainwaveHandle } from "@/components/brainwave";
 import { ClarifyingCard } from "@/components/clarifying-card";
 import { DissectorTrace } from "@/components/dissector-trace";
 import ReactMarkdown from "react-markdown";
@@ -1280,6 +1281,7 @@ export function ChatView() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const modelPickerRef = useRef<HTMLDivElement>(null);
+  const brainwaveRef = useRef<BrainwaveHandle | null>(null);
   const [showSessionDropdown, setShowSessionDropdown] = useState(false);
   const [switchingSessionName, setSwitchingSessionName] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
@@ -1767,6 +1769,7 @@ export function ChatView() {
                 // Track output cost incrementally using the actual model's rate
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
+                brainwaveRef.current?.push(estTokens);
                 const turnModel = getModel(currentTurn.model);
                 incrementCurrentMessageCost(estTokens * turnModel.outputPrice, streamSessionId);
                 if (checkSpendLimits()) break;
@@ -1807,6 +1810,7 @@ export function ChatView() {
                 if (isActiveStream()) setActiveDissectorTurn(currentDissTurn);
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
+                brainwaveRef.current?.push(estTokens);
                 const dissModel = getModel("anthropic/claude-opus-4.6");
                 incrementCurrentMessageCost(estTokens * dissModel.outputPrice, streamSessionId);
                 if (checkSpendLimits()) break;
@@ -1833,6 +1837,8 @@ export function ChatView() {
               fullContent += data.content;
               if (isActiveStream()) setRerouting(null);
               updateLastAssistantMessage(fullContent, data.tokensOut, streamSessionId);
+              // Feed brainwave with estimated token count from this chunk
+              brainwaveRef.current?.push(Math.ceil((data.content as string).length / 4));
               if (checkSpendLimits()) break;
             } else if (data.type === "tool_call") {
               if (isActiveStream()) setActiveTool(data.name as string);
@@ -2719,6 +2725,9 @@ export function ChatView() {
                   </div>
                 </div>
               )}
+              {/* Brainwave — AI activity pulse */}
+              <Brainwave handleRef={brainwaveRef} />
+
               {/* Model selector bar — top section (replaces connections bar) */}
               <ModelSelectorBar
                 open={modelPickerOpen}
