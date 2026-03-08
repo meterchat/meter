@@ -14,8 +14,7 @@ const EXPECTED_ORIGINS = [
   BASE_ORIGIN,
   BASE_ORIGIN.replace("://", "://www."),
   BASE_ORIGIN.replace("://www.", "://"),
-  ...(process.env.WEBAUTHN_PREVIEW_ORIGINS?.split(",") || []),
-].filter((v, i, a) => v && a.indexOf(v) === i);
+].filter((v, i, a) => a.indexOf(v) === i);
 
 // POST /api/auth/login — start or verify passkey login
 export async function POST(req: NextRequest) {
