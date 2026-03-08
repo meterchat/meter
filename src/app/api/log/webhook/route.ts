@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
         commit_sha: c.id.slice(0, 7),
         commit_url: c.url,
         commit_repo: repo,
+        commit_message: c.message || null,
       })
     );
 
