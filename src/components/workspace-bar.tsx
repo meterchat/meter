@@ -5,7 +5,6 @@ import { useWorkspaceStore } from "@/lib/workspace-store";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import { TrackSwitcher } from "./track-switcher";
 import { CardSwitcher } from "./card-switcher";
-import { ModeToggle } from "./mode-toggle";
 
 export function WorkspaceBar() {
   // Select primitives + stable arrays — avoids new references on every render
@@ -57,9 +56,6 @@ export function WorkspaceBar() {
           </>
         )}
       </div>
-
-      {/* Mode toggle: think | code */}
-      <ModeToggle />
 
       {/* Right: Card switcher */}
       <CardSwitcher />
