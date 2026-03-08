@@ -109,12 +109,6 @@ function exactTime(dateStr: string): string {
   });
 }
 
-// Format Unix seconds timestamp as short date for Liveline x-axis
-function formatDate(ts: number): string {
-  const d = new Date(ts * 1000);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
 function formatActor(actor: string, type: string): string {
   if (type === "commit_pushed") return "meter";
   if (actor === "anon") return "anon";
@@ -227,6 +221,12 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const prevEntryCount = useRef<number | null>(null);
 
+  // Live data state — continuously updated so Liveline scrolls forward
+  const [spendLive, setSpendLive] = useState<{ time: number; value: number }[]>([]);
+  const [messagesLive, setMessagesLive] = useState<{ time: number; value: number }[]>([]);
+  const [spendWindow, setSpendWindow] = useState(604800); // default 1w
+  const [messagesWindow, setMessagesWindow] = useState(604800);
+
   useEffect(() => {
     fetch(apiUrl("/api/log/stats"))
       .then((r) => r.json())
@@ -259,28 +259,25 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
     prevEntryCount.current = entryCount;
   }, [entryCount]);
 
-  // Add a "now" data point so Liveline animates to the present moment
-  const nowSec = Math.floor(Date.now() / 1000);
-  const spendData = stats?.spendTimeline && stats.spendTimeline.length > 0
-    ? [...stats.spendTimeline, { time: nowSec, value: stats.totalSpend }]
-    : stats?.spendTimeline;
-  const tokensData = stats?.tokensTimeline && stats.tokensTimeline.length > 0
-    ? [...stats.tokensTimeline, { time: nowSec, value: stats.totalTokensIn + stats.totalTokensOut }]
-    : stats?.tokensTimeline;
-  const messagesData = stats?.messagesTimeline && stats.messagesTimeline.length > 0
-    ? [...stats.messagesTimeline, { time: nowSec, value: stats.totalMessages }]
-    : stats?.messagesTimeline;
+  // Seed live data from stats, then push a "now" point every second so
+  // Liveline continuously scrolls forward like the heartbeat chart.
+  useEffect(() => {
+    if (!stats) return;
+    const seed = (timeline: { time: number; value: number }[], latestVal: number) => {
+      const now = Math.floor(Date.now() / 1000);
+      if (!timeline || timeline.length === 0) return [{ time: now - 60, value: 0 }, { time: now, value: latestVal }];
+      return [...timeline, { time: now, value: latestVal }];
+    };
+    setSpendLive(seed(stats.spendTimeline, stats.totalSpend));
+    setMessagesLive(seed(stats.messagesTimeline, stats.totalMessages));
 
-  // Compute window size to cover full timeline range
-  const spendWindow = spendData && spendData.length > 1
-    ? Math.ceil(spendData[spendData.length - 1].time - spendData[0].time) + 86400
-    : 86400;
-  const tokensWindow = tokensData && tokensData.length > 1
-    ? Math.ceil(tokensData[tokensData.length - 1].time - tokensData[0].time) + 86400
-    : 86400;
-  const messagesWindow = messagesData && messagesData.length > 1
-    ? Math.ceil(messagesData[messagesData.length - 1].time - messagesData[0].time) + 86400
-    : 86400;
+    const interval = setInterval(() => {
+      const now = Math.floor(Date.now() / 1000);
+      setSpendLive((prev) => [...prev, { time: now, value: prev[prev.length - 1]?.value ?? 0 }]);
+      setMessagesLive((prev) => [...prev, { time: now, value: prev[prev.length - 1]?.value ?? 0 }]);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [stats]);
 
   return (
     <div className="relative" ref={ref}>
@@ -324,10 +321,10 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatSpendRow label="Weekly average" amount={stats.weeklyAverage} />
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
-            {Array.isArray(spendData) && spendData.length > 1 && (
+            {spendLive.length > 1 && (
               <div className="mt-2 py-2 h-[180px] overflow-hidden">
                 <Liveline
-                  data={spendData}
+                  data={spendLive}
                   value={stats.totalSpend}
                   window={spendWindow}
                   theme="dark"
@@ -340,13 +337,16 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   scrub
                   exaggerate
                   formatValue={(v: number) => `$${v.toFixed(2)}`}
-                  formatTime={formatDate}
                   windows={[
+                    { label: "1s", secs: 1 },
+                    { label: "1m", secs: 60 },
+                    { label: "1h", secs: 3600 },
                     { label: "1d", secs: 86400 },
                     { label: "1w", secs: 604800 },
                     { label: "1mo", secs: 2592000 },
                   ]}
                   windowStyle="default"
+                  onWindowChange={(secs: number) => setSpendWindow(secs)}
                   padding={{ top: 12, right: 12, bottom: 28, left: 12 }}
                 />
               </div>
@@ -365,10 +365,10 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatRow label="Tokens In" value={(stats.totalTokensIn).toLocaleString()} />
               <StatRow label="Tokens Out" value={(stats.totalTokensOut).toLocaleString()} />
             </div>
-            {Array.isArray(messagesData) && messagesData.length > 1 && (
+            {messagesLive.length > 1 && (
               <div className="mt-2 py-2 h-[180px] overflow-hidden">
                 <Liveline
-                  data={messagesData}
+                  data={messagesLive}
                   value={stats.totalMessages}
                   window={messagesWindow}
                   theme="dark"
@@ -381,13 +381,16 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   scrub
                   exaggerate
                   formatValue={(v: number) => v.toLocaleString()}
-                  formatTime={formatDate}
                   windows={[
+                    { label: "1s", secs: 1 },
+                    { label: "1m", secs: 60 },
+                    { label: "1h", secs: 3600 },
                     { label: "1d", secs: 86400 },
                     { label: "1w", secs: 604800 },
                     { label: "1mo", secs: 2592000 },
                   ]}
                   windowStyle="default"
+                  onWindowChange={(secs: number) => setMessagesWindow(secs)}
                   padding={{ top: 12, right: 12, bottom: 28, left: 12 }}
                 />
               </div>
