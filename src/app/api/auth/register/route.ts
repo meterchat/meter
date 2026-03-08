@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
           cardLast4: user?.card_last4,
           gmailConnected: user?.gmail_connected ?? false,
           accountType: user?.account_type ?? "standard",
-          markupMultiplier: Number(user?.markup_multiplier ?? 1),
+          markupMultiplier: Number(user?.markup_multiplier ?? 2),
         },
       });
       setSessionCookie(response, sessionToken);

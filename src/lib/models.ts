@@ -11,6 +11,18 @@ export interface ModelConfig {
   speed?: number;
 }
 
+/**
+ * Cost badge: $ (cheapest) to $$$$ (most expensive).
+ * Based on estimated cost per thought (~2K input + ~1K output tokens).
+ */
+export function costBadge(m: ModelConfig): string {
+  const perThought = 2000 * m.inputPrice + 1000 * m.outputPrice;
+  if (perThought < 0.005) return "$";
+  if (perThought < 0.03) return "$$";
+  if (perThought < 0.10) return "$$$";
+  return "$$$$";
+}
+
 /** Default debate roster when user toggles debate mode without selecting models */
 export const DEFAULT_DEBATE_MODELS = [
   "anthropic/claude-opus-4.6",
