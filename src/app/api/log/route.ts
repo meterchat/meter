@@ -14,6 +14,10 @@ const VALID_TYPES = [
   "workspace_created",
   "feedback_logged",
   "commit_pushed",
+  "payment_succeeded",
+  "payment_failed",
+  "auth_hold_created",
+  "refund_issued",
 ] as const;
 
 // POST /api/log — create a log entry (no auth required)
@@ -55,32 +59,31 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 500);
     const before = searchParams.get("before"); // cursor-based pagination
 
-    let query = supabase
-      .from("log_entries")
-      .select("id, type, actor, commit_sha, commit_url, commit_repo, commit_message, feedback_text, preview, created_at")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    // Cascading column queries — try with newest columns first, fall back gracefully
+    const COLUMN_SETS = [
+      "id, type, actor, commit_sha, commit_url, commit_repo, commit_message, feedback_text, preview, created_at",
+      "id, type, actor, commit_sha, commit_url, commit_repo, commit_message, feedback_text, created_at",
+      "id, type, actor, commit_sha, commit_url, commit_repo, feedback_text, created_at",
+    ];
 
-    if (before) {
-      query = query.lt("created_at", before);
-    }
+    let data: Record<string, unknown>[] | null = null;
+    let error: unknown = null;
 
-    let { data, error } = await query;
-
-    // Fallback: if query fails (e.g. commit_message column not yet migrated), retry without it
-    if (error) {
-      const fallback = supabase
+    for (const cols of COLUMN_SETS) {
+      const q = supabase
         .from("log_entries")
-        .select("id, type, actor, commit_sha, commit_url, commit_repo, feedback_text, created_at")
+        .select(cols)
         .order("created_at", { ascending: false })
         .limit(limit);
 
-      if (before) {
-        fallback.lt("created_at", before);
-      }
+      if (before) q.lt("created_at", before);
 
-      const result = await fallback;
-      data = result.data;
+      const result = await q;
+      if (!result.error) {
+        data = result.data;
+        error = null;
+        break;
+      }
       error = result.error;
     }
 

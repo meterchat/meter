@@ -12,7 +12,11 @@ export type LogEventType =
   | "path_merged"
   | "workspace_created"
   | "feedback_logged"
-  | "commit_pushed";
+  | "commit_pushed"
+  | "payment_succeeded"
+  | "payment_failed"
+  | "auth_hold_created"
+  | "refund_issued";
 
 /** Hash a user ID to a short anonymous identifier (first 6 hex chars) */
 async function hashUserId(userId: string): Promise<string> {

@@ -58,6 +58,10 @@ const EVENT_LABELS: Record<string, string> = {
   workspace_created: "created workspace",
   feedback_logged: "logged feedback",
   commit_pushed: "commit pushed",
+  payment_succeeded: "payment",
+  payment_failed: "payment failed",
+  auth_hold_created: "card authorized",
+  refund_issued: "refund",
 };
 
 const EVENT_DOTS: Record<string, string> = {
@@ -69,6 +73,10 @@ const EVENT_DOTS: Record<string, string> = {
   workspace_created: "bg-cyan-500",
   feedback_logged: "bg-purple-500",
   commit_pushed: "bg-blue-500",
+  payment_succeeded: "bg-green-500",
+  payment_failed: "bg-red-500",
+  auth_hold_created: "bg-yellow-500",
+  refund_issued: "bg-rose-500",
 };
 
 function relativeTime(dateStr: string): string {
@@ -130,6 +138,11 @@ function getEntryTitle(entry: LogEntry): string {
       return "merged paths";
     case "workspace_created":
       return "created workspace";
+    case "payment_succeeded":
+    case "payment_failed":
+    case "auth_hold_created":
+    case "refund_issued":
+      return entry.preview || EVENT_LABELS[entry.type] || entry.type;
     default:
       return EVENT_LABELS[entry.type] ?? entry.type;
   }
@@ -618,6 +631,18 @@ function EntryDetail({ entry }: { entry: LogEntry }) {
         </p>
       )}
 
+      {/* ── Stripe payment events ──────────────────────────── */}
+      {["payment_succeeded", "payment_failed", "auth_hold_created", "refund_issued"].includes(entry.type) && (
+        <div className="flex flex-col gap-2">
+          {entry.preview && (
+            <p className="font-mono text-[13px] text-foreground leading-relaxed">
+              {entry.preview}
+            </p>
+          )}
+          <DetailRow label="Source" value="Stripe" />
+        </div>
+      )}
+
       {/* ── Fallback for unknown types ────────────────────── */}
       {!["commit_pushed", "message_sent", "debate_started", "decision_locked", "feedback_logged", "path_forked", "path_merged", "workspace_created"].includes(entry.type) && (
         <p className="font-mono text-[12px] text-muted-foreground/60">
@@ -825,7 +850,73 @@ export default function LogPage() {
               <EntryDetail entry={selectedEntry} />
             )}
           </div>
+
+          {/* Heartbeat — events/sec average */}
+          <Heartbeat entries={entries} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Heartbeat ─────────────────────────────────────────────────
+
+function Heartbeat({ entries }: { entries: LogEntry[] }) {
+  const [data, setData] = useState<{ time: number; value: number }[]>([]);
+  const [currentRate, setCurrentRate] = useState(0);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+
+  useEffect(() => {
+    // Seed with a flat line at 0
+    const now = Math.floor(Date.now() / 1000);
+    setData([{ time: now - 60, value: 0 }, { time: now, value: 0 }]);
+
+    const prev = { count: entriesRef.current.length, time: Date.now() };
+
+    const interval = setInterval(() => {
+      const nowMs = Date.now();
+      const nowSec = Math.floor(nowMs / 1000);
+      const currentCount = entriesRef.current.length;
+      const elapsed = (nowMs - prev.time) / 1000;
+      const delta = currentCount - prev.count;
+
+      // Events per second (smoothed over the interval)
+      const rate = elapsed > 0 ? Math.max(0, delta / elapsed) : 0;
+      prev.count = currentCount;
+      prev.time = nowMs;
+
+      setCurrentRate(rate);
+      setData((d) => {
+        const next = [...d, { time: nowSec, value: Math.round(rate * 1000) / 1000 }];
+        // Keep 120 seconds of data
+        const cutoff = nowSec - 120;
+        return next.filter((p) => p.time >= cutoff);
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="border-t border-border h-[48px] shrink-0 relative">
+      <Liveline
+        data={data}
+        value={currentRate}
+        window={120}
+        theme="dark"
+        color="#525252"
+        grid={false}
+        badge={false}
+        fill={false}
+        pulse={false}
+        momentum={false}
+        scrub={false}
+        exaggerate={false}
+        padding={{ top: 4, right: 4, bottom: 4, left: 4 }}
+      />
+      <div className="absolute bottom-1 left-2 font-mono text-[9px] text-muted-foreground/30 pointer-events-none">
+        {currentRate > 0 ? `${currentRate.toFixed(1)} evt/s` : "idle"}
       </div>
     </div>
   );
