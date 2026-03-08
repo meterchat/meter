@@ -1202,6 +1202,8 @@ export function ChatView() {
 
   // Ref for fork handler — assigned after streamResponse is defined
   const handleForkPathsRef = useRef<() => void>(() => {});
+  // Ref for auto-analyze path handler — assigned after streamResponse is defined
+  const handleAutoAnalyzeRef = useRef<(name: string) => void>(() => {});
 
   const handleCommitSubtrack = () => {
     if (!currentWsTrack || !isSubtrack) return;
@@ -2102,6 +2104,22 @@ export function ChatView() {
     const handler = () => { handleForkPathsRef.current(); };
     window.addEventListener("meter:explore-paths", handler);
     return () => window.removeEventListener("meter:explore-paths", handler);
+  }, []);
+
+  // Auto-analyze when switching to a fresh fork path
+  handleAutoAnalyzeRef.current = async (name: string) => {
+    if (isStreaming || !workspaceCardReady) return;
+    await streamResponse(
+      `Analyze the "${name}" pathway in detail. Cover the key trade-offs, risks, implementation specifics, and why this path might be the right choice.`
+    );
+  };
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const name = (e as CustomEvent).detail?.name;
+      if (name) handleAutoAnalyzeRef.current(name);
+    };
+    window.addEventListener("meter:auto-analyze-path", handler);
+    return () => window.removeEventListener("meter:auto-analyze-path", handler);
   }, []);
 
   /** Triggered when user submits answers to a clarifying question (dissector Q&A) */

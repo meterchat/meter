@@ -57,6 +57,23 @@ export function TrackSwitcher({ activeTrack, workspaceId }: TrackSwitcherProps) 
   const setDebateMode = useMeterStore((s) => s.setDebateMode);
 
   const handleSelect = (id: string | null) => {
+    // Check if this is a fresh subtrack (no messages after fork point)
+    if (id) {
+      const track = allTracks.find((t) => t.id === id);
+      if (track?.isSubtrack && track.forkMessageId) {
+        const session = useMeterStore.getState().sessions.find((s) => s.id === id);
+        if (session) {
+          const forkIdx = session.messages.findIndex((m) => m.id === track.forkMessageId);
+          const hasUserMessagesAfterFork = session.messages.slice(forkIdx + 1).some((m) => m.role === "user");
+          if (!hasUserMessagesAfterFork) {
+            // Fresh subtrack — auto-analyze after switch
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent("meter:auto-analyze-path", { detail: { name: track.name } }));
+            }, 100);
+          }
+        }
+      }
+    }
     setActiveTrack(id);
     setDebateMode(false);
     setOpen(false);
