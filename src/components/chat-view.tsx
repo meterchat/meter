@@ -2214,6 +2214,14 @@ export function ChatView() {
   const handleCommandSelect = useCallback((chatPrompt: string) => {
     if (!inputRef.current) return;
     trackSlashCommandUsed({ command: chatPrompt.slice(0, 50) });
+
+    // If we're in debate mode and the command isn't /debate itself, drop back to discuss.
+    // Running e.g. /dissect or /decide in debate mode doesn't make sense.
+    const isDebateCommand = chatPrompt === "Debate this.";
+    if (!isDebateCommand && useMeterStore.getState().debateMode) {
+      useMeterStore.getState().setDebateMode(false);
+    }
+
     inputRef.current.value = chatPrompt;
     setSlashOpen(false);
     setSlashQuery("");
