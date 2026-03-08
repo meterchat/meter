@@ -66,10 +66,8 @@ export function TrackSwitcher({ activeTrack, workspaceId }: TrackSwitcherProps) 
           const forkIdx = session.messages.findIndex((m) => m.id === track.forkMessageId);
           const hasUserMessagesAfterFork = session.messages.slice(forkIdx + 1).some((m) => m.role === "user");
           if (!hasUserMessagesAfterFork) {
-            // Fresh subtrack — auto-analyze after switch
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent("meter:auto-analyze-path", { detail: { name: track.name } }));
-            }, 100);
+            // Fresh subtrack — signal pending auto-analyze; chat-view useEffect will fire it after session sync
+            window.dispatchEvent(new CustomEvent("meter:pending-auto-analyze", { detail: { name: track.name } }));
           }
         }
       }
