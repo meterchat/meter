@@ -99,6 +99,12 @@ function exactTime(dateStr: string): string {
   });
 }
 
+// Format Unix seconds timestamp as short date for Liveline x-axis
+function formatDate(ts: number): string {
+  const d = new Date(ts * 1000);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 function formatActor(actor: string, type: string): string {
   if (type === "commit_pushed") return "meter";
   if (actor === "anon") return "anon";
@@ -289,7 +295,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
             {Array.isArray(stats.spendTimeline) && stats.spendTimeline.length > 1 && (
-              <div className="mt-2 h-[120px] w-full">
+              <div className="mt-2 h-[160px]" style={{ width: "calc(100% + 16px)", marginLeft: -8 }}>
                 <Liveline
                   data={stats.spendTimeline}
                   value={stats.totalSpend}
@@ -304,6 +310,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   scrub
                   exaggerate
                   formatValue={(v: number) => `$${v.toFixed(2)}`}
+                  formatTime={formatDate}
                 />
               </div>
             )}
@@ -320,7 +327,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
             <StatRow label="Total Out" value={(stats.totalTokensOut).toLocaleString()} />
             <StatRow label="Messages" value={stats.totalMessages.toLocaleString()} />
             {Array.isArray(stats.tokensTimeline) && stats.tokensTimeline.length > 1 && (
-              <div className="mt-2 h-[120px] w-full">
+              <div className="mt-2 h-[160px]" style={{ width: "calc(100% + 16px)", marginLeft: -8 }}>
                 <Liveline
                   data={stats.tokensTimeline}
                   value={stats.totalTokensIn + stats.totalTokensOut}
@@ -335,6 +342,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   scrub
                   exaggerate
                   formatValue={(v: number) => v.toLocaleString()}
+                  formatTime={formatDate}
                 />
               </div>
             )}
@@ -750,9 +758,9 @@ export default function LogPage() {
             onScroll={handleScroll}
             className="flex-1 overflow-y-auto"
           >
-            <div className="px-6 py-4 flex flex-col">
+            <div className="px-6 py-4 flex flex-col justify-end min-h-full">
               {entries.length === 0 ? (
-                <div className="font-mono text-xs text-muted-foreground/40 py-12 text-center">
+                <div className="font-mono text-xs text-muted-foreground/40 py-12 text-center mt-auto">
                   no activity yet
                 </div>
               ) : (

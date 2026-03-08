@@ -1,23 +1,33 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 
+// Paginate through all rows — Supabase caps at 1000 per request
+async function fetchAllMessages(supabase: ReturnType<typeof getSupabaseServer>) {
+  const PAGE = 1000;
+  const all: { cost: string | null; model: string | null; tokens_in: number | null; tokens_out: number | null; created_at: string }[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select("cost, model, tokens_in, tokens_out, created_at")
+      .order("created_at", { ascending: true })
+      .range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
+}
+
 // GET /api/log/stats — aggregate spend stats across all users for the MeterBar
 export async function GET() {
   try {
     const supabase = getSupabaseServer();
 
-    // Fetch aggregate stats from chat_messages table (messages with cost data for spend calculations)
-    const { data: msgStats, error: msgError } = await supabase
-      .from("chat_messages")
-      .select("cost, model, tokens_in, tokens_out, created_at")
-      .not("cost", "is", null);
-
-    if (msgError) throw msgError;
-
-    // Count ALL messages (including those without cost) for accurate message total
-    const { count: allMessageCount } = await supabase
-      .from("chat_messages")
-      .select("id", { count: "exact", head: true });
+    // Fetch ALL messages (paginated) — no cost filter so tokens are counted accurately
+    const messages = await fetchAllMessages(supabase);
 
     // Fetch total_cost from chat_sessions (source of truth for lifetime spend)
     // Only count main workspaces (not subtracks) to avoid double-counting
@@ -46,7 +56,6 @@ export async function GET() {
       .eq("is_subtrack", true)
       .is("deleted_at", null);
 
-    const messages = msgStats ?? [];
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
     const dayMs = 24 * 60 * 60 * 1000;
@@ -67,11 +76,15 @@ export async function GET() {
     let monthSpend = 0;
     let totalTokensIn = 0;
     let totalTokensOut = 0;
-    let totalMessages = allMessageCount ?? messages.length;
+    const totalMessages = messages.length;
     const byModel: Record<string, { cost: number; count: number; tokensIn: number; tokensOut: number }> = {};
 
     // Count first message date for daily average calculation
     let firstMessageDate: string | null = null;
+
+    // Build time-series data for Liveline charts (daily buckets)
+    const spendByBucket: Record<number, number> = {};
+    const tokensByBucket: Record<number, number> = {};
 
     for (const m of messages) {
       const cost = Number(m.cost) || 0;
@@ -92,12 +105,22 @@ export async function GET() {
         firstMessageDate = dateStr;
       }
 
+      // By-model breakdown (only count messages that have a model)
       const model = (m.model as string) ?? "unknown";
       if (!byModel[model]) byModel[model] = { cost: 0, count: 0, tokensIn: 0, tokensOut: 0 };
       byModel[model].cost += cost;
       byModel[model].count += 1;
       byModel[model].tokensIn += tokIn;
       byModel[model].tokensOut += tokOut;
+
+      // Time-series buckets
+      if (createdAt) {
+        const t = new Date(createdAt);
+        // Daily buckets — Liveline expects Unix seconds
+        const bucketTs = Math.floor(new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime() / 1000);
+        spendByBucket[bucketTs] = (spendByBucket[bucketTs] || 0) + cost;
+        tokensByBucket[bucketTs] = (tokensByBucket[bucketTs] || 0) + tokIn + tokOut;
+      }
     }
 
     // Use the higher of session totals vs message totals (session is source of truth,
@@ -110,24 +133,6 @@ export async function GET() {
       : 1;
     const daysIntoWeek = Math.max(1, Math.floor((now.getTime() - monday.getTime()) / dayMs) + 1);
     const daysIntoMonth = Math.max(1, now.getDate());
-
-    // Build time-series data for Liveline charts
-    // Use daily buckets over all time (not just 7 days) so charts always render
-    const spendByBucket: Record<number, number> = {};
-    const tokensByBucket: Record<number, number> = {};
-
-    for (const m of messages) {
-      const createdAt = m.created_at as string;
-      if (!createdAt) continue;
-      const t = new Date(createdAt);
-      // Use daily buckets — more data points, charts always render
-      // Liveline expects Unix seconds, not milliseconds
-      const bucketTs = Math.floor(new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime() / 1000);
-      const cost = Number(m.cost) || 0;
-      const tokens = (Number(m.tokens_in) || 0) + (Number(m.tokens_out) || 0);
-      spendByBucket[bucketTs] = (spendByBucket[bucketTs] || 0) + cost;
-      tokensByBucket[bucketTs] = (tokensByBucket[bucketTs] || 0) + tokens;
-    }
 
     // Convert to cumulative time-series arrays sorted by time
     const spendBuckets = Object.keys(spendByBucket).map(Number).sort((a, b) => a - b);
