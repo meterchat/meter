@@ -60,14 +60,14 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 const EVENT_DOTS: Record<string, string> = {
-  message_sent: "bg-foreground/20",
+  message_sent: "bg-sky-400",
   decision_locked: "bg-emerald-500",
   debate_started: "bg-amber-500",
   path_forked: "bg-indigo-500",
   path_merged: "bg-teal-500",
   workspace_created: "bg-blue-500",
   feedback_logged: "bg-purple-500",
-  commit_pushed: "bg-foreground/40",
+  commit_pushed: "bg-blue-500",
 };
 
 function relativeTime(dateStr: string): string {
@@ -283,11 +283,11 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
           ) : (
           <>
           {/* Spend Overview */}
-          <div className="px-4 py-3">
-            <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
+          <div className="py-3">
+            <div className="px-4 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
               Spend
             </div>
-            <div className="space-y-1.5">
+            <div className="px-4 space-y-1.5">
               <StatSpendRow label="Total to date" amount={stats.totalSpend} />
               <StatSpendRow label="Today" amount={stats.todaySpend} />
               <StatSpendRow label="Daily average" amount={stats.dailyAverage} />
@@ -295,7 +295,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
               <StatSpendRow label="Monthly average" amount={stats.monthlyAverage} />
             </div>
             {Array.isArray(stats.spendTimeline) && stats.spendTimeline.length > 1 && (
-              <div className="mt-2 h-[160px]" style={{ width: "calc(100% + 16px)", marginLeft: -8 }}>
+              <div className="mt-2 h-[160px]">
                 <Liveline
                   data={stats.spendTimeline}
                   value={stats.totalSpend}
@@ -319,15 +319,17 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
           <div className="h-px bg-border" />
 
           {/* Tokens */}
-          <div className="px-4 py-3">
-            <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
+          <div className="py-3">
+            <div className="px-4 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
               Tokens
             </div>
-            <StatRow label="Total In" value={(stats.totalTokensIn).toLocaleString()} />
-            <StatRow label="Total Out" value={(stats.totalTokensOut).toLocaleString()} />
-            <StatRow label="Messages" value={stats.totalMessages.toLocaleString()} />
+            <div className="px-4">
+              <StatRow label="Total In" value={(stats.totalTokensIn).toLocaleString()} />
+              <StatRow label="Total Out" value={(stats.totalTokensOut).toLocaleString()} />
+              <StatRow label="Messages" value={stats.totalMessages.toLocaleString()} />
+            </div>
             {Array.isArray(stats.tokensTimeline) && stats.tokensTimeline.length > 1 && (
-              <div className="mt-2 h-[160px]" style={{ width: "calc(100% + 16px)", marginLeft: -8 }}>
+              <div className="mt-2 h-[160px]">
                 <Liveline
                   data={stats.tokensTimeline}
                   value={stats.totalTokensIn + stats.totalTokensOut}
@@ -839,15 +841,15 @@ function LogRow({ entry, selected, onSelect }: { entry: LogEntry; selected: bool
 
   return (
     <div
-      className={`flex items-center justify-between py-[3px] group cursor-pointer rounded-sm px-1 -mx-1 transition-colors ${selected ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.03]"}`}
+      className={`flex items-center justify-between py-1 group cursor-pointer rounded-sm px-1.5 -mx-1.5 transition-colors ${selected ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.03]"}`}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
       onClick={() => onSelect(entry)}
     >
       <div className="flex items-center gap-2 font-mono text-[12px] min-w-0 overflow-hidden">
-        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />
-        <span className="text-muted-foreground shrink-0">{actor}</span>
-        <span className="text-foreground/60 shrink-0">{label}</span>
+        <span className={`h-2 w-2 rounded-full shrink-0 ${dotColor}`} />
+        <span className="text-muted-foreground/70 shrink-0">{actor}</span>
+        <span className="text-foreground/70 shrink-0">{label}</span>
         {showTitle && (
           <span className="text-foreground/40 truncate" title={title}>
             {title}
