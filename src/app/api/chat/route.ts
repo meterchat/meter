@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     }
 
     const connectedIds: string[] = Array.isArray(connectedServices) ? connectedServices : [];
-    const resolvedModel = !model || model === "auto" ? "openai/gpt-5.2" : model;
+    const resolvedModel = !model || model === "auto" ? "openai/gpt-5.4" : model;
     const encoder = new TextEncoder();
     const tools = getToolsForConnectors(connectedIds);
     const systemPrompt = buildSystemPrompt(connectedIds);

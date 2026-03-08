@@ -758,7 +758,7 @@ export const useMeterStore = create<MeterState>()(
       updateLastAssistantMessage: (content, tokensOut, forSessionId?) =>
         set((s) => {
           const active = ensureDaily(getSessionByIdOrActive(s, forSessionId));
-          const pricingModelId = s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId;
+          const pricingModelId = s.selectedModelId === "auto" ? "openai/gpt-5.4" : s.selectedModelId;
           const model = getModel(pricingModelId);
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
@@ -799,7 +799,7 @@ export const useMeterStore = create<MeterState>()(
         set((s) => {
           const active = ensureDaily(getSessionByIdOrActive(s, forSessionId));
           const pricingModelId = actualModel
-            ?? (s.selectedModelId === "auto" ? "openai/gpt-5.2" : s.selectedModelId);
+            ?? (s.selectedModelId === "auto" ? "openai/gpt-5.4" : s.selectedModelId);
           const model = getModel(pricingModelId);
 
           // When the server sends a pre-computed actualCost (e.g. debate mode
@@ -1450,7 +1450,7 @@ export const useMeterStore = create<MeterState>()(
         // Turning on debate — if roster has <2 models, populate with defaults
         const roster = s.debateRoster.length >= 2
           ? s.debateRoster
-          : ["anthropic/claude-opus-4.6", "openai/gpt-5.2", "x-ai/grok-4.1-fast"];
+          : ["anthropic/claude-opus-4.6", "openai/gpt-5.4", "x-ai/grok-4.1-fast"];
         return { debateMode: true, debateRoster: roster };
       }),
       setDebateRoster: (models) => set({ debateRoster: models, debateMode: models.length >= 2 }),

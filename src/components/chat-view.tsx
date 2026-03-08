@@ -2111,7 +2111,7 @@ export function ChatView() {
    *  Always uses the standard model (never debate/dissect) regardless of toggle state. */
   handleForkPathsRef.current = async () => {
     if (isStreaming || !workspaceCardReady || isMainFrozen || isSubtrack) return;
-    const forkModel = selectedModelId === "auto" ? "openai/gpt-5.2" : selectedModelId;
+    const forkModel = selectedModelId === "auto" ? "openai/gpt-5.4" : selectedModelId;
     await streamResponse("Fork this into paths.", forkModel);
   };
   const handleForkPaths = () => handleForkPathsRef.current();

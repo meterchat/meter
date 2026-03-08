@@ -14,7 +14,7 @@ export interface ModelConfig {
 /** Default debate roster when user toggles debate mode without selecting models */
 export const DEFAULT_DEBATE_MODELS = [
   "anthropic/claude-opus-4.6",
-  "openai/gpt-5.2",
+  "openai/gpt-5.4",
   "x-ai/grok-4.1-fast",
 ] as const;
 
@@ -27,10 +27,10 @@ export const MODELS: ModelConfig[] = [
     name: "Auto",
     provider: "Meter",
     color: "#E4E4E7",
-    inputPrice: (1.75 / 1_000_000),
-    outputPrice: (14.0 / 1_000_000),
-    quality: 90,  // GPQA Diamond — routes to GPT-5.2
-    speed: 84,
+    inputPrice: (2.50 / 1_000_000),
+    outputPrice: (15.0 / 1_000_000),
+    quality: 92,  // GPQA Diamond — routes to GPT-5.4
+    speed: 90,
   },
   {
     id: "anthropic/claude-sonnet-4.6",
@@ -53,14 +53,24 @@ export const MODELS: ModelConfig[] = [
     speed: 70,
   },
   {
-    id: "openai/gpt-5.2",
-    name: "GPT-5.2",
+    id: "openai/gpt-5.4",
+    name: "GPT-5.4",
     provider: "OpenAI",
     color: "#10A37F",
-    inputPrice: (1.75 / 1_000_000),
-    outputPrice: (14.0 / 1_000_000),
-    quality: 90,  // GPQA Diamond
-    speed: 84,
+    inputPrice: (2.50 / 1_000_000),
+    outputPrice: (15.0 / 1_000_000),
+    quality: 92,  // GPQA Diamond
+    speed: 90,
+  },
+  {
+    id: "openai/gpt-5.4-pro",
+    name: "GPT-5.4 Pro",
+    provider: "OpenAI",
+    color: "#10A37F",
+    inputPrice: (30.0 / 1_000_000),
+    outputPrice: (180.0 / 1_000_000),
+    quality: 95,  // GPQA Diamond
+    speed: 60,
   },
   {
     id: "google/gemini-3.1-pro-preview",
@@ -91,16 +101,6 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (1.10 / 1_000_000),
     quality: 59,  // GPQA Diamond
     speed: 50,
-  },
-  {
-    id: "minimax/minimax-m2.5",
-    name: "MiniMax M2.5",
-    provider: "MiniMax",
-    color: "#FF6B35",
-    inputPrice: (0.30 / 1_000_000),
-    outputPrice: (1.20 / 1_000_000),
-    quality: 85,  // GPQA Diamond
-    speed: 100,
   },
 ];
 
