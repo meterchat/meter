@@ -138,6 +138,7 @@ export function useSessionSync() {
   };
 
   const syncFailCountRef = useRef(0);
+  const auth401CountRef = useRef(0);
 
   const syncToServer = useCallback(async () => {
     if (!authenticated) return;
@@ -237,7 +238,11 @@ export function useSessionSync() {
         });
         if (!res.ok) {
           if (res.status === 401) {
-            useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+            auth401CountRef.current += 1;
+            // Only log out after 2 consecutive 401s to avoid transient DB errors
+            if (auth401CountRef.current >= 2) {
+              useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+            }
             return;
           }
           console.warn(`[meter] Session sync failed for "${session.name}": ${res.status}`);
@@ -252,6 +257,7 @@ export function useSessionSync() {
     if (allOk) {
       lastSyncRef.current = snapshot;
       syncFailCountRef.current = 0;
+      auth401CountRef.current = 0;
       // Track synced message counts for sendBeacon delta
       for (const session of sessions) {
         syncedMessageCountRef.current.set(session.id, session.messages.length);
@@ -425,9 +431,14 @@ export function useSessionSync() {
           await new Promise((r) => setTimeout(r, 500));
           if (cancelled) return;
         }
-        const res = await fetch(apiUrl("/api/sessions"));
+        let res = await fetch(apiUrl("/api/sessions"));
+        if (res.status === 401) {
+          // Retry once — transient DB errors can cause false 401s
+          await new Promise((r) => setTimeout(r, 1000));
+          if (cancelled) return;
+          res = await fetch(apiUrl("/api/sessions"));
+        }
         if (!res.ok) {
-          // Server session expired — clear client auth so user re-authenticates
           if (res.status === 401) {
             useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
             return;
