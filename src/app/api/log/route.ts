@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("log_entries")
-      .select("id, type, actor, commit_sha, commit_url, commit_repo, created_at")
+      .select("id, type, actor, commit_sha, commit_url, commit_repo, feedback_text, created_at")
       .order("created_at", { ascending: false })
       .limit(limit);
 

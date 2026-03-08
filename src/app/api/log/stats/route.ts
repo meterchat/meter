@@ -116,7 +116,8 @@ export async function GET() {
       if (!createdAt) continue;
       const t = new Date(createdAt);
       // Use daily buckets — more data points, charts always render
-      const bucketTs = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+      // Liveline expects Unix seconds, not milliseconds
+      const bucketTs = Math.floor(new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime() / 1000);
       const cost = Number(m.cost) || 0;
       const tokens = (Number(m.tokens_in) || 0) + (Number(m.tokens_out) || 0);
       spendByBucket[bucketTs] = (spendByBucket[bucketTs] || 0) + cost;
