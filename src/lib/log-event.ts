@@ -36,7 +36,7 @@ async function hashUserId(userId: string): Promise<string> {
 export function emitLogEvent(
   type: LogEventType,
   userId?: string | null,
-  extra?: { feedbackText?: string }
+  extra?: { feedbackText?: string; preview?: string }
 ) {
   (async () => {
     try {
@@ -48,6 +48,7 @@ export function emitLogEvent(
           type,
           actor,
           feedbackText: extra?.feedbackText,
+          preview: extra?.preview,
         }),
       });
     } catch {

@@ -255,6 +255,7 @@ const STATEMENTS: string[] = [
   )`,
   `create index if not exists idx_log_entries_created_at on log_entries(created_at desc)`,
   `alter table log_entries add column if not exists commit_message text`,
+  `alter table log_entries add column if not exists preview text`,
 
   // Indexes
   `create index if not exists idx_oauth_tokens_user on oauth_tokens(user_id)`,

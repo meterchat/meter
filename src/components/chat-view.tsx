@@ -2043,7 +2043,7 @@ export function ChatView() {
       attachmentCount: attachmentsToSend?.length ?? 0,
       messageLength: userContent.length,
     });
-    emitLogEvent("message_sent", userId);
+    emitLogEvent("message_sent", userId, { preview: userContent.slice(0, 120) });
 
     input.value = "";
     input.style.height = "auto";
