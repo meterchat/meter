@@ -23,20 +23,6 @@ export interface BrainwaveHandle {
 
 const WINDOW_SECS = 30;
 
-/** Dim a hex color to ~30% opacity equivalent for idle state */
-function dimColor(hex: string): string {
-  // Parse hex
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  // Blend toward dark background (#0a0a0a ≈ 10,10,10) at 30%
-  const blend = (c: number, bg: number) => Math.round(bg + (c - bg) * 0.3);
-  const dr = blend(r, 10);
-  const dg = blend(g, 10);
-  const db = blend(b, 10);
-  return `#${dr.toString(16).padStart(2, "0")}${dg.toString(16).padStart(2, "0")}${db.toString(16).padStart(2, "0")}`;
-}
-
 export function Brainwave({
   handleRef,
   activeColor,
@@ -84,9 +70,7 @@ export function Brainwave({
     return () => clearInterval(interval);
   }, []);
 
-  // Color: active color while streaming or tokens flowing, dimmed only when fully idle
-  const isActive = streaming || currentRate > 0;
-  const color = isActive ? activeColor : dimColor(activeColor);
+  const color = activeColor;
 
   return (
     <div className="h-[18px] w-full relative overflow-hidden -my-px">
