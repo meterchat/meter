@@ -47,44 +47,53 @@ export async function POST(req: NextRequest) {
           send(`  ${v.key} (${v.type})`);
         }
 
-        // 2. Build Cloudflare format
-        const cfVars: Record<
-          string,
-          { type: string; value: string }
-        > = {};
+        // 2. Push each var as a Worker secret via Cloudflare API
+        send(`\nPushing to Cloudflare Worker (${cfProject})...`);
+
+        let success = 0;
+        let failed = 0;
+
         for (const v of vars) {
-          cfVars[v.key] = { type: "secret_text", value: v.value || "" };
-        }
-
-        // 3. Push to Cloudflare
-        const cfKey = env === "production" ? "production" : "preview";
-        send(`\nPushing to Cloudflare Pages (${cfProject}, ${cfKey})...`);
-
-        const cfRes = await fetch(
-          `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/pages/projects/${cfProject}`,
-          {
-            method: "PATCH",
-            headers: {
-              Authorization: `Bearer ${cfToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              deployment_configs: { [cfKey]: { env_vars: cfVars } },
-            }),
+          const value = v.value || "";
+          if (!value) {
+            send(`  ⚠ ${v.key}: empty value (Vercel may not decrypt), skipping`, "err");
+            failed++;
+            continue;
           }
-        );
 
-        const cfData = await cfRes.json();
-
-        if (cfData.success) {
-          send(
-            `\nDone! ${vars.length} env vars migrated to Cloudflare Pages.`,
-            "ok"
+          // Use the Workers secrets API (PUT)
+          const cfRes = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/workers/scripts/${cfProject}/secrets`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${cfToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                name: v.key,
+                text: value,
+                type: "secret_text",
+              }),
+            }
           );
-        } else {
-          send(`Cloudflare error:`, "err");
-          send(JSON.stringify(cfData.errors, null, 2), "err");
+
+          const cfData = await cfRes.json();
+
+          if (cfData.success) {
+            send(`  ✓ ${v.key}`, "ok");
+            success++;
+          } else {
+            const errMsg = cfData.errors?.[0]?.message || JSON.stringify(cfData.errors);
+            send(`  ✗ ${v.key}: ${errMsg}`, "err");
+            failed++;
+          }
         }
+
+        send(
+          `\nDone! ${success} migrated, ${failed} failed.`,
+          failed === 0 ? "ok" : "err"
+        );
       } catch (e) {
         send(`Error: ${(e as Error).message}`, "err");
       }
