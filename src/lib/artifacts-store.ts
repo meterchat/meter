@@ -18,6 +18,7 @@ export interface Artifact {
 
 interface ArtifactsState {
   artifacts: Artifact[];
+  currentSessionId: string | null;
   loading: boolean;
   pushing: boolean;
   targetRepo: string | null;
@@ -33,6 +34,7 @@ interface ArtifactsState {
 
 export const useArtifactsStore = create<ArtifactsState>()((set) => ({
   artifacts: [],
+  currentSessionId: null,
   loading: false,
   pushing: false,
   targetRepo: null,
@@ -50,18 +52,23 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
       const data = await res.json();
       const fetched = (data.artifacts ?? []).map((a: Artifact) => ({
         ...a,
+        sessionId: a.sessionId ?? sessionId ?? undefined,
         lastCommittedContent: a.lastCommittedContent ?? a.content,
       }));
       // Merge: server data wins for existing artifacts, but preserve
       // any client-only artifacts (upserted during streaming) that
-      // the server hasn't returned yet.
+      // the server hasn't returned yet — only if they belong to the
+      // same workspace session. This prevents data leaking across workspaces.
       set((s) => {
+        const switchedWorkspace = s.currentSessionId !== sessionId;
         const serverIds = new Set(fetched.map((a: Artifact) => a.id));
         const serverPaths = new Set(fetched.map((a: Artifact) => a.filePath));
-        const clientOnly = s.artifacts.filter(
-          (a) => !serverIds.has(a.id) && !serverPaths.has(a.filePath)
-        );
-        return { artifacts: [...fetched, ...clientOnly], loading: false };
+        const clientOnly = switchedWorkspace
+          ? [] // discard client-only artifacts from previous workspace
+          : s.artifacts.filter(
+              (a) => !serverIds.has(a.id) && !serverPaths.has(a.filePath)
+            );
+        return { artifacts: [...fetched, ...clientOnly], currentSessionId: sessionId, loading: false };
       });
     } catch {
       set({ loading: false });
@@ -92,7 +99,7 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
 
   setTargetRepo: (repo) => set({ targetRepo: repo }),
   setPushing: (v) => set({ pushing: v }),
-  clearArtifacts: () => set({ artifacts: [] }),
+  clearArtifacts: () => set({ artifacts: [], currentSessionId: null }),
 
   commitArtifact: (id) =>
     set((s) => ({

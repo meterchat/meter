@@ -906,7 +906,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
     return rawSessionId;
   }, [rawSessionId, wsTracks, wsWorkspaces, meterSessions]);
 
-  const { artifacts, loading, pushing, targetRepo, fetchArtifacts, setTargetRepo, setPushing } = useArtifactsStore();
+  const { artifacts, loading, pushing, targetRepo, fetchArtifacts, setTargetRepo, setPushing, clearArtifacts } = useArtifactsStore();
   const setPendingInput = useMeterStore((s) => s.setPendingInput);
   const connectedServices = useMeterStore(selectConnectedServices);
   const githubConnected = !!connectedServices["github"];
@@ -918,8 +918,10 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
   useEffect(() => {
     if (activeSessionId) {
       fetchArtifacts(activeSessionId);
+    } else {
+      clearArtifacts();
     }
-  }, [activeSessionId, fetchArtifacts]);
+  }, [activeSessionId, fetchArtifacts, clearArtifacts]);
 
   const fetchRepos = async () => {
     if (!githubConnected || !activeSessionId) return;
