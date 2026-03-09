@@ -105,16 +105,6 @@ export const MODELS: ModelConfig[] = [
     speed: 129,
   },
   {
-    id: "x-ai/grok-4.2",
-    name: "Grok 4.2",
-    provider: "xAI",
-    color: "#A0A0A0",
-    inputPrice: (3.0 / 1_000_000),
-    outputPrice: (15.0 / 1_000_000),
-    quality: 90,  // GPQA Diamond (est. — multi-agent reasoning variant)
-    speed: 50,
-  },
-  {
     id: "deepseek/deepseek-chat-v3-0324",
     name: "DeepSeek V3",
     provider: "DeepSeek",
