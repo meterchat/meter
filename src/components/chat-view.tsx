@@ -957,27 +957,46 @@ function ThinkingIndicator({
     ? thinkingText.split("\n").filter(l => l.trim()).slice(-2).join(" ").slice(-80)
     : hintPool[hintIndex % hintPool.length] ?? null;
 
+  // Auto-scroll the thinking stream to the bottom
+  const thinkingStreamRef = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (hasRealThinking && thinkingStreamRef.current) {
+      thinkingStreamRef.current.scrollTop = thinkingStreamRef.current.scrollHeight;
+    }
+  }, [thinkingText, hasRealThinking]);
+
   return (
-    <div className="flex items-center gap-2 px-4 py-3 mb-4">
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 14 14"
-        fill="none"
-        className="meter-spinning text-muted-foreground/50"
-      >
-        <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="20 14" />
-      </svg>
-      <div className="flex flex-col">
-        <span className="thinking-shimmer text-sm font-medium select-none">
-          {label}
-        </span>
-        {displaySublabel && (
-          <span className={`text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px] max-md:max-w-[200px] sublabel-fade ${hasRealThinking || visible ? "" : "sublabel-fade-hidden"}`}>
-            {displaySublabel}
+    <div className="px-4 py-3 mb-4">
+      <div className="flex items-center gap-2">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          className="meter-spinning text-muted-foreground/50"
+        >
+          <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="20 14" />
+        </svg>
+        <div className="flex flex-col">
+          <span className="thinking-shimmer text-sm font-medium select-none">
+            {label}
           </span>
-        )}
+          {displaySublabel && (
+            <span className={`text-[10px] font-mono text-muted-foreground/50 truncate max-w-[300px] max-md:max-w-[200px] sublabel-fade ${hasRealThinking || visible ? "" : "sublabel-fade-hidden"}`}>
+              {displaySublabel}
+            </span>
+          )}
+        </div>
       </div>
+      {hasRealThinking && (
+        <pre
+          ref={thinkingStreamRef}
+          className="mt-2 ml-[22px] max-h-40 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] text-muted-foreground/40 leading-relaxed border-l border-border/30 pl-3"
+        >
+          {thinkingText}
+          <span className="inline-block w-[5px] h-[10px] bg-muted-foreground/30 animate-pulse ml-0.5 align-middle" />
+        </pre>
+      )}
     </div>
   );
 }
@@ -1862,8 +1881,12 @@ export function ChatView() {
             } else if (data.type === "tool_call") {
               if (isActiveStream()) setActiveTool(data.name as string);
             } else if (data.type === "tool_result") {
-              // Delay clearing so the spinner is visible for at least 600ms
-              if (isActiveStream()) setTimeout(() => setActiveTool(null), 600);
+              // Delay clearing so the spinner is visible for at least 600ms.
+              // Only clear if the tool hasn't changed (prevents race with a new tool_call).
+              const finishedTool = data.name as string;
+              if (isActiveStream()) setTimeout(() => {
+                setActiveTool((current) => current === finishedTool ? null : current);
+              }, 600);
               if (data.name === "save_decision" && data.decision) {
                 const d = data.decision as { id?: string; title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
                 const decId = d.id || Math.random().toString(36).slice(2, 10);
