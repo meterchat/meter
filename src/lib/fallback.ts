@@ -755,14 +755,17 @@ async function streamOpenAIDirect(
   // Strip tools for models that don't support them (e.g. Grok 4.2 multi-agent experimental)
   const effectiveTools = isMultiAgent ? [] : tools;
 
-  // Experimental multi-agent models need a minimal parameter set — they reject
-  // tools, stream_options, and potentially max_tokens in favour of max_completion_tokens.
+  // Experimental multi-agent models reject tools, stream_options, reasoning_effort.
+  // Use the bare minimum: model + messages + max_tokens + stream.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const createParams: any = isMultiAgent
     ? {
         model: nativeModel,
-        messages: conversation,
-        max_completion_tokens: 16384,
+        messages: conversation.map((m) => ({
+          role: m.role,
+          content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+        })),
+        max_tokens: 16384,
         stream: true,
       }
     : {
@@ -776,6 +779,7 @@ async function streamOpenAIDirect(
         ...(isGPT || isGrok ? { reasoning_effort: "medium" } : {}),
       };
 
+  console.log("[streamOpenAIDirect]", nativeModel, "isMultiAgent:", isMultiAgent, "params keys:", Object.keys(createParams));
   const response = await client.chat.completions.create(createParams);
 
   let textContent = "";
@@ -1164,7 +1168,7 @@ export async function streamWithFallback(
       return { ...result, actualModel: requestedModel, tier: 2 };
     } catch (err) {
       const e = err as Error;
-      console.error("[fallback] tier 1 direct (preferred) failed:", requestedModel, e.message);
+      console.error("[fallback] tier 1 direct (preferred) failed:", requestedModel, e.message, (e as any).status, (e as any).code, JSON.stringify((e as any).error ?? "").slice(0, 500));
       errors.push({ tier: 2, model: requestedModel, error: e.message });
     }
   }
