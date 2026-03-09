@@ -755,17 +755,28 @@ async function streamOpenAIDirect(
   // Strip tools for models that don't support them (e.g. Grok 4.2 multi-agent experimental)
   const effectiveTools = isMultiAgent ? [] : tools;
 
-  const response = await client.chat.completions.create({
-    model: nativeModel,
-    messages: conversation,
-    ...(effectiveTools.length > 0 ? { tools: effectiveTools } : {}),
-    max_tokens: 16384,
-    stream: true,
-    stream_options: { include_usage: true },
-    // GPT-5.4 / Grok reasoning
-    ...(isGPT || isGrok ? { reasoning_effort: "medium" } : {}),
+  // Experimental multi-agent models need a minimal parameter set — they reject
+  // tools, stream_options, and potentially max_tokens in favour of max_completion_tokens.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any);
+  const createParams: any = isMultiAgent
+    ? {
+        model: nativeModel,
+        messages: conversation,
+        max_completion_tokens: 16384,
+        stream: true,
+      }
+    : {
+        model: nativeModel,
+        messages: conversation,
+        ...(effectiveTools.length > 0 ? { tools: effectiveTools } : {}),
+        max_tokens: 16384,
+        stream: true,
+        stream_options: { include_usage: true },
+        // GPT-5.4 / Grok reasoning
+        ...(isGPT || isGrok ? { reasoning_effort: "medium" } : {}),
+      };
+
+  const response = await client.chat.completions.create(createParams);
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
