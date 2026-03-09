@@ -194,6 +194,7 @@ export async function streamOpenRouter(
 
   // Enable reasoning for models that support it
   const isOpenAIReasoning = model.startsWith("openai/");
+  const isXAIReasoning = model.startsWith("x-ai/");
   const isMiniMaxReasoning = model.startsWith("minimax/");
 
   const response = await client.chat.completions.create({
@@ -203,8 +204,8 @@ export async function streamOpenRouter(
     max_tokens: 16384,
     stream: true,
     stream_options: { include_usage: true },
-    // GPT-5.4 reasoning
-    ...(isOpenAIReasoning ? { reasoning_effort: "medium" } : {}),
+    // GPT-5.4 / Grok reasoning
+    ...(isOpenAIReasoning || isXAIReasoning ? { reasoning_effort: "medium" } : {}),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
@@ -744,6 +745,7 @@ async function streamOpenAIDirect(
 
   // Enable reasoning for models that support it
   const isGPT = nativeModel.startsWith("gpt-");
+  const isGrok = nativeModel.startsWith("grok-");
   const isMiniMax = nativeModel.startsWith("minimax-");
 
   const response = await client.chat.completions.create({
@@ -753,8 +755,8 @@ async function streamOpenAIDirect(
     max_tokens: 16384,
     stream: true,
     stream_options: { include_usage: true },
-    // GPT-5.4 reasoning
-    ...(isGPT ? { reasoning_effort: "medium" } : {}),
+    // GPT-5.4 / Grok reasoning
+    ...(isGPT || isGrok ? { reasoning_effort: "medium" } : {}),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
