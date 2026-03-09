@@ -60,7 +60,9 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
       // the server hasn't returned yet — only if they belong to the
       // same workspace session. This prevents data leaking across workspaces.
       set((s) => {
-        const switchedWorkspace = s.currentSessionId !== sessionId;
+        const switchedWorkspace =
+          s.currentSessionId !== null &&
+          s.currentSessionId !== sessionId;
         const serverIds = new Set(fetched.map((a: Artifact) => a.id));
         const serverPaths = new Set(fetched.map((a: Artifact) => a.filePath));
         const clientOnly = switchedWorkspace
