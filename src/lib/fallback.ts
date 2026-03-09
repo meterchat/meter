@@ -64,14 +64,12 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "minimax/minimax-m2.5": { envKey: "MINIMAX_API_KEY", nativeModel: "minimax-m2.5", sdk: "openai", baseURL: "https://api.minimax.chat/v1", cacheReadRate: 0.1 },
   "google/gemini-3.1-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3.1-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
   "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4-1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
-  "x-ai/grok-4.2": { envKey: "XAI_API_KEY", nativeModel: "grok-4.20-multi-agent-experimental-beta-0304", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
 };
 
 /** Models where direct API should be preferred over OpenRouter.
  *  Empty — OpenRouter is primary for all models (supports caching natively). */
 const PREFER_DIRECT: Set<string> = new Set([
-  "x-ai/grok-4.2",
 ]);
 
 /* ─── Bedrock provider (Claude models via AWS) ─────────────────── */
@@ -197,7 +195,7 @@ export async function streamOpenRouter(
 
   // Enable reasoning for models that support it
   const isOpenAIReasoning = model.startsWith("openai/");
-  const isXAIReasoning = model.startsWith("x-ai/") && !model.includes("grok-4.2");
+  const isXAIReasoning = model.startsWith("x-ai/");
   const isMiniMaxReasoning = model.startsWith("minimax/");
 
   const response = await client.chat.completions.create({
@@ -748,39 +746,20 @@ async function streamOpenAIDirect(
 
   // Enable reasoning for models that support it
   const isGPT = nativeModel.startsWith("gpt-");
-  const isGrok = nativeModel.startsWith("grok-") && !nativeModel.includes("multi-agent");
-  const isMultiAgent = nativeModel.includes("multi-agent");
+  const isGrok = nativeModel.startsWith("grok-");
   const isMiniMax = nativeModel.startsWith("minimax-");
 
-  // Strip tools for models that don't support them (e.g. Grok 4.2 multi-agent experimental)
-  const effectiveTools = isMultiAgent ? [] : tools;
-
-  // Experimental multi-agent models reject tools, stream_options, reasoning_effort.
-  // Use the bare minimum: model + messages + max_tokens + stream.
+  const response = await client.chat.completions.create({
+    model: nativeModel,
+    messages: conversation,
+    ...(tools.length > 0 ? { tools } : {}),
+    max_tokens: 16384,
+    stream: true,
+    stream_options: { include_usage: true },
+    // GPT-5.4 / Grok reasoning
+    ...(isGPT || isGrok ? { reasoning_effort: "medium" } : {}),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const createParams: any = isMultiAgent
-    ? {
-        model: nativeModel,
-        messages: conversation.map((m) => ({
-          role: m.role,
-          content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
-        })),
-        max_tokens: 16384,
-        stream: true,
-      }
-    : {
-        model: nativeModel,
-        messages: conversation,
-        ...(effectiveTools.length > 0 ? { tools: effectiveTools } : {}),
-        max_tokens: 16384,
-        stream: true,
-        stream_options: { include_usage: true },
-        // GPT-5.4 / Grok reasoning
-        ...(isGPT || isGrok ? { reasoning_effort: "medium" } : {}),
-      };
-
-  console.log("[streamOpenAIDirect]", nativeModel, "isMultiAgent:", isMultiAgent, "params keys:", Object.keys(createParams));
-  const response = await client.chat.completions.create(createParams);
+  } as any);
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
