@@ -61,7 +61,7 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "anthropic/claude-sonnet-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-sonnet-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
   "anthropic/claude-opus-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-opus-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
   "openai/gpt-5.4": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.4", sdk: "openai", cacheReadRate: 0.5 },
-  "openai/gpt-5.4-pro": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.4-pro", sdk: "openai", cacheReadRate: 0.5 },
+  "minimax/minimax-m2.5": { envKey: "MINIMAX_API_KEY", nativeModel: "minimax-m2.5", sdk: "openai", baseURL: "https://api.minimax.chat/v1", cacheReadRate: 0.1 },
   "google/gemini-3.1-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3.1-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
   "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4-1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
@@ -108,7 +108,7 @@ function supportsCacheControl(model: string): boolean {
 const AUTO_ROUTE_ORDER = [
   "anthropic/claude-sonnet-4.6",
   "openai/gpt-5.4",
-  "openai/gpt-5.4-pro",
+  "minimax/minimax-m2.5",
   "google/gemini-3.1-pro-preview",
   "x-ai/grok-4.1-fast",
   "deepseek/deepseek-chat-v3-0324",
@@ -192,6 +192,10 @@ export async function streamOpenRouter(
     : model.startsWith("x-ai/") ? 0.25
     : undefined;
 
+  // Enable reasoning for models that support it
+  const isOpenAIReasoning = model.startsWith("openai/");
+  const isMiniMaxReasoning = model.startsWith("minimax/");
+
   const response = await client.chat.completions.create({
     model,
     messages: cachedConversation,
@@ -199,11 +203,17 @@ export async function streamOpenRouter(
     max_tokens: 16384,
     stream: true,
     stream_options: { include_usage: true },
-  });
+    // GPT-5.4 reasoning
+    ...(isOpenAIReasoning ? { reasoning_effort: "medium" } : {}),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any);
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
   let hasToolCalls = false;
+  // MiniMax <think> tag parsing state
+  let mmThinkBuf = "";
+  let mmInThink = false;
 
   for await (const chunk of response) {
     const choice = chunk.choices?.[0];
@@ -226,14 +236,52 @@ export async function streamOpenRouter(
       continue;
     }
 
-    const delta = choice.delta?.content || "";
+    let delta = choice.delta?.content || "";
+
+    // MiniMax: parse <think>...</think> tags out of content and emit as thinking_delta
+    if (isMiniMaxReasoning && delta) {
+      mmThinkBuf += delta;
+      delta = "";
+      while (mmThinkBuf.length > 0) {
+        if (mmInThink) {
+          const closeIdx = mmThinkBuf.indexOf("</think>");
+          if (closeIdx === -1) {
+            // Still inside <think>, emit as thinking and clear buffer (keep last 8 chars for partial tag)
+            if (mmThinkBuf.length > 8) {
+              send({ type: "thinking_delta", content: mmThinkBuf.slice(0, -8) });
+              mmThinkBuf = mmThinkBuf.slice(-8);
+            }
+            break;
+          }
+          // Found closing tag
+          send({ type: "thinking_delta", content: mmThinkBuf.slice(0, closeIdx) });
+          mmThinkBuf = mmThinkBuf.slice(closeIdx + 8);
+          mmInThink = false;
+        } else {
+          const openIdx = mmThinkBuf.indexOf("<think>");
+          if (openIdx === -1) {
+            // No think tag, emit as normal content (keep last 7 chars for partial tag)
+            if (mmThinkBuf.length > 7) {
+              delta += mmThinkBuf.slice(0, -7);
+              mmThinkBuf = mmThinkBuf.slice(-7);
+            }
+            break;
+          }
+          // Found opening tag — emit content before it
+          delta += mmThinkBuf.slice(0, openIdx);
+          mmThinkBuf = mmThinkBuf.slice(openIdx + 7);
+          mmInThink = true;
+        }
+      }
+    }
+
     if (delta) {
       textContent += delta;
       totalTokensOut.value += estimateTokens(delta);
       send({ type: "delta", content: delta, tokensOut: totalTokensOut.value });
     }
 
-    // DeepSeek reasoning_content (passthrough via OpenRouter)
+    // DeepSeek/OpenAI reasoning_content (passthrough via OpenRouter)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const reasoning = (choice.delta as any)?.reasoning_content;
     if (reasoning) send({ type: "thinking_delta", content: reasoning });
@@ -694,6 +742,10 @@ async function streamOpenAIDirect(
 ): Promise<{ textContent: string; toolCalls: Map<number, { id: string; name: string; arguments: string }>; hasToolCalls: boolean }> {
   const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}), timeout: timeoutMs ?? 600_000 });
 
+  // Enable reasoning for models that support it
+  const isGPT = nativeModel.startsWith("gpt-");
+  const isMiniMax = nativeModel.startsWith("minimax-");
+
   const response = await client.chat.completions.create({
     model: nativeModel,
     messages: conversation,
@@ -701,11 +753,17 @@ async function streamOpenAIDirect(
     max_tokens: 16384,
     stream: true,
     stream_options: { include_usage: true },
-  });
+    // GPT-5.4 reasoning
+    ...(isGPT ? { reasoning_effort: "medium" } : {}),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any);
 
   let textContent = "";
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
   let hasToolCalls = false;
+  // MiniMax <think> tag parsing state
+  let mmThinkBuf = "";
+  let mmInThink = false;
 
   for await (const chunk of response) {
     const choice = chunk.choices?.[0];
@@ -727,14 +785,48 @@ async function streamOpenAIDirect(
       continue;
     }
 
-    const delta = choice.delta?.content || "";
+    let delta = choice.delta?.content || "";
+
+    // MiniMax: parse <think>...</think> tags out of content and emit as thinking_delta
+    if (isMiniMax && delta) {
+      mmThinkBuf += delta;
+      delta = "";
+      while (mmThinkBuf.length > 0) {
+        if (mmInThink) {
+          const closeIdx = mmThinkBuf.indexOf("</think>");
+          if (closeIdx === -1) {
+            if (mmThinkBuf.length > 8) {
+              send({ type: "thinking_delta", content: mmThinkBuf.slice(0, -8) });
+              mmThinkBuf = mmThinkBuf.slice(-8);
+            }
+            break;
+          }
+          send({ type: "thinking_delta", content: mmThinkBuf.slice(0, closeIdx) });
+          mmThinkBuf = mmThinkBuf.slice(closeIdx + 8);
+          mmInThink = false;
+        } else {
+          const openIdx = mmThinkBuf.indexOf("<think>");
+          if (openIdx === -1) {
+            if (mmThinkBuf.length > 7) {
+              delta += mmThinkBuf.slice(0, -7);
+              mmThinkBuf = mmThinkBuf.slice(-7);
+            }
+            break;
+          }
+          delta += mmThinkBuf.slice(0, openIdx);
+          mmThinkBuf = mmThinkBuf.slice(openIdx + 7);
+          mmInThink = true;
+        }
+      }
+    }
+
     if (delta) {
       textContent += delta;
       totalTokensOut.value += estimateTokens(delta);
       send({ type: "delta", content: delta, tokensOut: totalTokensOut.value });
     }
 
-    // DeepSeek reasoning_content
+    // DeepSeek/OpenAI reasoning_content
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const reasoning = (choice.delta as any)?.reasoning_content;
     if (reasoning) send({ type: "thinking_delta", content: reasoning });

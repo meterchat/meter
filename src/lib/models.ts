@@ -75,14 +75,14 @@ export const MODELS: ModelConfig[] = [
     speed: 90,
   },
   {
-    id: "openai/gpt-5.4-pro",
-    name: "GPT-5.4 Pro",
-    provider: "OpenAI",
-    color: "#10A37F",
-    inputPrice: (30.0 / 1_000_000),
-    outputPrice: (180.0 / 1_000_000),
-    quality: 95,  // GPQA Diamond
-    speed: 60,
+    id: "minimax/minimax-m2.5",
+    name: "MiniMax M2.5",
+    provider: "MiniMax",
+    color: "#1A1A2E",
+    inputPrice: (0.30 / 1_000_000),
+    outputPrice: (1.20 / 1_000_000),
+    quality: 62,  // GPQA Diamond
+    speed: 50,
   },
   {
     id: "google/gemini-3.1-pro-preview",
