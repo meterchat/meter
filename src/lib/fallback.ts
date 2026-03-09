@@ -64,6 +64,7 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "minimax/minimax-m2.5": { envKey: "MINIMAX_API_KEY", nativeModel: "minimax-m2.5", sdk: "openai", baseURL: "https://api.minimax.chat/v1", cacheReadRate: 0.1 },
   "google/gemini-3.1-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3.1-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
   "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4-1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
+  "x-ai/grok-4.2": { envKey: "XAI_API_KEY", nativeModel: "grok-4.20-multi-agent-experimental-beta-0304", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
 };
 

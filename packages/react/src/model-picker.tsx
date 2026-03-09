@@ -77,7 +77,7 @@ const PROVIDER_COLORS: Record<string, string> = {
   Google: "#4285F4",
   DeepSeek: "#4D6BFE",
   xAI: "#A0A0A0",
-  MiniMax: "#1A1A2E",
+  MiniMax: "#E84142",
   Meter: "#A1A1AA",
 };
 

@@ -78,7 +78,7 @@ export const MODELS: ModelConfig[] = [
     id: "minimax/minimax-m2.5",
     name: "MiniMax M2.5",
     provider: "MiniMax",
-    color: "#1A1A2E",
+    color: "#E84142",
     inputPrice: (0.30 / 1_000_000),
     outputPrice: (1.20 / 1_000_000),
     quality: 62,  // GPQA Diamond
@@ -103,6 +103,16 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (0.50 / 1_000_000),
     quality: 86,  // GPQA Diamond (est. from Grok 4 Fast 85.7%)
     speed: 129,
+  },
+  {
+    id: "x-ai/grok-4.2",
+    name: "Grok 4.2",
+    provider: "xAI",
+    color: "#A0A0A0",
+    inputPrice: (3.0 / 1_000_000),
+    outputPrice: (15.0 / 1_000_000),
+    quality: 90,  // GPQA Diamond (est. — multi-agent reasoning variant)
+    speed: 50,
   },
   {
     id: "deepseek/deepseek-chat-v3-0324",
