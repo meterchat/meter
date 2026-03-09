@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseServer();
 
     // Retrieve the SetupIntent to get payment method details
-    const setupIntent = await stripe.setupIntents.retrieve(setupIntentId, {
+    const setupIntent = await getStripe().setupIntents.retrieve(setupIntentId, {
       expand: ["payment_method"],
     });
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     // Set as default payment method on customer
     if (setupIntent.customer && typeof setupIntent.customer === "string") {
-      await stripe.customers.update(setupIntent.customer, {
+      await getStripe().customers.update(setupIntent.customer, {
         invoice_settings: { default_payment_method: pm.id },
       });
     }

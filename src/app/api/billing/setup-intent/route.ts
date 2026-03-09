@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, ensureStripeCustomer } from "@/lib/stripe";
+import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
 import { requireAuth } from "@/lib/auth";
 
 // POST /api/billing/setup-intent — create Stripe SetupIntent for saving a card
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const customerId = await ensureStripeCustomer(userId);
 
     // Create SetupIntent
-    const setupIntent = await stripe.setupIntents.create({
+    const setupIntent = await getStripe().setupIntents.create({
       customer: customerId,
       payment_method_types: ["card"],
       metadata: { meter_user_id: userId },

@@ -1,14 +1,20 @@
 import Stripe from "stripe";
 import { getSupabaseServer } from "@/lib/supabase";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not set");
-}
+let _stripe: Stripe | null = null;
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-01-28.clover",
-  typescript: true,
-});
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("STRIPE_SECRET_KEY is not set");
+    }
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2026-01-28.clover",
+      typescript: true,
+    });
+  }
+  return _stripe;
+}
 
 /**
  * Ensure the user has a valid Stripe customer in the CURRENT Stripe account.
@@ -29,7 +35,7 @@ export async function ensureStripeCustomer(userId: string): Promise<string> {
   // If we have an existing customer ID, verify it's valid
   if (user.stripe_customer_id) {
     try {
-      const customer = await stripe.customers.retrieve(user.stripe_customer_id);
+      const customer = await getStripe().customers.retrieve(user.stripe_customer_id);
       if (!customer.deleted) return user.stripe_customer_id;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
@@ -41,7 +47,7 @@ export async function ensureStripeCustomer(userId: string): Promise<string> {
   }
 
   // Create new customer
-  const customer = await stripe.customers.create({
+  const customer = await getStripe().customers.create({
     ...(user.email ? { email: user.email } : {}),
     metadata: { meter_user_id: userId },
   });
