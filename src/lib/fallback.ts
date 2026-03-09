@@ -61,7 +61,7 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "anthropic/claude-sonnet-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-sonnet-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
   "anthropic/claude-opus-4.6": { envKey: "CLAUDE_API_KEY", nativeModel: "claude-opus-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
   "openai/gpt-5.4": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.4", sdk: "openai", cacheReadRate: 0.5 },
-  "openai/gpt-5.4-pro": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.4-pro", sdk: "openai", cacheReadRate: 0.5 },
+  "minimax/minimax-m2.5": { envKey: "MINIMAX_API_KEY", nativeModel: "minimax-m2.5", sdk: "openai", baseURL: "https://api.minimax.chat/v1", cacheReadRate: 0.1 },
   "google/gemini-3.1-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3.1-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
   "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4-1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
@@ -108,7 +108,7 @@ function supportsCacheControl(model: string): boolean {
 const AUTO_ROUTE_ORDER = [
   "anthropic/claude-sonnet-4.6",
   "openai/gpt-5.4",
-  "openai/gpt-5.4-pro",
+  "minimax/minimax-m2.5",
   "google/gemini-3.1-pro-preview",
   "x-ai/grok-4.1-fast",
   "deepseek/deepseek-chat-v3-0324",

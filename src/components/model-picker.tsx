@@ -38,6 +38,7 @@ const PROVIDER_LOGO: Record<string, string> = {
   Google: "/gemini.webp",
   DeepSeek: "/deepseek.webp",
   xAI: "/grok.webp",
+  MiniMax: "/minimax.webp",
   Meter: "/icon-transparent.png",
 };
 

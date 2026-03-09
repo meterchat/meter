@@ -15,7 +15,7 @@ const DEFAULT_MODELS: MeterModel[] = [
   { id: "anthropic/claude-sonnet-4.6", name: "Sonnet 4.6", provider: "Anthropic", inputPrice: 3.0 / 1_000_000, outputPrice: 15.0 / 1_000_000 },
   { id: "anthropic/claude-opus-4.6", name: "Opus 4.6", provider: "Anthropic", inputPrice: 5.0 / 1_000_000, outputPrice: 25.0 / 1_000_000 },
   { id: "openai/gpt-5.4", name: "GPT-5.4", provider: "OpenAI", inputPrice: 2.50 / 1_000_000, outputPrice: 15.0 / 1_000_000 },
-  { id: "openai/gpt-5.4-pro", name: "GPT-5.4 Pro", provider: "OpenAI", inputPrice: 30.0 / 1_000_000, outputPrice: 180.0 / 1_000_000 },
+  { id: "minimax/minimax-m2.5", name: "MiniMax M2.5", provider: "MiniMax", inputPrice: 0.30 / 1_000_000, outputPrice: 1.20 / 1_000_000 },
   { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", provider: "Google", inputPrice: 2.0 / 1_000_000, outputPrice: 12.0 / 1_000_000 },
   { id: "x-ai/grok-4.1-fast", name: "Grok 4.1 Fast", provider: "xAI", inputPrice: 0.20 / 1_000_000, outputPrice: 0.50 / 1_000_000 },
   { id: "deepseek/deepseek-chat-v3-0324", name: "DeepSeek V3", provider: "DeepSeek", inputPrice: 0.27 / 1_000_000, outputPrice: 1.10 / 1_000_000 },

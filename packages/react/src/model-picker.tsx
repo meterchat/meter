@@ -32,6 +32,7 @@ const PROVIDER_LOGO: Record<string, string> = {
   Google: "/gemini.webp",
   DeepSeek: "/deepseek.webp",
   xAI: "/grok.webp",
+  MiniMax: "/minimax.webp",
   Meter: "/icon-transparent.png",
 };
 
@@ -58,6 +59,7 @@ const PROVIDER_COLORS: Record<string, string> = {
   Google: "#4285F4",
   DeepSeek: "#4D6BFE",
   xAI: "#A0A0A0",
+  MiniMax: "#1A1A2E",
   Meter: "#A1A1AA",
 };
 
