@@ -73,7 +73,7 @@ const STATEMENTS: string[] = [
     settled boolean default false, receipt_status text,
     signature text, tx_hash text, cards jsonb,
     attachments jsonb, debate_trace jsonb,
-    dissector_trace jsonb, thinking text,
+    dissector_trace jsonb, documents jsonb, thinking text,
     is_fork_point boolean default false,
     fork_resolution text,
     timestamp bigint not null,
@@ -199,6 +199,9 @@ const STATEMENTS: string[] = [
 
   // Dissector trace persistence
   `alter table chat_messages add column if not exists dissector_trace jsonb`,
+
+  // Document preview cards persistence (inline doc cards survive page reload)
+  `alter table chat_messages add column if not exists documents jsonb`,
 
   // Fork state persistence (divider lines survive merge/close)
   `alter table chat_messages add column if not exists is_fork_point boolean default false`,
