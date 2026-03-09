@@ -73,7 +73,10 @@ export function Brainwave({
   const color = activeColor;
 
   return (
-    <div className="h-[18px] w-full relative overflow-hidden -my-px">
+    <div
+      className="h-[18px] w-full relative overflow-hidden -my-px transition-opacity duration-700"
+      style={{ opacity: streaming ? 1 : 0.3 }}
+    >
       <Liveline
         data={data}
         value={currentRate}
