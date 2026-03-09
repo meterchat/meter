@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migrate Env Vars: Vercel → Cloudflare</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e5e5e5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 32px; width: 100%; max-width: 480px; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .sub { color: #737373; font-size: 13px; margin-bottom: 24px; }
+  label { display: block; font-size: 13px; color: #a3a3a3; margin-bottom: 4px; margin-top: 16px; }
+  input { width: 100%; padding: 8px 12px; background: #0a0a0a; border: 1px solid #262626; border-radius: 6px; color: #e5e5e5; font-size: 14px; font-family: monospace; }
+  input:focus { outline: none; border-color: #525252; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  button { width: 100%; margin-top: 24px; padding: 10px; background: #fff; color: #0a0a0a; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #d4d4d4; }
+  button:disabled { background: #525252; color: #a3a3a3; cursor: not-allowed; }
+  #log { margin-top: 16px; font-family: monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+  .ok { color: #4ade80; } .err { color: #f87171; } .info { color: #a3a3a3; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Migrate Env Vars</h1>
+  <p class="sub">Vercel → Cloudflare Pages (one click)</p>
+
+  <label>Vercel Token</label>
+  <input id="vToken" type="password" placeholder="from vercel.com/account/tokens">
+
+  <label>Vercel Project Name</label>
+  <input id="vProject" value="meter" placeholder="meter">
+
+  <div class="row">
+    <div>
+      <label>Cloudflare Account ID</label>
+      <input id="cfAccount" type="password" placeholder="from dashboard URL">
+    </div>
+    <div>
+      <label>Cloudflare API Token</label>
+      <input id="cfToken" type="password" placeholder="Edit Workers template">
+    </div>
+  </div>
+
+  <label>Cloudflare Pages Project</label>
+  <input id="cfProject" value="meter" placeholder="meter">
+
+  <div class="row">
+    <div>
+      <label>Environment</label>
+      <select id="env" style="width:100%;padding:8px 12px;background:#0a0a0a;border:1px solid #262626;border-radius:6px;color:#e5e5e5;font-size:14px;">
+        <option value="production">Production</option>
+        <option value="preview">Preview</option>
+      </select>
+    </div>
+  </div>
+
+  <button id="btn" onclick="migrate()">Migrate Environment Variables</button>
+  <div id="log"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const log = (msg, cls = 'info') => $('log').innerHTML += `<span class="${cls}">${msg}\n</span>`;
+
+async function migrate() {
+  $('log').innerHTML = '';
+  $('btn').disabled = true;
+  $('btn').textContent = 'Migrating...';
+
+  const vToken = $('vToken').value.trim();
+  const vProject = $('vProject').value.trim();
+  const cfAccount = $('cfAccount').value.trim();
+  const cfToken = $('cfToken').value.trim();
+  const cfProject = $('cfProject').value.trim();
+  const env = $('env').value;
+
+  if (!vToken || !cfAccount || !cfToken) {
+    log('Fill in all token fields.', 'err');
+    reset(); return;
+  }
+
+  try {
+    // 1. Pull from Vercel
+    log(`Pulling env vars from Vercel (${vProject}, ${env})...`);
+    const vRes = await fetch(`https://api.vercel.com/v9/projects/${vProject}/env`, {
+      headers: { Authorization: `Bearer ${vToken}` }
+    });
+    if (!vRes.ok) throw new Error(`Vercel API ${vRes.status}: ${await vRes.text()}`);
+    const { envs } = await vRes.json();
+
+    const vars = envs.filter(e => e.target.includes(env) && e.type !== 'system');
+    log(`Found ${vars.length} env vars`, 'ok');
+
+    if (vars.length === 0) { log('Nothing to migrate.', 'err'); reset(); return; }
+
+    // Show what we're migrating
+    vars.forEach(v => log(`  ${v.key} (${v.type})`));
+
+    // 2. Build Cloudflare format
+    const cfVars = {};
+    for (const v of vars) {
+      // Vercel "encrypted" vars need decryption — the API returns decrypted values if your token has access
+      cfVars[v.key] = { type: 'secret_text', value: v.value || '' };
+    }
+
+    // 3. Push to Cloudflare
+    const cfKey = env === 'production' ? 'production' : 'preview';
+    log(`\nPushing to Cloudflare Pages (${cfProject}, ${cfKey})...`);
+
+    const cfRes = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${cfAccount}/pages/projects/${cfProject}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${cfToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          deployment_configs: { [cfKey]: { env_vars: cfVars } }
+        })
+      }
+    );
+    const cfData = await cfRes.json();
+
+    if (cfData.success) {
+      log(`\nDone! ${vars.length} env vars migrated to Cloudflare.`, 'ok');
+    } else {
+      log(`\nCloudflare error:`, 'err');
+      log(JSON.stringify(cfData.errors, null, 2), 'err');
+    }
+  } catch (e) {
+    log(`\nError: ${e.message}`, 'err');
+  }
+  reset();
+}
+
+function reset() {
+  $('btn').disabled = false;
+  $('btn').textContent = 'Migrate Environment Variables';
+}
+</script>
+</body>
+</html>
