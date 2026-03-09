@@ -180,7 +180,7 @@ export function ModelPickerPanel({
             <div
               key={m.id}
               className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-foreground/[0.08] ${
-                isSelected ? "bg-foreground/[0.07]" : ""
+                (!debateMode && isSelected) || (debateMode && isInRoster) ? "bg-foreground/[0.07]" : ""
               }`}
             >
               {/* Click model name to select as primary */}
@@ -238,11 +238,11 @@ export function ModelPickerPanel({
                   title={isInRoster ? "Remove from debate" : "Add to debate"}
                 >
                   <span className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors ${
-                    isInRoster || isSelected
+                    isInRoster || (!debateMode && isSelected)
                       ? "border-foreground/60 bg-foreground/10"
                       : "border-foreground/20 hover:border-foreground/40"
                   }`}>
-                    {(isInRoster || isSelected) && (
+                    {(isInRoster || (!debateMode && isSelected)) && (
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>

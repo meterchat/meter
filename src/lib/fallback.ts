@@ -749,12 +749,16 @@ async function streamOpenAIDirect(
   // Enable reasoning for models that support it
   const isGPT = nativeModel.startsWith("gpt-");
   const isGrok = nativeModel.startsWith("grok-") && !nativeModel.includes("multi-agent");
+  const isMultiAgent = nativeModel.includes("multi-agent");
   const isMiniMax = nativeModel.startsWith("minimax-");
+
+  // Strip tools for models that don't support them (e.g. Grok 4.2 multi-agent experimental)
+  const effectiveTools = isMultiAgent ? [] : tools;
 
   const response = await client.chat.completions.create({
     model: nativeModel,
     messages: conversation,
-    ...(tools.length > 0 ? { tools } : {}),
+    ...(effectiveTools.length > 0 ? { tools: effectiveTools } : {}),
     max_tokens: 16384,
     stream: true,
     stream_options: { include_usage: true },
