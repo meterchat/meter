@@ -1547,6 +1547,7 @@ export const useMeterStore = create<MeterState>()(
             cards: m.cards as ActionCard[] | undefined,
             attachments: m.attachments as Attachment[] | undefined,
             debateTrace: m.debate_trace as DebateTurn[] | undefined,
+            documents: m.documents as DocumentPreview[] | undefined,
             thinking: m.thinking as string | undefined,
             timestamp: m.timestamp as number,
           }));

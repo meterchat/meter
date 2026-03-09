@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn, type DissectorTurn } from "@/lib/store";
+import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn, type DissectorTurn, type DocumentPreview } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { apiUrl } from "@/lib/api-url";
 import { useDecisionsStore } from "@/lib/decisions-store";
@@ -87,6 +87,7 @@ export function useSessionSync() {
       attachments: m.attachments as Attachment[] | undefined,
       debateTrace: m.debate_trace as DebateTurn[] | undefined,
       dissectorTrace: m.dissector_trace as DissectorTurn[] | undefined,
+      documents: m.documents as DocumentPreview[] | undefined,
       thinking: m.thinking as string | undefined,
       timestamp: m.timestamp as number,
       isForkPoint: m.is_fork_point as boolean | undefined,

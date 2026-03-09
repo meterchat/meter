@@ -109,6 +109,7 @@ create table if not exists chat_messages (
   attachments jsonb,
   debate_trace jsonb,
   dissector_trace jsonb,
+  documents jsonb,
   thinking text,
   is_fork_point boolean default false,
   fork_resolution text,
@@ -121,6 +122,7 @@ create table if not exists chat_messages (
 -- alter table chat_messages add column if not exists debate_trace jsonb;
 -- alter table chat_messages add column if not exists dissector_trace jsonb;
 -- alter table chat_messages add column if not exists thinking text;
+-- alter table chat_messages add column if not exists documents jsonb;
 -- alter table chat_messages add column if not exists is_fork_point boolean default false;
 -- alter table chat_messages add column if not exists fork_resolution text;
 
