@@ -70,7 +70,9 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
 
 /** Models where direct API should be preferred over OpenRouter.
  *  Empty — OpenRouter is primary for all models (supports caching natively). */
-const PREFER_DIRECT: Set<string> = new Set([]);
+const PREFER_DIRECT: Set<string> = new Set([
+  "x-ai/grok-4.2",
+]);
 
 /* ─── Bedrock provider (Claude models via AWS) ─────────────────── */
 
@@ -195,7 +197,7 @@ export async function streamOpenRouter(
 
   // Enable reasoning for models that support it
   const isOpenAIReasoning = model.startsWith("openai/");
-  const isXAIReasoning = model.startsWith("x-ai/");
+  const isXAIReasoning = model.startsWith("x-ai/") && !model.includes("grok-4.2");
   const isMiniMaxReasoning = model.startsWith("minimax/");
 
   const response = await client.chat.completions.create({
@@ -746,7 +748,7 @@ async function streamOpenAIDirect(
 
   // Enable reasoning for models that support it
   const isGPT = nativeModel.startsWith("gpt-");
-  const isGrok = nativeModel.startsWith("grok-");
+  const isGrok = nativeModel.startsWith("grok-") && !nativeModel.includes("multi-agent");
   const isMiniMax = nativeModel.startsWith("minimax-");
 
   const response = await client.chat.completions.create({
