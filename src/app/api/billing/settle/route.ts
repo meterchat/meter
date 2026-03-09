@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, ensureStripeCustomer } from "@/lib/stripe";
+import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
 import { getSupabaseServer } from "@/lib/supabase";
 import { batchSettle, SettlementItem } from "@/lib/base";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     const customerId = await ensureStripeCustomer(userId);
 
     // Get customer's default payment method
-    const customer = await stripe.customers.retrieve(customerId);
+    const customer = await getStripe().customers.retrieve(customerId);
     if (customer.deleted) {
       return NextResponse.json({ error: "Stripe customer deleted" }, { status: 400 });
     }
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
 
     // Create and confirm PaymentIntent
     const amountCents = Math.round(amount * 100);
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount: amountCents,
       currency: "usd",
       customer: customerId,
@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
 
     // Get card info for history record
     const pmObj = typeof defaultPm === "string"
-      ? await stripe.paymentMethods.retrieve(defaultPm)
+      ? await getStripe().paymentMethods.retrieve(defaultPm)
       : defaultPm;
     const historyId = `stl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     await supabase.from("settlement_history").insert({

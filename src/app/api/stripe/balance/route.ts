@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 
 export async function GET() {
   try {
     const [balance, payouts] = await Promise.all([
-      stripe.balance.retrieve(),
-      stripe.payouts.list({ limit: 10 }),
+      getStripe().balance.retrieve(),
+      getStripe().payouts.list({ limit: 10 }),
     ]);
 
     return NextResponse.json({

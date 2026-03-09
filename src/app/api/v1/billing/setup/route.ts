@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { resolveEndUser } from "@/lib/sdk-users";
 import { authenticateApiKey } from "@/lib/api-auth";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 
 // POST /api/v1/billing/setup — create Stripe SetupIntent for end-user card
 export async function POST(req: NextRequest) {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   let customerId = endUser?.stripe_customer_id;
 
   if (!customerId) {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       metadata: {
         meter_sdk_user_id: internalId,
         developer_id: keyRecord.user_id,
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       .eq("id", internalId);
   }
 
-  const setupIntent = await stripe.setupIntents.create({
+  const setupIntent = await getStripe().setupIntents.create({
     customer: customerId,
     payment_method_types: ["card"],
   });

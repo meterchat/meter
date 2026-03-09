@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe, ensureStripeCustomer } from "@/lib/stripe";
+import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET() {
@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const customerId = await ensureStripeCustomer(userId);
 
-    const customer = await stripe.customers.retrieve(customerId);
+    const customer = await getStripe().customers.retrieve(customerId);
     if (customer.deleted) {
       return NextResponse.json({ cards: [] });
     }
@@ -20,7 +20,7 @@ export async function GET() {
         ? customer.invoice_settings.default_payment_method
         : customer.invoice_settings?.default_payment_method?.id ?? null;
 
-    const methods = await stripe.customers.listPaymentMethods(
+    const methods = await getStripe().customers.listPaymentMethods(
       customerId,
       { type: "card", limit: 10 }
     );
