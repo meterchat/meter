@@ -247,7 +247,11 @@ const STATEMENTS: string[] = [
 
   // Hosted docs portal slug per workspace (e.g. docs.meter.chat/{handle}/{slug})
   `alter table chat_sessions add column if not exists portal_slug text`,
-  `create unique index if not exists idx_chat_sessions_portal_slug on chat_sessions(portal_slug) where portal_slug is not null`,
+  // Portal slug only needs to be unique per user (URL is /docs/{handle}/{slug})
+  `drop index if exists idx_chat_sessions_portal_slug`,
+  `create unique index if not exists idx_chat_sessions_portal_slug on chat_sessions(user_id, portal_slug) where portal_slug is not null`,
+  // Clean up old slugs with random suffixes — regenerate from workspace_name
+  `update chat_sessions set portal_slug = lower(regexp_replace(regexp_replace(regexp_replace(trim(coalesce(workspace_name, project_name, 'workspace')), '[^a-zA-Z0-9\\s-]', '', 'g'), '\\s+', '-', 'g'), '-+', '-', 'g')) where portal_slug is not null`,
 
   // Public development log
   `create table if not exists log_entries (

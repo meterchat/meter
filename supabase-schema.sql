@@ -93,7 +93,7 @@ create table if not exists chat_sessions (
 );
 
 create unique index if not exists idx_chat_sessions_portal_slug
-  on chat_sessions(portal_slug) where portal_slug is not null;
+  on chat_sessions(user_id, portal_slug) where portal_slug is not null;
 
 -- Chat messages
 create table if not exists chat_messages (

@@ -41,17 +41,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ slug: session.portal_slug, handle });
     }
 
-    // Generate a new slug
+    // Generate a slug from the workspace name (unique per user, no suffix needed)
     const name = session.workspace_name || session.project_name || "workspace";
-    const slug = await generatePortalSlug(name, async (candidate) => {
-      const { data } = await supabase
-        .from("chat_sessions")
-        .select("id")
-        .eq("portal_slug", candidate)
-        .eq("user_id", userId)
-        .maybeSingle();
-      return !!data;
-    });
+    const slug = generatePortalSlug(name);
 
     // Save it
     await supabase
