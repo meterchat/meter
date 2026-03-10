@@ -114,6 +114,20 @@ export async function POST(req: NextRequest) {
           .limit(1),
       ]);
 
+      // Backfill handle for existing accounts that don't have one
+      if (user && !user.handle) {
+        const handle = await generateHandle(async (candidate) => {
+          const { data } = await supabase
+            .from("meter_users")
+            .select("id")
+            .eq("handle", candidate)
+            .maybeSingle();
+          return !!data;
+        });
+        await supabase.from("meter_users").update({ handle }).eq("id", userId);
+        user.handle = handle;
+      }
+
       // Create session + cookie
       const sessionToken = await createSession(userId);
       const response = NextResponse.json({
