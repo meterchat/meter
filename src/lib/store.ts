@@ -1691,6 +1691,7 @@ export const useMeterStore = create<MeterState>()(
       partialize: (s) => ({
         userId: s.userId,
         email: s.email,
+        handle: s.handle,
         accountType: s.accountType,
         markupMultiplier: s.markupMultiplier,
         authenticated: s.authenticated,

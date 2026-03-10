@@ -694,6 +694,31 @@ export function useSessionSync() {
     // Also load decisions from server (they may not be in localStorage after logout/login)
     useDecisionsStore.getState().fetchDecisions();
 
+    // Refresh user profile data from server (handle, email, card info, etc.)
+    // This ensures fields not in localStorage (or stale values) are restored.
+    fetch(apiUrl("/api/auth/me"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data || cancelled) return;
+        const store = useMeterStore.getState();
+        store.setAuth(
+          data.userId,
+          data.handle,
+          data.email,
+          data.accountType,
+          data.markupMultiplier,
+        );
+        if (data.cardOnFile !== undefined) {
+          useMeterStore.setState({
+            cardOnFile: data.cardOnFile,
+            cardLast4: data.cardLast4,
+            cardBrand: data.cardBrand,
+            stripeCustomerId: data.stripeCustomerId,
+          });
+        }
+      })
+      .catch(() => { /* silent — localStorage still has basics */ });
+
     return () => {
       cancelled = true;
     };
