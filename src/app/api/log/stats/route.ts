@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/auth";
 
 // Paginate through all rows — Supabase caps at 1000 per request
 async function fetchAllMessages(supabase: ReturnType<typeof getSupabaseServer>) {
@@ -21,8 +22,11 @@ async function fetchAllMessages(supabase: ReturnType<typeof getSupabaseServer>) 
   return all;
 }
 
-// GET /api/log/stats — aggregate spend stats across all users for the MeterBar
+// GET /api/log/stats — aggregate spend stats across all users for the MeterBar (superadmin only)
 export async function GET() {
+  const auth = await requireSuperAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = getSupabaseServer();
 
