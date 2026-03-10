@@ -238,14 +238,7 @@ export async function POST(req: NextRequest) {
       // Auto-generate portal slug for new workspaces (not subtracks)
       if (!session.isSubtrack) {
         try {
-          const slug = await generatePortalSlug(session.name || "workspace", async (candidate) => {
-            const { data } = await supabase
-              .from("chat_sessions")
-              .select("id")
-              .eq("portal_slug", candidate)
-              .maybeSingle();
-            return !!data;
-          });
+          const slug = generatePortalSlug(session.name || "workspace");
           await supabase
             .from("chat_sessions")
             .update({ portal_slug: slug })
