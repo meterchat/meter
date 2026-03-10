@@ -16,7 +16,6 @@ import {
   trackDecisionReopened,
   trackDecisionRevisited,
   trackArtifactGenerated,
-  trackArtifactRegenerated,
   trackArtifactPushed,
   trackInspectorToggled,
   trackInspectorTabChanged,
@@ -718,9 +717,9 @@ function inferCategoryFromPath(filePath: string): string {
   return "other";
 }
 
-function DocumentTree({ artifacts, onRegenerate, onPush, pushing }: {
+function DocumentTree({ artifacts, onOpen, onPush, pushing }: {
   artifacts: Artifact[];
-  onRegenerate: (filePath: string) => void;
+  onOpen: () => void;
   onPush: (id: string) => void;
   pushing: boolean;
 }) {
@@ -782,7 +781,7 @@ function DocumentTree({ artifacts, onRegenerate, onPush, pushing }: {
                   <ArtifactRow
                     key={a.id}
                     artifact={a}
-                    onRegenerate={onRegenerate}
+                    onOpen={onOpen}
                     onPush={onPush}
                     pushing={pushing}
                   />
@@ -796,9 +795,9 @@ function DocumentTree({ artifacts, onRegenerate, onPush, pushing }: {
   );
 }
 
-function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
+function ArtifactRow({ artifact, onOpen, onPush, pushing }: {
   artifact: Artifact;
-  onRegenerate: (filePath: string) => void;
+  onOpen: () => void;
   onPush: (id: string) => void;
   pushing: boolean;
 }) {
@@ -835,10 +834,15 @@ function ArtifactRow({ artifact, onRegenerate, onPush, pushing }: {
         </span>
         <div className="hidden group-hover:flex items-center gap-1 shrink-0">
           <button
-            onClick={(e) => { e.stopPropagation(); onRegenerate(artifact.filePath); }}
-            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+            onClick={(e) => { e.stopPropagation(); onOpen(); }}
+            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors flex items-center gap-0.5"
+            title="Open in portal"
           >
-            regen
+            open
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onPush(artifact.id); }}
@@ -915,6 +919,10 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
   const [reposLoading, setReposLoading] = useState(false);
   const [showRepoSelector, setShowRepoSelector] = useState(false);
 
+  // Portal slug state
+  const [portalSlug, setPortalSlug] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+
   useEffect(() => {
     if (activeSessionId) {
       fetchArtifacts(activeSessionId);
@@ -922,6 +930,39 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
       clearArtifacts();
     }
   }, [activeSessionId, fetchArtifacts, clearArtifacts]);
+
+  // Fetch or create portal slug when we have artifacts
+  const fetchPortalSlug = async () => {
+    if (!activeSessionId || portalLoading) return;
+    setPortalLoading(true);
+    try {
+      const res = await fetch(`/api/portal?sessionId=${encodeURIComponent(activeSessionId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPortalSlug(data.slug);
+      }
+    } catch { /* silent */ }
+    setPortalLoading(false);
+  };
+
+  useEffect(() => {
+    if (activeSessionId && artifacts.length > 0 && !portalSlug) {
+      fetchPortalSlug();
+    }
+    if (!activeSessionId) setPortalSlug(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSessionId, artifacts.length]);
+
+  const openPortal = () => {
+    if (portalSlug) {
+      window.open(`/portal/${portalSlug}`, "_blank");
+    } else {
+      fetchPortalSlug().then(() => {
+        const slug = portalSlug;
+        if (slug) window.open(`/portal/${slug}`, "_blank");
+      });
+    }
+  };
 
   const fetchRepos = async () => {
     if (!githubConnected || !activeSessionId) return;
@@ -943,11 +984,6 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
   const handleGenerate = () => {
     trackArtifactGenerated({ projectId: activeSessionId ?? undefined });
     setPendingInput("Generate strategy artifacts for this project based on all our decisions and conversation so far. Create README.md, ARCHITECTURE.md, DESIGN.md, DECISIONS.md, CLAUDE.md, BRAND.md, and .cursorrules files.");
-  };
-
-  const handleRegenerate = (filePath: string) => {
-    trackArtifactRegenerated({ filePath, projectId: activeSessionId ?? undefined });
-    setPendingInput(`Regenerate the ${filePath} strategy artifact based on the latest decisions and conversation context.`);
   };
 
   const handlePush = async (artifactIds?: string[]) => {
@@ -1003,6 +1039,19 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
         <div className="flex items-center gap-1.5">
           {artifacts.length > 0 && (
             <>
+              <button
+                onClick={openPortal}
+                disabled={portalLoading}
+                className="flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-30"
+                title="Open docs portal"
+              >
+                Open
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </button>
               <button
                 onClick={handleDownloadZip}
                 className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
@@ -1093,7 +1142,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
       ) : (
         <DocumentTree
           artifacts={artifacts}
-          onRegenerate={handleRegenerate}
+          onOpen={openPortal}
           onPush={(id) => handlePush([id])}
           pushing={pushing}
         />
