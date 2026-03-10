@@ -117,19 +117,23 @@ export const useDecisionsStore = create<DecisionsState>()(
           const res = await fetch(apiUrl("/api/decisions"));
           if (!res.ok) return;
           const data = await res.json();
-          if (!data.decisions?.length) return;
 
-          const serverDecisions = data.decisions as Decision[];
+          const serverDecisions = (data.decisions ?? []) as Decision[];
 
           set((s) => {
-            // Merge server decisions into local, deduplicating by ID and by title+sessionId
-            const localIds = new Set(s.decisions.map((d) => d.id));
-            const localKeys = new Set(s.decisions.map((d) => `${d.title}::${d.sessionId ?? ""}`));
-            const newFromServer = serverDecisions.filter(
-              (d) => !localIds.has(d.id) && !localKeys.has(`${d.title}::${d.sessionId ?? ""}`)
+            if (serverDecisions.length === 0) return s;
+
+            // Server is authoritative. Build a map of server decisions by ID.
+            const serverById = new Map(serverDecisions.map((d) => [d.id, d]));
+            const serverKeys = new Set(serverDecisions.map((d) => `${d.title}::${d.sessionId ?? ""}`));
+
+            // Keep local-only decisions (client-generated IDs not on server,
+            // AND no server decision with the same title+session).
+            const localOnly = s.decisions.filter(
+              (d) => !serverById.has(d.id) && !serverKeys.has(`${d.title}::${d.sessionId ?? ""}`)
             );
-            if (newFromServer.length === 0) return s;
-            return { decisions: [...newFromServer, ...s.decisions] };
+
+            return { decisions: [...serverDecisions, ...localOnly] };
           });
         } catch {
           // Silent fail — localStorage still works as fallback
