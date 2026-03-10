@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       filePath: a.file_path,
       content: a.content,
       status: a.status,
+      category: a.category ?? undefined,
       githubRepo: a.github_repo ?? undefined,
       githubSha: a.github_sha ?? undefined,
       lastGeneratedAt: a.last_generated_at ? new Date(a.last_generated_at).getTime() : undefined,

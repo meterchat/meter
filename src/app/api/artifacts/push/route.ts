@@ -70,13 +70,14 @@ export async function POST(req: NextRequest) {
         );
 
         // Update artifact record
-        await supabase.from("artifacts").update({
+        const { error: updateErr } = await supabase.from("artifacts").update({
           status: "synced",
           github_repo: repo,
           github_sha: result.sha,
           last_pushed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }).eq("id", artifact.id);
+        if (updateErr) throw updateErr;
 
         results.push({ filePath: artifact.file_path, sha: result.sha, url: result.url });
       } catch (err) {
