@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { serverTrackSessionCreated, serverTrackSessionDeleted } from "@/lib/analytics-server";
+import { generatePortalSlug } from "@/lib/portal-slug";
 
 // Namespace session IDs per user to prevent collisions
 function scopedId(userId: string, localId: string): string {
@@ -233,6 +234,26 @@ export async function POST(req: NextRequest) {
         sessionId: session.id,
         projectName: session.name,
       });
+
+      // Auto-generate portal slug for new workspaces (not subtracks)
+      if (!session.isSubtrack) {
+        try {
+          const slug = await generatePortalSlug(session.name || "workspace", async (candidate) => {
+            const { data } = await supabase
+              .from("chat_sessions")
+              .select("id")
+              .eq("portal_slug", candidate)
+              .maybeSingle();
+            return !!data;
+          });
+          await supabase
+            .from("chat_sessions")
+            .update({ portal_slug: slug })
+            .eq("id", dbSessionId);
+        } catch {
+          // Non-critical — slug can be generated later via /api/portal
+        }
+      }
     }
 
     // Upsert messages in batches

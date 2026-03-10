@@ -21,6 +21,7 @@ type OnboardingStep = "passkey" | "no-account";
 
 interface PendingUser {
   id: string;
+  handle: string | null;
   email: string | null;
   cardOnFile: boolean;
   cardLast4: string | null;
@@ -470,7 +471,7 @@ export function LoginScreen() {
       await useMeterStore.getState().logout();
     }
 
-    setAuth(user.id, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard", user.markupMultiplier ?? 2);
+    setAuth(user.id, user.handle ?? null, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard", user.markupMultiplier ?? 2);
 
     identifyUser(user.id, {
       email: user.email,

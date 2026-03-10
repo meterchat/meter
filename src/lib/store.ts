@@ -143,6 +143,7 @@ interface Session {
 
 interface MeterState {
   userId: string | null;
+  handle: string | null;
   email: string | null;
   accountType: "standard" | "superadmin";
   markupMultiplier: number;
@@ -192,7 +193,7 @@ interface MeterState {
   inspectorTab: string;
   scrollToMessageId: string | null;
 
-  setAuth: (userId: string, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => void;
+  setAuth: (userId: string, handle: string | null, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => void;
   setSessionsLoaded: (v: boolean) => void;
   setEmail: (email: string) => void;
   setCardOnFile: (v: boolean, last4?: string, brand?: string) => void;
@@ -422,6 +423,7 @@ export const useMeterStore = create<MeterState>()(
   persist(
     (set, get) => ({
       userId: null,
+      handle: null,
       email: null,
       accountType: "standard" as const,
       markupMultiplier: 2,
@@ -462,7 +464,7 @@ export const useMeterStore = create<MeterState>()(
       inspectorTab: "decisions",
       scrollToMessageId: null,
 
-      setAuth: (userId: string, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? 2, authenticated: true }),
+      setAuth: (userId: string, handle: string | null, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, handle, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? 2, authenticated: true }),
       setSessionsLoaded: (v) => set({ sessionsLoaded: v }),
       setEmail: (email) => set({ email }),
       setCardOnFile: (v, last4, brand) =>
@@ -643,6 +645,7 @@ export const useMeterStore = create<MeterState>()(
         // Clear this store immediately — sendBeacon is queued and will complete
         set({
           userId: null,
+          handle: null,
           email: null,
           authenticated: false,
           sessionsLoaded: false,

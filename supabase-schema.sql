@@ -5,10 +5,11 @@
 -- USERS & AUTH
 -- =============================================
 
--- Users table (email-based accounts)
+-- Users table (passkey-based anonymous accounts)
 create table if not exists meter_users (
   id text primary key,
-  email text unique not null,
+  handle text unique,                   -- short alphanumeric user ID (e.g. "ab41ki"), public-facing
+  email text unique,                    -- optional, auto-generated as {handle}@meter.chat for Stripe
   account_type text not null default 'standard',  -- 'standard' | 'superadmin'
   markup_multiplier numeric not null default 1,   -- per-account pricing multiplier (1 = at-cost)
   stripe_customer_id text,
@@ -85,10 +86,14 @@ create table if not exists chat_sessions (
   settlement_failed boolean default false,
   archived boolean default false,
   committed boolean default false,
+  portal_slug text,                     -- unique slug for hosted docs portal (workspace.meter.chat)
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   deleted_at timestamptz default null
 );
+
+create unique index if not exists idx_chat_sessions_portal_slug
+  on chat_sessions(portal_slug) where portal_slug is not null;
 
 -- Chat messages
 create table if not exists chat_messages (
@@ -304,6 +309,10 @@ create index if not exists idx_tx_history_user on tx_history(user_id);
 -- alter table chat_sessions add column if not exists workspace_name text;
 -- alter table chat_sessions add column if not exists is_subtrack boolean default false;
 -- alter table chat_sessions add column if not exists parent_session_id text;
+
+-- Portal slug for hosted documentation site (unique per workspace)
+-- alter table chat_sessions add column if not exists portal_slug text;
+-- create unique index if not exists idx_chat_sessions_portal_slug on chat_sessions(portal_slug) where portal_slug is not null;
 
 -- Rename project_id → session_id on decisions and artifacts (keep project_id as legacy alias)
 -- alter table decisions add column if not exists session_id text;

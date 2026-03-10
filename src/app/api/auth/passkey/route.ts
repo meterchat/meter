@@ -8,6 +8,7 @@ import {
 } from "@simplewebauthn/server";
 import crypto from "crypto";
 import { createSession, setSessionCookie } from "@/lib/session";
+import { generateHandle } from "@/lib/handle";
 
 const RP_NAME = "Meter";
 const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID || "meter.chat";
@@ -119,6 +120,7 @@ export async function POST(req: NextRequest) {
         verified: true,
         user: {
           id: user?.id,
+          handle: user?.handle ?? null,
           email: user?.email ?? null,
           cardOnFile: !!user?.stripe_customer_id && !!user?.card_last4,
           cardLast4: user?.card_last4,
@@ -137,17 +139,28 @@ export async function POST(req: NextRequest) {
     if (step === "register-options") {
       const userId = `usr_${crypto.randomBytes(12).toString("hex")}`;
 
-      // Create user with no email
+      // Generate a unique short handle (e.g. "ab41ki")
+      const handle = await generateHandle(async (candidate) => {
+        const { data } = await supabase
+          .from("meter_users")
+          .select("id")
+          .eq("handle", candidate)
+          .maybeSingle();
+        return !!data;
+      });
+
+      // Create user with handle and auto-generated internal email
+      const internalEmail = `${handle}@meter.chat`;
       const { error: insertErr } = await supabase
         .from("meter_users")
-        .insert({ id: userId });
+        .insert({ id: userId, handle, email: internalEmail });
       if (insertErr) throw insertErr;
 
       const options = await generateRegistrationOptions({
         rpName: RP_NAME,
         rpID: RP_ID,
-        userName: userId,
-        userDisplayName: "Meter User",
+        userName: handle,
+        userDisplayName: handle,
         userID: new TextEncoder().encode(userId),
         attestationType: "none",
         authenticatorSelection: {
@@ -230,6 +243,7 @@ export async function POST(req: NextRequest) {
         verified: true,
         user: {
           id: user?.id,
+          handle: user?.handle ?? null,
           email: user?.email ?? null,
           cardOnFile: !!user?.stripe_customer_id && !!user?.card_last4,
           cardLast4: user?.card_last4,

@@ -1077,6 +1077,7 @@ export function ChatView() {
   }, [decisions, defaultSessionId, updateDecision]);
 
   const userId = useMeterStore((s) => s.userId);
+  const userHandle = useMeterStore((s) => s.handle);
   const cardOnFile = useMeterStore((s) => s.cardOnFile);
   const cardLast4 = useMeterStore((s) => s.cardLast4);
   const cardBrand = useMeterStore((s) => s.cardBrand);
@@ -2404,13 +2405,30 @@ export function ChatView() {
             <ChatSkeleton />
           ) : (
           <div className="mx-auto max-w-2xl px-4 py-6 max-md:px-3">
-            {/* ── First-workspace onboarding: name → card → explainer ── */}
+            {/* ── First-workspace onboarding: welcome with ID → name → card → explainer ── */}
             {messages.length === 0 && !workspaceCardReady && !cardOnFile && onboardingStep === "name" && (
               <div className="mb-4">
                 <div className="flex gap-3 justify-start">
                   <div className="relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed text-foreground">
                     <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
-                      <p>Welcome to <strong>Meter</strong>. Name your workspace to get started.</p>
+                      <p>Welcome to <strong>Meter</strong>. Your user ID is:</p>
+                    </div>
+                    {userHandle && (
+                      <div className="my-3 flex items-center gap-2 rounded-lg border border-border bg-card/60 px-4 py-3">
+                        <code className="flex-1 font-mono text-[15px] tracking-wider text-foreground">{userHandle}</code>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(userHandle); }}
+                          className="shrink-0 rounded-md border border-border/50 bg-card/50 px-2 py-1 font-mono text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    )}
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
+                      <p>Passkey login is extremely robust and safe, and allows us to give you fully anonymized and private access to the top frontier models. Save your ID offline, in case you need to recover your account.</p>
+                    </div>
+                    <div className="mt-4 prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
+                      <p>Name your workspace to get started.</p>
                     </div>
                     <div className="mt-3 max-w-sm">
                       <input
