@@ -958,17 +958,27 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId, artifacts.length]);
 
-  const portalUrl = portalHandle && portalSlug
-    ? `https://docs.meter.chat/${portalHandle}/${portalSlug}`
-    : null;
-
-  const openPortal = () => {
-    if (portalUrl) {
-      window.open(portalUrl, "_blank");
-    } else if (portalSlug && portalHandle) {
-      window.open(`/docs/${portalHandle}/${portalSlug}`, "_blank");
-    } else {
-      fetchPortalSlug();
+  const openPortal = async () => {
+    let slug = portalSlug;
+    let handle = portalHandle;
+    if (!slug || !handle) {
+      // Fetch first, then open
+      if (!activeSessionId || portalLoading) return;
+      setPortalLoading(true);
+      try {
+        const res = await fetch(`/api/portal?sessionId=${encodeURIComponent(activeSessionId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          slug = data.slug;
+          handle = data.handle;
+          setPortalSlug(slug);
+          setPortalHandle(handle);
+        }
+      } catch { /* silent */ }
+      setPortalLoading(false);
+    }
+    if (slug && handle) {
+      window.open(`/docs/${handle}/${slug}`, "_blank");
     }
   };
 
