@@ -241,6 +241,14 @@ const STATEMENTS: string[] = [
   `alter table auth_challenges alter column email drop not null`,
   `alter table auth_challenges add column if not exists user_id text`,
 
+  // Anonymous user handles (short alphanumeric ID, e.g. "ab41ki")
+  `alter table meter_users add column if not exists handle text`,
+  `create unique index if not exists idx_meter_users_handle on meter_users(handle) where handle is not null`,
+
+  // Hosted docs portal slug per workspace (e.g. docs.meter.chat/{handle}/{slug})
+  `alter table chat_sessions add column if not exists portal_slug text`,
+  `create unique index if not exists idx_chat_sessions_portal_slug on chat_sessions(portal_slug) where portal_slug is not null`,
+
   // Public development log
   `create table if not exists log_entries (
     id text primary key,
