@@ -53,7 +53,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
     function: {
       name: "save_decision",
       description:
-        "Save a decision or recommendation. ALWAYS call list_decisions first to check for existing decisions on the same topic — if one exists, pass its ID in `supersedes` to create a versioned history.",
+        "Save a decision or recommendation. You MUST actually call this tool — writing 'decision saved' or 'locked' in text does NOT persist anything. ALWAYS call list_decisions first to check for existing decisions on the same topic — if one exists, pass its ID in `supersedes` to create a versioned history.",
       parameters: {
         type: "object",
         properties: {
@@ -269,7 +269,12 @@ Write as a sharp advocate making a closing argument. Confident, not hedging. Pla
 4. Close with a comparison table:
 | Option | Gains | Gives Up | Hidden Risk |
 Then one sentence on which tradeoff profile best fits a builder who needs to move fast.
-Be specific — no vague "better UX" or "more flexible". State the actual gain or cost.`;
+Be specific — no vague "better UX" or "more flexible". State the actual gain or cost.
+
+FINAL REMINDER — TOOL CALLS ARE MANDATORY:
+- To log a decision: you MUST call list_decisions then save_decision. Saying "locked" or "decision saved" in text does NOTHING — only the tool call persists it. If you catch yourself writing "decision saved" without having made a save_decision tool call, STOP and make the tool call.
+- To save a document: you MUST call save_artifact. Describing a document in text does not save it.
+Never narrate tool usage — actually call the tools.`;
 }
 
 export const SYSTEM_PROMPT = buildSystemPrompt([]);

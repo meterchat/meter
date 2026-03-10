@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
       timestamp: number;
       debateTrace?: unknown;
       dissectorTrace?: unknown;
+      documents?: unknown;
       thinking?: string;
       receiptStatus?: string;
     }) => {
@@ -183,6 +184,7 @@ export async function POST(req: NextRequest) {
           receipt_status: msg.receiptStatus ?? null,
           debate_trace: msg.debateTrace ?? null,
           dissector_trace: msg.dissectorTrace ?? null,
+          documents: msg.documents ?? null,
           thinking: msg.thinking ?? null,
           timestamp: msg.timestamp,
         }, { onConflict: "id" });
@@ -212,6 +214,7 @@ export async function POST(req: NextRequest) {
     let currentDebateTurn: { model: string; phase: string; content: string } | null = null;
     const serverDissectorTrace: { persona: string; content: string }[] = [];
     let currentDissectorTurn: { persona: string; content: string } | null = null;
+    const serverDocuments: { id: string; filePath: string; content: string; category: string }[] = [];
     // Track client connection state — when the client disconnects (e.g. page
     // refresh), we keep the upstream API call running and accumulate the full
     // response so we can save it to DB. Only the SSE push is skipped.
@@ -237,6 +240,7 @@ export async function POST(req: NextRequest) {
             thinking: fullThinkingContent || undefined,
             debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
             dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+            documents: serverDocuments.length > 0 ? serverDocuments : undefined,
           }).catch(() => { /* best-effort */ });
         }
       }
@@ -472,13 +476,24 @@ export async function POST(req: NextRequest) {
               if (tc.name === "save_artifact") {
                 let artifactData: { id?: string; content?: string; category?: string } | undefined;
                 try { artifactData = JSON.parse(toolResult); } catch { /* plain text fallback */ }
+                const docId = artifactData?.id || `art_${Date.now()}`;
+                const docCategory = artifactData?.category || args.category || "other";
                 toolResultEvent.artifact = {
-                  id: artifactData?.id,
+                  id: docId,
                   filePath: args.file_path,
                   content: args.content,
-                  category: artifactData?.category || args.category || "other",
+                  category: docCategory,
                   status: "draft",
                 };
+                // Accumulate for DB persistence so document cards survive page reload
+                if (args.content) {
+                  serverDocuments.push({
+                    id: docId,
+                    filePath: args.file_path as string,
+                    content: args.content as string,
+                    category: docCategory as string,
+                  });
+                }
               }
               if (tc.name === "fork_paths") {
                 toolResultEvent.forkPaths = args.paths;
@@ -594,6 +609,7 @@ export async function POST(req: NextRequest) {
             receiptStatus: "signed",
             timestamp: Date.now(),
             thinking: fullThinkingContent || undefined,
+            documents: serverDocuments.length > 0 ? serverDocuments : undefined,
           });
         }
 
@@ -618,6 +634,7 @@ export async function POST(req: NextRequest) {
             thinking: fullThinkingContent || undefined,
             debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
             dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+            documents: serverDocuments.length > 0 ? serverDocuments : undefined,
           }).catch(() => { /* best-effort */ });
         }
       },
