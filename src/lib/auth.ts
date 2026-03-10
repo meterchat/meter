@@ -33,3 +33,19 @@ export async function isSuperAdmin(userId: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Verify the request is from an authenticated superadmin.
+ * Returns the userId if valid, or a 401/403 NextResponse if not.
+ */
+export async function requireSuperAdmin(): Promise<
+  { userId: string } | NextResponse
+> {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const superAdmin = await isSuperAdmin(auth.userId);
+  if (!superAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return auth;
+}

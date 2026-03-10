@@ -1,8 +1,12 @@
 import { NextResponse, NextRequest } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/auth";
 
-// GET /api/log/detail?id=xxx — enrich a log entry with related data
+// GET /api/log/detail?id=xxx — enrich a log entry with related data (superadmin only)
 export async function GET(request: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = getSupabaseServer();
     const { searchParams } = new URL(request.url);

@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/auth";
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -58,8 +59,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/log — public feed of log entries
+// GET /api/log — superadmin-only feed of log entries
 export async function GET(request: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = getSupabaseServer();
     const { searchParams } = new URL(request.url);

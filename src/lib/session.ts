@@ -27,22 +27,27 @@ export async function createSession(userId: string): Promise<string> {
 }
 
 export function setSessionCookie(response: NextResponse, token: string) {
+  const isProd = process.env.NODE_ENV === "production";
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isProd,
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL_DAYS * 24 * 60 * 60,
+    // Share across subdomains (log.meter.chat, docs.meter.chat, etc.)
+    ...(isProd && { domain: ".meter.chat" }),
   });
 }
 
 export function clearSessionCookie(response: NextResponse) {
+  const isProd = process.env.NODE_ENV === "production";
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isProd,
     sameSite: "lax",
     path: "/",
     maxAge: 0,
+    ...(isProd && { domain: ".meter.chat" }),
   });
 }
 
