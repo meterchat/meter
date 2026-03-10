@@ -2,24 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 
 /**
- * GET /api/portal/[slug]
- * Public endpoint — serves portal data (workspace name + artifacts) by slug.
+ * GET /api/portal/[handle]/[workspace]
+ * Public endpoint — serves portal data by user handle + workspace slug.
  * No auth required — this is the hosted docs portal.
+ *
+ * URL pattern: docs.meter.chat/{handle}/{workspace}
  */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> },
+  { params }: { params: Promise<{ handle: string; workspace: string }> },
 ) {
-  const { slug } = await params;
+  const { handle, workspace } = await params;
 
   try {
     const supabase = getSupabaseServer();
 
-    // Find the workspace by portal slug
+    // Find the user by handle
+    const { data: user } = await supabase
+      .from("meter_users")
+      .select("id")
+      .eq("handle", handle)
+      .single();
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Find the workspace by portal slug belonging to this user
     const { data: session } = await supabase
       .from("chat_sessions")
-      .select("id, workspace_name, project_name, user_id, created_at")
-      .eq("portal_slug", slug)
+      .select("id, workspace_name, project_name, created_at")
+      .eq("portal_slug", workspace)
+      .eq("user_id", user.id)
       .is("deleted_at", null)
       .single();
 
@@ -31,14 +45,15 @@ export async function GET(
     const { data: artifacts } = await supabase
       .from("artifacts")
       .select("id, file_path, content, status, category, last_generated_at, created_at, updated_at")
-      .eq("user_id", session.user_id)
+      .eq("user_id", user.id)
       .or(`session_id.eq.${session.id},project_id.eq.${session.id}`)
       .order("created_at", { ascending: true });
 
     return NextResponse.json({
       workspace: {
         name: session.workspace_name || session.project_name || "Workspace",
-        slug,
+        slug: workspace,
+        handle,
         createdAt: session.created_at,
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

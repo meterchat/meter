@@ -21,7 +21,7 @@ interface PortalDocument {
 }
 
 interface PortalData {
-  workspace: { name: string; slug: string; createdAt: string };
+  workspace: { name: string; slug: string; handle: string; createdAt: string };
   documents: PortalDocument[];
 }
 
@@ -205,11 +205,11 @@ function DocumentViewer({ doc }: { doc: PortalDocument }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Page                                                               */
+/*  Page — docs.meter.chat/{handle}/{workspace}                        */
 /* ------------------------------------------------------------------ */
 
-export default function PortalPage() {
-  const { slug } = useParams<{ slug: string }>();
+export default function DocsPortalPage() {
+  const { handle, workspace } = useParams<{ handle: string; workspace: string }>();
   const [data, setData] = useState<PortalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -217,9 +217,9 @@ export default function PortalPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!handle || !workspace) return;
     setLoading(true);
-    fetch(`/api/portal/${encodeURIComponent(slug)}`)
+    fetch(`/api/portal/${encodeURIComponent(handle)}/${encodeURIComponent(workspace)}`)
       .then((res) => {
         if (!res.ok) throw new Error(res.status === 404 ? "Portal not found" : "Failed to load");
         return res.json();
@@ -234,7 +234,7 @@ export default function PortalPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [handle, workspace]);
 
   const groups = useMemo(
     () => (data ? groupDocuments(data.documents) : []),
@@ -299,7 +299,7 @@ export default function PortalPage() {
         {/* Workspace name */}
         <div className="px-4 py-3 border-b border-white/[0.06]">
           <div className="font-mono text-[10px] text-white/30 uppercase tracking-wider mb-1">
-            Portal
+            {data.workspace.handle}
           </div>
           <div className="text-[13px] text-white/80 font-medium truncate">
             {data.workspace.name}

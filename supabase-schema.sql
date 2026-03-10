@@ -5,10 +5,11 @@
 -- USERS & AUTH
 -- =============================================
 
--- Users table (email-based accounts)
+-- Users table (passkey-based anonymous accounts)
 create table if not exists meter_users (
   id text primary key,
-  email text unique not null,
+  handle text unique,                   -- short alphanumeric user ID (e.g. "ab41ki"), public-facing
+  email text unique,                    -- optional, auto-generated as {handle}@meter.chat for Stripe
   account_type text not null default 'standard',  -- 'standard' | 'superadmin'
   markup_multiplier numeric not null default 1,   -- per-account pricing multiplier (1 = at-cost)
   stripe_customer_id text,

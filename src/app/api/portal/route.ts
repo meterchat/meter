@@ -20,20 +20,25 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = getSupabaseServer();
 
-    // Check if workspace already has a portal slug
-    const { data: session } = await supabase
-      .from("chat_sessions")
-      .select("portal_slug, workspace_name, project_name")
-      .eq("id", sessionId)
-      .eq("user_id", userId)
-      .single();
+    // Fetch user handle and workspace data in parallel
+    const [{ data: user }, { data: session }] = await Promise.all([
+      supabase.from("meter_users").select("handle").eq("id", userId).single(),
+      supabase
+        .from("chat_sessions")
+        .select("portal_slug, workspace_name, project_name")
+        .eq("id", sessionId)
+        .eq("user_id", userId)
+        .single(),
+    ]);
 
     if (!session) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
+    const handle = user?.handle ?? null;
+
     if (session.portal_slug) {
-      return NextResponse.json({ slug: session.portal_slug });
+      return NextResponse.json({ slug: session.portal_slug, handle });
     }
 
     // Generate a new slug
@@ -43,6 +48,7 @@ export async function GET(req: NextRequest) {
         .from("chat_sessions")
         .select("id")
         .eq("portal_slug", candidate)
+        .eq("user_id", userId)
         .maybeSingle();
       return !!data;
     });
@@ -54,7 +60,7 @@ export async function GET(req: NextRequest) {
       .eq("id", sessionId)
       .eq("user_id", userId);
 
-    return NextResponse.json({ slug });
+    return NextResponse.json({ slug, handle });
   } catch (err) {
     console.error("Failed to get/create portal slug:", err);
     return NextResponse.json({ error: "Failed to create portal" }, { status: 500 });

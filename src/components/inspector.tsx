@@ -919,8 +919,9 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
   const [reposLoading, setReposLoading] = useState(false);
   const [showRepoSelector, setShowRepoSelector] = useState(false);
 
-  // Portal slug state
+  // Portal state (handle + workspace slug for docs.meter.chat/{handle}/{slug})
   const [portalSlug, setPortalSlug] = useState<string | null>(null);
+  const [portalHandle, setPortalHandle] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
@@ -931,7 +932,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
     }
   }, [activeSessionId, fetchArtifacts, clearArtifacts]);
 
-  // Fetch or create portal slug when we have artifacts
+  // Fetch or create portal slug + handle when we have artifacts
   const fetchPortalSlug = async () => {
     if (!activeSessionId || portalLoading) return;
     setPortalLoading(true);
@@ -940,6 +941,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
       if (res.ok) {
         const data = await res.json();
         setPortalSlug(data.slug);
+        setPortalHandle(data.handle);
       }
     } catch { /* silent */ }
     setPortalLoading(false);
@@ -949,18 +951,24 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
     if (activeSessionId && artifacts.length > 0 && !portalSlug) {
       fetchPortalSlug();
     }
-    if (!activeSessionId) setPortalSlug(null);
+    if (!activeSessionId) {
+      setPortalSlug(null);
+      setPortalHandle(null);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId, artifacts.length]);
 
+  const portalUrl = portalHandle && portalSlug
+    ? `https://docs.meter.chat/${portalHandle}/${portalSlug}`
+    : null;
+
   const openPortal = () => {
-    if (portalSlug) {
-      window.open(`/portal/${portalSlug}`, "_blank");
+    if (portalUrl) {
+      window.open(portalUrl, "_blank");
+    } else if (portalSlug && portalHandle) {
+      window.open(`/docs/${portalHandle}/${portalSlug}`, "_blank");
     } else {
-      fetchPortalSlug().then(() => {
-        const slug = portalSlug;
-        if (slug) window.open(`/portal/${slug}`, "_blank");
-      });
+      fetchPortalSlug();
     }
   };
 
