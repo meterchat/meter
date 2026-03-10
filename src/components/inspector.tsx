@@ -21,7 +21,7 @@ import {
   trackInspectorTabChanged,
 } from "@/lib/analytics";
 
-const INSPECTOR_TABS = ["decisions", "documents", "timeline"] as const;
+const INSPECTOR_TABS = ["decisions", "documents", "timeline", "connect"] as const;
 
 export function Inspector() {
   const {
@@ -174,6 +174,7 @@ export function Inspector() {
         {inspectorTab === "decisions" && <DecisionsTab activeSessionId={activeSession?.id ?? null} />}
         {inspectorTab === "documents" && <BlueprintTab activeSessionId={activeSession?.id ?? null} />}
         {inspectorTab === "timeline" && <TimelineTab activeSessionId={activeSession?.id ?? null} />}
+        {inspectorTab === "connect" && <ConnectTab />}
       </div>
 
       {activeWorkspace && (
@@ -583,6 +584,372 @@ function PinsSection({ activeSessionId }: { activeSessionId: string | null }) {
     </div>
   );
 }
+
+/* ─── MCP Connector definitions ─────────────────────────────────── */
+
+interface McpConnector {
+  id: string;
+  name: string;
+  icon: string; // SVG path data (24×24 viewBox)
+  instructions: (apiKey: string) => { label: string; snippet: string }[];
+}
+
+const MCP_CONNECTORS: McpConnector[] = [
+  {
+    id: "claude-code",
+    name: "Claude Code",
+    icon: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM10 8.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm4.5 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM9.5 14a2.5 2.5 0 0 0 5 0",
+    instructions: (apiKey) => [
+      {
+        label: "Run in your terminal",
+        snippet: `claude mcp add meter -e METER_API_KEY=${apiKey} -- npx -y @meter/mcp-server`,
+      },
+    ],
+  },
+  {
+    id: "cursor",
+    name: "Cursor",
+    icon: "M5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5v-13A2.5 2.5 0 0 1 5.5 3ZM8 7v10l8-5-8-5Z",
+    instructions: (apiKey) => [
+      {
+        label: "Add to Settings → MCP Servers",
+        snippet: JSON.stringify(
+          {
+            mcpServers: {
+              meter: {
+                command: "npx",
+                args: ["-y", "@meter/mcp-server"],
+                env: { METER_API_KEY: apiKey },
+              },
+            },
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  },
+  {
+    id: "lovable",
+    name: "Lovable",
+    icon: "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z",
+    instructions: (apiKey) => [
+      {
+        label: "Add to your MCP configuration",
+        snippet: JSON.stringify(
+          {
+            mcpServers: {
+              meter: {
+                command: "npx",
+                args: ["-y", "@meter/mcp-server"],
+                env: { METER_API_KEY: apiKey },
+              },
+            },
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  },
+  {
+    id: "replit",
+    name: "Replit",
+    icon: "M6 3a3 3 0 0 0-3 3v3a3 3 0 0 0 3 3h12V3H6Zm12 9H6a3 3 0 0 0-3 3v3a3 3 0 0 0 3 3h12V12ZM18 3h3v18h-3V3Z",
+    instructions: (apiKey) => [
+      {
+        label: "Add to your MCP configuration",
+        snippet: JSON.stringify(
+          {
+            mcpServers: {
+              meter: {
+                command: "npx",
+                args: ["-y", "@meter/mcp-server"],
+                env: { METER_API_KEY: apiKey },
+              },
+            },
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  },
+  {
+    id: "antigravity",
+    name: "Antigravity",
+    icon: "M12 2L2 19.5h20L12 2Zm0 4l6.93 12H5.07L12 6Z",
+    instructions: (apiKey) => [
+      {
+        label: "Add to your MCP configuration",
+        snippet: JSON.stringify(
+          {
+            mcpServers: {
+              meter: {
+                command: "npx",
+                args: ["-y", "@meter/mcp-server"],
+                env: { METER_API_KEY: apiKey },
+              },
+            },
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  },
+  {
+    id: "codex",
+    name: "Codex",
+    icon: "M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12",
+    instructions: (apiKey) => [
+      {
+        label: "Add to your MCP configuration",
+        snippet: JSON.stringify(
+          {
+            mcpServers: {
+              meter: {
+                command: "npx",
+                args: ["-y", "@meter/mcp-server"],
+                env: { METER_API_KEY: apiKey },
+              },
+            },
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  },
+];
+
+/* ─── Connect Tab ──────────────────────────────────────────────── */
+
+function ConnectTab() {
+  const { userId } = useMeterStore();
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+
+  // Fetch or generate an MCP API key
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/mcp-key");
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) setApiKey(data.key ?? null);
+        }
+      } catch {
+        // silent
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  const generateKey = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/mcp-key", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setApiKey(data.key);
+        setRevealed(true);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyKey = () => {
+    if (!apiKey) return;
+    navigator.clipboard.writeText(apiKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copySnippetText = (connectorId: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSnippet(connectorId);
+    setTimeout(() => setCopiedSnippet(null), 2000);
+  };
+
+  const maskedKey = apiKey
+    ? `${apiKey.slice(0, 7)}${"•".repeat(16)}${apiKey.slice(-4)}`
+    : "";
+  const displayKey = revealed ? apiKey ?? "" : maskedKey;
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div>
+        <h3 className="font-mono text-xs uppercase tracking-wider text-foreground mb-1">
+          Connect to your tools
+        </h3>
+        <p className="font-mono text-[11px] text-muted-foreground leading-relaxed">
+          Hook Meter into your coding agents via MCP. Your decisions, blueprints, and debates — available in your IDE.
+        </p>
+      </div>
+
+      {/* API Key Section */}
+      <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+            API Key
+          </span>
+          {apiKey && (
+            <button
+              onClick={() => setRevealed(!revealed)}
+              className="font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {revealed ? "Hide" : "Reveal"}
+            </button>
+          )}
+        </div>
+
+        {loading && !apiKey ? (
+          <div className="h-9 rounded-md bg-foreground/5 animate-pulse" />
+        ) : apiKey ? (
+          <div className="flex items-center gap-2">
+            <div className="flex-1 rounded-md bg-foreground/5 px-3 py-2 font-mono text-[11px] text-foreground/70 overflow-hidden text-ellipsis whitespace-nowrap select-all">
+              {displayKey}
+            </div>
+            <button
+              onClick={copyKey}
+              className="shrink-0 rounded-md border border-border px-2.5 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={generateKey}
+            disabled={loading}
+            className="rounded-md border border-border px-3 py-2 font-mono text-[11px] text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50"
+          >
+            {loading ? "Generating..." : "Generate API Key"}
+          </button>
+        )}
+      </div>
+
+      {/* Connectors */}
+      <div className="flex flex-col gap-2">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+          Connectors
+        </span>
+
+        <div className="grid grid-cols-2 gap-2">
+          {MCP_CONNECTORS.map((connector) => {
+            const isExpanded = expandedId === connector.id;
+            return (
+              <button
+                key={connector.id}
+                onClick={() => setExpandedId(isExpanded ? null : connector.id)}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 font-mono text-[11px] transition-colors ${
+                  isExpanded
+                    ? "border-foreground/20 bg-foreground/5 text-foreground"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/10"
+                }`}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="shrink-0"
+                >
+                  <path d={connector.icon} />
+                </svg>
+                {connector.name}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Expanded connector instructions */}
+        {expandedId && apiKey && (() => {
+          const connector = MCP_CONNECTORS.find((c) => c.id === expandedId);
+          if (!connector) return null;
+          const steps = connector.instructions(apiKey);
+          return (
+            <div className="mt-1 rounded-lg border border-border bg-card overflow-hidden">
+              {steps.map((step, i) => (
+                <div key={i} className="p-3 flex flex-col gap-2">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {step.label}
+                  </span>
+                  <div className="relative">
+                    <pre className="rounded-md bg-foreground/5 p-3 font-mono text-[11px] text-foreground/80 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+                      {step.snippet}
+                    </pre>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copySnippetText(connector.id, step.snippet);
+                      }}
+                      className="absolute top-2 right-2 rounded-md border border-border bg-card px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {copiedSnippet === connector.id ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+        {expandedId && !apiKey && (
+          <div className="mt-1 rounded-lg border border-border bg-card p-3">
+            <p className="font-mono text-[11px] text-muted-foreground">
+              Generate an API key above to see setup instructions.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* What you get */}
+      <div className="flex flex-col gap-2">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+          Available tools
+        </span>
+        <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5">
+          {[
+            ["get_decisions", "Search your decision log"],
+            ["get_blueprints", "Fetch your blueprints"],
+            ["get_debates", "Browse debate summaries"],
+            ["search", "Full-text search across everything"],
+            ["create_decision", "Record decisions from your IDE"],
+          ].map(([name, desc]) => (
+            <div key={name} className="flex items-start gap-2">
+              <code className="font-mono text-[10px] text-blue-400 bg-blue-400/10 rounded px-1 py-0.5 shrink-0">
+                {name}
+              </code>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {desc}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Decisions Tab ────────────────────────────────────────────── */
 
 function DecisionsTab({ activeSessionId: rawSessionId }: { activeSessionId: string | null }) {
   const { decisions } = useDecisionsStore();
