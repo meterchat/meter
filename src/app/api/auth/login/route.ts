@@ -7,6 +7,7 @@ import {
 import crypto from "crypto";
 import { createSession, setSessionCookie } from "@/lib/session";
 import { serverTrackUserLoggedIn, serverTrackLoginFailed } from "@/lib/analytics-server";
+import { generateHandle } from "@/lib/handle";
 
 const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID || "meter.chat";
 const BASE_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://meter.chat";
@@ -142,6 +143,20 @@ export async function POST(req: NextRequest) {
           .limit(1),
       ]);
 
+      // Backfill handle for existing accounts that don't have one
+      if (user && !user.handle) {
+        const handle = await generateHandle(async (candidate) => {
+          const { data } = await supabase
+            .from("meter_users")
+            .select("id")
+            .eq("handle", candidate)
+            .maybeSingle();
+          return !!data;
+        });
+        await supabase.from("meter_users").update({ handle }).eq("id", uid);
+        user.handle = handle;
+      }
+
       // Create server-side session and set cookie
       const sessionToken = await createSession(uid);
       serverTrackUserLoggedIn(uid, {
@@ -153,6 +168,7 @@ export async function POST(req: NextRequest) {
         verified: true,
         user: {
           id: user?.id,
+          handle: user?.handle ?? null,
           email: user?.email,
           cardOnFile: !!user?.stripe_customer_id && !!user?.card_last4,
           cardLast4: user?.card_last4,

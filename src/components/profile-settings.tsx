@@ -9,20 +9,12 @@ import {
   trackUserLoggedOut,
 } from "@/lib/analytics";
 
-function StatRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-xs text-foreground font-mono">{value}</span>
-    </div>
-  );
-}
-
 export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () => void }) {
   const userId = useMeterStore((s) => s.userId);
-  const email = useMeterStore((s) => s.email);
+  const handle = useMeterStore((s) => s.handle);
   const logout = useMeterStore((s) => s.logout);
 
+  const [copied, setCopied] = useState(false);
   const [passkeys, setPasskeys] = useState<Array<{ credentialId: string; deviceType: string | null; backedUp: boolean; createdAt: string }>>([]);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -100,7 +92,54 @@ export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () 
               <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-2">
                 Account
               </div>
-              <StatRow label="Email" value={email ?? "—"} />
+              {/* User ID card */}
+              {handle && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2.5">
+                    <code className="flex-1 font-mono text-[14px] tracking-wider text-foreground">{handle}</code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(handle);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1500);
+                      }}
+                      className="shrink-0 rounded-md border border-border/50 bg-card/50 px-2 py-1 font-mono text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                    >
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const content = [
+                          "METER RECOVERY ID",
+                          "==================",
+                          "",
+                          `User ID: ${handle}`,
+                          "",
+                          `Generated: ${new Date().toISOString()}`,
+                          "",
+                          "Keep this file safe. You can use this ID to recover",
+                          "your account if you lose access to your passkey.",
+                          "",
+                          "https://meter.chat",
+                        ].join("\n");
+                        const blob = new Blob([content], { type: "text/plain" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `meter-recovery-${handle}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="shrink-0 rounded-md border border-border/50 bg-card/50 px-2 py-1 font-mono text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                  <p className="mt-1.5 font-mono text-[10px] text-muted-foreground/30">
+                    Save your ID offline in case you need to recover your account.
+                  </p>
+                </div>
+              )}
               {passkeys.length > 0 && (
                 <div className="mt-2">
                   {passkeys.map((pk) => (
