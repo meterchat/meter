@@ -542,7 +542,7 @@ async function saveDecision(
       }
     }
 
-    await supabase.from("decisions").insert({
+    const { error: insertErr } = await supabase.from("decisions").insert({
       id,
       user_id: ctx.userId,
       title: args.title as string,
@@ -555,6 +555,7 @@ async function saveDecision(
       parent_decision_id: parentDecisionId,
       version,
     });
+    if (insertErr) throw insertErr;
 
     const versionLabel = version > 1 ? ` (v${version})` : "";
     return JSON.stringify({ id, message: `Decision saved: "${args.title}"${versionLabel} — ${args.choice}` });
@@ -612,17 +613,18 @@ async function saveArtifact(
     const category = (args.category as string) || inferCategory(filePath);
 
     if (existingId) {
-      await supabase.from("artifacts").update({
+      const { error: updateErr } = await supabase.from("artifacts").update({
         content,
         status: "draft",
         category,
         last_generated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }).eq("id", existingId);
+      if (updateErr) throw updateErr;
       return JSON.stringify({ id: existingId, filePath, content, category, message: `Updated document: ${filePath}` });
     } else {
       const id = `art_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      await supabase.from("artifacts").insert({
+      const { error: insertErr } = await supabase.from("artifacts").insert({
         id,
         user_id: ctx.userId,
         session_id: sessionId,
@@ -632,6 +634,7 @@ async function saveArtifact(
         category,
         last_generated_at: new Date().toISOString(),
       });
+      if (insertErr) throw insertErr;
       return JSON.stringify({ id, filePath, content, category, message: `Created document: ${filePath}` });
     }
   } catch (err) {

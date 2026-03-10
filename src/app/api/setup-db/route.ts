@@ -224,6 +224,7 @@ const STATEMENTS: string[] = [
   `update decisions set session_id = project_id where session_id is null and project_id is not null`,
   `alter table artifacts add column if not exists session_id text`,
   `update artifacts set session_id = project_id where session_id is null and project_id is not null`,
+  `alter table artifacts add column if not exists category text not null default 'other'`,
 
   // Soft-delete support for workspace deletion (7-day retention)
   `alter table chat_sessions add column if not exists deleted_at timestamptz default null`,
@@ -308,6 +309,7 @@ const STATEMENTS: string[] = [
     file_path text not null,
     content text not null default '',
     status text not null default 'draft',
+    category text not null default 'other',
     github_repo text,
     github_sha text,
     last_generated_at timestamptz,

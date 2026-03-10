@@ -383,6 +383,7 @@ create table if not exists artifacts (
   file_path text not null,
   content text not null default '',
   status text not null default 'draft',
+  category text not null default 'other',
   github_repo text,
   github_sha text,
   last_generated_at timestamptz,
@@ -393,7 +394,9 @@ create table if not exists artifacts (
 
 create index if not exists idx_artifacts_user on artifacts(user_id);
 create index if not exists idx_artifacts_project on artifacts(project_id);
+create index if not exists idx_artifacts_session on artifacts(session_id);
 create unique index if not exists idx_artifacts_user_project_path on artifacts(user_id, coalesce(project_id, ''), file_path);
+create unique index if not exists idx_artifacts_user_session_path on artifacts(user_id, coalesce(session_id, ''), file_path);
 
 -- =============================================
 -- ROW LEVEL SECURITY

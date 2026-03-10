@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
           } catch { /* unknown model — leave cost null */ }
         }
 
-        await supabase.from("chat_messages").upsert({
+        const { error: upsertErr } = await supabase.from("chat_messages").upsert({
           id: msg.id,
           session_id: dbSessionId,
           role: msg.role,
@@ -188,6 +188,7 @@ export async function POST(req: NextRequest) {
           thinking: msg.thinking ?? null,
           timestamp: msg.timestamp,
         }, { onConflict: "id" });
+        if (upsertErr) console.warn("[chat] Failed to save message to DB:", upsertErr);
       } catch (err) {
         console.warn("[chat] Failed to save message to DB:", err);
       }
