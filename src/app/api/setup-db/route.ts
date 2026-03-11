@@ -153,6 +153,16 @@ const STATEMENTS: string[] = [
     created_at timestamptz default now(),
     expires_at timestamptz not null
   )`,
+  `create table if not exists mcp_keys (
+    id uuid primary key default gen_random_uuid(),
+    user_id text not null references meter_users(id) on delete cascade,
+    key_hash text unique not null,
+    key_prefix text not null,
+    encrypted_key text not null,
+    active boolean default true,
+    created_at timestamptz default now(),
+    last_used_at timestamptz
+  )`,
 
   `create table if not exists tx_history (
     id text primary key,
@@ -339,6 +349,7 @@ const STATEMENTS: string[] = [
   `alter table meter_users enable row level security`,
   `alter table passkey_credentials enable row level security`,
   `alter table auth_sessions enable row level security`,
+  `alter table mcp_keys enable row level security`,
   `alter table tx_history enable row level security`,
   // workspaces & tracks are views — RLS inherited from chat_sessions
   `alter table oauth_state enable row level security`,
@@ -387,6 +398,11 @@ const STATEMENTS: string[] = [
 
   `do $$ begin
      create policy auth_sessions_owner on auth_sessions for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `do $$ begin
+     create policy mcp_keys_owner on mcp_keys for all
        using (user_id = current_setting('app.user_id', true));
    exception when duplicate_object then null; end $$`,
 
