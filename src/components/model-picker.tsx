@@ -31,7 +31,7 @@ function SpeedBar({ speed }: { speed: number }) {
   );
 }
 
-function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number }) {
+export function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number }) {
   if (provider === "Anthropic") {
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" className="shrink-0">
