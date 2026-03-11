@@ -56,164 +56,547 @@ function credentialToJSON(cred: PublicKeyCredential) {
   };
 }
 
-// ── ASCII Rain Background ──────────────────────────────────────────────
+// ── Animated ASCII Art Components ──────────────────────────────────────
 
-const ASCII_CHARS = "01$.<>{}()=+-*/&|~^%#@!?:;▓▒░█▄▀";
+// Meter counter ticking up like a gas meter
+function AsciiMeterCounter() {
+  const [frame, setFrame] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: false, margin: "-100px" });
 
-function AsciiRain() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frames = useMemo(
+    () => [
+      [
+        "  ┌─────────────────────┐ ",
+        "  │  M E T E R          │ ",
+        "  │                     │ ",
+        "  │   $ 0 . 0 0 0       │ ",
+        "  │   ▁▁▁▁▁▁▁▁▁        │ ",
+        "  │                     │ ",
+        "  └─────────────────────┘ ",
+      ],
+      [
+        "  ┌─────────────────────┐ ",
+        "  │  M E T E R          │ ",
+        "  │                     │ ",
+        "  │   $ 0 . 0 0 1       │ ",
+        "  │   ▂▁▁▁▁▁▁▁▁        │ ",
+        "  │   ◎ streaming...    │ ",
+        "  └─────────────────────┘ ",
+      ],
+      [
+        "  ┌─────────────────────┐ ",
+        "  │  M E T E R          │ ",
+        "  │                     │ ",
+        "  │   $ 0 . 0 0 3       │ ",
+        "  │   ▃▂▁▁▁▁▁▁▁        │ ",
+        "  │   ◎ streaming...    │ ",
+        "  └─────────────────────┘ ",
+      ],
+      [
+        "  ┌─────────────────────┐ ",
+        "  │  M E T E R          │ ",
+        "  │                     │ ",
+        "  │   $ 0 . 0 0 7       │ ",
+        "  │   ▅▃▂▁▁▁▁▁▁        │ ",
+        "  │   ◎ streaming...    │ ",
+        "  └─────────────────────┘ ",
+      ],
+      [
+        "  ┌─────────────────────┐ ",
+        "  │  M E T E R          │ ",
+        "  │                     │ ",
+        "  │   $ 0 . 0 1 2       │ ",
+        "  │   ▆▅▃▂▁▁▁▁▁        │ ",
+        "  │   ◎ streaming...    │ ",
+        "  └─────────────────────┘ ",
+      ],
+      [
+        "  ┌─────────────────────┐ ",
+        "  │  M E T E R          │ ",
+        "  │                     │ ",
+        "  │   $ 0 . 0 1 5       │ ",
+        "  │   ▇▆▅▃▂▁▁▁▁        │ ",
+        "  │   ✓ settled         │ ",
+        "  └─────────────────────┘ ",
+      ],
+    ],
+    []
+  );
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    let w = window.innerWidth;
-    let h = window.innerHeight * 3;
-
-    canvas.width = w;
-    canvas.height = h;
-
-    const fontSize = 14;
-    const cols = Math.floor(w / (fontSize * 0.6));
-    const drops: number[] = new Array(cols).fill(0).map(() => Math.random() * -100);
-    const speeds: number[] = new Array(cols).fill(0).map(() => 0.3 + Math.random() * 0.7);
-
-    function draw() {
-      ctx!.fillStyle = "rgba(26, 26, 26, 0.05)";
-      ctx!.fillRect(0, 0, w, h);
-      ctx!.font = `${fontSize}px "JetBrains Mono", monospace`;
-
-      for (let i = 0; i < cols; i++) {
-        const char = ASCII_CHARS[Math.floor(Math.random() * ASCII_CHARS.length)];
-        const x = i * fontSize * 0.6;
-        const y = drops[i] * fontSize;
-
-        // Gradient opacity based on position
-        const alpha = 0.03 + Math.sin(drops[i] * 0.05) * 0.02;
-        ctx!.fillStyle = `rgba(255, 255, 255, ${Math.max(0.01, alpha)})`;
-        ctx!.fillText(char, x, y);
-
-        drops[i] += speeds[i];
-        if (drops[i] * fontSize > h && Math.random() > 0.98) {
-          drops[i] = 0;
-        }
-      }
-
-      animId = requestAnimationFrame(draw);
-    }
-
-    draw();
-
-    const handleResize = () => {
-      w = window.innerWidth;
-      h = window.innerHeight * 3;
-      canvas.width = w;
-      canvas.height = h;
-    };
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
+    if (!isInView) return;
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % frames.length);
+    }, 800);
+    return () => clearInterval(interval);
+  }, [isInView, frames.length]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-0"
-      style={{ opacity: 0.6 }}
-    />
-  );
-}
-
-// ── Floating ASCII Glyphs ──────────────────────────────────────────────
-
-const GLYPH_SETS = [
-  ["┌──────────┐", "│ DECISION │", "│ LOCKED   │", "└──────────┘"],
-  ["╔══════════╗", "║ $0.003   ║", "║ per msg  ║", "╚══════════╝"],
-  ["┌──────┐", "│ GPT  │", "│ vs   │", "│Claude│", "└──────┘"],
-  ["╭────────╮", "│debate: │", "│speed   │", "│vs cost │", "╰────────╯"],
-  ["┌────────┐", "│thinking│", "│deeply..│", "└────────┘"],
-  ["╔════════╗", "║ARTIFACT║", "║COMMITED║", "╚════════╝"],
-];
-
-function FloatingGlyph({ lines, delay, x, y, duration }: {
-  lines: string[];
-  delay: number;
-  x: string;
-  y: string;
-  duration: number;
-}) {
-  return (
-    <motion.div
-      className="absolute font-mono text-[10px] leading-tight text-foreground/[0.04] whitespace-pre select-none pointer-events-none hidden lg:block"
-      style={{ left: x, top: y }}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{
-        opacity: [0, 0.6, 0.6, 0],
-        y: [20, 0, -10, -30],
-      }}
-      transition={{
-        duration,
-        delay,
-        repeat: Infinity,
-        repeatDelay: delay * 0.5,
-        ease: "easeInOut",
-      }}
-    >
-      {lines.map((line, i) => (
-        <div key={i}>{line}</div>
-      ))}
-    </motion.div>
-  );
-}
-
-function FloatingGlyphs() {
-  const glyphs = useMemo(() => [
-    { lines: GLYPH_SETS[0], delay: 0, x: "5%", y: "15%", duration: 12 },
-    { lines: GLYPH_SETS[1], delay: 2, x: "85%", y: "25%", duration: 14 },
-    { lines: GLYPH_SETS[2], delay: 4, x: "10%", y: "45%", duration: 10 },
-    { lines: GLYPH_SETS[3], delay: 1, x: "88%", y: "55%", duration: 13 },
-    { lines: GLYPH_SETS[4], delay: 3, x: "3%", y: "75%", duration: 11 },
-    { lines: GLYPH_SETS[5], delay: 5, x: "90%", y: "80%", duration: 15 },
-    { lines: GLYPH_SETS[0], delay: 6, x: "15%", y: "90%", duration: 12 },
-    { lines: GLYPH_SETS[1], delay: 3, x: "80%", y: "10%", duration: 14 },
-  ], []);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none z-[1] overflow-hidden">
-      {glyphs.map((g, i) => (
-        <FloatingGlyph key={i} {...g} />
+    <div ref={ref} className="font-mono text-[11px] sm:text-[13px] leading-[1.4] text-foreground/30 whitespace-pre select-none">
+      {frames[frame].map((line, i) => (
+        <div key={i} className={frame === frames.length - 1 && i === 5 ? "text-emerald-500/50" : ""}>
+          {line}
+        </div>
       ))}
     </div>
   );
 }
 
-// ── Animated ASCII Border ──────────────────────────────────────────────
+// Debate mode - models arguing back and forth
+function AsciiDebateAnim() {
+  const [frame, setFrame] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: false, margin: "-100px" });
 
-function AsciiBorder({ className }: { className?: string }) {
-  const chars = "─═━┄┈╌";
-  const [line, setLine] = useState("");
+  const frames = useMemo(
+    () => [
+      [
+        "  Claude ●───────────────── ",
+        '  │ "Monorepo reduces      ',
+        '  │  deploy complexity."    ',
+        "  │                         ",
+        "  GPT    ○                  ",
+        "  Gemini ○                  ",
+      ],
+      [
+        "  Claude ●                  ",
+        "  │                         ",
+        "  GPT    ●───────────────── ",
+        '  │ "But coupling risk     ',
+        '  │  rises with team size." ',
+        "  Gemini ○                  ",
+      ],
+      [
+        "  Claude ●                  ",
+        "  GPT    ●                  ",
+        "  │                         ",
+        "  Gemini ●───────────────── ",
+        '  │ "Both miss migration   ',
+        '  │  cost. Phase it."       ',
+      ],
+      [
+        "  ┌─── SYNTHESIS ────────── ",
+        "  │                         ",
+        "  │  Phased monorepo wins.  ",
+        "  │  Trade-off: 2wk delay   ",
+        "  │  Risk: low              ",
+        "  └── ✓ ready to lock ───── ",
+      ],
+    ],
+    []
+  );
 
   useEffect(() => {
-    const len = 60;
+    if (!isInView) return;
     const interval = setInterval(() => {
-      setLine(
-        Array.from({ length: len }, () =>
-          chars[Math.floor(Math.random() * chars.length)]
-        ).join("")
-      );
-    }, 150);
+      setFrame((f) => (f + 1) % frames.length);
+    }, 2000);
     return () => clearInterval(interval);
-  }, [chars]);
+  }, [isInView, frames.length]);
 
   return (
-    <div className={`font-mono text-[10px] text-foreground/[0.06] tracking-[0.3em] overflow-hidden text-center select-none ${className}`}>
-      {line}
+    <div ref={ref} className="font-mono text-[11px] sm:text-[13px] leading-[1.4] text-foreground/30 whitespace-pre select-none">
+      {frames[frame].map((line, i) => (
+        <div key={i} className={frame === 3 ? "text-amber-500/40" : ""}>{line}</div>
+      ))}
+    </div>
+  );
+}
+
+// Decision locking animation
+function AsciiDecisionLock() {
+  const [frame, setFrame] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: false, margin: "-100px" });
+
+  const frames = useMemo(
+    () => [
+      [
+        "  ╭────────────────────╮ ",
+        "  │ Decision #0047     │ ",
+        "  │                    │ ",
+        "  │ Status: draft      │ ",
+        "  │ Choice: ________   │ ",
+        "  │                    │ ",
+        "  ╰────────────────────╯ ",
+      ],
+      [
+        "  ╭────────────────────╮ ",
+        "  │ Decision #0047     │ ",
+        "  │                    │ ",
+        "  │ Status: draft      │ ",
+        "  │ Choice: Monorepo   │ ",
+        "  │ Trade-offs: 3      │ ",
+        "  ╰────────────────────╯ ",
+      ],
+      [
+        "  ╭────────────────────╮ ",
+        "  │ Decision #0047     │ ",
+        "  │                    │ ",
+        "  │ Status: locking... │ ",
+        "  │ Choice: Monorepo   │ ",
+        "  │ Trade-offs: 3      │ ",
+        "  ╰────────────────────╯ ",
+      ],
+      [
+        "  ╭────────────────────╮ ",
+        "  │ Decision #0047  ✓  │ ",
+        "  │                    │ ",
+        "  │ Status: locked     │ ",
+        "  │ Choice: Monorepo   │ ",
+        "  │ Trade-offs: 3      │ ",
+        "  ╰────────────────────╯ ",
+      ],
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!isInView) return;
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % frames.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [isInView, frames.length]);
+
+  return (
+    <div ref={ref} className="font-mono text-[11px] sm:text-[13px] leading-[1.4] text-foreground/30 whitespace-pre select-none">
+      {frames[frame].map((line, i) => (
+        <div key={i} className={frame === 3 && (i === 1 || i === 3) ? "text-emerald-500/50" : ""}>{line}</div>
+      ))}
+    </div>
+  );
+}
+
+// Settle animation
+function AsciiSettleAnim() {
+  const [frame, setFrame] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: false, margin: "-100px" });
+
+  const frames = useMemo(
+    () => [
+      [
+        "  ┌───────────────────────┐ ",
+        "  │ Pending    $2.47      │ ",
+        "  │                       │ ",
+        "  │  ┌─────────────────┐  │ ",
+        "  │  │    Settle       │  │ ",
+        "  │  └─────────────────┘  │ ",
+        "  └───────────────────────┘ ",
+      ],
+      [
+        "  ┌───────────────────────┐ ",
+        "  │ Pending    $2.47      │ ",
+        "  │                       │ ",
+        "  │  ┌─────────────────┐  │ ",
+        "  │  │  Settling...    │  │ ",
+        "  │  └─────────────────┘  │ ",
+        "  └───────────────────────┘ ",
+      ],
+      [
+        "  ┌───────────────────────┐ ",
+        "  │ Pending    $2.47      │ ",
+        "  │                       │ ",
+        "  │  ┌─────────────────┐  │ ",
+        "  │  │  Settling ◐     │  │ ",
+        "  │  └─────────────────┘  │ ",
+        "  └───────────────────────┘ ",
+      ],
+      [
+        "  ┌───────────────────────┐ ",
+        "  │ Settled    $0.00      │ ",
+        "  │                       │ ",
+        "  │  ┌─────────────────┐  │ ",
+        "  │  │  Settled ✓      │  │ ",
+        "  │  └─────────────────┘  │ ",
+        "  └───────────────────────┘ ",
+      ],
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!isInView) return;
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % frames.length);
+    }, 1200);
+    return () => clearInterval(interval);
+  }, [isInView, frames.length]);
+
+  return (
+    <div ref={ref} className="font-mono text-[11px] sm:text-[13px] leading-[1.4] text-foreground/30 whitespace-pre select-none">
+      {frames[frame].map((line, i) => (
+        <div key={i} className={frame === 3 ? "text-emerald-500/50" : ""}>{line}</div>
+      ))}
+    </div>
+  );
+}
+
+// Fork path animation
+function AsciiForkAnim() {
+  const [frame, setFrame] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: false, margin: "-100px" });
+
+  const frames = useMemo(
+    () => [
+      [
+        "  Main ─────────────────── ",
+        "  │                        ",
+        "  │  What stack to use?    ",
+        "  │                        ",
+        "  ·                        ",
+        "  ·                        ",
+      ],
+      [
+        "  Main ──────────┐         ",
+        "  │               │         ",
+        "  │           Path A        ",
+        "  │           │ Next.js     ",
+        "  │               │         ",
+        "  ·           Path B        ",
+      ],
+      [
+        "  Main ──────────┐         ",
+        "  │               │         ",
+        "  │           Path A        ",
+        "  │           │ Next.js ✓   ",
+        "  │               │         ",
+        "  │           Path B        ",
+        "  │           │ SvelteKit   ",
+      ],
+      [
+        "  Main ◄─── merge ──┐      ",
+        "  │                  │      ",
+        "  │  Decided: Next.js│      ",
+        "  │                  │      ",
+        "  │            Path A ✓     ",
+        "  │            Path B ✗     ",
+      ],
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!isInView) return;
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % frames.length);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [isInView, frames.length]);
+
+  return (
+    <div ref={ref} className="font-mono text-[11px] sm:text-[13px] leading-[1.4] text-foreground/30 whitespace-pre select-none">
+      {frames[frame].map((line, i) => (
+        <div key={i} className={
+          frame === 3 && i === 2 ? "text-teal-500/50" :
+          line.includes("Path A") ? "text-teal-500/30" :
+          line.includes("Path B") ? "text-indigo-500/30" : ""
+        }>{line}</div>
+      ))}
+    </div>
+  );
+}
+
+// Blueprint/artifact generation animation
+function AsciiBlueprintAnim() {
+  const [frame, setFrame] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: false, margin: "-100px" });
+
+  const frames = useMemo(
+    () => [
+      [
+        "  Generating spec kit...   ",
+        "  │                        ",
+        "  ├── README.md       ░    ",
+        "  ├── ARCHITECTURE.md ░    ",
+        "  ├── DESIGN.md       ░    ",
+        "  ├── DECISIONS.md    ░    ",
+        "  └── CLAUDE.md       ░    ",
+      ],
+      [
+        "  Generating spec kit...   ",
+        "  │                        ",
+        "  ├── README.md       ▓    ",
+        "  ├── ARCHITECTURE.md ▒    ",
+        "  ├── DESIGN.md       ░    ",
+        "  ├── DECISIONS.md    ░    ",
+        "  └── CLAUDE.md       ░    ",
+      ],
+      [
+        "  Generating spec kit...   ",
+        "  │                        ",
+        "  ├── README.md       █    ",
+        "  ├── ARCHITECTURE.md █    ",
+        "  ├── DESIGN.md       ▓    ",
+        "  ├── DECISIONS.md    ▒    ",
+        "  └── CLAUDE.md       ░    ",
+      ],
+      [
+        "  Agent Spec Kit ready ✓   ",
+        "  │                        ",
+        "  ├── README.md       █    ",
+        "  ├── ARCHITECTURE.md █    ",
+        "  ├── DESIGN.md       █    ",
+        "  ├── DECISIONS.md    █    ",
+        "  └── CLAUDE.md       █    ",
+      ],
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!isInView) return;
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % frames.length);
+    }, 1400);
+    return () => clearInterval(interval);
+  }, [isInView, frames.length]);
+
+  return (
+    <div ref={ref} className="font-mono text-[11px] sm:text-[13px] leading-[1.4] text-foreground/30 whitespace-pre select-none">
+      {frames[frame].map((line, i) => (
+        <div key={i} className={frame === 3 && i === 0 ? "text-emerald-500/50" : ""}>{line}</div>
+      ))}
+    </div>
+  );
+}
+
+// Spend monitor animation
+function AsciiSpendMonitor() {
+  const [frame, setFrame] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: false, margin: "-100px" });
+
+  const frames = useMemo(
+    () => [
+      [
+        "  ┌── Spend Monitor ──────┐",
+        "  │                       │",
+        "  │ Today      $0.42      │",
+        "  │ This week  $3.17      │",
+        "  │ Cap        $50.00     │",
+        "  │                       │",
+        "  │ ▁▂▃▂▁▂▃▅▃▂  usage    │",
+        "  └───────────────────────┘",
+      ],
+      [
+        "  ┌── Spend Monitor ──────┐",
+        "  │                       │",
+        "  │ Today      $0.48      │",
+        "  │ This week  $3.23      │",
+        "  │ Cap        $50.00     │",
+        "  │                       │",
+        "  │ ▂▃▂▁▂▃▅▃▂▃  usage    │",
+        "  └───────────────────────┘",
+      ],
+      [
+        "  ┌── Spend Monitor ──────┐",
+        "  │                       │",
+        "  │ Today      $0.51      │",
+        "  │ This week  $3.26      │",
+        "  │ Cap        $50.00     │",
+        "  │                       │",
+        "  │ ▃▂▁▂▃▅▃▂▃▄  usage    │",
+        "  └───────────────────────┘",
+      ],
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!isInView) return;
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % frames.length);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isInView, frames.length]);
+
+  return (
+    <div ref={ref} className="font-mono text-[11px] sm:text-[13px] leading-[1.4] text-foreground/30 whitespace-pre select-none">
+      {frames[frame].map((line, i) => (
+        <div key={i}>{line}</div>
+      ))}
+    </div>
+  );
+}
+
+// Model pills orbiting animation
+function AsciiModelPills() {
+  const [frame, setFrame] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: false, margin: "-100px" });
+
+  const frames = useMemo(
+    () => [
+      [
+        "                             ",
+        "       ╭─────────╮          ",
+        "       │ Claude  │          ",
+        "       ╰────┬────╯          ",
+        "  ╭─────╮   │   ╭─────╮    ",
+        "  │ GPT │───┼───│Grok │    ",
+        "  ╰─────╯   │   ╰─────╯    ",
+        "       ╭────┴────╮          ",
+        "       │ Gemini  │          ",
+        "       ╰─────────╯          ",
+      ],
+      [
+        "                             ",
+        "       ╭─────────╮          ",
+        "       │ ●Claude │          ",
+        "       ╰────┬────╯          ",
+        "  ╭─────╮   │   ╭─────╮    ",
+        "  │ GPT │───┼───│Grok │    ",
+        "  ╰─────╯   │   ╰─────╯    ",
+        "       ╭────┴────╮          ",
+        "       │ Gemini  │          ",
+        "       ╰─────────╯          ",
+      ],
+      [
+        "                             ",
+        "       ╭─────────╮          ",
+        "       │ Claude  │          ",
+        "       ╰────┬────╯          ",
+        "  ╭─────╮   │   ╭─────╮    ",
+        "  │●GPT │───┼───│Grok │    ",
+        "  ╰─────╯   │   ╰─────╯    ",
+        "       ╭────┴────╮          ",
+        "       │ Gemini  │          ",
+        "       ╰─────────╯          ",
+      ],
+      [
+        "                             ",
+        "       ╭─────────╮          ",
+        "       │ Claude  │          ",
+        "       ╰────┬────╯          ",
+        "  ╭─────╮   │   ╭─────╮    ",
+        "  │ GPT │───┼───│Grok │    ",
+        "  ╰─────╯   │   ╰─────╯    ",
+        "       ╭────┴────╮          ",
+        "       │●Gemini  │          ",
+        "       ╰─────────╯          ",
+      ],
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!isInView) return;
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % frames.length);
+    }, 700);
+    return () => clearInterval(interval);
+  }, [isInView, frames.length]);
+
+  return (
+    <div ref={ref} className="font-mono text-[11px] sm:text-[13px] leading-[1.4] text-foreground/30 whitespace-pre select-none">
+      {frames[frame].map((line, i) => (
+        <div key={i}>{line}</div>
+      ))}
     </div>
   );
 }
@@ -241,52 +624,22 @@ function RevealSection({ children, className, delay = 0 }: {
   );
 }
 
-// ── Animated Counter ───────────────────────────────────────────────────
-
-function AnimatedPrice({ value, prefix = "$" }: { value: string; prefix?: string }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
-  const [display, setDisplay] = useState("0.000");
-
-  useEffect(() => {
-    if (!isInView) return;
-    const target = parseFloat(value);
-    const duration = 1200;
-    const start = Date.now();
-
-    const tick = () => {
-      const elapsed = Date.now() - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay((target * eased).toFixed(3));
-      if (progress < 1) requestAnimationFrame(tick);
-    };
-    tick();
-  }, [isInView, value]);
-
-  return (
-    <span ref={ref} className="font-mono tabular-nums">
-      {prefix}{display}
-    </span>
-  );
-}
-
 // ── Scrolling Ticker ───────────────────────────────────────────────────
 
 function Ticker() {
   const items = [
-    "CLAUDE OPUS 4.6",
-    "GPT-5.4",
-    "GEMINI 3.1 PRO",
-    "GROK 4.1",
-    "DEEPSEEK V3",
-    "MINIMAX M2.5",
-    "AUTO-ROUTING",
-    "PAY PER TOKEN",
+    "PAY PER THOUGHT",
+    "CLAUDE",
+    "GPT",
+    "GEMINI",
+    "GROK",
+    "DEEPSEEK",
     "NO SUBSCRIPTION",
     "STRUCTURED DEBATES",
     "DECISION RECORDS",
-    "GITHUB ARTIFACTS",
+    "FORK PATHS",
+    "AUTO-SETTLE",
+    "MCP SERVER",
   ];
 
   return (
@@ -309,140 +662,44 @@ function Ticker() {
   );
 }
 
-// ── Feature Card ───────────────────────────────────────────────────────
+// ── Feature Section (text + ASCII animation side by side) ─────────────
 
-function FeatureCard({ number, title, description, ascii, delay = 0 }: {
-  number: string;
-  title: string;
+function FeatureSection({
+  label,
+  title,
+  description,
+  children,
+  reverse = false,
+  delay = 0,
+}: {
+  label: string;
+  title: React.ReactNode;
   description: string;
-  ascii: string[];
+  children: React.ReactNode;
+  reverse?: boolean;
   delay?: number;
 }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-60px" });
-
   return (
-    <motion.div
-      ref={ref}
-      className="group relative p-8 rounded-2xl border border-foreground/[0.04] bg-foreground/[0.01] hover:bg-foreground/[0.02] hover:border-foreground/[0.08] transition-all duration-500"
-      initial={{ opacity: 0, y: 30 }}
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-      transition={{ duration: 0.6, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
-    >
-      <div className="absolute top-6 right-6 font-mono text-[10px] text-foreground/10 tracking-wider">
-        {number}
+    <RevealSection className="relative z-10 py-24 sm:py-32 px-6" delay={delay}>
+      <div className="max-w-5xl mx-auto">
+        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center ${reverse ? "direction-rtl" : ""}`}>
+          <div className={reverse ? "lg:order-2" : ""}>
+            <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
+              {label}
+            </p>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
+              {title}
+            </h2>
+            <p className="text-base text-muted-foreground/60 leading-relaxed">
+              {description}
+            </p>
+          </div>
+          <div className={`flex items-center justify-center p-6 sm:p-8 rounded-2xl border border-foreground/[0.04] bg-foreground/[0.015] ${reverse ? "lg:order-1" : ""}`}>
+            {children}
+          </div>
+        </div>
       </div>
-      <div className="font-mono text-[9px] leading-tight text-foreground/[0.08] mb-6 whitespace-pre select-none group-hover:text-foreground/[0.12] transition-colors duration-500">
-        {ascii.map((line, i) => (
-          <div key={i}>{line}</div>
-        ))}
-      </div>
-      <h3 className="text-lg font-medium text-foreground mb-2 tracking-tight">
-        {title}
-      </h3>
-      <p className="text-sm text-muted-foreground leading-relaxed">
-        {description}
-      </p>
-    </motion.div>
-  );
-}
-
-// ── Model Dot ──────────────────────────────────────────────────────────
-
-function ModelDot({ name, provider, color, delay }: {
-  name: string;
-  provider: string;
-  color: string;
-  delay: number;
-}) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
-
-  return (
-    <motion.div
-      ref={ref}
-      className="flex items-center gap-3 group"
-      initial={{ opacity: 0, x: -10 }}
-      animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -10 }}
-      transition={{ duration: 0.5, delay }}
-    >
-      <motion.div
-        className="w-2 h-2 rounded-full shrink-0"
-        style={{ backgroundColor: color }}
-        animate={{ opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 3, repeat: Infinity, delay: delay * 2 }}
-      />
-      <div>
-        <span className="text-sm text-foreground font-medium">{name}</span>
-        <span className="text-xs text-muted-foreground/50 ml-2">{provider}</span>
-      </div>
-    </motion.div>
-  );
-}
-
-// ── Debate Visualization ───────────────────────────────────────────────
-
-function DebateViz() {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
-
-  const phases = ["OPENING", "CHALLENGE", "REBUTTAL", "SYNTHESIS"];
-
-  return (
-    <div ref={ref} className="relative">
-      <div className="flex items-center justify-between gap-2 mb-6">
-        {phases.map((phase, i) => (
-          <motion.div
-            key={phase}
-            className="flex-1"
-            initial={{ opacity: 0, scaleX: 0 }}
-            animate={isInView ? { opacity: 1, scaleX: 1 } : {}}
-            transition={{ duration: 0.5, delay: i * 0.15 }}
-          >
-            <div className="h-[2px] bg-foreground/[0.06] rounded-full mb-2 overflow-hidden">
-              <motion.div
-                className="h-full bg-foreground/20 rounded-full origin-left"
-                initial={{ scaleX: 0 }}
-                animate={isInView ? { scaleX: 1 } : {}}
-                transition={{ duration: 0.8, delay: 0.5 + i * 0.2 }}
-              />
-            </div>
-            <span className="font-mono text-[9px] tracking-[0.15em] text-foreground/20 uppercase">
-              {phase}
-            </span>
-          </motion.div>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {[
-          { model: "Claude", color: "#D97757", text: "The monorepo approach reduces deployment complexity by 40% based on..." },
-          { model: "GPT-5.4", color: "#10A37F", text: "However, the coupling risk increases significantly when team size exceeds..." },
-          { model: "Grok", color: "#A0A0A0", text: "Both arguments miss the migration cost. A phased approach would..." },
-        ].map((entry, i) => (
-          <motion.div
-            key={entry.model}
-            className="flex items-start gap-3 p-3 rounded-lg bg-foreground/[0.015] border border-foreground/[0.03]"
-            initial={{ opacity: 0, x: -20 }}
-            animate={isInView ? { opacity: 1, x: 0 } : {}}
-            transition={{ duration: 0.5, delay: 1 + i * 0.2 }}
-          >
-            <div
-              className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-              style={{ backgroundColor: entry.color }}
-            />
-            <div>
-              <span className="font-mono text-[10px] text-foreground/40 tracking-wider uppercase">
-                {entry.model}
-              </span>
-              <p className="text-xs text-muted-foreground/60 mt-0.5 leading-relaxed">
-                {entry.text}
-              </p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </div>
+    </RevealSection>
   );
 }
 
@@ -469,7 +726,7 @@ function AuthButtons({
 }) {
   if (step === "passkey") {
     return (
-      <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+      <div className="flex flex-col items-center gap-3 w-full max-w-xs mx-auto">
         <button
           onClick={onContinue}
           disabled={loading}
@@ -487,7 +744,7 @@ function AuthButtons({
           href="/docs"
           className="font-mono text-[11px] text-muted-foreground/40 hover:text-muted-foreground transition-colors tracking-wide"
         >
-          Learn more →
+          Learn more
         </a>
         {error && (
           <p className="font-mono text-[11px] text-red-400">{error}</p>
@@ -500,7 +757,7 @@ function AuthButtons({
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+    <div className="flex flex-col items-center gap-3 w-full max-w-xs mx-auto">
       <p className="text-sm text-muted-foreground">
         No account found on this device
       </p>
@@ -540,6 +797,34 @@ function AuthButtons({
   );
 }
 
+// ── Subscription comparison logos ──────────────────────────────────────
+
+function SubscriptionLogos() {
+  const logos = [
+    { name: "ChatGPT", price: "$20/mo" },
+    { name: "Claude", price: "$20/mo" },
+    { name: "Gemini", price: "$20/mo" },
+    { name: "Grok", price: "$30/mo" },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+      {logos.map((logo, i) => (
+        <motion.div
+          key={logo.name}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-foreground/[0.06] bg-foreground/[0.02] line-through decoration-foreground/20"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 + i * 0.1, duration: 0.5 }}
+        >
+          <span className="text-sm text-foreground/40">{logo.name}</span>
+          <span className="font-mono text-xs text-foreground/25">{logo.price}</span>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main Landing Page ──────────────────────────────────────────────────
 
 export function LandingPage() {
@@ -551,8 +836,8 @@ export function LandingPage() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
-  const heroScale = useTransform(scrollYProgress, [0, 0.15], [1, 0.95]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.12], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.12], [1, 0.97]);
 
   // ── Auth handlers (preserved from login-screen.tsx) ──────────────
 
@@ -672,11 +957,9 @@ export function LandingPage() {
 
   return (
     <div ref={containerRef} className="relative min-h-screen bg-background text-foreground overflow-x-hidden">
-      <AsciiRain />
-      <FloatingGlyphs />
 
       {/* ── Navigation ─────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-5">
+      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-5 bg-background/80 backdrop-blur-xl border-b border-foreground/[0.03]">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Image
             src="/logo-dark-copy.webp"
@@ -718,11 +1001,11 @@ export function LandingPage() {
 
       {/* ── Hero ───────────────────────────────────────────────────── */}
       <motion.section
-        className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6"
+        className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6 pt-20"
         style={{ opacity: heroOpacity, scale: heroScale }}
       >
         <motion.div
-          className="text-center max-w-3xl mx-auto"
+          className="text-center w-full max-w-3xl mx-auto"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -733,25 +1016,28 @@ export function LandingPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
           >
-            Every model. One bill. No subscription.
+            The first pay-per-thought AI
           </motion.div>
 
-          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-semibold tracking-tighter leading-[0.9] mb-6">
-            <span className="block">Think in</span>
-            <span className="block text-foreground/40">Meter.</span>
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-semibold tracking-tighter leading-[0.95] mb-6">
+            Pay per thought,
+            <br />
+            <span className="text-foreground/40">not per month.</span>
           </h1>
 
           <motion.p
-            className="text-lg sm:text-xl text-muted-foreground/60 max-w-md mx-auto leading-relaxed mb-10"
+            className="text-lg sm:text-xl text-muted-foreground/60 max-w-lg mx-auto leading-relaxed mb-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.8 }}
           >
-            The pay-per-thought AI that routes across frontier models,
-            runs structured debates, and commits decisions to your codebase.
+            What if intelligence were metered like electricity.
+            Chat with the top AI models, debate your hardest decisions,
+            and pay only for what you use.
           </motion.p>
 
           <motion.div
+            className="flex justify-center"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
@@ -769,12 +1055,12 @@ export function LandingPage() {
           </motion.div>
 
           <motion.p
-            className="font-mono text-[10px] text-muted-foreground/20 mt-6 tracking-wide"
+            className="font-mono text-[10px] text-muted-foreground/20 mt-8 tracking-wide"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 0.8 }}
           >
-            Passkey authentication. No passwords, ever.
+            Now live in public beta. No credit card required.
           </motion.p>
         </motion.div>
 
@@ -804,391 +1090,212 @@ export function LandingPage() {
         <Ticker />
       </div>
 
-      {/* ── Problem Statement ──────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-32 px-6">
+      {/* ── Why pay for subscriptions? ─────────────────────────────── */}
+      <RevealSection className="relative z-10 py-24 sm:py-32 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-8">
-            The thesis
+            The problem
           </p>
-          <blockquote className="text-2xl sm:text-3xl font-medium text-foreground/80 leading-snug tracking-tight">
-            &ldquo;A brilliant codebase built on a broken decision is still a broken product.&rdquo;
-          </blockquote>
-          <p className="text-base text-muted-foreground/40 mt-6 max-w-lg mx-auto leading-relaxed">
-            Execution has become easy. Cursor writes your code. Vercel ships it.
-            The bottleneck is now the thinking that happens before the first commit.
-          </p>
-        </div>
-      </RevealSection>
-
-      <AsciiBorder className="relative z-10 max-w-4xl mx-auto" />
-
-      {/* ── Core Features ─────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-32 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
-              What Meter does
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-              Three layers of intelligence
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FeatureCard
-              number="01"
-              title="Route"
-              description="Every frontier model on one postpaid tab. Auto-routing picks the optimal model for each task. No rate limits — Meter routes around them."
-              ascii={[
-                "  ┌─────┐",
-                "  │ IN  │──→ Claude",
-                "  │     │──→ GPT",
-                "  │ ··· │──→ Gemini",
-                "  └─────┘──→ Grok",
-              ]}
-              delay={0}
-            />
-            <FeatureCard
-              number="02"
-              title="Debate"
-              description="Force models into adversarial positions. Each critiques the other's strongest argument. Get a synthesis with trade-offs and a recommended path."
-              ascii={[
-                "  Claude ◆──┐",
-                "  GPT   ◆──┤ CLASH",
-                "  Grok  ◆──┘",
-                "       ↓",
-                "   [SYNTHESIS]",
-              ]}
-              delay={0.1}
-            />
-            <FeatureCard
-              number="03"
-              title="Record"
-              description="Lock decisions as structured records — not chat logs. Context, choice, trade-offs, dissent. Auto-commit to GitHub as an Agent Spec Kit."
-              ascii={[
-                "  ┌──────────┐",
-                "  │ DECISION │",
-                "  │ #0047    │",
-                "  │ locked ✓ │",
-                "  └──────────┘",
-              ]}
-              delay={0.2}
-            />
-          </div>
-        </div>
-      </RevealSection>
-
-      {/* ── Debate Deep Dive ──────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-32 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
-                Debate mode
-              </p>
-              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">
-                Adversarial<br />intelligence
-              </h2>
-              <p className="text-base text-muted-foreground/60 leading-relaxed mb-6">
-                Pit Claude against GPT against Gemini on your hardest
-                strategic questions. Four-phase adversarial structure forces
-                models to attack each other&apos;s logic. The result is a
-                synthesis no single model could produce alone.
-              </p>
-              <div className="font-mono text-[10px] text-muted-foreground/25 space-y-1">
-                <div>Opening → Each model states position</div>
-                <div>Challenge → Attack strongest argument</div>
-                <div>Rebuttal → Defend under fire</div>
-                <div>Synthesis → Trade-offs + recommendation</div>
-              </div>
-            </div>
-            <div className="bg-foreground/[0.015] border border-foreground/[0.04] rounded-2xl p-6">
-              <DebateViz />
-            </div>
-          </div>
-        </div>
-      </RevealSection>
-
-      <AsciiBorder className="relative z-10 max-w-4xl mx-auto" />
-
-      {/* ── Models ────────────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-32 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-            <div>
-              <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
-                Models
-              </p>
-              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">
-                Every frontier model.
-                <br />
-                <span className="text-foreground/40">One bill.</span>
-              </h2>
-              <p className="text-base text-muted-foreground/60 leading-relaxed mb-8">
-                Access Claude, GPT, Gemini, Grok, DeepSeek, and MiniMax on
-                a single postpaid tab. Auto-routing selects the optimal model
-                based on task complexity, cost, and availability.
-              </p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-semibold tracking-tight">
-                  <AnimatedPrice value="0.003" />
-                </span>
-                <span className="font-mono text-xs text-muted-foreground/40">
-                  avg per thought
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-2">
-              {[
-                { name: "Claude Opus 4.6", provider: "Anthropic", color: "#D97757" },
-                { name: "Claude Sonnet 4.6", provider: "Anthropic", color: "#D97757" },
-                { name: "GPT-5.4", provider: "OpenAI", color: "#10A37F" },
-                { name: "Gemini 3.1 Pro", provider: "Google", color: "#4285F4" },
-                { name: "Grok 4.1 Fast", provider: "xAI", color: "#A0A0A0" },
-                { name: "DeepSeek V3", provider: "DeepSeek", color: "#4D6BFE" },
-                { name: "MiniMax M2.5", provider: "MiniMax", color: "#E84142" },
-              ].map((model, i) => (
-                <ModelDot key={model.name} {...model} delay={i * 0.08} />
-              ))}
-              <div className="pt-3 border-t border-foreground/[0.04]">
-                <ModelDot name="Auto" provider="Meter routes for you" color="#E4E4E7" delay={0.7} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </RevealSection>
-
-      {/* ── How It Works ──────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-32 px-6 bg-foreground/[0.01]">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
-              How it works
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-              Think. Decide. Ship.
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                step: "01",
-                title: "Ask anything",
-                desc: "Chat with any model, or trigger a multi-model debate on your toughest questions. Every response shows its cost in real time.",
-                ascii: "$ _",
-              },
-              {
-                step: "02",
-                title: "Lock the decision",
-                desc: "Convert debate outputs into structured decision records. Context, choice, trade-offs, and dissent — timestamped and versioned.",
-                ascii: "✓ □",
-              },
-              {
-                step: "03",
-                title: "Commit to GitHub",
-                desc: "One click deploys your Agent Spec Kit — CLAUDE.md, ARCHITECTURE.md, DECISIONS.md — so coding agents start with perfect context.",
-                ascii: "→ ◆",
-              },
-            ].map((item, i) => (
-              <RevealSection key={item.step} delay={i * 0.1}>
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-foreground/[0.03] border border-foreground/[0.04] mb-4">
-                    <span className="font-mono text-lg text-foreground/20">{item.ascii}</span>
-                  </div>
-                  <div className="font-mono text-[10px] text-muted-foreground/25 tracking-[0.2em] uppercase mb-2">
-                    Step {item.step}
-                  </div>
-                  <h3 className="text-lg font-medium mb-2">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground/50 leading-relaxed">
-                    {item.desc}
-                  </p>
-                </div>
-              </RevealSection>
-            ))}
-          </div>
-        </div>
-      </RevealSection>
-
-      {/* ── Pricing ───────────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-32 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
-            Pricing
-          </p>
-          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">
-            Pay for what you think.
-            <br />
-            <span className="text-foreground/40">Nothing else.</span>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-6 leading-tight">
+            Why pay hundreds a month for subscriptions you barely use?
           </h2>
-          <p className="text-base text-muted-foreground/50 leading-relaxed mb-10 max-w-lg mx-auto">
-            No seats. No tiers. No annual contracts. Use any model, pay per token
-            at the end of the month. Set a hard cap so you never overspend.
+          <div className="mb-8">
+            <SubscriptionLogos />
+          </div>
+          <p className="text-base text-muted-foreground/50 max-w-md mx-auto leading-relaxed">
+            Every unplanned decision to change code leads to more time and spend fixing things.
+            Meter lets you think first, code later.
           </p>
-
-          <div className="inline-flex flex-col items-center gap-1 p-6 rounded-2xl border border-foreground/[0.04] bg-foreground/[0.01]">
-            <span className="font-mono text-[10px] text-muted-foreground/30 tracking-[0.2em] uppercase">
-              Starting from
-            </span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-5xl font-semibold tracking-tight">$0</span>
-              <span className="text-lg text-muted-foreground/40">/mo</span>
-            </div>
-            <span className="font-mono text-[11px] text-muted-foreground/30 mt-1">
-              + tokens consumed
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 text-center">
-            {[
-              { label: "No subscription", icon: "∅" },
-              { label: "Postpaid billing", icon: "◉" },
-              { label: "Hard wallet cap", icon: "▣" },
-              { label: "Monthly invoices", icon: "□" },
-            ].map((item) => (
-              <div key={item.label} className="p-3">
-                <div className="font-mono text-lg text-foreground/15 mb-1">{item.icon}</div>
-                <span className="font-mono text-[10px] text-muted-foreground/40 tracking-wide">
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
       </RevealSection>
 
-      <AsciiBorder className="relative z-10 max-w-4xl mx-auto" />
+      {/* ── Introducing Meter (with meter counter animation) ────── */}
+      <FeatureSection
+        label="Introducing Meter"
+        title={<>The first pay-per-thought AI.<br /><span className="text-foreground/40">Think first, pay later.</span></>}
+        description="Meter routes your prompts across every frontier model on a single postpaid tab. Watch your spend tick up in real time — pennies, not subscriptions. Auto-settle when you're ready."
+      >
+        <AsciiMeterCounter />
+      </FeatureSection>
 
-      {/* ── Connectors ────────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-32 px-6">
+      {/* ── Chat with top models (with model pills animation) ────── */}
+      <FeatureSection
+        label="Every frontier model"
+        title={<>Chat with the top AI models.<br /><span className="text-foreground/40">One interface.</span></>}
+        description="Claude, GPT, Gemini, Grok, DeepSeek — all available in one place. Auto-routing picks the best model for each task. No rate limits. No switching tabs."
+        reverse
+      >
+        <AsciiModelPills />
+      </FeatureSection>
+
+      {/* ── Debate mode (with debate animation) ────────────────── */}
+      <FeatureSection
+        label="Debate mode"
+        title={<>Get them to debate your ideas<br /><span className="text-foreground/40">in real time.</span></>}
+        description="Pit models against each other on your hardest questions. Four-phase adversarial structure forces real critique, not consensus. The synthesis is stronger than any single model."
+      >
+        <AsciiDebateAnim />
+      </FeatureSection>
+
+      {/* ── Decision log (with lock animation) ─────────────────── */}
+      <FeatureSection
+        label="Decision records"
+        title={<>When you have conviction,<br /><span className="text-foreground/40">lock it with one tap.</span></>}
+        description="Decisions are structured records — not chat logs. Context, choice, trade-offs, and dissent. Timestamped and versioned. Your thinking becomes institutional memory."
+        reverse
+      >
+        <AsciiDecisionLock />
+      </FeatureSection>
+
+      {/* ── Fork paths (with fork animation) ───────────────────── */}
+      <FeatureSection
+        label="Fork conversations"
+        title={<>Explore paths<br /><span className="text-foreground/40">before you commit.</span></>}
+        description="Fork any conversation to explore multiple directions in parallel. Compare outcomes, merge the best path back. Think divergently without losing your place."
+      >
+        <AsciiForkAnim />
+      </FeatureSection>
+
+      {/* ── Auto-settle (with settle animation) ────────────────── */}
+      <FeatureSection
+        label="Auto-settle"
+        title={<>Meter auto-settles your spend.<br /><span className="text-foreground/40">Think, don't bookkeep.</span></>}
+        description="Your balance accumulates as you think. Set a cap, set auto-settle thresholds, or settle manually. Spend your time thinking, not rate-limiting."
+        reverse
+      >
+        <AsciiSettleAnim />
+      </FeatureSection>
+
+      {/* ── Blueprints (with blueprint animation) ──────────────── */}
+      <FeatureSection
+        label="Agent Spec Kit"
+        title={<>Generate blueprints<br /><span className="text-foreground/40">as shareable documents.</span></>}
+        description="Turn your decisions into structured specs — README, ARCHITECTURE, DESIGN, DECISIONS, CLAUDE.md. Commit directly to GitHub so your coding agents start with perfect context."
+      >
+        <AsciiBlueprintAnim />
+      </FeatureSection>
+
+      {/* ── Spend monitor (with monitor animation) ─────────────── */}
+      <FeatureSection
+        label="Spend controls"
+        title={<>Monitor your spend.<br /><span className="text-foreground/40">Set caps and limits.</span></>}
+        description="Real-time usage dashboard. Set daily caps, monthly limits, per-transaction maximums. Full visibility into which models cost what. Never overspend."
+        reverse
+      >
+        <AsciiSpendMonitor />
+      </FeatureSection>
+
+      {/* ── MCP Server ─────────────────────────────────────────── */}
+      <RevealSection className="relative z-10 py-24 sm:py-32 px-6 bg-foreground/[0.01]">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
-              Connectors
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">
-              Three modes. Every tool.
-            </h2>
-            <p className="text-base text-muted-foreground/50 max-w-lg mx-auto leading-relaxed">
-              Meter connects to the services you already use. Each mode surfaces
-              the right data for the right decisions.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              {
-                mode: "Planner",
-                desc: "Gmail, Linear, Calendar — decisions, follow-ups, strategy artifacts",
-                ascii: ["┌───────┐", "│PLAN   │", "│→ □ □  │", "│→ ■ □  │", "└───────┘"],
-              },
-              {
-                mode: "Coder",
-                desc: "GitHub, Vercel, Porkbun — commits, PRs, deploys, domains",
-                ascii: ["┌───────┐", "│CODE   │", "│ git + │", "│ ship  │", "└───────┘"],
-              },
-              {
-                mode: "Banker",
-                desc: "Stripe, Mercury, Puzzle, Gusto — runway, burn, revenue",
-                ascii: ["┌───────┐", "│BANK   │", "│ $$$   │", "│ ↗↗↗   │", "└───────┘"],
-              },
-            ].map((item, i) => (
-              <RevealSection key={item.mode} delay={i * 0.1}>
-                <div className="p-6 rounded-2xl border border-foreground/[0.04] bg-foreground/[0.01] hover:border-foreground/[0.08] transition-colors">
-                  <div className="font-mono text-[9px] leading-tight text-foreground/[0.08] mb-4 whitespace-pre">
-                    {item.ascii.map((line, j) => (
-                      <div key={j}>{line}</div>
-                    ))}
-                  </div>
-                  <h3 className="text-base font-medium mb-1">{item.mode}</h3>
-                  <p className="text-sm text-muted-foreground/50 leading-relaxed">
-                    {item.desc}
-                  </p>
-                </div>
-              </RevealSection>
-            ))}
-          </div>
-        </div>
-      </RevealSection>
-
-      {/* ── SDK Section ───────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-32 px-6 bg-foreground/[0.01]">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <div>
               <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
-                For developers
+                For your AI coders
               </p>
-              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">
-                Embed metered AI<br />
-                <span className="text-foreground/40">in your product.</span>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
+                Connect through our MCP server.
+                <br />
+                <span className="text-foreground/40">Full context, always.</span>
               </h2>
               <p className="text-base text-muted-foreground/60 leading-relaxed">
-                Drop in the React SDK or use the headless API.
-                Every token your users consume flows through Meter.
-                You set the markup. We handle billing, routing, and rate limits.
+                Your AI coding agents get full context of your decisions and blueprints
+                through Meter&apos;s MCP server. No more pasting specs into prompts.
+                Your agents start with everything they need.
               </p>
             </div>
 
             <div className="rounded-2xl border border-foreground/[0.06] bg-foreground/[0.02] p-5 font-mono text-[12px] leading-relaxed overflow-x-auto">
-              <div className="text-muted-foreground/30 mb-1">{"// npm i @meterxyz/react"}</div>
+              <div className="text-muted-foreground/30 mb-1">{"// Connect your coding agent"}</div>
               <div>
-                <span className="text-foreground/40">import</span>{" "}
-                <span className="text-foreground/60">{"{ MeterChat }"}</span>{" "}
-                <span className="text-foreground/40">from</span>{" "}
-                <span className="text-foreground/50">{`'@meterxyz/react'`}</span>
-              </div>
-              <div className="mt-3 text-muted-foreground/30">{"// That's it. Metered AI in your app."}</div>
-              <div className="mt-1">
-                <span className="text-foreground/50">{"<MeterChat"}</span>
+                <span className="text-foreground/40">{"{"}</span>
               </div>
               <div className="pl-4">
-                <span className="text-foreground/40">apiKey</span>
-                <span className="text-foreground/30">=</span>
-                <span className="text-foreground/50">{`"mk_..."`}</span>
+                <span className="text-foreground/50">{`"mcpServers"`}</span>
+                <span className="text-foreground/30">{": {"}</span>
+              </div>
+              <div className="pl-8">
+                <span className="text-foreground/50">{`"meter"`}</span>
+                <span className="text-foreground/30">{": {"}</span>
+              </div>
+              <div className="pl-12">
+                <span className="text-foreground/40">{`"url"`}</span>
+                <span className="text-foreground/30">{": "}</span>
+                <span className="text-foreground/50">{`"https://meter.chat/mcp"`}</span>
+              </div>
+              <div className="pl-8">
+                <span className="text-foreground/30">{"}"}</span>
               </div>
               <div className="pl-4">
-                <span className="text-foreground/40">models</span>
-                <span className="text-foreground/30">=</span>
-                <span className="text-foreground/50">{`{['auto']}`}</span>
+                <span className="text-foreground/30">{"}"}</span>
               </div>
               <div>
-                <span className="text-foreground/50">{"/>"}</span>
+                <span className="text-foreground/40">{"}"}</span>
               </div>
+              <div className="mt-3 text-muted-foreground/30">{"// Decisions + specs, always in context."}</div>
             </div>
           </div>
         </div>
       </RevealSection>
 
-      {/* ── Final CTA ─────────────────────────────────────────────── */}
-      <section className="relative z-10 py-32 px-6">
+      {/* ── Privacy ─────────────────────────────────────────────── */}
+      <RevealSection className="relative z-10 py-24 sm:py-32 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
+            Privacy
+          </p>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
+            Private and anonymized by default.
+          </h2>
+          <p className="text-base text-muted-foreground/50 max-w-md mx-auto leading-relaxed">
+            Your thoughts stay your thoughts. Meter doesn&apos;t train on your data,
+            doesn&apos;t sell your prompts, and anonymizes everything by default.
+          </p>
+        </div>
+      </RevealSection>
+
+      {/* ── Future vision ──────────────────────────────────────── */}
+      <RevealSection className="relative z-10 py-16 sm:py-24 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <blockquote className="text-xl sm:text-2xl font-medium text-foreground/60 leading-snug tracking-tight italic">
+            &ldquo;In the future everyone will wonder why they ever paid to think like they do gym memberships.&rdquo;
+          </blockquote>
+        </div>
+      </RevealSection>
+
+      {/* ── Final CTA ─────────────────────────────────────────── */}
+      <section className="relative z-10 py-24 sm:py-32 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <RevealSection>
-            <h2 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-4">
+            <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
+              Public beta
+            </p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight mb-4">
               Start thinking.
             </h2>
             <p className="text-base text-muted-foreground/50 mb-10 max-w-md mx-auto leading-relaxed">
               No credit card required. No subscription. Just open Meter
-              and think. Pay for what you use at the end of the month.
+              and think. Pay for what you use.
             </p>
-            <AuthButtons
-              step={step}
-              loading={loading}
-              error={error}
-              status={status}
-              onContinue={handleContinue}
-              onCreateAccount={handleCreateAccount}
-              onCrossDevice={handleCrossDevice}
-              onBack={() => { setStep("passkey"); setError(null); setStatus(null); }}
-            />
+            <div className="flex justify-center">
+              <AuthButtons
+                step={step}
+                loading={loading}
+                error={error}
+                status={status}
+                onContinue={handleContinue}
+                onCreateAccount={handleCreateAccount}
+                onCrossDevice={handleCrossDevice}
+                onBack={() => { setStep("passkey"); setError(null); setStatus(null); }}
+              />
+            </div>
           </RevealSection>
         </div>
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────── */}
       <footer className="relative z-10 border-t border-foreground/[0.04] py-8 px-6">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Image
               src="/logo-dark-copy.webp"
