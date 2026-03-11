@@ -1311,38 +1311,6 @@ export function LandingPage() {
         </div>
       </RevealSection>
 
-      {/* ── Connectors ─────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-24 sm:py-32 px-6">
-        <div className="max-w-3xl mx-auto">
-          <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4 text-center">
-            Connectors
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-12 text-center">
-            Three modes. Every tool.
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="rounded-xl border border-foreground/[0.06] bg-background p-5">
-              <div className="font-mono text-[10px] text-muted-foreground/30 uppercase tracking-wider mb-3">Planner</div>
-              <p className="text-sm text-muted-foreground/50 leading-relaxed">
-                Gmail, Linear, Calendar — decisions, follow-ups, strategy artifacts
-              </p>
-            </div>
-            <div className="rounded-xl border border-foreground/[0.06] bg-background p-5">
-              <div className="font-mono text-[10px] text-muted-foreground/30 uppercase tracking-wider mb-3">Coder</div>
-              <p className="text-sm text-muted-foreground/50 leading-relaxed">
-                GitHub, Vercel, Porkbun — commits, PRs, deploys, domains
-              </p>
-            </div>
-            <div className="rounded-xl border border-foreground/[0.06] bg-background p-5">
-              <div className="font-mono text-[10px] text-muted-foreground/30 uppercase tracking-wider mb-3">Banker</div>
-              <p className="text-sm text-muted-foreground/50 leading-relaxed">
-                Stripe, Mercury, Puzzle, Gusto — runway, burn, revenue
-              </p>
-            </div>
-          </div>
-        </div>
-      </RevealSection>
-
       {/* ── Pricing ────────────────────────────────────────────── */}
       <RevealSection className="relative z-10 py-24 sm:py-32 px-6">
         <div className="max-w-2xl mx-auto text-center">
