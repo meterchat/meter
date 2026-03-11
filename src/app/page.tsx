@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useMeterStore } from "@/lib/store";
 import { trackConnectorConnected } from "@/lib/analytics";
 import { ChatView } from "@/components/chat-view";
-import { LoginScreen } from "@/components/login-screen";
+import { LandingPage } from "@/components/landing-page";
 
 function HomeInner() {
   const router = useRouter();
@@ -37,7 +37,7 @@ function HomeInner() {
   const onboardingComplete = authenticated;
 
   if (!onboardingComplete) {
-    return <LoginScreen />;
+    return <LandingPage />;
   }
 
   return <ChatView />;
