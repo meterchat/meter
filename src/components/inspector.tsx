@@ -733,21 +733,26 @@ function ConnectTab() {
   const [copied, setCopied] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch or generate an MCP API key
+  // Fetch existing MCP API key
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setError(null);
       try {
         const res = await fetch("/api/mcp-key");
         if (res.ok) {
           const data = await res.json();
           if (!cancelled) setApiKey(data.key ?? null);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          if (!cancelled) setError(data.error ?? `Failed to load key (${res.status})`);
         }
-      } catch {
-        // silent
+      } catch (err) {
+        if (!cancelled) setError("Network error loading key");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -757,15 +762,18 @@ function ConnectTab() {
 
   const generateKey = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/mcp-key", { method: "POST" });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         setApiKey(data.key);
         setRevealed(true);
+      } else {
+        setError(data.error ?? `Failed to generate key (${res.status})`);
       }
-    } catch {
-      // silent
+    } catch (err) {
+      setError("Network error generating key");
     } finally {
       setLoading(false);
     }
@@ -839,6 +847,9 @@ function ConnectTab() {
           >
             {loading ? "Generating..." : "Generate API Key"}
           </button>
+        )}
+        {error && (
+          <p className="font-mono text-[10px] text-red-400 mt-1">{error}</p>
         )}
       </div>
 
