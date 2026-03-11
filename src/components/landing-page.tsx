@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, useScroll, useTransform, useInView } from "framer-motion";
+import dynamic from "next/dynamic";
 import { useMeterStore } from "@/lib/store";
 import { apiUrl } from "@/lib/api-url";
 import {
@@ -20,6 +21,11 @@ import {
 import { getModel, shortModelName, MODELS, DEBATE_MODELS } from "@/lib/models";
 import { MeterIcon } from "./meter-icon";
 import { ProviderLogo, ModelLogo } from "./model-picker";
+
+const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), {
+  ssr: false,
+  loading: () => <div className="h-[28px]" />,
+});
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -61,40 +67,57 @@ function credentialToJSON(cred: PublicKeyCredential) {
 
 // ── App-style UI Animation Components ─────────────────────────────────
 
-// Animated brainwave / meter pulse below hero
-function MeterPulse() {
-  const [offset, setOffset] = useState(0);
+// Hero liveline that cycles through models with matching colors
+function HeroLiveline({ activeModelIdx }: { activeModelIdx: number }) {
+  const displayModels = MODELS.filter((m) => m.id !== "auto");
+  const model = displayModels[activeModelIdx % displayModels.length];
+  const [data, setData] = useState<{ time: number; value: number }[]>([]);
+  const [currentRate, setCurrentRate] = useState(0);
   const ref = useRef(null);
   const isInView = useInView(ref, { once: false });
 
+  // Generate simulated token stream data
   useEffect(() => {
     if (!isInView) return;
+    const now = Math.floor(Date.now() / 1000);
+    setData([{ time: now - 5, value: 0 }, { time: now, value: 0 }]);
+
     const interval = setInterval(() => {
-      setOffset((o) => o + 1);
-    }, 80);
+      const nowSec = Math.floor(Date.now() / 1000);
+      // Simulate bursty token arrival
+      const burst = Math.random() > 0.3 ? Math.floor(Math.random() * 80 + 20) : Math.floor(Math.random() * 10);
+      const rate = burst * 2;
+      setCurrentRate(rate);
+      setData((d) => {
+        const next = [...d, { time: nowSec, value: rate }];
+        const cutoff = nowSec - 30;
+        return next.filter((p) => p.time >= cutoff);
+      });
+    }, 500);
+
     return () => clearInterval(interval);
   }, [isInView]);
 
-  // Generate a wave pattern that scrolls
-  const width = 80;
-  const wave = useMemo(() => {
-    const chars = " ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁";
-    const result: string[] = [];
-    for (let i = 0; i < width; i++) {
-      const idx = Math.floor(
-        (Math.sin((i + offset) * 0.15) * 0.5 + 0.5) *
-          (chars.length - 1) +
-          Math.sin((i + offset) * 0.08 + 2) * 2
-      );
-      result.push(chars[Math.max(0, Math.min(chars.length - 1, idx))]);
-    }
-    return result.join("");
-  }, [offset]);
-
   return (
-    <div ref={ref} className="w-full overflow-hidden py-8">
-      <div className="font-mono text-[11px] text-foreground/[0.06] whitespace-pre text-center select-none tracking-widest">
-        {wave}
+    <div ref={ref} className="w-full overflow-hidden py-2">
+      <div className="h-[28px] w-full max-w-2xl mx-auto relative overflow-hidden transition-all duration-700">
+        <Liveline
+          data={data}
+          value={currentRate}
+          window={30}
+          theme="dark"
+          color={model.color}
+          fill
+          pulse
+          exaggerate
+          momentum={false}
+          scrub={false}
+          grid={false}
+          badge={false}
+          padding={{ top: 0, right: 8, bottom: 0, left: 8 }}
+          className="!bg-transparent !border-none"
+          style={{ border: "none" }}
+        />
       </div>
     </div>
   );
@@ -582,53 +605,111 @@ function LiveSettleCard() {
   );
 }
 
-// Spend monitor with mini sparkline
-function LiveSpendMonitor() {
-  const [data, setData] = useState({ today: 0.42, week: 3.17, cap: 50 });
+// Passkey authentication animation for privacy section
+function LivePasskeyAuth() {
+  const [phase, setPhase] = useState<"idle" | "authenticating" | "verified">("idle");
   const ref = useRef(null);
   const isInView = useInView(ref, { once: false, margin: "-100px" });
 
   useEffect(() => {
-    if (!isInView) return;
-    const interval = setInterval(() => {
-      setData((d) => ({
-        ...d,
-        today: Math.round((d.today + 0.01 + Math.random() * 0.03) * 100) / 100,
-        week: Math.round((d.week + 0.01 + Math.random() * 0.03) * 100) / 100,
-      }));
-    }, 2000);
-    return () => clearInterval(interval);
+    if (!isInView) {
+      setPhase("idle");
+      return;
+    }
+
+    const timers = [
+      setTimeout(() => setPhase("authenticating"), 1000),
+      setTimeout(() => setPhase("verified"), 2500),
+      setTimeout(() => setPhase("idle"), 6000),
+    ];
+    return () => timers.forEach(clearTimeout);
   }, [isInView]);
 
   return (
     <div ref={ref} className="w-full max-w-[320px]">
       <div className="rounded-xl border border-foreground/[0.06] bg-background overflow-hidden">
-        <div className="px-4 py-3 border-b border-foreground/[0.04]">
-          <span className="font-mono text-[11px] text-foreground/70">Spend Monitor</span>
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-foreground/[0.04] flex items-center justify-between">
+          <span className="font-mono text-[11px] text-foreground/70">Authentication</span>
+          <span className={`font-mono text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+            phase === "verified"
+              ? "bg-emerald-500/10 text-emerald-500/70"
+              : phase === "authenticating"
+                ? "bg-amber-500/10 text-amber-500/70"
+                : "bg-foreground/[0.04] text-muted-foreground/40"
+          }`}>
+            {phase === "verified" ? "Verified" : phase === "authenticating" ? "Verifying..." : "Passkey"}
+          </span>
         </div>
-        <div className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-muted-foreground/50">Today</span>
-            <span className="font-mono text-[12px] text-foreground/70 tabular-nums">${data.today.toFixed(2)}</span>
+
+        <div className="p-5 space-y-4">
+          {/* Passkey icon + animation */}
+          <div className="flex items-center justify-center py-3">
+            <motion.div
+              className={`flex items-center justify-center w-14 h-14 rounded-2xl border transition-colors duration-500 ${
+                phase === "verified"
+                  ? "border-emerald-500/20 bg-emerald-500/5"
+                  : phase === "authenticating"
+                    ? "border-amber-500/20 bg-amber-500/5"
+                    : "border-foreground/[0.06] bg-foreground/[0.02]"
+              }`}
+              animate={phase === "authenticating" ? { scale: [1, 1.05, 1] } : { scale: 1 }}
+              transition={{ duration: 1, repeat: phase === "authenticating" ? Infinity : 0 }}
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={`transition-colors duration-500 ${
+                  phase === "verified"
+                    ? "text-emerald-500/70"
+                    : phase === "authenticating"
+                      ? "text-amber-500/70"
+                      : "text-foreground/30"
+                }`}
+              >
+                {phase === "verified" ? (
+                  <path d="M20 6L9 17l-5-5" />
+                ) : (
+                  <>
+                    <path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z" />
+                    <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+                  </>
+                )}
+              </svg>
+            </motion.div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-muted-foreground/50">This week</span>
-            <span className="font-mono text-[12px] text-foreground/70 tabular-nums">${data.week.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-muted-foreground/50">Cap</span>
-            <span className="font-mono text-[12px] text-foreground/70 tabular-nums">${data.cap.toFixed(2)}</span>
-          </div>
-          <div className="pt-1">
-            <div className="w-full h-1 rounded-full bg-foreground/[0.04]">
-              <div
-                className="h-full rounded-full bg-foreground/20 transition-all duration-500"
-                style={{ width: `${(data.week / data.cap) * 100}%` }}
-              />
+
+          {/* User identity */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] text-muted-foreground/40 uppercase tracking-wider">Identity</span>
             </div>
-            <div className="flex justify-between mt-1">
-              <span className="font-mono text-[8px] text-muted-foreground/20">{((data.week / data.cap) * 100).toFixed(0)}% of cap</span>
-              <span className="font-mono text-[8px] text-muted-foreground/20">${data.cap}</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-foreground/[0.03]">
+              <span className="font-mono text-[12px] text-foreground/60 tabular-nums">
+                {phase === "verified" ? "usr_a8f3k2m9x1" : phase === "authenticating" ? "usr_••••••••••" : "—"}
+              </span>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground/50">Email</span>
+              <span className="font-mono text-[11px] text-foreground/50">None required</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground/50">Password</span>
+              <span className="font-mono text-[11px] text-foreground/50">None</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground/50">Auth method</span>
+              <span className="font-mono text-[11px] text-foreground/50">Passkey only</span>
             </div>
           </div>
         </div>
@@ -662,16 +743,23 @@ function RevealSection({ children, className, delay = 0 }: {
 
 // ── Model logos row (replaces noisy ticker) ───────────────────────────
 
-function ModelLogosRow() {
+function ModelLogosRow({ activeModelIdx }: { activeModelIdx: number }) {
   const displayModels = MODELS.filter((m) => m.id !== "auto");
 
   return (
-    <div className="flex items-center justify-center gap-6 sm:gap-8 py-6 border-y border-foreground/[0.03]">
-      {displayModels.map((m) => (
-        <div key={m.id} className="flex items-center gap-1.5 opacity-25 hover:opacity-50 transition-opacity">
+    <div className="flex items-center justify-center gap-6 sm:gap-8 py-6 border-y border-foreground/[0.04]">
+      {displayModels.map((m, i) => (
+        <button
+          key={m.id}
+          className={`flex items-center gap-1.5 transition-all duration-500 ${
+            i === activeModelIdx % displayModels.length
+              ? "opacity-90"
+              : "opacity-25 hover:opacity-50"
+          }`}
+        >
           <ModelLogo model={m} size={14} />
-          <span className="font-mono text-[10px] text-muted-foreground/60 hidden sm:block">{m.name}</span>
-        </div>
+          <span className="font-mono text-[11px] text-muted-foreground/70 hidden sm:block">{m.name}</span>
+        </button>
       ))}
     </div>
   );
@@ -699,13 +787,13 @@ function FeatureSection({
       <div className="max-w-5xl mx-auto">
         <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center ${reverse ? "direction-rtl" : ""}`}>
           <div className={reverse ? "lg:order-2" : ""}>
-            <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
+            <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
               {label}
             </p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
               {title}
             </h2>
-            <p className="text-base text-muted-foreground/60 leading-relaxed">
+            <p className="text-base sm:text-lg text-muted-foreground/70 leading-relaxed">
               {description}
             </p>
           </div>
@@ -832,8 +920,8 @@ function SubscriptionLogos() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 + i * 0.1, duration: 0.5 }}
         >
-          <span className="text-sm text-foreground/40">{logo.name}</span>
-          <span className="font-mono text-xs text-foreground/25">{logo.price}</span>
+          <span className="text-sm text-foreground/50">{logo.name}</span>
+          <span className="font-mono text-xs text-foreground/35">{logo.price}</span>
         </motion.div>
       ))}
     </div>
@@ -853,6 +941,16 @@ export function LandingPage() {
   const { scrollYProgress } = useScroll({ target: containerRef });
   const heroOpacity = useTransform(scrollYProgress, [0, 0.12], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 0.12], [1, 0.97]);
+
+  // Cycle through models for hero liveline
+  const [activeModelIdx, setActiveModelIdx] = useState(0);
+  const displayModelsCount = MODELS.filter((m) => m.id !== "auto").length;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveModelIdx((i) => (i + 1) % displayModelsCount);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [displayModelsCount]);
 
   // ── Auth handlers ──────────────────────────────────────────────────
 
@@ -994,13 +1092,13 @@ export function LandingPage() {
           <div className="flex items-center gap-6">
             <a
               href="/docs"
-              className="font-mono text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors tracking-wide hidden sm:block"
+              className="font-mono text-[12px] text-muted-foreground/60 hover:text-foreground transition-colors tracking-wide hidden sm:block"
             >
               Docs
             </a>
             <a
               href="/console"
-              className="font-mono text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors tracking-wide hidden sm:block"
+              className="font-mono text-[12px] text-muted-foreground/60 hover:text-foreground transition-colors tracking-wide hidden sm:block"
             >
               Console
             </a>
@@ -1032,7 +1130,7 @@ export function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.6 }}
           >
-            <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/50 uppercase">
+            <span className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground/60 uppercase">
               Pay-Per-Thought AI
             </span>
           </motion.div>
@@ -1042,7 +1140,7 @@ export function LandingPage() {
           </h1>
 
           <motion.p
-            className="text-lg sm:text-xl text-muted-foreground/60 max-w-lg mx-auto leading-relaxed mb-10"
+            className="text-lg sm:text-xl text-muted-foreground/70 max-w-lg mx-auto leading-relaxed mb-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.8 }}
@@ -1070,7 +1168,7 @@ export function LandingPage() {
           </motion.div>
 
           <motion.p
-            className="font-mono text-[10px] text-muted-foreground/20 mt-8 tracking-wide"
+            className="font-mono text-[11px] text-muted-foreground/40 mt-8 tracking-wide"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 0.8 }}
@@ -1100,20 +1198,18 @@ export function LandingPage() {
         </motion.div>
       </motion.section>
 
-      {/* ── Ambient pulse below hero ───────────────────────────────── */}
+      {/* ── Liveline + model selector below hero ───────────────────── */}
       <div className="relative z-10">
-        <MeterPulse />
+        <HeroLiveline activeModelIdx={activeModelIdx} />
       </div>
-
-      {/* ── Model logos (quiet, replaces noisy ticker) ─────────────── */}
       <div className="relative z-10">
-        <ModelLogosRow />
+        <ModelLogosRow activeModelIdx={activeModelIdx} />
       </div>
 
       {/* ── The problem ────────────────────────────────────────────── */}
       <RevealSection className="relative z-10 py-24 sm:py-32 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-8">
+          <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-8">
             The problem
           </p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-6 leading-tight">
@@ -1122,35 +1218,20 @@ export function LandingPage() {
           <div className="mb-8">
             <SubscriptionLogos />
           </div>
-          <p className="text-base text-muted-foreground/50 max-w-md mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg text-muted-foreground/60 max-w-md mx-auto leading-relaxed">
             Execution has become easy. Cursor writes your code. Vercel ships it.
             The bottleneck is now the thinking that happens before the first commit.
           </p>
         </div>
       </RevealSection>
 
-      {/* ── Privacy promise (moved up — principle, not feature) ───── */}
-      <RevealSection className="relative z-10 py-12 sm:py-16 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-foreground/[0.06] bg-foreground/[0.02]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40">
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            <span className="text-sm text-foreground/50">
-              Your thoughts stay your thoughts. No training on your data. No selling your prompts. Private by default.
-            </span>
-          </div>
-        </div>
-      </RevealSection>
-
       {/* ── The thesis ─────────────────────────────────────────────── */}
       <RevealSection className="relative z-10 py-16 sm:py-24 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-6">
+          <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-6">
             The thesis
           </p>
-          <blockquote className="text-xl sm:text-2xl font-medium text-foreground/60 leading-snug tracking-tight italic mb-6">
+          <blockquote className="text-xl sm:text-2xl font-medium text-foreground/70 leading-snug tracking-tight italic mb-6">
             &ldquo;A brilliant codebase built on a broken decision is still a broken product.&rdquo;
           </blockquote>
         </div>
@@ -1159,7 +1240,7 @@ export function LandingPage() {
       {/* ── Three layers of intelligence ───────────────────────────── */}
       <RevealSection className="relative z-10 py-16 sm:py-24 px-6">
         <div className="max-w-3xl mx-auto">
-          <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-8 text-center">
+          <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-8 text-center">
             What Meter does
           </p>
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-12 text-center">
@@ -1167,23 +1248,23 @@ export function LandingPage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <div className="font-mono text-[11px] text-muted-foreground/30 mb-2">01</div>
+              <div className="font-mono text-[11px] text-muted-foreground/50 mb-2">01</div>
               <h3 className="text-lg font-semibold mb-2">Route</h3>
-              <p className="text-sm text-muted-foreground/50 leading-relaxed">
+              <p className="text-sm sm:text-base text-muted-foreground/60 leading-relaxed">
                 Every frontier model on one postpaid tab. Auto-routing picks the optimal model for each task. No rate limits.
               </p>
             </div>
             <div>
-              <div className="font-mono text-[11px] text-muted-foreground/30 mb-2">02</div>
+              <div className="font-mono text-[11px] text-muted-foreground/50 mb-2">02</div>
               <h3 className="text-lg font-semibold mb-2">Debate</h3>
-              <p className="text-sm text-muted-foreground/50 leading-relaxed">
+              <p className="text-sm sm:text-base text-muted-foreground/60 leading-relaxed">
                 Force models into adversarial positions. Each critiques the other&apos;s strongest argument. Get a synthesis with trade-offs.
               </p>
             </div>
             <div>
-              <div className="font-mono text-[11px] text-muted-foreground/30 mb-2">03</div>
+              <div className="font-mono text-[11px] text-muted-foreground/50 mb-2">03</div>
               <h3 className="text-lg font-semibold mb-2">Record</h3>
-              <p className="text-sm text-muted-foreground/50 leading-relaxed">
+              <p className="text-sm sm:text-base text-muted-foreground/60 leading-relaxed">
                 Lock decisions as structured records — not chat logs. Context, choice, trade-offs, dissent. Auto-generate your Agent Spec Kit.
               </p>
             </div>
@@ -1248,14 +1329,14 @@ export function LandingPage() {
         <LiveSpecKit />
       </FeatureSection>
 
-      {/* ── Spend controls (with live spend monitor) ────────────── */}
+      {/* ── Privacy (with live passkey auth) ────────────────────── */}
       <FeatureSection
-        label="Spend controls"
-        title={<>Full visibility.<br /><span className="text-foreground/40">Set caps and limits.</span></>}
-        description="Real-time usage dashboard. Set daily caps, monthly limits, per-transaction maximums. Full visibility into which models cost what. Never overspend."
+        label="Privacy"
+        title={<>Fully anonymized.<br /><span className="text-foreground/50">Private by default.</span></>}
+        description="No email required. No password. Just a passkey on your device. Your identity is a random ID — we never see your name, and we never train on your data."
         reverse
       >
-        <LiveSpendMonitor />
+        <LivePasskeyAuth />
       </FeatureSection>
 
       {/* ── MCP Server ─────────────────────────────────────────── */}
@@ -1263,7 +1344,7 @@ export function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <div>
-              <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
+              <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
                 For your AI coders
               </p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
@@ -1271,7 +1352,7 @@ export function LandingPage() {
                 <br />
                 <span className="text-foreground/40">Full context, always.</span>
               </h2>
-              <p className="text-base text-muted-foreground/60 leading-relaxed">
+              <p className="text-base sm:text-lg text-muted-foreground/70 leading-relaxed">
                 Your AI coding agents get full context of your decisions and specs
                 through Meter&apos;s MCP server. No more pasting specs into prompts.
                 Your agents start with everything they need.
@@ -1314,27 +1395,27 @@ export function LandingPage() {
       {/* ── Pricing ────────────────────────────────────────────── */}
       <RevealSection className="relative z-10 py-24 sm:py-32 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
+          <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
             Pricing
           </p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
             Pay for what you think. Nothing else.
           </h2>
-          <p className="text-base text-muted-foreground/50 mb-10 max-w-md mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg text-muted-foreground/60 mb-10 max-w-md mx-auto leading-relaxed">
             No seats. No tiers. No annual contracts. Use any model, pay per token.
             Set a hard cap so you never overspend.
           </p>
           <div className="inline-flex flex-col items-center gap-4 rounded-2xl border border-foreground/[0.06] bg-foreground/[0.02] p-8">
-            <div className="text-sm text-muted-foreground/40">Starting from</div>
+            <div className="text-sm text-muted-foreground/50">Starting from</div>
             <div className="flex items-baseline gap-1">
               <span className="text-4xl font-semibold">$0</span>
               <span className="text-muted-foreground/40">/mo</span>
             </div>
-            <div className="font-mono text-[11px] text-muted-foreground/40">+ tokens consumed</div>
+            <div className="font-mono text-[11px] text-muted-foreground/50">+ tokens consumed</div>
             <div className="flex flex-wrap justify-center gap-3 mt-2">
-              <span className="font-mono text-[10px] text-muted-foreground/30 px-2 py-1 rounded border border-foreground/[0.04]">No subscription</span>
-              <span className="font-mono text-[10px] text-muted-foreground/30 px-2 py-1 rounded border border-foreground/[0.04]">Postpaid billing</span>
-              <span className="font-mono text-[10px] text-muted-foreground/30 px-2 py-1 rounded border border-foreground/[0.04]">Hard wallet cap</span>
+              <span className="font-mono text-[11px] text-muted-foreground/40 px-2 py-1 rounded border border-foreground/[0.06]">No subscription</span>
+              <span className="font-mono text-[11px] text-muted-foreground/40 px-2 py-1 rounded border border-foreground/[0.06]">Postpaid billing</span>
+              <span className="font-mono text-[11px] text-muted-foreground/40 px-2 py-1 rounded border border-foreground/[0.06]">Hard wallet cap</span>
             </div>
           </div>
         </div>
@@ -1344,13 +1425,13 @@ export function LandingPage() {
       <section className="relative z-10 py-24 sm:py-32 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <RevealSection>
-            <p className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/30 uppercase mb-4">
+            <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
               Public beta
             </p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight mb-4">
               Start thinking.
             </h2>
-            <p className="text-base text-muted-foreground/50 mb-10 max-w-md mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg text-muted-foreground/60 mb-10 max-w-md mx-auto leading-relaxed">
               No credit card required. No subscription. Just open Meter
               and think. Pay for what you use.
             </p>
