@@ -2621,11 +2621,11 @@ export function ChatView() {
 
                       {msg.role === "assistant" && msg.thinking && (
                         <details
-                          open={isStreaming && idx === messages.length - 1}
+                          open={isStreaming && msgIdx === visibleMessages.length - 1}
                           className="mt-2 text-[11px] text-muted-foreground/60"
                         >
                           <summary className="cursor-pointer font-mono hover:text-muted-foreground transition-colors">
-                            {isStreaming && idx === messages.length - 1 ? "Thinking" : "Show thinking"}
+                            {isStreaming && msgIdx === visibleMessages.length - 1 ? "Thinking" : "Show thinking"}
                           </summary>
                           <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
                             {msg.thinking}
