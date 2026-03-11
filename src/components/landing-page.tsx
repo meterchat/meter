@@ -843,12 +843,6 @@ function AuthButtons({
           )}
           {loading ? "Authenticating..." : "Start thinking"}
         </button>
-        <a
-          href="/docs"
-          className="font-mono text-[11px] text-muted-foreground/40 hover:text-muted-foreground transition-colors tracking-wide"
-        >
-          Learn more
-        </a>
         {error && (
           <p className="font-mono text-[11px] text-red-400">{error}</p>
         )}
@@ -1114,7 +1108,7 @@ export function LandingPage() {
 
       {/* ── Hero ───────────────────────────────────────────────────── */}
       <motion.section
-        className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6 pt-20"
+        className="relative z-10 flex flex-col items-center justify-center px-6 pt-32 pb-12"
         style={{ opacity: heroOpacity, scale: heroScale }}
       >
         <motion.div
@@ -1164,35 +1158,6 @@ export function LandingPage() {
               onCreateAccount={handleCreateAccount}
               onCrossDevice={handleCrossDevice}
               onBack={() => { setStep("passkey"); setError(null); setStatus(null); }}
-            />
-          </motion.div>
-
-          <motion.p
-            className="font-mono text-[11px] text-muted-foreground/40 mt-8 tracking-wide"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1, duration: 0.8 }}
-          >
-            Now live in public beta. No credit card required.
-          </motion.p>
-        </motion.div>
-
-        {/* Scroll indicator */}
-        <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.5, duration: 0.8 }}
-        >
-          <motion.div
-            className="w-5 h-8 rounded-full border border-foreground/10 flex items-start justify-center p-1"
-            animate={{ opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <motion.div
-              className="w-1 h-1.5 rounded-full bg-foreground/30"
-              animate={{ y: [0, 12, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
             />
           </motion.div>
         </motion.div>
