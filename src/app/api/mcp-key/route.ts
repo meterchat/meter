@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { getSupabaseServer } from "@/lib/supabase";
+import { encryptToken, decryptToken } from "@/lib/oauth";
 import crypto from "crypto";
 
 function generateMcpKey(): string {
@@ -10,17 +11,6 @@ function generateMcpKey(): string {
 
 function hashKey(key: string): string {
   return crypto.createHash("sha256").update(key).digest("hex");
-}
-
-// Simple reversible encoding for the key — the hash is the real security layer.
-// We XOR with a deterministic pad derived from the hash so the stored value
-// isn't the raw key, but we can recover it without needing OAUTH_TOKEN_SECRET.
-function obfuscate(key: string): string {
-  return Buffer.from(key, "utf8").toString("base64");
-}
-
-function deobfuscate(encoded: string): string {
-  return Buffer.from(encoded, "base64").toString("utf8");
 }
 
 // GET /api/mcp-key — fetch the user's current MCP API key
@@ -41,19 +31,25 @@ export async function GET() {
       .maybeSingle();
 
     if (error) {
-      console.error("[mcp-key GET] Supabase error:", error.message);
-      return NextResponse.json({ key: null });
+      console.error("[mcp-key GET] Supabase error:", error.message, error.code);
+      return NextResponse.json(
+        { error: `Database error: ${error.message}` },
+        { status: 500 },
+      );
     }
 
     if (!data) {
       return NextResponse.json({ key: null });
     }
 
-    const key = deobfuscate(data.encrypted_key);
+    const key = decryptToken(data.encrypted_key);
     return NextResponse.json({ key });
   } catch (err) {
     console.error("[mcp-key GET] Error:", err);
-    return NextResponse.json({ key: null });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -77,17 +73,17 @@ export async function POST() {
     const key = generateMcpKey();
     const keyHash = hashKey(key);
     const keyPrefix = key.slice(0, 7);
-    const encodedKey = obfuscate(key);
+    const encryptedKey = encryptToken(key);
 
     const { error } = await supabase.from("mcp_keys").insert({
       user_id: userId,
       key_hash: keyHash,
       key_prefix: keyPrefix,
-      encrypted_key: encodedKey,
+      encrypted_key: encryptedKey,
     });
 
     if (error) {
-      console.error("[mcp-key POST] Supabase insert error:", error.message, error.details);
+      console.error("[mcp-key POST] Supabase insert error:", error.message, error.code, error.details);
       return NextResponse.json(
         { error: `Failed to create key: ${error.message}` },
         { status: 500 },
@@ -98,7 +94,7 @@ export async function POST() {
   } catch (err) {
     console.error("[mcp-key POST] Error:", err);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: err instanceof Error ? err.message : "Internal server error" },
       { status: 500 },
     );
   }
