@@ -564,27 +564,37 @@ function LiveSpecKit() {
   );
 }
 
-// Settle UI card
-function LiveSettleCard() {
-  const [phase, setPhase] = useState<"running" | "approaching" | "settling" | "settled">("running");
-  const [amount, setAmount] = useState(2.47);
+// Fork & merge animation matching actual fork UI
+function LiveForkTrace() {
+  type Phase = "message" | "forking" | "frozen" | "exploring" | "merging" | "merged";
+  const [phase, setPhase] = useState<Phase>("message");
   const ref = useRef(null);
   const isInView = useInView(ref, { once: false, margin: "-100px" });
 
+  const paths = [
+    { name: "Next.js + tRPC", color: "teal" as const },
+    { name: "Remix + GraphQL", color: "indigo" as const },
+  ];
+
+  const colorMap = {
+    teal: { dot: "bg-teal-500", text: "text-teal-400", border: "border-teal-500/30", bg: "bg-teal-500/10" },
+    indigo: { dot: "bg-indigo-500", text: "text-indigo-400", border: "border-indigo-500/30", bg: "bg-indigo-500/10" },
+  };
+
   useEffect(() => {
     if (!isInView) {
-      setPhase("running");
-      setAmount(2.47);
+      setPhase("message");
       return;
     }
 
     function runCycle() {
-      setPhase("running");
-      setAmount(2.47);
+      setPhase("message");
       const timers = [
-        setTimeout(() => { setPhase("approaching"); setAmount(4.89); }, 2000),
-        setTimeout(() => { setPhase("settling"); setAmount(5.00); }, 4000),
-        setTimeout(() => { setPhase("settled"); setAmount(0); }, 5500),
+        setTimeout(() => setPhase("forking"), 1500),
+        setTimeout(() => setPhase("frozen"), 2500),
+        setTimeout(() => setPhase("exploring"), 4500),
+        setTimeout(() => setPhase("merging"), 7000),
+        setTimeout(() => setPhase("merged"), 8000),
       ];
       return timers;
     }
@@ -593,7 +603,7 @@ function LiveSettleCard() {
     const loop = setInterval(() => {
       timers.forEach(clearTimeout);
       timers = runCycle();
-    }, 8000);
+    }, 10500);
 
     return () => {
       clearInterval(loop);
@@ -601,44 +611,111 @@ function LiveSettleCard() {
     };
   }, [isInView]);
 
+  const showForkDivider = phase !== "message";
+  const showFrozen = phase === "frozen" || phase === "exploring";
+  const showExploring = phase === "exploring";
+  const showMergeDivider = phase === "merging" || phase === "merged";
+  const isMerged = phase === "merged";
+
   return (
-    <div ref={ref} className="w-full max-w-[320px]">
+    <div ref={ref} className="w-full max-w-[380px]">
       <div className="rounded-xl border border-foreground/[0.06] bg-background overflow-hidden">
-        <div className="px-4 py-3 border-b border-foreground/[0.04]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-mono text-[11px] text-foreground/70">Current tab</span>
-            <span className={`font-mono text-[14px] tabular-nums ${
-              phase === "settled" ? "text-emerald-500/70" : "text-foreground/80"
-            }`}>
-              ${amount.toFixed(2)}
-            </span>
+        {/* Chat message context */}
+        <div className="p-3 border-b border-foreground/[0.04]">
+          <div className="text-[12px] text-muted-foreground/40 mb-1.5">
+            What framework should we use for the new dashboard?
           </div>
-          <div className="w-full h-1.5 rounded-full bg-foreground/[0.04] overflow-hidden">
-            <motion.div
-              className={`h-full rounded-full ${
-                phase === "settled" ? "bg-emerald-500/40" :
-                phase === "approaching" || phase === "settling" ? "bg-amber-500/50" : "bg-foreground/20"
-              }`}
-              animate={{ width: `${Math.min((amount / 5) * 100, 100)}%` }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
-          <div className="flex items-center justify-between mt-1">
-            <span className="font-mono text-[9px] text-muted-foreground/30">$0</span>
-            <span className="font-mono text-[9px] text-muted-foreground/30">$5.00 cap</span>
+          <div className="text-[12px] text-foreground/60 leading-relaxed">
+            There are two strong approaches here. Let me fork so you can explore both in parallel...
           </div>
         </div>
-        <div className="p-3 text-center">
-          <span className={`font-mono text-[10px] ${
-            phase === "settled" ? "text-emerald-500/60" :
-            phase === "settling" ? "text-amber-500/60 thinking-shimmer" :
-            "text-muted-foreground/30"
-          }`}>
-            {phase === "settled" ? "✓ Auto-settled. Tab reset." :
-             phase === "settling" ? "Settling..." :
-             phase === "approaching" ? "Approaching cap..." :
-             "Tab running"}
-          </span>
+
+        {/* Fork divider */}
+        <div className={`transition-opacity duration-500 ${showForkDivider ? "opacity-100" : "opacity-0"}`}>
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <div className="flex-1 h-px bg-teal-500/20" />
+            <div className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400/60">
+                <line x1="6" y1="3" x2="6" y2="15" />
+                <circle cx="18" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <path d="M18 9a9 9 0 0 1-9 9" />
+              </svg>
+              <span className="font-mono text-[10px] text-teal-400/60">Forked into paths</span>
+            </div>
+            <div className="flex-1 h-px bg-teal-500/20" />
+          </div>
+        </div>
+
+        {/* Frozen main banner */}
+        <div className={`px-3 transition-all duration-500 ${showFrozen ? "opacity-100" : "opacity-0 h-0 overflow-hidden"}`}>
+          <div className="rounded-lg border border-border/30 bg-foreground/[0.02] p-3 mb-2">
+            <div className="text-center">
+              <div className="font-mono text-[11px] text-foreground/70 mb-1.5">
+                Conversation forked into {paths.length} paths
+              </div>
+              <div className="font-mono text-[9px] text-muted-foreground/50 mb-2.5">
+                Continue in a path or close all to resume main
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                {paths.map((p, idx) => {
+                  const c = colorMap[p.color];
+                  return (
+                    <div
+                      key={p.name}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border ${c.border} ${c.bg} px-2.5 py-1 font-mono text-[10px] ${c.text} ${showExploring && idx === 0 ? "ring-1 ring-teal-500/40" : ""}`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
+                      {p.name}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Exploring path content */}
+        <div className={`px-3 pb-2 transition-all duration-500 ${showExploring ? "opacity-100" : "opacity-0 h-0 overflow-hidden"}`}>
+          <div className="rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-mono text-[10px] text-teal-400 truncate flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+                  Exploring: {paths[0].name}
+                </div>
+                <div className="font-mono text-[9px] text-muted-foreground/40 mt-0.5 pl-3">
+                  This will merge into main and archive other paths
+                </div>
+              </div>
+              <div className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-teal-500/10 px-2.5 py-1 font-mono text-[10px] text-teal-400">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Commit
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Merge divider */}
+        <div className={`transition-opacity duration-500 ${showMergeDivider ? "opacity-100" : "opacity-0"}`}>
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <div className="flex-1 h-px bg-foreground/10" />
+            <div className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-colors duration-300 ${isMerged ? "text-emerald-500/60" : "text-muted-foreground/40"}`}>
+                <circle cx="12" cy="18" r="3" />
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="18" cy="6" r="3" />
+                <path d="M6 9v3a6 6 0 0 0 6 6" />
+                <path d="M18 9v3a6 6 0 0 1-6 6" />
+              </svg>
+              <span className={`font-mono text-[10px] transition-colors duration-300 ${isMerged ? "text-emerald-500/60" : "text-muted-foreground/40"}`}>
+                {isMerged ? "Paths merged" : "Merging..."}
+              </span>
+            </div>
+            <div className="flex-1 h-px bg-foreground/10" />
+          </div>
         </div>
       </div>
     </div>
@@ -1291,14 +1368,14 @@ export function LandingPage() {
         <LiveDecisionCard />
       </FeatureSection>
 
-      {/* ── Auto-settle (with live settle card) ─────────────────── */}
+      {/* ── Fork & merge (with live fork trace) ─────────────────── */}
       <FeatureSection
-        label="Auto-settle"
-        title={<>Your tab runs in the background.<br /><span className="text-foreground/40">No invoices. No surprises.</span></>}
-        description="Set a spending cap. Meter charges you automatically when you hit it. Your balance resets and you keep thinking. No bookkeeping. No monthly invoices."
+        label="Fork & merge"
+        title={<>Explore multiple paths.<br /><span className="text-foreground/40">Merge when ready.</span></>}
+        description="Fork your conversation to explore competing approaches in parallel. Each path gets its own context. When you have conviction, commit to one and merge it back into the main thread."
         reverse
       >
-        <LiveSettleCard />
+        <LiveForkTrace />
       </FeatureSection>
 
       {/* ── Agent Spec Kit (with live spec kit) ─────────────────── */}
