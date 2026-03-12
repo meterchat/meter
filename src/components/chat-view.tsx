@@ -529,8 +529,6 @@ function StackedForkCards({
             className={`relative block w-full rounded-t-lg border ${color.border} px-3 py-2 cursor-pointer group transition-colors ${color.bgHover}`}
             style={{
               backgroundColor: "var(--card)",
-              // Overlap: each background card's bottom is hidden behind the next card
-              marginBottom: "-8px",
               zIndex: siblings.length - i,
             }}
           >
@@ -548,7 +546,7 @@ function StackedForkCards({
       })}
 
       {/* Front card — the active track's commit bar, always on top */}
-      <div className="relative" style={{ zIndex: siblings.length + 1 }}>
+      <div className="relative rounded-lg" style={{ zIndex: siblings.length + 1, backgroundColor: "var(--card)" }}>
         <SubtrackCommitBar
           trackName={activeTrackName}
           siblingNames={siblingNames}
