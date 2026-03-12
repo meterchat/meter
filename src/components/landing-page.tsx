@@ -1326,19 +1326,10 @@ export function LandingPage() {
         </div>
       </RevealSection>
 
-      {/* ── The thesis ─────────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-10 sm:py-14 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <blockquote className="text-xl sm:text-2xl lg:text-3xl font-medium text-foreground/70 leading-snug tracking-tight italic">
-            &ldquo;Intelligence needs to be metered like electricity.&rdquo;
-          </blockquote>
-        </div>
-      </RevealSection>
-
       {/* ── Pay-per-thought (with live meter pill) ──────────────── */}
       <FeatureSection
         label="Pay per thought"
-        title={<>Watch your cost tick up in real time.<br /><span className="text-foreground/40">Pay per thought, not per month.</span></>}
+        title={<>Pay per thought, not per month.<br /><span className="text-foreground/40">Intelligence metered like electricity.</span></>}
         description="Every response shows its cost as it streams. Pennies per thought, not $20/month for 5 messages worth of value. Pay only for what you use."
       >
         <LiveMeterPill />
