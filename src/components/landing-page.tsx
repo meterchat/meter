@@ -240,7 +240,7 @@ function LiveDebateTrace() {
     []
   );
 
-  const totalCycle = (turns.length + 3) * 2000;
+  const totalCycle = (turns.length * 1500) + 3500;
 
   useEffect(() => {
     if (!isInView) {
@@ -256,14 +256,16 @@ function LiveDebateTrace() {
       setShowSynthesis(false);
 
       const timers: ReturnType<typeof setTimeout>[] = [];
-      turns.forEach((_, i) => {
+      // Start first turn immediately (no initial delay)
+      setVisibleTurns(1);
+      turns.slice(1).forEach((_, i) => {
         timers.push(setTimeout(() => {
-          if (cycleRef.current === cycle) setVisibleTurns(i + 1);
-        }, (i + 1) * 2000));
+          if (cycleRef.current === cycle) setVisibleTurns(i + 2);
+        }, (i + 1) * 1500));
       });
       timers.push(setTimeout(() => {
         if (cycleRef.current === cycle) setShowSynthesis(true);
-      }, (turns.length + 1) * 2000));
+      }, turns.length * 1500));
       return timers;
     }
 
@@ -299,7 +301,7 @@ function LiveDebateTrace() {
         </div>
 
         {/* Debate turns — fixed height to prevent layout shift */}
-        <div className="p-3 space-y-3" style={{ minHeight: 280 }}>
+        <div className="p-3 space-y-3">
           {turns.map((turn, i) => {
             const model = getModel(turn.model);
             const visible = i < visibleTurns;
@@ -904,13 +906,15 @@ function FeatureSection({
   children,
   reverse = false,
   delay = 0,
+  footer,
 }: {
   label: string;
   title: React.ReactNode;
-  description: string;
+  description: string | React.ReactNode;
   children: React.ReactNode;
   reverse?: boolean;
   delay?: number;
+  footer?: React.ReactNode;
 }) {
   return (
     <RevealSection className="relative z-10 py-24 sm:py-32 px-6" delay={delay}>
@@ -928,6 +932,7 @@ function FeatureSection({
             <p className="text-base sm:text-lg text-muted-foreground/70 leading-relaxed">
               {description}
             </p>
+            {footer}
           </div>
           <div className={`flex items-center justify-center p-6 sm:p-8 ${reverse ? "lg:order-1" : ""}`}>
             {children}
@@ -1373,16 +1378,30 @@ export function LandingPage() {
         label="Fork & merge"
         title={<>Explore multiple paths.<br /><span className="text-foreground/40">Merge when ready.</span></>}
         description="Fork your conversation to explore competing approaches in parallel. Each path gets its own context. When you have conviction, commit to one and merge it back into the main thread."
-        reverse
       >
         <LiveForkTrace />
       </FeatureSection>
 
-      {/* ── Agent Spec Kit (with live spec kit) ─────────────────── */}
+      {/* ── Agent Spec Kit + MCP (with live spec kit) ─────────── */}
       <FeatureSection
         label="Agent Spec Kit"
         title={<>Generate structured specs.<br /><span className="text-foreground/40">So coding agents start with perfect context.</span></>}
         description="Turn your decisions into structured documents — README, ARCHITECTURE, DESIGN, DECISIONS, CLAUDE.md. Share them with your team or feed them directly to your coding agents through our MCP server."
+        reverse
+        footer={
+          <a
+            href="https://mcp.meter.chat"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 mt-4 font-mono text-[12px] text-muted-foreground/50 hover:text-foreground/70 transition-colors group"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/50" />
+            Connect via MCP server
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <path d="M7 17l9.2-9.2M17 17V8H8" />
+            </svg>
+          </a>
+        }
       >
         <LiveSpecKit />
       </FeatureSection>
@@ -1397,84 +1416,55 @@ export function LandingPage() {
         <LivePasskeyAuth />
       </FeatureSection>
 
-      {/* ── MCP Server ─────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-24 sm:py-32 px-6 bg-foreground/[0.01]">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-            <div>
-              <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
-                For your AI coders
-              </p>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
-                Connect through our MCP server.
-                <br />
-                <span className="text-foreground/40">Full context, always.</span>
-              </h2>
-              <p className="text-base sm:text-lg text-muted-foreground/70 leading-relaxed">
-                Your AI coding agents get full context of your decisions and specs
-                through Meter&apos;s MCP server. No more pasting specs into prompts.
-                Your agents start with everything they need.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-foreground/[0.06] bg-foreground/[0.02] p-5 font-mono text-[12px] leading-relaxed overflow-x-auto">
-              <div className="text-muted-foreground/30 mb-1">{"// Connect your coding agent"}</div>
-              <div>
-                <span className="text-foreground/40">{"{"}</span>
-              </div>
-              <div className="pl-4">
-                <span className="text-foreground/50">{`"mcpServers"`}</span>
-                <span className="text-foreground/30">{": {"}</span>
-              </div>
-              <div className="pl-8">
-                <span className="text-foreground/50">{`"meter"`}</span>
-                <span className="text-foreground/30">{": {"}</span>
-              </div>
-              <div className="pl-12">
-                <span className="text-foreground/40">{`"url"`}</span>
-                <span className="text-foreground/30">{": "}</span>
-                <span className="text-foreground/50">{`"https://meter.chat/mcp"`}</span>
-              </div>
-              <div className="pl-8">
-                <span className="text-foreground/30">{"}"}</span>
-              </div>
-              <div className="pl-4">
-                <span className="text-foreground/30">{"}"}</span>
-              </div>
-              <div>
-                <span className="text-foreground/40">{"}"}</span>
-              </div>
-              <div className="mt-3 text-muted-foreground/30">{"// Decisions + specs, always in context."}</div>
-            </div>
-          </div>
-        </div>
-      </RevealSection>
-
       {/* ── Pricing ────────────────────────────────────────────── */}
       <RevealSection className="relative z-10 py-24 sm:py-32 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
-            Pricing
-          </p>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
-            Pay for what you think. Nothing else.
-          </h2>
-          <p className="text-base sm:text-lg text-muted-foreground/60 mb-10 max-w-md mx-auto leading-relaxed">
-            No seats. No tiers. No annual contracts. Use any model, pay per token.
-            Set a hard cap so you never overspend.
-          </p>
-          <div className="inline-flex flex-col items-center gap-4 rounded-2xl border border-foreground/[0.06] bg-foreground/[0.02] p-8">
-            <div className="text-sm text-muted-foreground/50">Starting from</div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-4xl font-semibold">$0</span>
-              <span className="text-muted-foreground/40">/mo</span>
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-10">
+            <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
+              Pricing
+            </p>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
+              Pay for what you think. Nothing else.
+            </h2>
+            <p className="text-base sm:text-lg text-muted-foreground/60 max-w-md mx-auto leading-relaxed">
+              No seats. No tiers. No annual contracts. Use any model, pay per token.
+              Set a hard cap so you never overspend.
+            </p>
+          </div>
+
+          {/* Token price table */}
+          <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] overflow-hidden">
+            {/* Table header */}
+            <div className="grid grid-cols-3 gap-4 px-4 py-2.5 border-b border-foreground/[0.04]">
+              <div className="font-mono text-[10px] text-muted-foreground/40 uppercase tracking-wider">Model</div>
+              <div className="font-mono text-[10px] text-muted-foreground/40 uppercase tracking-wider text-right">Input</div>
+              <div className="font-mono text-[10px] text-muted-foreground/40 uppercase tracking-wider text-right">Output</div>
             </div>
-            <div className="font-mono text-[11px] text-muted-foreground/50">+ tokens consumed</div>
-            <div className="flex flex-wrap justify-center gap-3 mt-2">
-              <span className="font-mono text-[11px] text-muted-foreground/40 px-2 py-1 rounded border border-foreground/[0.06]">No subscription</span>
-              <span className="font-mono text-[11px] text-muted-foreground/40 px-2 py-1 rounded border border-foreground/[0.06]">Postpaid billing</span>
-              <span className="font-mono text-[11px] text-muted-foreground/40 px-2 py-1 rounded border border-foreground/[0.06]">Hard wallet cap</span>
-            </div>
+            {/* Table rows */}
+            {MODELS.filter((m) => m.id !== "auto").map((m) => (
+              <div key={m.id} className="grid grid-cols-3 gap-4 px-4 py-2.5 border-b border-foreground/[0.02] last:border-b-0 hover:bg-foreground/[0.02] transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} />
+                  <span className="text-[12px] text-foreground/70 truncate">{m.name}</span>
+                  <span className="font-mono text-[9px] text-muted-foreground/30 hidden sm:inline">{m.provider}</span>
+                </div>
+                <div className="font-mono text-[12px] text-muted-foreground/60 text-right tabular-nums">
+                  ${(m.inputPrice * 1_000_000).toFixed(2)}<span className="text-muted-foreground/30">/M</span>
+                </div>
+                <div className="font-mono text-[12px] text-muted-foreground/60 text-right tabular-nums">
+                  ${(m.outputPrice * 1_000_000).toFixed(2)}<span className="text-muted-foreground/30">/M</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-6">
+            <a
+              href="/docs/pricing"
+              className="font-mono text-[12px] text-muted-foreground/50 hover:text-foreground/70 transition-colors"
+            >
+              Full pricing details &rarr;
+            </a>
           </div>
         </div>
       </RevealSection>
