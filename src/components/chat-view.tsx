@@ -526,7 +526,7 @@ function StackedForkCards({
           <div key={sib.id} className="flex justify-center" style={{ zIndex: siblings.length - i, position: "relative" }}>
             <button
               onClick={() => onSwitchTrack(sib.id)}
-              className="block rounded-t-lg border border-border/40 px-3 py-2 cursor-pointer group transition-all duration-200 hover:border-current"
+              className="block rounded-t-lg border border-border/40 px-3 py-2 cursor-pointer group transition-all duration-200 hover:border-border/60"
               style={{
                 backgroundColor: "var(--card)",
                 width: `${100 - (siblings.length - i) * 3}%`,
