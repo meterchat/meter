@@ -31,6 +31,7 @@ interface WorkspaceState {
   // Combined create+activate actions (single set call, no cascading renders)
   createWorkspace: (name: string, sessionId?: string) => string;
   renameWorkspace: (id: string, name: string) => void;
+  reorderWorkspaces: (fromIndex: number, toIndex: number) => void;
   deleteWorkspace: (id: string) => void;
   createTrack: (workspaceId: string, name: string) => string;
   setActiveWorkspace: (id: string) => void;
@@ -91,6 +92,15 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             }));
           });
         }
+      },
+
+      reorderWorkspaces: (fromIndex: number, toIndex: number) => {
+        set((s) => {
+          const workspaces = [...s.workspaces];
+          const [moved] = workspaces.splice(fromIndex, 1);
+          workspaces.splice(toIndex, 0, moved);
+          return { workspaces };
+        });
       },
 
       deleteWorkspace: (id: string) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useWorkspaceStore, Workspace } from "@/lib/workspace-store";
 import { useMeterStore } from "@/lib/store";
 import { trackWorkspaceCreated, trackWorkspaceSwitched } from "@/lib/analytics";
@@ -18,10 +18,15 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
+  const reorderWorkspaces = useWorkspaceStore((s) => s.reorderWorkspaces);
   const addSession = useMeterStore((s) => s.addSession);
   const setActiveSession = useMeterStore((s) => s.setActiveSession);
   const chatSessions = useMeterStore((s) => s.sessions);
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
+
+  // Drag state
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Close on outside click
   useEffect(() => {
@@ -98,6 +103,28 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
     setOpen(false);
   };
 
+  // Drag handlers
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    // Required for Firefox
+    e.dataTransfer.setData("text/plain", String(index));
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverIndex(index);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (dragIndex !== null && dragOverIndex !== null && dragIndex !== dragOverIndex) {
+      reorderWorkspaces(dragIndex, dragOverIndex);
+    }
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }, [dragIndex, dragOverIndex, reorderWorkspaces]);
+
   return (
     <>
     {switchingName && (
@@ -144,18 +171,31 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
               No workspaces yet
             </div>
           )}
-          {workspaces.map((w) => (
+          {workspaces.map((w, i) => (
             <button
               key={w.id}
+              draggable
+              onDragStart={(e) => handleDragStart(e, i)}
+              onDragOver={(e) => handleDragOver(e, i)}
+              onDragEnd={handleDragEnd}
               onClick={() => handleSelect(w.id)}
               className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${
                 w.id === activeWorkspace?.id
                   ? "bg-foreground/10 text-foreground"
                   : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
-              }`}
+              } ${dragIndex === i ? "opacity-40" : ""} ${dragOverIndex === i && dragIndex !== i ? "border-t border-foreground/30" : ""}`}
             >
+              {/* Drag handle */}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-muted-foreground/30 cursor-grab active:cursor-grabbing">
+                <circle cx="9" cy="5" r="1.5" />
+                <circle cx="15" cy="5" r="1.5" />
+                <circle cx="9" cy="12" r="1.5" />
+                <circle cx="15" cy="12" r="1.5" />
+                <circle cx="9" cy="19" r="1.5" />
+                <circle cx="15" cy="19" r="1.5" />
+              </svg>
               <span className={`h-1.5 w-1.5 rounded-full ${w.id === activeWorkspace?.id ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-              {w.name}
+              <span className="truncate">{w.name}</span>
             </button>
           ))}
           {creating ? (
