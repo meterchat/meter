@@ -787,9 +787,11 @@ function FeatureSection({
       <div className="max-w-5xl mx-auto">
         <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center ${reverse ? "direction-rtl" : ""}`}>
           <div className={reverse ? "lg:order-2" : ""}>
-            <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
-              {label}
-            </p>
+            <div className="mb-4">
+              <span className="inline-flex items-center px-3 py-1 rounded-full border border-foreground/[0.08] bg-foreground/[0.03] font-mono text-[11px] tracking-[0.15em] text-muted-foreground/60 uppercase">
+                {label}
+              </span>
+            </div>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
               {title}
             </h2>
@@ -1190,49 +1192,11 @@ export function LandingPage() {
       </RevealSection>
 
       {/* ── The thesis ─────────────────────────────────────────────── */}
-      <RevealSection className="relative z-10 py-16 sm:py-24 px-6">
+      <RevealSection className="relative z-10 py-10 sm:py-14 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-6">
-            The thesis
-          </p>
-          <blockquote className="text-xl sm:text-2xl font-medium text-foreground/70 leading-snug tracking-tight italic mb-6">
-            &ldquo;A brilliant codebase built on a broken decision is still a broken product.&rdquo;
+          <blockquote className="text-xl sm:text-2xl lg:text-3xl font-medium text-foreground/70 leading-snug tracking-tight italic">
+            &ldquo;Intelligence needs to be metered like electricity.&rdquo;
           </blockquote>
-        </div>
-      </RevealSection>
-
-      {/* ── Three layers of intelligence ───────────────────────────── */}
-      <RevealSection className="relative z-10 py-16 sm:py-24 px-6">
-        <div className="max-w-3xl mx-auto">
-          <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-8 text-center">
-            What Meter does
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-12 text-center">
-            Three layers of intelligence
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <div className="font-mono text-[11px] text-muted-foreground/50 mb-2">01</div>
-              <h3 className="text-lg font-semibold mb-2">Route</h3>
-              <p className="text-sm sm:text-base text-muted-foreground/60 leading-relaxed">
-                Every frontier model on one postpaid tab. Auto-routing picks the optimal model for each task. No rate limits.
-              </p>
-            </div>
-            <div>
-              <div className="font-mono text-[11px] text-muted-foreground/50 mb-2">02</div>
-              <h3 className="text-lg font-semibold mb-2">Debate</h3>
-              <p className="text-sm sm:text-base text-muted-foreground/60 leading-relaxed">
-                Force models into adversarial positions. Each critiques the other&apos;s strongest argument. Get a synthesis with trade-offs.
-              </p>
-            </div>
-            <div>
-              <div className="font-mono text-[11px] text-muted-foreground/50 mb-2">03</div>
-              <h3 className="text-lg font-semibold mb-2">Record</h3>
-              <p className="text-sm sm:text-base text-muted-foreground/60 leading-relaxed">
-                Lock decisions as structured records — not chat logs. Context, choice, trade-offs, dissent. Auto-generate your Agent Spec Kit.
-              </p>
-            </div>
-          </div>
         </div>
       </RevealSection>
 
@@ -1382,6 +1346,15 @@ export function LandingPage() {
               <span className="font-mono text-[11px] text-muted-foreground/40 px-2 py-1 rounded border border-foreground/[0.06]">Hard wallet cap</span>
             </div>
           </div>
+        </div>
+      </RevealSection>
+
+      {/* ── Closing quote ───────────────────────────────────────── */}
+      <RevealSection className="relative z-10 py-12 sm:py-16 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <blockquote className="text-lg sm:text-xl font-medium text-foreground/50 leading-snug tracking-tight italic">
+            &ldquo;A brilliant codebase built on a broken decision is still a broken product.&rdquo;
+          </blockquote>
         </div>
       </RevealSection>
 
