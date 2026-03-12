@@ -517,33 +517,26 @@ function StackedForkCards({
   onCommit: () => void;
   onSwitchTrack: (id: string) => void;
 }) {
-  // Each background card peeks 26px above the front card so the name line is readable
-  const PEEK_PX = 26;
-
   return (
-    <div className="relative mb-2" style={{ marginTop: siblings.length > 0 ? `${Math.min(siblings.length, 3) * PEEK_PX}px` : 0 }}>
-      {/* Background cards — positioned above the front card, stacked */}
+    <div className="mb-2">
+      {/* Background cards — rendered in normal flow, each overlaps the next via negative margin */}
       {siblings.map((sib, i) => {
-        const depth = i + 1; // 1 = closest behind front, 2 = further back, etc.
         const color = getPathColor(sib.colorIndex);
         return (
           <button
             key={sib.id}
             onClick={() => onSwitchTrack(sib.id)}
-            className={`absolute left-0 right-0 rounded-lg border ${color.border} px-3 py-2 transition-all duration-300 ease-out cursor-pointer group`}
+            className={`relative block w-full rounded-t-lg border ${color.border} px-3 py-2 cursor-pointer group transition-colors ${color.bgHover}`}
             style={{
-              bottom: `calc(100% - ${depth * PEEK_PX}px)`,
+              backgroundColor: "var(--card)",
+              // Overlap: each background card's bottom is hidden behind the next card
+              marginBottom: "-8px",
               zIndex: siblings.length - i,
-              transform: `scale(${1 - depth * 0.02})`,
-              transformOrigin: "bottom center",
-              backgroundColor: `hsl(var(--card))`,
-              borderBottomLeftRadius: 0,
-              borderBottomRightRadius: 0,
             }}
           >
             <div className="flex items-center gap-1.5">
               <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
-              <span className={`font-mono text-[11px] ${color.text} truncate transition-colors`}>
+              <span className={`font-mono text-[11px] ${color.text} truncate`}>
                 {sib.name}
               </span>
               <span className="ml-auto font-mono text-[9px] text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity">
