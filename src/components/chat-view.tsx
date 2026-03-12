@@ -519,29 +519,31 @@ function StackedForkCards({
 }) {
   return (
     <div className="mb-2">
-      {/* Background cards — rendered in normal flow, each overlaps the next via negative margin */}
+      {/* Background cards — narrower to look "behind", greyed out until hover */}
       {siblings.map((sib, i) => {
         const color = getPathColor(sib.colorIndex);
         return (
-          <button
-            key={sib.id}
-            onClick={() => onSwitchTrack(sib.id)}
-            className={`relative block w-full rounded-t-lg border ${color.border} px-3 py-2 cursor-pointer group transition-colors ${color.bgHover}`}
-            style={{
-              backgroundColor: "var(--card)",
-              zIndex: siblings.length - i,
-            }}
-          >
-            <div className="flex items-center gap-1.5">
-              <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
-              <span className={`font-mono text-[11px] ${color.text} truncate`}>
-                {sib.name}
-              </span>
-              <span className="ml-auto font-mono text-[9px] text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                switch
-              </span>
-            </div>
-          </button>
+          <div key={sib.id} className="flex justify-center" style={{ zIndex: siblings.length - i, position: "relative" }}>
+            <button
+              onClick={() => onSwitchTrack(sib.id)}
+              className="block rounded-t-lg border border-border/40 px-3 py-2 cursor-pointer group transition-all duration-200 hover:border-current"
+              style={{
+                backgroundColor: "var(--card)",
+                width: `${100 - (siblings.length - i) * 3}%`,
+              }}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full bg-muted-foreground/30 transition-colors group-hover:hidden`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${color.dot} hidden group-hover:block`} />
+                <span className="font-mono text-[11px] text-muted-foreground/50 group-hover:text-foreground/80 truncate transition-colors">
+                  {sib.name}
+                </span>
+                <span className="ml-auto shrink-0 rounded-md border border-transparent px-2 py-0.5 font-mono text-[10px] text-muted-foreground/30 opacity-0 group-hover:opacity-100 group-hover:border-foreground/10 group-hover:text-foreground/60 transition-all">
+                  Switch
+                </span>
+              </div>
+            </button>
+          </div>
         );
       })}
 
