@@ -454,7 +454,7 @@ function SubtrackCommitBar({
   const color = getPathColor(colorIndex);
 
   return (
-    <div className={`rounded-lg border ${color.border} ${color.bg} px-3 py-2.5 mb-2`}>
+    <div className={`rounded-lg border ${color.border} ${color.bg} px-3 py-2.5`}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className={`font-mono text-[11px] ${color.text} truncate flex items-center gap-1.5`}>
@@ -494,6 +494,69 @@ function SubtrackCommitBar({
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Stacked Fork Cards ─── */
+/* Apple Pay-style stacked cards: siblings peek behind the active card */
+
+function StackedForkCards({
+  activeTrackName,
+  activeColorIndex,
+  siblingNames,
+  siblings,
+  onCommit,
+  onSwitchTrack,
+}: {
+  activeTrackName: string;
+  activeColorIndex: number;
+  siblingNames: string[];
+  siblings: { id: string; name: string; colorIndex: number }[];
+  onCommit: () => void;
+  onSwitchTrack: (id: string) => void;
+}) {
+  return (
+    <div className="relative mb-2" style={{ paddingTop: siblings.length > 0 ? `${Math.min(siblings.length, 3) * 14}px` : 0 }}>
+      {/* Background cards — stacked behind, offset upward */}
+      {siblings.map((sib, i) => {
+        const stackIndex = siblings.length - i; // furthest card = highest stackIndex
+        const color = getPathColor(sib.colorIndex);
+        return (
+          <button
+            key={sib.id}
+            onClick={() => onSwitchTrack(sib.id)}
+            className={`absolute left-0 right-0 rounded-lg border ${color.border} ${color.bg} px-3 py-2 transition-all duration-300 ease-out cursor-pointer group`}
+            style={{
+              top: `${(siblings.length - 1 - i) * 14}px`,
+              zIndex: stackIndex,
+              transform: `scale(${1 - stackIndex * 0.015})`,
+              transformOrigin: "bottom center",
+              opacity: 1 - stackIndex * 0.08,
+            }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
+              <span className={`font-mono text-[11px] ${color.text} truncate transition-colors`}>
+                {sib.name}
+              </span>
+              <span className="ml-auto font-mono text-[9px] text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                switch
+              </span>
+            </div>
+          </button>
+        );
+      })}
+
+      {/* Front card — the active track's commit bar */}
+      <div className="relative" style={{ zIndex: siblings.length + 1 }}>
+        <SubtrackCommitBar
+          trackName={activeTrackName}
+          siblingNames={siblingNames}
+          onCommit={onCommit}
+          colorIndex={activeColorIndex}
+        />
       </div>
     </div>
   );
@@ -1234,6 +1297,18 @@ export function ChatView() {
     const idx = allSiblings.findIndex((p) => p.id === currentWsTrack.id);
     return idx >= 0 ? idx : 0;
   }, [wsTracks, activeWorkspaceId, isSubtrack, currentWsTrack, parentTrackId]);
+
+  // Sibling subtracks with their color indices (for stacked fork cards)
+  const siblingCardsInfo = useMemo(() => {
+    if (!isSubtrack || !currentWsTrack) return [];
+    const allSibs = wsTracks
+      .filter((p) => p.workspaceId === activeWorkspaceId && p.isSubtrack && p.status === "active" && (p.parentTrackId ?? null) === parentTrackId)
+      .sort((a, b) => a.createdAt - b.createdAt);
+    return siblingSubtracks.map((s) => {
+      const idx = allSibs.findIndex((p) => p.id === s.id);
+      return { id: s.id, name: s.name, colorIndex: idx >= 0 ? idx : 0 };
+    });
+  }, [wsTracks, activeWorkspaceId, isSubtrack, currentWsTrack, parentTrackId, siblingSubtracks]);
 
   // Ref for fork handler — assigned after streamResponse is defined
   const handleForkPathsRef = useRef<() => void>(() => {});
@@ -2772,13 +2847,28 @@ export function ChatView() {
               />
             )}
 
-            {/* Subtrack commit bar — shown above composer when in active subtrack */}
+            {/* Stacked fork cards — active path card with siblings peeking behind */}
             {isSubtrack && !isArchivedSubtrack && currentWsTrack && (
-              <SubtrackCommitBar
-                trackName={currentWsTrack.name}
+              <StackedForkCards
+                activeTrackName={currentWsTrack.name}
+                activeColorIndex={currentPathColorIndex}
                 siblingNames={siblingSubtracks.map((s) => s.name)}
+                siblings={siblingCardsInfo}
                 onCommit={handleCommitSubtrack}
-                colorIndex={currentPathColorIndex}
+                onSwitchTrack={(id) => {
+                  const track = wsTracks.find((t) => t.id === id);
+                  if (track?.isSubtrack && track.forkMessageId) {
+                    const session = useMeterStore.getState().sessions.find((s) => s.id === id);
+                    if (session) {
+                      const forkIdx = session.messages.findIndex((m) => m.id === track.forkMessageId);
+                      const hasUserMessagesAfterFork = session.messages.slice(forkIdx + 1).some((m) => m.role === "user");
+                      if (!hasUserMessagesAfterFork) {
+                        pendingAutoAnalyzeNameRef.current = track.name;
+                      }
+                    }
+                  }
+                  setActiveTrackWs(id);
+                }}
               />
             )}
 
