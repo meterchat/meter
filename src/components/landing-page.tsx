@@ -217,6 +217,7 @@ function LiveDebateTrace() {
   const [showSynthesis, setShowSynthesis] = useState(false);
   const ref = useRef(null);
   const isInView = useInView(ref, { once: false, margin: "-100px" });
+  const cycleRef = useRef(0);
 
   const turns = useMemo(
     () => [
@@ -239,6 +240,8 @@ function LiveDebateTrace() {
     []
   );
 
+  const totalCycle = (turns.length + 3) * 2000;
+
   useEffect(() => {
     if (!isInView) {
       setVisibleTurns(0);
@@ -246,24 +249,35 @@ function LiveDebateTrace() {
       return;
     }
 
-    setVisibleTurns(0);
-    setShowSynthesis(false);
+    function runCycle() {
+      cycleRef.current++;
+      const cycle = cycleRef.current;
+      setVisibleTurns(0);
+      setShowSynthesis(false);
 
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    turns.forEach((_, i) => {
-      timers.push(setTimeout(() => setVisibleTurns(i + 1), (i + 1) * 2000));
-    });
-    timers.push(setTimeout(() => setShowSynthesis(true), (turns.length + 1) * 2000));
-    // Reset and loop
-    timers.push(
-      setTimeout(() => {
-        setVisibleTurns(0);
-        setShowSynthesis(false);
-      }, (turns.length + 3) * 2000)
-    );
+      const timers: ReturnType<typeof setTimeout>[] = [];
+      turns.forEach((_, i) => {
+        timers.push(setTimeout(() => {
+          if (cycleRef.current === cycle) setVisibleTurns(i + 1);
+        }, (i + 1) * 2000));
+      });
+      timers.push(setTimeout(() => {
+        if (cycleRef.current === cycle) setShowSynthesis(true);
+      }, (turns.length + 1) * 2000));
+      return timers;
+    }
 
-    return () => timers.forEach(clearTimeout);
-  }, [isInView, turns]);
+    let timers = runCycle();
+    const loop = setInterval(() => {
+      timers.forEach(clearTimeout);
+      timers = runCycle();
+    }, totalCycle);
+
+    return () => {
+      clearInterval(loop);
+      timers.forEach(clearTimeout);
+    };
+  }, [isInView, turns, totalCycle]);
 
   return (
     <div ref={ref} className="w-full max-w-[380px]">
@@ -284,18 +298,16 @@ function LiveDebateTrace() {
           </span>
         </div>
 
-        {/* Debate turns */}
-        <div className="p-3 space-y-3 min-h-[160px]">
-          {turns.slice(0, visibleTurns).map((turn, i) => {
+        {/* Debate turns — fixed height to prevent layout shift */}
+        <div className="p-3 space-y-3" style={{ minHeight: 280 }}>
+          {turns.map((turn, i) => {
             const model = getModel(turn.model);
+            const visible = i < visibleTurns;
             const isLatest = i === visibleTurns - 1 && !showSynthesis;
             return (
-              <motion.div
+              <div
                 key={`${turn.model}-${turn.phase}`}
-                className="text-[12px] text-muted-foreground/70"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
+                className={`text-[12px] transition-opacity duration-400 ${visible ? "opacity-100" : "opacity-0"}`}
               >
                 <span
                   className={`font-mono text-[10px] font-medium ${isLatest ? "thinking-shimmer" : ""}`}
@@ -306,30 +318,25 @@ function LiveDebateTrace() {
                 <span className="font-mono text-[10px] text-muted-foreground/40 ml-1.5">
                   {turn.phase}
                 </span>
-                <p className="mt-1 italic leading-relaxed text-[11px]">
+                <p className="mt-1 italic leading-relaxed text-[11px] text-muted-foreground/70">
                   {turn.content}
                   {isLatest && (
                     <span className="inline-block w-1.5 h-3 bg-amber-500/50 ml-0.5 animate-pulse" />
                   )}
                 </p>
-              </motion.div>
+              </div>
             );
           })}
 
-          {showSynthesis && (
-            <motion.div
-              className="text-[12px] border-t border-amber-500/10 pt-3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6 }}
-            >
-              <span className="font-mono text-[10px] text-amber-500/70">Synthesis</span>
-              <p className="mt-1 text-[11px] text-foreground/60 leading-relaxed">
-                Phased monorepo migration wins. Start with shared libraries, expand module boundaries after team stabilizes at 12. Trade-off: 2-week delay. Risk: low.
-              </p>
-              <p className="mt-2 font-mono text-[10px] text-emerald-500/60">Ready to lock as decision</p>
-            </motion.div>
-          )}
+          <div
+            className={`text-[12px] border-t border-amber-500/10 pt-3 transition-opacity duration-600 ${showSynthesis ? "opacity-100" : "opacity-0"}`}
+          >
+            <span className="font-mono text-[10px] text-amber-500/70">Synthesis</span>
+            <p className="mt-1 text-[11px] text-foreground/60 leading-relaxed">
+              Phased monorepo migration wins. Start with shared libraries, expand module boundaries after team stabilizes at 12. Trade-off: 2-week delay. Risk: low.
+            </p>
+            <p className="mt-2 font-mono text-[10px] text-emerald-500/60">Ready to lock as decision</p>
+          </div>
         </div>
       </div>
     </div>
@@ -348,14 +355,29 @@ function LiveDecisionCard() {
       return;
     }
 
-    const timers = [
-      setTimeout(() => setPhase("filling"), 1500),
-      setTimeout(() => setPhase("locking"), 3500),
-      setTimeout(() => setPhase("locked"), 4500),
-      setTimeout(() => setPhase("draft"), 7000),
-    ];
-    return () => timers.forEach(clearTimeout);
+    function runCycle() {
+      setPhase("draft");
+      const timers = [
+        setTimeout(() => setPhase("filling"), 1500),
+        setTimeout(() => setPhase("locking"), 3500),
+        setTimeout(() => setPhase("locked"), 4500),
+      ];
+      return timers;
+    }
+
+    let timers = runCycle();
+    const loop = setInterval(() => {
+      timers.forEach(clearTimeout);
+      timers = runCycle();
+    }, 7000);
+
+    return () => {
+      clearInterval(loop);
+      timers.forEach(clearTimeout);
+    };
   }, [isInView]);
+
+  const filled = phase !== "draft";
 
   return (
     <div ref={ref} className="w-full max-w-[320px]">
@@ -363,7 +385,7 @@ function LiveDecisionCard() {
         <div className="px-4 py-3 border-b border-foreground/[0.04] flex items-center justify-between">
           <span className="font-mono text-[11px] text-foreground/70">Decision #0047</span>
           <span
-            className={`font-mono text-[10px] px-2 py-0.5 rounded-full ${
+            className={`font-mono text-[10px] px-2 py-0.5 rounded-full transition-colors duration-300 ${
               phase === "locked"
                 ? "bg-emerald-500/10 text-emerald-500/70"
                 : phase === "locking"
@@ -374,29 +396,30 @@ function LiveDecisionCard() {
             {phase === "locked" ? "Locked" : phase === "locking" ? "Locking..." : "Draft"}
           </span>
         </div>
+        {/* Always render full content; toggle visibility with opacity to prevent layout shift */}
         <div className="p-4 space-y-3">
           <div>
             <div className="font-mono text-[9px] text-muted-foreground/30 uppercase tracking-wider mb-1">Context</div>
-            <div className={`text-[12px] leading-relaxed transition-opacity duration-500 ${phase === "draft" ? "text-muted-foreground/20" : "text-foreground/60"}`}>
-              {phase === "draft" ? "—" : "Architecture decision for new dashboard service. Monorepo vs polyrepo."}
+            <div className={`text-[12px] leading-relaxed transition-opacity duration-500 ${filled ? "text-foreground/60 opacity-100" : "opacity-20"}`}>
+              Architecture decision for new dashboard service. Monorepo vs polyrepo.
             </div>
           </div>
           <div>
             <div className="font-mono text-[9px] text-muted-foreground/30 uppercase tracking-wider mb-1">Choice</div>
-            <div className={`text-[12px] font-medium transition-opacity duration-500 ${phase === "draft" ? "text-muted-foreground/20" : "text-foreground/70"}`}>
-              {phase === "draft" ? "—" : "Phased monorepo migration"}
+            <div className={`text-[12px] font-medium transition-opacity duration-500 ${filled ? "text-foreground/70 opacity-100" : "opacity-20"}`}>
+              Phased monorepo migration
             </div>
           </div>
           <div>
             <div className="font-mono text-[9px] text-muted-foreground/30 uppercase tracking-wider mb-1">Trade-offs</div>
-            <div className={`text-[11px] leading-relaxed transition-opacity duration-500 ${phase === "draft" ? "text-muted-foreground/20" : "text-muted-foreground/50"}`}>
-              {phase === "draft" ? "—" : "2-week delay to production. Lower coupling risk. Team ramp needed."}
+            <div className={`text-[11px] leading-relaxed transition-opacity duration-500 ${filled ? "text-muted-foreground/50 opacity-100" : "opacity-20"}`}>
+              2-week delay to production. Lower coupling risk. Team ramp needed.
             </div>
           </div>
           <div>
             <div className="font-mono text-[9px] text-muted-foreground/30 uppercase tracking-wider mb-1">Dissent</div>
-            <div className={`text-[11px] leading-relaxed transition-opacity duration-500 ${phase === "draft" ? "text-muted-foreground/20" : "text-muted-foreground/50"}`}>
-              {phase === "draft" ? "—" : "GPT-5.4 favored immediate full migration."}
+            <div className={`text-[11px] leading-relaxed transition-opacity duration-500 ${filled ? "text-muted-foreground/50 opacity-100" : "opacity-20"}`}>
+              GPT-5.4 favored immediate full migration.
             </div>
           </div>
         </div>
@@ -476,16 +499,19 @@ function LiveSpecKit() {
       setProgress(0);
       return;
     }
+
+    let step = 0;
+    const totalSteps = files.length + 3; // files + pause steps
     setProgress(0);
+
     const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= files.length) {
-          // Reset after pause
-          setTimeout(() => setProgress(0), 2000);
-          return p;
-        }
-        return p + 1;
-      });
+      step = (step + 1) % totalSteps;
+      if (step === 0) {
+        setProgress(0);
+      } else if (step <= files.length) {
+        setProgress(step);
+      }
+      // else pause (step > files.length): keep progress at files.length
     }, 800);
     return () => clearInterval(interval);
   }, [isInView, files.length]);
@@ -552,13 +578,27 @@ function LiveSettleCard() {
       return;
     }
 
-    const timers = [
-      setTimeout(() => { setPhase("approaching"); setAmount(4.89); }, 2000),
-      setTimeout(() => { setPhase("settling"); setAmount(5.00); }, 4000),
-      setTimeout(() => { setPhase("settled"); setAmount(0); }, 5500),
-      setTimeout(() => { setPhase("running"); setAmount(2.47); }, 8000),
-    ];
-    return () => timers.forEach(clearTimeout);
+    function runCycle() {
+      setPhase("running");
+      setAmount(2.47);
+      const timers = [
+        setTimeout(() => { setPhase("approaching"); setAmount(4.89); }, 2000),
+        setTimeout(() => { setPhase("settling"); setAmount(5.00); }, 4000),
+        setTimeout(() => { setPhase("settled"); setAmount(0); }, 5500),
+      ];
+      return timers;
+    }
+
+    let timers = runCycle();
+    const loop = setInterval(() => {
+      timers.forEach(clearTimeout);
+      timers = runCycle();
+    }, 8000);
+
+    return () => {
+      clearInterval(loop);
+      timers.forEach(clearTimeout);
+    };
   }, [isInView]);
 
   return (
@@ -617,12 +657,25 @@ function LivePasskeyAuth() {
       return;
     }
 
-    const timers = [
-      setTimeout(() => setPhase("authenticating"), 1000),
-      setTimeout(() => setPhase("verified"), 2500),
-      setTimeout(() => setPhase("idle"), 6000),
-    ];
-    return () => timers.forEach(clearTimeout);
+    function runCycle() {
+      setPhase("idle");
+      const timers = [
+        setTimeout(() => setPhase("authenticating"), 1000),
+        setTimeout(() => setPhase("verified"), 2500),
+      ];
+      return timers;
+    }
+
+    let timers = runCycle();
+    const loop = setInterval(() => {
+      timers.forEach(clearTimeout);
+      timers = runCycle();
+    }, 6000);
+
+    return () => {
+      clearInterval(loop);
+      timers.forEach(clearTimeout);
+    };
   }, [isInView]);
 
   return (
@@ -1369,8 +1422,8 @@ export function LandingPage() {
               Start thinking.
             </h2>
             <p className="text-base sm:text-lg text-muted-foreground/60 mb-10 max-w-md mx-auto leading-relaxed">
-              No credit card required. No subscription. Just open Meter
-              and think. Pay for what you use.
+              No subscription. No account to set up. Just a passkey
+              and you&apos;re thinking. Pay only for what you use.
             </p>
             <div className="flex justify-center">
               <AuthButtons
@@ -1389,40 +1442,40 @@ export function LandingPage() {
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────── */}
-      <footer className="relative z-10 border-t border-foreground/[0.04] py-8 px-6">
+      <footer className="relative z-10 border-t border-foreground/[0.06] py-10 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Image
               src="/logo-dark-copy.webp"
               alt="Meter"
-              width={60}
-              height={16}
-              className="hidden dark:block opacity-30"
+              width={72}
+              height={20}
+              className="hidden dark:block opacity-60"
             />
             <Image
               src="/logo-light.webp"
               alt="Meter"
-              width={60}
-              height={16}
-              className="block dark:hidden opacity-30"
+              width={72}
+              height={20}
+              className="block dark:hidden opacity-60"
             />
-            <span className="font-mono text-[10px] text-muted-foreground/20">
+            <span className="font-mono text-[12px] text-muted-foreground/40">
               pay per thought
             </span>
           </div>
 
           <div className="flex items-center gap-6">
-            <a href="/terms" className="font-mono text-[10px] text-muted-foreground/20 hover:text-muted-foreground/50 transition-colors">
+            <a href="/terms" className="font-mono text-[12px] text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors">
               Terms
             </a>
-            <a href="/privacy" className="font-mono text-[10px] text-muted-foreground/20 hover:text-muted-foreground/50 transition-colors">
+            <a href="/privacy" className="font-mono text-[12px] text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors">
               Privacy
             </a>
-            <a href="https://github.com/meterchat/meter" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/20 hover:text-muted-foreground/50 transition-colors">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            <a href="https://github.com/meterchat/meter" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
             </a>
-            <a href="https://x.com/meterchat" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/20 hover:text-muted-foreground/50 transition-colors">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            <a href="https://x.com/meterchat" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
             </a>
           </div>
         </div>
