@@ -1090,7 +1090,7 @@ export function LandingPage() {
     if (currentUserId && currentUserId !== user.id) {
       await useMeterStore.getState().logout();
     }
-    setAuth(user.id, user.handle ?? null, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard", user.markupMultiplier ?? 2);
+    setAuth(user.id, user.handle ?? null, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard", user.markupMultiplier ?? 2.5);
     identifyUser(user.id, { email: user.email, accountType: user.accountType ?? "standard", cardOnFile: user.cardOnFile });
     if (method === "register") {
       trackAccountCreated({ method: "passkey" });

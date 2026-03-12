@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
           cardBrand: user?.card_brand,
           gmailConnected: user?.gmail_connected ?? false,
           accountType: user?.account_type ?? "standard",
-          markupMultiplier: Number(user?.markup_multiplier ?? 2),
+          markupMultiplier: Number(user?.markup_multiplier ?? 2.5),
           hasWorkspaces: (sessionCount ?? 0) > 0,
         },
       });

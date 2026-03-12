@@ -68,7 +68,7 @@ export default function DocsPage() {
           <section className="mb-10">
             <h2 className="text-lg font-medium text-foreground mb-2" id="pricing">Pricing</h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-              Pay-per-token at provider base rates (no markup by default). Most messages cost between $0.01 and $0.25.
+              Pay-per-token pricing at 2.5x provider base rates. Most messages cost between $0.01 and $0.25.
             </p>
             <div className="overflow-x-auto mb-3">
               <table className="w-full text-xs font-mono">
@@ -81,14 +81,14 @@ export default function DocsPage() {
                   </tr>
                 </thead>
                 <tbody className="text-muted-foreground">
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Sonnet 4.6</td><td className="py-1.5 pr-4">$6.00</td><td className="py-1.5 pr-4">$30.00</td><td className="py-1.5">~$0.02</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Opus 4.6</td><td className="py-1.5 pr-4">$10.00</td><td className="py-1.5 pr-4">$50.00</td><td className="py-1.5">~$0.03</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.4</td><td className="py-1.5 pr-4">$5.00</td><td className="py-1.5 pr-4">$30.00</td><td className="py-1.5">~$0.02</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">MiniMax M2.5</td><td className="py-1.5 pr-4">$0.60</td><td className="py-1.5 pr-4">$2.40</td><td className="py-1.5">~$0.001</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Gemini 3.1 Pro</td><td className="py-1.5 pr-4">$4.00</td><td className="py-1.5 pr-4">$24.00</td><td className="py-1.5">~$0.01</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Grok 4.1 Fast</td><td className="py-1.5 pr-4">$0.40</td><td className="py-1.5 pr-4">$1.00</td><td className="py-1.5">~$0.001</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">DeepSeek V3</td><td className="py-1.5 pr-4">$0.54</td><td className="py-1.5 pr-4">$2.20</td><td className="py-1.5">~$0.001</td></tr>
-                  <tr><td className="py-1.5 pr-4">Meter 1.0 (Debate)</td><td className="py-1.5 pr-4">$13.90</td><td className="py-1.5 pr-4">$79.00</td><td className="py-1.5">~$1.00</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Sonnet 4.6</td><td className="py-1.5 pr-4">$7.50</td><td className="py-1.5 pr-4">$37.50</td><td className="py-1.5">~$0.03</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Opus 4.6</td><td className="py-1.5 pr-4">$12.50</td><td className="py-1.5 pr-4">$62.50</td><td className="py-1.5">~$0.04</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.4</td><td className="py-1.5 pr-4">$6.25</td><td className="py-1.5 pr-4">$37.50</td><td className="py-1.5">~$0.03</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">MiniMax M2.5</td><td className="py-1.5 pr-4">$0.75</td><td className="py-1.5 pr-4">$3.00</td><td className="py-1.5">~$0.002</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Gemini 3.1 Pro</td><td className="py-1.5 pr-4">$5.00</td><td className="py-1.5 pr-4">$30.00</td><td className="py-1.5">~$0.02</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Grok 4.1 Fast</td><td className="py-1.5 pr-4">$0.50</td><td className="py-1.5 pr-4">$1.25</td><td className="py-1.5">~$0.001</td></tr>
+                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">DeepSeek V3</td><td className="py-1.5 pr-4">$0.68</td><td className="py-1.5 pr-4">$2.75</td><td className="py-1.5">~$0.002</td></tr>
+                  <tr><td className="py-1.5 pr-4">Meter 1.0 (Debate)</td><td className="py-1.5 pr-4">$17.38</td><td className="py-1.5 pr-4">$98.75</td><td className="py-1.5">~$1.25</td></tr>
                 </tbody>
               </table>
             </div>

@@ -33,7 +33,7 @@ export async function GET() {
       cardOnFile: !!(user.stripe_customer_id && user.card_last4),
       cardLast4: user.card_last4 ?? null,
       cardBrand: user.card_brand ?? null,
-      markupMultiplier: user.markup_multiplier ?? 2,
+      markupMultiplier: user.markup_multiplier ?? 2.5,
     });
   } catch (err) {
     console.error("Failed to load user profile:", err);
