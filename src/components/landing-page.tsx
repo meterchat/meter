@@ -1125,12 +1125,12 @@ export function LandingPage() {
             transition={{ delay: 0.2, duration: 0.6 }}
           >
             <span className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground/60 uppercase">
-              Pay-Per-Thought AI
+              Discuss · Debate · Decide
             </span>
           </motion.div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-semibold tracking-tighter leading-[0.95] mb-6">
-            Think Freely.
+            Pay-Per-Thought AI.
           </h1>
 
           <motion.p
@@ -1139,8 +1139,7 @@ export function LandingPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.8 }}
           >
-            Use any model. Keep your thoughts private.
-            Pay only for what you use.
+            Think freely, with the top frontier models, while keeping your thoughts private, and paying only for what you use.
           </motion.p>
 
           <motion.div
