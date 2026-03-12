@@ -650,7 +650,7 @@ function LiveForkTrace() {
         </div>
 
         {/* Frozen main banner */}
-        <div className={`px-3 transition-all duration-500 ${showFrozen ? "opacity-100" : "opacity-0 h-0 overflow-hidden"}`}>
+        <div className={`px-3 transition-opacity duration-500 ${showFrozen ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
           <div className="rounded-lg border border-border/30 bg-foreground/[0.02] p-3 mb-2">
             <div className="text-center">
               <div className="font-mono text-[11px] text-foreground/70 mb-1.5">
@@ -678,7 +678,7 @@ function LiveForkTrace() {
         </div>
 
         {/* Exploring path content */}
-        <div className={`px-3 pb-2 transition-all duration-500 ${showExploring ? "opacity-100" : "opacity-0 h-0 overflow-hidden"}`}>
+        <div className={`px-3 pb-2 transition-opacity duration-500 ${showExploring ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
           <div className="rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
@@ -919,8 +919,8 @@ function FeatureSection({
   return (
     <RevealSection className="relative z-10 py-24 sm:py-32 px-6" delay={delay}>
       <div className="max-w-5xl mx-auto">
-        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center ${reverse ? "direction-rtl" : ""}`}>
-          <div className={reverse ? "lg:order-2" : ""}>
+        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start ${reverse ? "direction-rtl" : ""}`}>
+          <div className={`lg:sticky lg:top-32 ${reverse ? "lg:order-2" : ""}`}>
             <div className="mb-4">
               <span className="inline-flex items-center px-3 py-1 rounded-full border border-foreground/[0.08] bg-foreground/[0.03] font-mono text-[11px] tracking-[0.15em] text-muted-foreground/60 uppercase">
                 {label}
@@ -934,7 +934,7 @@ function FeatureSection({
             </p>
             {footer}
           </div>
-          <div className={`flex items-center justify-center p-6 sm:p-8 ${reverse ? "lg:order-1" : ""}`}>
+          <div className={`flex items-start justify-center p-6 sm:p-8 ${reverse ? "lg:order-1" : ""}`}>
             {children}
           </div>
         </div>
@@ -1338,7 +1338,7 @@ export function LandingPage() {
       {/* ── Pay-per-thought (with live meter pill) ──────────────── */}
       <FeatureSection
         label="Pay per thought"
-        title={<>Watch your cost tick up in real time.<br /><span className="text-foreground/40">Pennies, not subscriptions.</span></>}
+        title={<>Watch your cost tick up in real time.<br /><span className="text-foreground/40">Pay per thought, not per month.</span></>}
         description="Every response shows its cost as it streams. Pennies per thought, not $20/month for 5 messages worth of value. Pay only for what you use."
       >
         <LiveMeterPill />
@@ -1347,7 +1347,7 @@ export function LandingPage() {
       {/* ── Every frontier model (with live model grid) ───────────── */}
       <FeatureSection
         label="Every frontier model"
-        title={<>Every frontier model.<br /><span className="text-foreground/40">One bill.</span></>}
+        title={<>Every frontier model.<br /><span className="text-foreground/40">Pay as you go billing.</span></>}
         description="Access Claude, GPT, Gemini, Grok, DeepSeek, and MiniMax on a single postpaid tab. Auto-routing selects the optimal model based on task complexity, cost, and availability."
         reverse
       >
@@ -1357,7 +1357,7 @@ export function LandingPage() {
       {/* ── Debate mode (with live debate trace) ────────────────── */}
       <FeatureSection
         label="Debate mode"
-        title={<>Adversarial intelligence.<br /><span className="text-foreground/40">No single model could produce this alone.</span></>}
+        title={<>Adversarial intelligence.<br /><span className="text-foreground/40">Multi-model debate for your hardest decisions.</span></>}
         description="Pit Claude against GPT against Gemini on your hardest strategic questions. Four-phase adversarial structure forces models to attack each other's logic. Opening, Challenge, Rebuttal, Synthesis."
       >
         <LiveDebateTrace />
@@ -1366,7 +1366,7 @@ export function LandingPage() {
       {/* ── Decision records (with live decision card) ──────────── */}
       <FeatureSection
         label="Decision records"
-        title={<>When you have conviction,<br /><span className="text-foreground/40">lock it.</span></>}
+        title={<>When you have conviction,<br /><span className="text-foreground/40">log your decisions.</span></>}
         description="Decisions are structured records — not chat logs. Context, choice, trade-offs, and dissent. Timestamped and versioned. Your thinking becomes institutional memory."
         reverse
       >
@@ -1376,7 +1376,7 @@ export function LandingPage() {
       {/* ── Fork & merge (with live fork trace) ─────────────────── */}
       <FeatureSection
         label="Fork & merge"
-        title={<>Explore multiple paths.<br /><span className="text-foreground/40">Merge when ready.</span></>}
+        title={<>Fork multiple paths.<br /><span className="text-foreground/40">Merge when ready.</span></>}
         description="Fork your conversation to explore competing approaches in parallel. Each path gets its own context. When you have conviction, commit to one and merge it back into the main thread."
       >
         <LiveForkTrace />
