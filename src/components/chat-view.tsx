@@ -517,23 +517,28 @@ function StackedForkCards({
   onCommit: () => void;
   onSwitchTrack: (id: string) => void;
 }) {
+  // Each background card peeks 26px above the front card so the name line is readable
+  const PEEK_PX = 26;
+
   return (
-    <div className="relative mb-2" style={{ paddingTop: siblings.length > 0 ? `${Math.min(siblings.length, 3) * 14}px` : 0 }}>
-      {/* Background cards — stacked behind, offset upward */}
+    <div className="relative mb-2" style={{ marginTop: siblings.length > 0 ? `${Math.min(siblings.length, 3) * PEEK_PX}px` : 0 }}>
+      {/* Background cards — positioned above the front card, stacked */}
       {siblings.map((sib, i) => {
-        const stackIndex = siblings.length - i; // furthest card = highest stackIndex
+        const depth = i + 1; // 1 = closest behind front, 2 = further back, etc.
         const color = getPathColor(sib.colorIndex);
         return (
           <button
             key={sib.id}
             onClick={() => onSwitchTrack(sib.id)}
-            className={`absolute left-0 right-0 rounded-lg border ${color.border} ${color.bg} px-3 py-2 transition-all duration-300 ease-out cursor-pointer group`}
+            className={`absolute left-0 right-0 rounded-lg border ${color.border} px-3 py-2 transition-all duration-300 ease-out cursor-pointer group`}
             style={{
-              top: `${(siblings.length - 1 - i) * 14}px`,
-              zIndex: stackIndex,
-              transform: `scale(${1 - stackIndex * 0.015})`,
+              bottom: `calc(100% - ${depth * PEEK_PX}px)`,
+              zIndex: siblings.length - i,
+              transform: `scale(${1 - depth * 0.02})`,
               transformOrigin: "bottom center",
-              opacity: 1 - stackIndex * 0.08,
+              backgroundColor: `hsl(var(--card))`,
+              borderBottomLeftRadius: 0,
+              borderBottomRightRadius: 0,
             }}
           >
             <div className="flex items-center gap-1.5">
@@ -549,7 +554,7 @@ function StackedForkCards({
         );
       })}
 
-      {/* Front card — the active track's commit bar */}
+      {/* Front card — the active track's commit bar, always on top */}
       <div className="relative" style={{ zIndex: siblings.length + 1 }}>
         <SubtrackCommitBar
           trackName={activeTrackName}
