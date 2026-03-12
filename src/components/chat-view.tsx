@@ -439,61 +439,89 @@ function FrozenMainBanner({
 
 /* ─── Subtrack Commit Bar ─── */
 
+/** Color-coded fork icon (the git-branch style icon from the footer) */
+function ForkIcon({ className }: { className?: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="6" y1="3" x2="6" y2="15" />
+      <circle cx="18" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M18 9a9 9 0 0 1-9 9" />
+    </svg>
+  );
+}
+
 function SubtrackCommitBar({
   trackName,
   siblingNames,
   onCommit,
+  onReturnToMain,
   colorIndex,
 }: {
   trackName: string;
   siblingNames: string[];
   onCommit: () => void;
+  onReturnToMain: () => void;
   colorIndex: number;
 }) {
   const [confirming, setConfirming] = useState(false);
   const color = getPathColor(colorIndex);
 
   return (
-    <div className={`rounded-lg border ${color.border} ${color.bg} px-3 py-2.5`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className={`font-mono text-[11px] ${color.text} truncate flex items-center gap-1.5`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
-            Exploring: {trackName}
-          </div>
-          <div className="font-mono text-[9px] text-muted-foreground/40 mt-0.5 pl-3">
-            This will merge into main and archive other paths
-          </div>
+    <div className={`rounded-lg border ${color.border} ${color.bg} px-3 py-2`}>
+      <div className="flex items-center gap-2">
+        {/* Fork icon + path name */}
+        <div className="min-w-0 flex items-center gap-1.5">
+          <ForkIcon className={color.text} />
+          <span className={`font-mono text-[11px] ${color.text} truncate`}>
+            {trackName}
+          </span>
         </div>
-        {!confirming ? (
-          <button
-            onClick={() => setConfirming(true)}
-            className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg ${color.bg} px-3 py-1.5 font-mono text-[11px] ${color.text} transition-colors ${color.bgHover}`}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            Commit to this path
-          </button>
-        ) : (
-          <div className="shrink-0 flex items-center gap-1.5">
-            <span className="font-mono text-[9px] text-muted-foreground/50">
-              Archive {siblingNames.join(", ")}?
-            </span>
+
+        {/* Arrow → main (clickable) */}
+        <button
+          onClick={onReturnToMain}
+          className="shrink-0 inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground/40 hover:text-foreground/70 transition-colors"
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+          <span>main</span>
+        </button>
+
+        {/* Commit button — right side */}
+        <div className="ml-auto shrink-0">
+          {!confirming ? (
             <button
-              onClick={onCommit}
-              className={`rounded-md ${color.bg} px-2.5 py-1 font-mono text-[10px] ${color.text} ${color.bgHover} transition-colors`}
+              onClick={() => setConfirming(true)}
+              className={`inline-flex items-center gap-1.5 rounded-md ${color.bg} px-2.5 py-1 font-mono text-[11px] ${color.text} transition-colors ${color.bgHover}`}
             >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
               Commit
             </button>
-            <button
-              onClick={() => setConfirming(false)}
-              className="rounded-md px-2 py-1 font-mono text-[10px] text-muted-foreground/40 hover:text-foreground transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[9px] text-muted-foreground/50">
+                Archive {siblingNames.join(", ")}?
+              </span>
+              <button
+                onClick={onCommit}
+                className={`rounded-md ${color.bg} px-2 py-0.5 font-mono text-[10px] ${color.text} ${color.bgHover} transition-colors`}
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setConfirming(false)}
+                className="rounded-md px-2 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:text-foreground transition-colors"
+              >
+                No
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -508,6 +536,7 @@ function StackedForkCards({
   siblingNames,
   siblings,
   onCommit,
+  onReturnToMain,
   onSwitchTrack,
 }: {
   activeTrackName: string;
@@ -515,6 +544,7 @@ function StackedForkCards({
   siblingNames: string[];
   siblings: { id: string; name: string; colorIndex: number }[];
   onCommit: () => void;
+  onReturnToMain: () => void;
   onSwitchTrack: (id: string) => void;
 }) {
   return (
@@ -526,15 +556,15 @@ function StackedForkCards({
           <div key={sib.id} className="flex justify-center" style={{ zIndex: siblings.length - i, position: "relative" }}>
             <button
               onClick={() => onSwitchTrack(sib.id)}
-              className="block rounded-t-lg border border-border/40 px-3 py-2 cursor-pointer group transition-all duration-200 hover:border-border/60"
+              className="block rounded-t-lg border border-border/40 px-3 py-1.5 cursor-pointer group transition-all duration-200 hover:border-border/60"
               style={{
                 backgroundColor: "var(--card)",
                 width: `${100 - (siblings.length - i) * 3}%`,
               }}
             >
               <div className="flex items-center gap-1.5">
-                <span className={`h-1.5 w-1.5 rounded-full bg-muted-foreground/30 transition-colors group-hover:hidden`} />
-                <span className={`h-1.5 w-1.5 rounded-full ${color.dot} hidden group-hover:block`} />
+                <ForkIcon className="text-muted-foreground/30 group-hover:hidden" />
+                <ForkIcon className={`${color.text} hidden group-hover:block`} />
                 <span className="font-mono text-[11px] text-muted-foreground/50 group-hover:text-foreground/80 truncate transition-colors">
                   {sib.name}
                 </span>
@@ -553,6 +583,7 @@ function StackedForkCards({
           trackName={activeTrackName}
           siblingNames={siblingNames}
           onCommit={onCommit}
+          onReturnToMain={onReturnToMain}
           colorIndex={activeColorIndex}
         />
       </div>
@@ -2853,6 +2884,7 @@ export function ChatView() {
                 siblingNames={siblingSubtracks.map((s) => s.name)}
                 siblings={siblingCardsInfo}
                 onCommit={handleCommitSubtrack}
+                onReturnToMain={handleReturnToMain}
                 onSwitchTrack={(id) => {
                   const track = wsTracks.find((t) => t.id === id);
                   if (track?.isSubtrack && track.forkMessageId) {
