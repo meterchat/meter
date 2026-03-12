@@ -159,7 +159,7 @@ export function Inspector() {
           <button
             key={tab}
             onClick={() => { trackInspectorTabChanged({ tab }); setInspectorTab(tab); }}
-          className={`flex-1 py-2.5 font-mono text-[11px] uppercase tracking-wider transition-colors ${
+          className={`flex-1 py-2.5 font-mono text-[13px] uppercase tracking-wider transition-colors ${
               inspectorTab === tab
                 ? "text-foreground border-b border-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -181,14 +181,14 @@ export function Inspector() {
         <div className="relative border-t border-border px-4 py-3 flex items-center justify-between" style={{ paddingBottom: isMobile ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))" : undefined }}>
           <button
             onClick={openManageDialog}
-            className="rounded-md py-1.5 px-2 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground hover:bg-foreground/5"
+            className="rounded-md py-1.5 px-2 font-mono text-[13px] text-muted-foreground/80 transition-colors hover:text-foreground hover:bg-foreground/5"
           >
             Manage workspace
           </button>
 
           {/* Feedback button / badge */}
           {feedbackSent ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-1 font-mono text-[10px] text-blue-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-1 font-mono text-[13px] text-blue-400">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
@@ -197,7 +197,7 @@ export function Inspector() {
           ) : (
             <button
               onClick={() => setFeedbackOpen(!feedbackOpen)}
-              className="inline-flex items-center gap-1.5 rounded-md py-1.5 px-2 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground hover:bg-foreground/5"
+              className="inline-flex items-center gap-1.5 rounded-md py-1.5 px-2 font-mono text-[13px] text-muted-foreground/80 transition-colors hover:text-foreground hover:bg-foreground/5"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -218,7 +218,7 @@ export function Inspector() {
                   onChange={(e) => setFeedbackText(e.target.value)}
                   placeholder="Share feedback, ideas, or bugs..."
                   rows={5}
-                  className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/20 transition-colors"
+                  className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-foreground/20 transition-colors"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && feedbackText.trim()) {
@@ -228,13 +228,13 @@ export function Inspector() {
                   }}
                 />
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-muted-foreground/30">
+                  <span className="font-mono text-[13px] text-muted-foreground/60">
                     {"\u2318"}+Enter to send
                   </span>
                   <button
                     onClick={handleFeedbackSubmit}
                     disabled={!feedbackText.trim() || feedbackSubmitting}
-                    className="rounded-md px-3 py-1 font-mono text-[11px] bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="rounded-md px-3 py-1 font-mono text-[13px] bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {feedbackSubmitting ? "Sending..." : "Send"}
                   </button>
@@ -269,7 +269,7 @@ export function Inspector() {
         <div className="p-5 flex flex-col gap-5">
           {/* Workspace Name */}
           <div className="flex flex-col gap-2">
-            <label className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">
+            <label className="font-mono text-[13px] text-muted-foreground/60 uppercase tracking-wider">
               Workspace Name
             </label>
             <div className="flex gap-2">
@@ -277,12 +277,12 @@ export function Inspector() {
                 type="text"
                 value={editingName}
                 onChange={(e) => { setEditingName(e.target.value); setNameEdited(true); }}
-                className="flex-1 h-9 rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-foreground/30 transition-colors"
+                className="flex-1 h-9 rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-foreground/30 transition-colors"
               />
               {nameEdited && editingName.trim() && editingName.trim() !== activeWorkspace.name && (
                 <button
                   onClick={handleSaveName}
-                  className="h-9 rounded-lg bg-foreground px-3 font-mono text-[11px] text-background transition-colors hover:bg-foreground/90"
+                  className="h-9 rounded-lg bg-foreground px-3 font-mono text-[13px] text-background transition-colors hover:bg-foreground/90"
                 >
                   Save
                 </button>
@@ -294,10 +294,10 @@ export function Inspector() {
 
           {/* Danger Zone */}
           <div className="flex flex-col gap-3">
-            <div className="font-mono text-[11px] text-red-400/70 uppercase tracking-wider">
+            <div className="font-mono text-[13px] text-red-400/70 uppercase tracking-wider">
               Danger Zone
             </div>
-            <p className="font-mono text-[11px] text-muted-foreground/60 leading-relaxed">
+            <p className="font-mono text-[13px] text-muted-foreground/60 leading-relaxed">
               Type <span className="text-foreground/80">{activeWorkspace.name}</span> to confirm deletion. This removes all messages and data for this workspace.
             </p>
             <input
@@ -305,16 +305,16 @@ export function Inspector() {
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder={activeWorkspace.name}
-              className="h-9 rounded-lg border border-red-500/20 bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-red-500/40 transition-colors"
+              className="h-9 rounded-lg border border-red-500/20 bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-red-500/40 transition-colors"
             />
             <button
               onClick={handleDeleteWorkspace}
               disabled={deleting || deleteConfirmText !== activeWorkspace.name}
-              className="h-9 rounded-lg bg-red-500/10 border border-red-500/20 font-mono text-[11px] text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="h-9 rounded-lg bg-red-500/10 border border-red-500/20 font-mono text-[13px] text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {deleting ? "Deleting..." : "Delete Workspace"}
             </button>
-            <p className="font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
+            <p className="font-mono text-[13px] text-muted-foreground/70 leading-relaxed">
               Deleted workspaces are retained for 7 days. To recover, email support@meter.chat within 7 days of deletion.
             </p>
           </div>
@@ -366,19 +366,19 @@ function VersionHistory({ title, projectId }: { title: string; projectId?: strin
     return () => { cancelled = true; };
   }, [title, projectId, fetchDecisionHistory]);
 
-  if (loading) return <p className="font-mono text-[10px] text-muted-foreground/30">Loading history...</p>;
+  if (loading) return <p className="font-mono text-[13px] text-muted-foreground/60">Loading history...</p>;
   if (history.length === 0) return null;
 
   return (
     <div className="mt-1.5">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">History</span>
+      <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground/80">History</span>
       <div className="mt-0.5 flex flex-col gap-0.5">
         {history.map((h) => (
-          <div key={h.id} className="font-mono text-[11px] text-foreground/40">
-            <span className="text-muted-foreground/50">v{h.version ?? 1}</span>
-            <span className="mx-1 text-muted-foreground/20">&middot;</span>
-            <span className="text-muted-foreground/30">{new Date(h.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-            <span className="mx-1 text-muted-foreground/20">&mdash;</span>
+          <div key={h.id} className="font-mono text-[13px] text-foreground/90">
+            <span className="text-muted-foreground/80">v{h.version ?? 1}</span>
+            <span className="mx-1 text-muted-foreground/70">&middot;</span>
+            <span className="text-muted-foreground/60">{new Date(h.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+            <span className="mx-1 text-muted-foreground/70">&mdash;</span>
             <span>{h.choice}</span>
           </div>
         ))}
@@ -434,34 +434,34 @@ function DecisionRow({ decision }: { decision: Decision }) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`shrink-0 text-muted-foreground/40 transition-transform ${expanded ? "rotate-90" : ""}`}
+          className={`shrink-0 text-muted-foreground/70 transition-transform ${expanded ? "rotate-90" : ""}`}
         >
           <polyline points="9 18 15 12 9 6" />
         </svg>
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} />
-        <span className="flex-1 truncate font-mono text-[12px] text-foreground/80">
+        <span className="flex-1 truncate font-mono text-[13px] text-foreground/80">
           {decision.title}
           {version > 1 && (
-            <span className="ml-1 text-muted-foreground/40 text-[10px]">(v{version})</span>
+            <span className="ml-1 text-muted-foreground/70 text-[13px]">(v{version})</span>
           )}
         </span>
         <div className="hidden group-hover:flex items-center gap-1 shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); handleRevisit(); }}
-            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+            className="rounded px-1.5 py-0.5 font-mono text-[13px] text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
           >
             revisit
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); trackDecisionArchived({ decisionId: decision.id }); archiveDecision(decision.id); }}
-            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+            className="rounded px-1.5 py-0.5 font-mono text-[13px] text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
           >
             archive
           </button>
         </div>
         {statusLabel ? (
           <span
-            className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] tracking-wider ${
+            className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[13px] tracking-wider ${
               !isDecided
                 ? "bg-amber-500/10 text-amber-500"
                 : "bg-amber-400/10 text-amber-400"
@@ -478,8 +478,8 @@ function DecisionRow({ decision }: { decision: Decision }) {
         <div className="ml-6 mr-1 mb-2 mt-0.5 flex flex-col gap-1.5 border-l border-border/40 pl-3">
           {decision.choice && (
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Choice</span>
-              <p className="font-mono text-[12px] text-foreground/70 mt-0.5">{decision.choice}</p>
+              <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground/80">Choice</span>
+              <p className="font-mono text-[13px] text-foreground/90 mt-0.5">{decision.choice}</p>
             </div>
           )}
           {version > 1 && (
@@ -487,12 +487,12 @@ function DecisionRow({ decision }: { decision: Decision }) {
           )}
           {decision.reasoning && (
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Reasoning</span>
-              <p className="font-mono text-[12px] text-foreground/50 mt-0.5">{decision.reasoning}</p>
+              <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground/80">Reasoning</span>
+              <p className="font-mono text-[13px] text-foreground/90 mt-0.5">{decision.reasoning}</p>
             </div>
           )}
           {!decision.choice && !decision.reasoning && (
-            <p className="font-mono text-[11px] text-muted-foreground/30 italic">No details recorded</p>
+            <p className="font-mono text-[13px] text-muted-foreground/60 italic">No details recorded</p>
           )}
         </div>
       )}
@@ -503,7 +503,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
 function CategoryGroup({ category, decisions }: { category: string; decisions: Decision[] }) {
   return (
     <div className="mb-3">
-      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/40 mb-1 capitalize">
+      <div className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground/70 mb-1 capitalize">
         {category}
       </div>
       <div className="flex flex-col gap-0.5">
@@ -543,7 +543,7 @@ function PinsSection({ activeSessionId }: { activeSessionId: string | null }) {
 
   return (
     <div>
-      <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-2">
+      <div className="font-mono text-[13px] text-muted-foreground/60 uppercase tracking-wider mb-2">
         Pinned
       </div>
       <div className="flex flex-col gap-1">
@@ -559,17 +559,17 @@ function PinsSection({ activeSessionId }: { activeSessionId: string | null }) {
               onClick={() => handleClick(msg.id)}
               className="group relative rounded-md border border-border/50 px-3 py-2 hover:bg-foreground/[0.03] transition-colors cursor-pointer"
             >
-              <p className="font-mono text-[12px] text-foreground/70 leading-relaxed line-clamp-2">
+              <p className="font-mono text-[13px] text-foreground/90 leading-relaxed line-clamp-2">
                 {preview}{msg.content.length > 100 ? "..." : ""}
               </p>
               {meta && (
-                <span className="mt-1 block font-mono text-[10px] text-muted-foreground/40">
+                <span className="mt-1 block font-mono text-[13px] text-muted-foreground/70">
                   {meta}
                 </span>
               )}
               <button
                 onClick={(e) => { e.stopPropagation(); togglePinMessage(msg.id); }}
-                className="absolute right-1.5 top-1.5 hidden group-hover:block rounded p-0.5 text-muted-foreground/40 hover:text-amber-500 transition-colors"
+                className="absolute right-1.5 top-1.5 hidden group-hover:block rounded p-0.5 text-muted-foreground/70 hover:text-amber-500 transition-colors"
                 title="Unpin"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -804,7 +804,7 @@ function ConnectTab() {
         <h3 className="font-mono text-xs uppercase tracking-wider text-foreground mb-1">
           Connect to your tools
         </h3>
-        <p className="font-mono text-[11px] text-muted-foreground leading-relaxed">
+        <p className="font-mono text-[13px] text-muted-foreground leading-relaxed">
           Hook Meter into your coding agents via MCP. Your decisions, blueprints, and debates — available in your IDE.
         </p>
       </div>
@@ -812,13 +812,13 @@ function ConnectTab() {
       {/* API Key Section */}
       <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+          <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground">
             API Key
           </span>
           {apiKey && (
             <button
               onClick={() => setRevealed(!revealed)}
-              className="font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              className="font-mono text-[13px] text-muted-foreground hover:text-foreground transition-colors"
             >
               {revealed ? "Hide" : "Reveal"}
             </button>
@@ -829,12 +829,12 @@ function ConnectTab() {
           <div className="h-9 rounded-md bg-foreground/5 animate-pulse" />
         ) : apiKey ? (
           <div className="flex items-center gap-2">
-            <div className="flex-1 rounded-md bg-foreground/5 px-3 py-2 font-mono text-[11px] text-foreground/70 overflow-hidden text-ellipsis whitespace-nowrap select-all">
+            <div className="flex-1 rounded-md bg-foreground/5 px-3 py-2 font-mono text-[13px] text-foreground/90 overflow-hidden text-ellipsis whitespace-nowrap select-all">
               {displayKey}
             </div>
             <button
               onClick={copyKey}
-              className="shrink-0 rounded-md border border-border px-2.5 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+              className="shrink-0 rounded-md border border-border px-2.5 py-2 font-mono text-[13px] uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
             >
               {copied ? "Copied" : "Copy"}
             </button>
@@ -843,19 +843,19 @@ function ConnectTab() {
           <button
             onClick={generateKey}
             disabled={loading}
-            className="rounded-md border border-border px-3 py-2 font-mono text-[11px] text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50"
+            className="rounded-md border border-border px-3 py-2 font-mono text-[13px] text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50"
           >
             {loading ? "Generating..." : "Generate API Key"}
           </button>
         )}
         {error && (
-          <p className="font-mono text-[10px] text-red-400 mt-1">{error}</p>
+          <p className="font-mono text-[13px] text-red-400 mt-1">{error}</p>
         )}
       </div>
 
       {/* Connectors */}
       <div className="flex flex-col gap-2">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+        <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground">
           Connectors
         </span>
 
@@ -866,7 +866,7 @@ function ConnectTab() {
               <button
                 key={connector.id}
                 onClick={() => setExpandedId(isExpanded ? null : connector.id)}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 font-mono text-[11px] transition-colors ${
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 font-mono text-[13px] transition-colors ${
                   isExpanded
                     ? "border-foreground/20 bg-foreground/5 text-foreground"
                     : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/10"
@@ -900,11 +900,11 @@ function ConnectTab() {
             <div className="mt-1 rounded-lg border border-border bg-card overflow-hidden">
               {steps.map((step, i) => (
                 <div key={i} className="p-3 flex flex-col gap-2">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground">
                     {step.label}
                   </span>
                   <div className="relative">
-                    <pre className="rounded-md bg-foreground/5 p-3 font-mono text-[11px] text-foreground/80 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+                    <pre className="rounded-md bg-foreground/5 p-3 font-mono text-[13px] text-foreground/80 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
                       {step.snippet}
                     </pre>
                     <button
@@ -912,7 +912,7 @@ function ConnectTab() {
                         e.stopPropagation();
                         copySnippetText(connector.id, step.snippet);
                       }}
-                      className="absolute top-2 right-2 rounded-md border border-border bg-card px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                      className="absolute top-2 right-2 rounded-md border border-border bg-card px-2 py-1 font-mono text-[13px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {copiedSnippet === connector.id ? "Copied" : "Copy"}
                     </button>
@@ -925,7 +925,7 @@ function ConnectTab() {
 
         {expandedId && !apiKey && (
           <div className="mt-1 rounded-lg border border-border bg-card p-3">
-            <p className="font-mono text-[11px] text-muted-foreground">
+            <p className="font-mono text-[13px] text-muted-foreground">
               Generate an API key above to see setup instructions.
             </p>
           </div>
@@ -934,7 +934,7 @@ function ConnectTab() {
 
       {/* What you get */}
       <div className="flex flex-col gap-2">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+        <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground">
           Available tools
         </span>
         <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5">
@@ -946,10 +946,10 @@ function ConnectTab() {
             ["create_decision", "Record decisions from your IDE"],
           ].map(([name, desc]) => (
             <div key={name} className="flex items-start gap-2">
-              <code className="font-mono text-[10px] text-blue-400 bg-blue-400/10 rounded px-1 py-0.5 shrink-0">
+              <code className="font-mono text-[13px] text-blue-400 bg-blue-400/10 rounded px-1 py-0.5 shrink-0">
                 {name}
               </code>
-              <span className="font-mono text-[10px] text-muted-foreground">
+              <span className="font-mono text-[13px] text-muted-foreground">
                 {desc}
               </span>
             </div>
@@ -1010,10 +1010,10 @@ function DecisionsTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
       <PinsSection activeSessionId={activeSessionId} />
       {allVisible.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
-          <span className="font-mono text-xs text-muted-foreground/40">
+          <span className="font-mono text-xs text-muted-foreground/70">
             No decisions yet
           </span>
-          <span className="font-mono text-[11px] text-muted-foreground/30">
+          <span className="font-mono text-[13px] text-muted-foreground/60">
             Decisions are logged as you chat
           </span>
         </div>
@@ -1074,12 +1074,12 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
     </svg>
   ),
   notes: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/80">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
     </svg>
   ),
   other: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/80">
       <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" />
     </svg>
   ),
@@ -1139,15 +1139,15 @@ function DocumentTree({ artifacts, onOpen, onPush, pushing }: {
             >
               <svg
                 width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                className={`shrink-0 text-muted-foreground/40 transition-transform ${collapsed ? "" : "rotate-90"}`}
+                className={`shrink-0 text-muted-foreground/70 transition-transform ${collapsed ? "" : "rotate-90"}`}
               >
                 <polyline points="9 18 15 12 9 6" />
               </svg>
               {CATEGORY_ICONS[category] ?? CATEGORY_ICONS.other}
-              <span className="font-mono text-[11px] text-muted-foreground/70 uppercase tracking-wider">
+              <span className="font-mono text-[13px] text-muted-foreground/70 uppercase tracking-wider">
                 {CATEGORY_LABELS[category] ?? category}
               </span>
-              <span className="font-mono text-[10px] text-muted-foreground/30">
+              <span className="font-mono text-[13px] text-muted-foreground/60">
                 {items.length}
               </span>
             </button>
@@ -1199,21 +1199,21 @@ function ArtifactRow({ artifact, onOpen, onPush, pushing }: {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`shrink-0 text-muted-foreground/40 transition-transform ${expanded ? "rotate-90" : ""}`}
+          className={`shrink-0 text-muted-foreground/70 transition-transform ${expanded ? "rotate-90" : ""}`}
         >
           <polyline points="9 18 15 12 9 6" />
         </svg>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/80">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
         </svg>
-        <span className="flex-1 truncate font-mono text-[12px] text-foreground/80">
+        <span className="flex-1 truncate font-mono text-[13px] text-foreground/80">
           {artifact.filePath}
         </span>
         <div className="hidden group-hover:flex items-center gap-1 shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); onOpen(); }}
-            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors flex items-center gap-0.5"
+            className="rounded px-1.5 py-0.5 font-mono text-[13px] text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors flex items-center gap-0.5"
             title="Open in portal"
           >
             open
@@ -1225,19 +1225,19 @@ function ArtifactRow({ artifact, onOpen, onPush, pushing }: {
           <button
             onClick={(e) => { e.stopPropagation(); onPush(artifact.id); }}
             disabled={pushing}
-            className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/40 hover:bg-foreground/10 hover:text-muted-foreground transition-colors disabled:opacity-30"
+            className="rounded px-1.5 py-0.5 font-mono text-[13px] text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors disabled:opacity-50"
           >
             push
           </button>
         </div>
         <span
-          className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+          className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[13px] uppercase tracking-wider ${
             isSynced
               ? "bg-emerald-500/10 text-emerald-500"
               : isCommitted
               ? isModified
                 ? "bg-amber-500/10 text-amber-500"
-                : "bg-foreground/5 text-muted-foreground/50"
+                : "bg-foreground/5 text-muted-foreground/80"
               : "bg-amber-500/10 text-amber-500"
           }`}
         >
@@ -1248,19 +1248,19 @@ function ArtifactRow({ artifact, onOpen, onPush, pushing }: {
       {expanded && (
         <div className="ml-6 mr-1 mb-2 mt-0.5 flex flex-col gap-1.5 border-l border-border/40 pl-3">
           {artifact.lastGeneratedAt && (
-            <span className="font-mono text-[10px] text-muted-foreground/40">
+            <span className="font-mono text-[13px] text-muted-foreground/70">
               Generated {formatArtifactTime(artifact.lastGeneratedAt)}
               {artifact.lastPushedAt && ` · Pushed ${formatArtifactTime(artifact.lastPushedAt)}`}
               {artifact.lastCommittedAt && ` · Committed ${formatArtifactTime(artifact.lastCommittedAt)}`}
             </span>
           )}
           {artifact.githubRepo && (
-            <span className="font-mono text-[10px] text-muted-foreground/40">
+            <span className="font-mono text-[13px] text-muted-foreground/70">
               {artifact.githubRepo}
             </span>
           )}
           {artifact.content && (
-            <pre className="max-h-[200px] overflow-y-auto rounded bg-foreground/[0.03] p-2 font-mono text-[11px] text-foreground/60 leading-relaxed whitespace-pre-wrap break-words">
+            <pre className="max-h-[200px] overflow-y-auto rounded bg-foreground/[0.03] p-2 font-mono text-[13px] text-foreground/80 leading-relaxed whitespace-pre-wrap break-words">
               {artifact.content.slice(0, 2000)}{artifact.content.length > 2000 ? "\n..." : ""}
             </pre>
           )}
@@ -1429,7 +1429,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
     <div className="flex flex-col gap-4">
       {/* Header with actions */}
       <div className="flex items-center justify-between">
-        <div className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">
+        <div className="font-mono text-[13px] text-muted-foreground/60 uppercase tracking-wider">
           Documents
         </div>
         <div className="flex items-center gap-1.5">
@@ -1438,7 +1438,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
               <button
                 onClick={openPortal}
                 disabled={portalLoading}
-                className="flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-30"
+                className="flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[13px] text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50"
                 title="Open docs portal"
               >
                 Open
@@ -1450,7 +1450,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
               </button>
               <button
                 onClick={handleDownloadZip}
-                className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                className="rounded px-2 py-0.5 font-mono text-[13px] text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
                 title="Download all"
               >
                 Download
@@ -1458,7 +1458,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
               <button
                 onClick={() => handlePush()}
                 disabled={pushing || artifacts.length === 0}
-                className="rounded px-2 py-0.5 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-30"
+                className="rounded px-2 py-0.5 font-mono text-[13px] text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50"
               >
                 {pushing ? "Pushing..." : "Push to GitHub"}
               </button>
@@ -1470,11 +1470,11 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
       {/* Repo selector */}
       {showRepoSelector && (
         <div className="rounded-lg border border-border/50 p-2">
-          <div className="font-mono text-[10px] text-muted-foreground/50 mb-1.5">
+          <div className="font-mono text-[13px] text-muted-foreground/80 mb-1.5">
             Select target repo
           </div>
           {reposLoading ? (
-            <div className="py-2 text-center font-mono text-[11px] text-muted-foreground/40">
+            <div className="py-2 text-center font-mono text-[13px] text-muted-foreground/70">
               Loading repos...
             </div>
           ) : (
@@ -1486,12 +1486,12 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
                     setTargetRepo(r.fullName);
                     setShowRepoSelector(false);
                   }}
-                  className={`text-left rounded px-2 py-1.5 font-mono text-[11px] transition-colors hover:bg-foreground/5 ${
-                    targetRepo === r.fullName ? "text-foreground bg-foreground/5" : "text-foreground/70"
+                  className={`text-left rounded px-2 py-1.5 font-mono text-[13px] transition-colors hover:bg-foreground/5 ${
+                    targetRepo === r.fullName ? "text-foreground bg-foreground/5" : "text-foreground/90"
                   }`}
                 >
                   {r.fullName}
-                  {r.private && <span className="ml-1.5 text-[9px] text-muted-foreground/40">private</span>}
+                  {r.private && <span className="ml-1.5 text-[13px] text-muted-foreground/70">private</span>}
                 </button>
               ))}
             </div>
@@ -1502,13 +1502,13 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
       {/* Target repo indicator */}
       {targetRepo && !showRepoSelector && (
         <div className="flex items-center gap-1.5">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground/40 shrink-0">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground/70 shrink-0">
             <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
           </svg>
-          <span className="font-mono text-[10px] text-muted-foreground/50">{targetRepo}</span>
+          <span className="font-mono text-[13px] text-muted-foreground/80">{targetRepo}</span>
           <button
             onClick={() => { setShowRepoSelector(true); fetchRepos(); }}
-            className="font-mono text-[10px] text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+            className="font-mono text-[13px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
           >
             change
           </button>
@@ -1517,21 +1517,21 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
 
       {/* Document tree */}
       {loading ? (
-        <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">
+        <div className="py-4 text-center font-mono text-[13px] text-muted-foreground/70">
           Loading...
         </div>
       ) : artifacts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-6 gap-2">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/20">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/70">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
             <line x1="16" y1="13" x2="8" y2="13" />
             <line x1="16" y1="17" x2="8" y2="17" />
           </svg>
-          <span className="font-mono text-[12px] text-muted-foreground/40">
+          <span className="font-mono text-[13px] text-muted-foreground/70">
             No documents yet
           </span>
-          <span className="font-mono text-[11px] text-muted-foreground/30 text-center">
+          <span className="font-mono text-[13px] text-muted-foreground/60 text-center">
             Ask Meter to write a doc — specs, proposals, notes, anything
           </span>
         </div>
@@ -1548,7 +1548,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
         <div className="mt-2 rounded-lg border border-border/50 bg-foreground/[0.02] px-3 py-2">
           <button
             onClick={() => activeSessionId && initiateOAuthFlow("github", activeSessionId)}
-            className="font-mono text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
+            className="font-mono text-[13px] text-muted-foreground/60 hover:text-foreground transition-colors"
           >
             Connect GitHub to push artifacts
           </button>
@@ -1719,12 +1719,12 @@ function TimelineTab({ activeSessionId }: { activeSessionId: string | null }) {
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-2">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/60">
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        <span className="font-mono text-xs text-muted-foreground/40">No activity yet</span>
-        <span className="font-mono text-[11px] text-muted-foreground/30">
+        <span className="font-mono text-xs text-muted-foreground/70">No activity yet</span>
+        <span className="font-mono text-[13px] text-muted-foreground/60">
           Decisions, debates, and documents appear here
         </span>
       </div>
@@ -1735,7 +1735,7 @@ function TimelineTab({ activeSessionId }: { activeSessionId: string | null }) {
     <div className="flex flex-col gap-4">
       {grouped.map(([date, dayEvents]) => (
         <div key={date}>
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/40 mb-2 sticky top-0 bg-card py-1 z-10">
+          <div className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground/70 mb-2 sticky top-0 bg-card py-1 z-10">
             {date}
           </div>
           <div className="relative">
@@ -1761,18 +1761,18 @@ function TimelineTab({ activeSessionId }: { activeSessionId: string | null }) {
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="truncate font-mono text-[12px] text-foreground/80">
+                          <span className="truncate font-mono text-[13px] text-foreground/80">
                             {event.title}
                           </span>
                         </div>
                         {event.subtitle && (
-                          <span className="font-mono text-[10px] text-muted-foreground/50">
+                          <span className="font-mono text-[13px] text-muted-foreground/80">
                             {event.subtitle}
                           </span>
                         )}
                       </div>
                       {/* Time */}
-                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground/30 mt-0.5">
+                      <span className="shrink-0 font-mono text-[13px] text-muted-foreground/60 mt-0.5">
                         {formatTimelineTime(event.timestamp)}
                       </span>
                     </button>
@@ -1799,17 +1799,17 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-1.5">
         {d.choice && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Choice</span>
-            <p className="font-mono text-[12px] text-foreground/70 mt-0.5">{d.choice}</p>
+            <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground/80">Choice</span>
+            <p className="font-mono text-[13px] text-foreground/90 mt-0.5">{d.choice}</p>
           </div>
         )}
         {Array.isArray(d.alternatives) && d.alternatives.length > 0 && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Alternatives</span>
+            <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground/80">Alternatives</span>
             <ul className="mt-0.5">
               {d.alternatives.map((alt, i) => (
-                <li key={i} className="font-mono text-[12px] text-foreground/50 flex items-start gap-1.5">
-                  <span className="text-muted-foreground/30 mt-px">-</span>{alt}
+                <li key={i} className="font-mono text-[13px] text-foreground/90 flex items-start gap-1.5">
+                  <span className="text-muted-foreground/60 mt-px">-</span>{alt}
                 </li>
               ))}
             </ul>
@@ -1817,12 +1817,12 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
         )}
         {d.reasoning && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Reasoning</span>
-            <p className="font-mono text-[12px] text-foreground/50 mt-0.5">{d.reasoning}</p>
+            <span className="font-mono text-[13px] uppercase tracking-wider text-muted-foreground/80">Reasoning</span>
+            <p className="font-mono text-[13px] text-foreground/90 mt-0.5">{d.reasoning}</p>
           </div>
         )}
         {d.chatMessageId && (
-          <button onClick={() => onJump(d.chatMessageId!)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
+          <button onClick={() => onJump(d.chatMessageId!)} className="font-mono text-[13px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
             Jump to message
           </button>
         )}
@@ -1837,14 +1837,14 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-2">
         {turns.slice(0, 4).map((t, i) => (
           <div key={i}>
-            <span className="font-mono text-[10px] text-muted-foreground/50">{t.model} — {t.phase}</span>
-            <p className="font-mono text-[11px] text-foreground/60 mt-0.5 line-clamp-3">{t.content}</p>
+            <span className="font-mono text-[13px] text-muted-foreground/80">{t.model} — {t.phase}</span>
+            <p className="font-mono text-[13px] text-foreground/80 mt-0.5 line-clamp-3">{t.content}</p>
           </div>
         ))}
         {turns.length > 4 && (
-          <span className="font-mono text-[10px] text-muted-foreground/30">+{turns.length - 4} more turns</span>
+          <span className="font-mono text-[13px] text-muted-foreground/60">+{turns.length - 4} more turns</span>
         )}
-        <button onClick={() => onJump(m.id)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
+        <button onClick={() => onJump(m.id)} className="font-mono text-[13px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
           Jump to message
         </button>
       </div>
@@ -1858,14 +1858,14 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-2">
         {passes.slice(0, 3).map((p, i) => (
           <div key={i}>
-            <span className="font-mono text-[10px] text-muted-foreground/50">{p.persona}</span>
-            <p className="font-mono text-[11px] text-foreground/60 mt-0.5 line-clamp-3">{p.content}</p>
+            <span className="font-mono text-[13px] text-muted-foreground/80">{p.persona}</span>
+            <p className="font-mono text-[13px] text-foreground/80 mt-0.5 line-clamp-3">{p.content}</p>
           </div>
         ))}
         {passes.length > 3 && (
-          <span className="font-mono text-[10px] text-muted-foreground/30">+{passes.length - 3} more passes</span>
+          <span className="font-mono text-[13px] text-muted-foreground/60">+{passes.length - 3} more passes</span>
         )}
-        <button onClick={() => onJump(m.id)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
+        <button onClick={() => onJump(m.id)} className="font-mono text-[13px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
           Jump to message
         </button>
       </div>
@@ -1876,8 +1876,8 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
     const { message, doc } = event.data as { message: { id: string }; doc: { filePath: string; content: string } };
     return (
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-1">
-        <p className="font-mono text-[11px] text-foreground/50 line-clamp-4 whitespace-pre-wrap">{doc.content.slice(0, 300)}{doc.content.length > 300 ? "..." : ""}</p>
-        <button onClick={() => onJump(message.id)} className="font-mono text-[10px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
+        <p className="font-mono text-[13px] text-foreground/90 line-clamp-4 whitespace-pre-wrap">{doc.content.slice(0, 300)}{doc.content.length > 300 ? "..." : ""}</p>
+        <button onClick={() => onJump(message.id)} className="font-mono text-[13px] text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
           Jump to message
         </button>
       </div>
@@ -1889,14 +1889,14 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
     return (
       <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className={`font-mono text-[10px] rounded-full px-1.5 py-0.5 ${a.status === "synced" ? "text-emerald-500 bg-emerald-500/10" : "text-muted-foreground/50 bg-foreground/5"}`}>
+          <span className={`font-mono text-[13px] rounded-full px-1.5 py-0.5 ${a.status === "synced" ? "text-emerald-500 bg-emerald-500/10" : "text-muted-foreground/80 bg-foreground/5"}`}>
             {a.status}
           </span>
           {a.category && (
-            <span className="font-mono text-[10px] text-muted-foreground/40">{a.category}</span>
+            <span className="font-mono text-[13px] text-muted-foreground/70">{a.category}</span>
           )}
         </div>
-        <p className="font-mono text-[11px] text-foreground/50 line-clamp-3 whitespace-pre-wrap">{a.content.slice(0, 200)}{a.content.length > 200 ? "..." : ""}</p>
+        <p className="font-mono text-[13px] text-foreground/90 line-clamp-3 whitespace-pre-wrap">{a.content.slice(0, 200)}{a.content.length > 200 ? "..." : ""}</p>
       </div>
     );
   }
