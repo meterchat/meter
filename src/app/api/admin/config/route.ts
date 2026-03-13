@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/auth";
 import { getSupabaseServer } from "@/lib/supabase";
-import { MODELS } from "@/lib/models";
+import { MODELS, DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 import { SLASH_COMMANDS } from "@/lib/connectors";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function GET() {
 
   if (error || !data) {
     return NextResponse.json(
-      { markupMultiplier: 2.5, enabledModels: [], enabledCommands: [], freeUsdCredit: 0, bonusCreditLimit: 100, bonusCreditAmount: 10 },
+      { markupMultiplier: DEFAULT_MARKUP_MULTIPLIER, enabledModels: [], enabledCommands: [], freeUsdCredit: 0, bonusCreditLimit: 100, bonusCreditAmount: 10 },
     );
   }
 
@@ -116,7 +116,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Failed to read config after save" }, { status: 500 });
   }
   return NextResponse.json({
-    markupMultiplier: Number(data.markup_multiplier ?? 2.5),
+    markupMultiplier: Number(data.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER),
     enabledModels: data.enabled_models ?? [],
     enabledCommands: data.enabled_commands ?? [],
     freeUsdCredit: Number(data.free_usd_credit ?? 0),

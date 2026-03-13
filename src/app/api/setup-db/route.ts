@@ -487,6 +487,9 @@ const STATEMENTS: string[] = [
   // Free USD credit per user (deducted before card charges at settlement)
   `alter table meter_users add column if not exists free_credit_remaining numeric not null default 0`,
 
+  // Sync markup multiplier to current default (2.0x)
+  `update app_config set markup_multiplier = 2 where id = 'global' and markup_multiplier = 2.5`,
+
   // Bonus credit gating: first N signups get $X credit
   `alter table app_config add column if not exists bonus_credit_limit integer not null default 100`,
   `alter table app_config add column if not exists bonus_credit_amount numeric not null default 10`,
