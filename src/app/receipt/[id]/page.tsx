@@ -5,7 +5,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useMeterStore, normalizeReceiptStatus, type ChatMessage } from "@/lib/store";
 import { shortModelName } from "@/lib/models";
 
-const BASE_EXPLORER = "https://basescan.org/tx/";
 
 export default function ReceiptPage() {
   const params = useParams<{ id: string }>();
@@ -89,25 +88,6 @@ export default function ReceiptPage() {
           </p>
         </div>
 
-        {message.txHash && (
-          <>
-            <div className="my-4 h-px bg-border" />
-            <div className="space-y-2 font-mono text-[11px] text-muted-foreground">
-              <p>
-                Tx:{" "}
-                <a
-                  href={`${BASE_EXPLORER}${message.txHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  {message.txHash.slice(0, 10)}...{message.txHash.slice(-8)}
-                  <span className="ml-1">↗</span>
-                </a>
-              </p>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );
