@@ -232,7 +232,7 @@ interface MeterState {
   approveCard: (messageId: string, cardId: string) => void;
   rejectCard: (messageId: string, cardId: string) => void;
   addCardToLastMessage: (card: ActionCard, forSessionId?: string) => void;
-  purchaseDomain: (messageId: string, cardId: string) => Promise<{ success: boolean; error?: string }>;
+  purchaseDomain: (messageId: string, cardId: string) => Promise<{ success: boolean; error?: string; domain?: string }>;
   setMessageDecisionId: (decisionId: string, forSessionId?: string) => void;
   addDocumentToLastMessage: (doc: DocumentPreview, forSessionId?: string) => void;
   markDocumentSaved: (messageId: string, docId: string) => void;
@@ -1147,54 +1147,49 @@ export const useMeterStore = create<MeterState>()(
           return { success: false, error: `Purchase would exceed daily limit ($${limits.dailyLimit.toFixed(2)})` };
         }
 
-        // Set card to purchasing state
-        set((prev) => {
-          const proj = getActiveSession(prev);
-          const updated = {
-            ...proj,
-            messages: proj.messages.map((m) => {
-              if (m.id !== messageId) return m;
-              return {
-                ...m,
-                cards: m.cards?.map((c) =>
-                  c.id === cardId ? { ...c, status: "approved" as const } : c
-                ),
-              };
-            }),
-          };
-          return { sessions: replaceActiveSession(prev, updated) };
-        });
-
         try {
           const res = await authFetch("/api/porkbun/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ domain: card.metadata.domain }),
+            body: JSON.stringify({
+              domain: card.metadata.domain,
+              price: card.metadata.regularPrice ?? String(card.cost ?? "0"),
+            }),
           });
           const data = await res.json();
           if (!res.ok) {
-            // Revert card status on failure
-            set((prev) => {
-              const proj = getActiveSession(prev);
-              const updated = {
-                ...proj,
-                messages: proj.messages.map((m) => {
-                  if (m.id !== messageId) return m;
-                  return {
-                    ...m,
-                    cards: m.cards?.map((c) =>
-                      c.id === cardId ? { ...c, status: "pending" as const } : c
-                    ),
-                  };
-                }),
-              };
-              return { sessions: replaceActiveSession(prev, updated) };
-            });
-            return { success: false, error: data.error ?? "Registration failed" };
+            // Parse user-friendly error from API response
+            const raw = data.error ?? "Registration failed";
+            const friendly = raw.includes("no longer available")
+              ? `${card.metadata!.domain} is no longer available.`
+              : raw.includes("Cost must be")
+                ? "Price mismatch — please try again."
+                : raw.includes("insufficient")
+                  ? "Insufficient account balance — contact support."
+                  : "Domain registration failed. Please try again.";
+            return { success: false, error: friendly };
           }
 
-          // Success: add to pending charges and update today cost
+          // Success: set card to approved now that API has confirmed
           const purchaseCost = data.price ?? cost;
+          set((prev) => {
+            const proj = getActiveSession(prev);
+            const updated = {
+              ...proj,
+              messages: proj.messages.map((m) => {
+                if (m.id !== messageId) return m;
+                return {
+                  ...m,
+                  cards: m.cards?.map((c) =>
+                    c.id === cardId ? { ...c, status: "approved" as const } : c
+                  ),
+                };
+              }),
+            };
+            return { sessions: replaceActiveSession(prev, updated) };
+          });
+
+          // Add to pending charges
           set((prev) => ({
             pendingCharges: [
               ...prev.pendingCharges,
@@ -1223,26 +1218,9 @@ export const useMeterStore = create<MeterState>()(
             };
           });
 
-          return { success: true };
+          return { success: true, domain: card.metadata!.domain };
         } catch {
-          // Revert card status on error
-          set((prev) => {
-            const proj = getActiveSession(prev);
-            const updated = {
-              ...proj,
-              messages: proj.messages.map((m) => {
-                if (m.id !== messageId) return m;
-                return {
-                  ...m,
-                  cards: m.cards?.map((c) =>
-                    c.id === cardId ? { ...c, status: "pending" as const } : c
-                  ),
-                };
-              }),
-            };
-            return { sessions: replaceActiveSession(prev, updated) };
-          });
-          return { success: false, error: "Network error — try again" };
+          return { success: false, error: "Network error — please try again." };
         }
       },
 

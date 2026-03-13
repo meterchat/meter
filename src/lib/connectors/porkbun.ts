@@ -48,7 +48,14 @@ async function porkbunPost<T = Record<string, unknown>>(
 
   if (!res.ok) {
     const text = await res.text().catch(() => "unknown error");
-    throw new Error(`Porkbun API error (${res.status}): ${text}`);
+    // Try to extract a clean message from Porkbun's JSON error responses
+    try {
+      const errData = JSON.parse(text);
+      throw new Error(errData.message ?? `Porkbun error (${res.status})`);
+    } catch (e) {
+      if (e instanceof Error && !e.message.startsWith("Porkbun")) throw e;
+      throw new Error(`Porkbun error (${res.status}): ${text}`);
+    }
   }
 
   const data = (await res.json()) as Record<string, unknown>;
@@ -119,7 +126,8 @@ export interface DomainRegisterResult {
 
 export async function registerDomain(
   domain: string,
-  contact: { email: string; firstName?: string; lastName?: string }
+  contact: { email: string; firstName?: string; lastName?: string },
+  priceUsd?: string
 ): Promise<DomainRegisterResult> {
   const clean = cleanDomain(domain);
 
@@ -129,8 +137,14 @@ export async function registerDomain(
     throw new Error(`${clean} is no longer available for registration.`);
   }
 
+  // Porkbun requires cost in pennies as an integer.
+  // Use the explicitly passed price, or fall back to the re-check price.
+  const priceStr = priceUsd ?? check.price;
+  const costInPennies = Math.round(parseFloat(priceStr) * 100 * check.minDuration);
+
   const data = await porkbunPost(`/domain/create/${clean}`, {
-    agreement: "1",
+    agree: "1",
+    cost: String(costInPennies),
     ...(contact.firstName ? { firstName: contact.firstName } : {}),
     ...(contact.lastName ? { lastName: contact.lastName } : {}),
     email: contact.email,

@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
   const { userId } = auth;
 
-  const { domain } = await req.json();
+  const { domain, price } = await req.json();
   if (!domain || typeof domain !== "string") {
     return NextResponse.json({ error: "domain is required" }, { status: 400 });
   }
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const email = user?.email ?? "domains@meter.chat";
 
   try {
-    const result = await registerDomain(domain, { email });
+    const result = await registerDomain(domain, { email }, price);
     const priceUsd = result.priceInCents / 100;
 
     return NextResponse.json({
