@@ -67,8 +67,9 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
 };
 
 /** Models where direct API should be preferred over OpenRouter.
- *  Empty — OpenRouter is primary for all models (supports caching natively). */
+ *  Direct-first gives lower latency and avoids OpenRouter rerouting issues. */
 const PREFER_DIRECT: Set<string> = new Set([
+  "openai/gpt-5.4",
 ]);
 
 /* ─── Bedrock provider (Claude models via AWS) ─────────────────── */
