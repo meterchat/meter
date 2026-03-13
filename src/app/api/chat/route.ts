@@ -4,7 +4,7 @@ import { streamWithFallback, type Send } from "@/lib/fallback";
 import { runDebate } from "@/lib/debate";
 import { runDissection } from "@/lib/dissect";
 import { getSupabaseServer } from "@/lib/supabase";
-import { getModel } from "@/lib/models";
+import { getModel, DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
 import {
   serverTrackChatCompleted,
@@ -41,6 +41,14 @@ export async function POST(req: NextRequest) {
     const { messages, model, connectedServices, attachments, debateRoster, userMessageId, assistantMessageId } = body;
     // Accept both sessionId (new) and projectId (legacy) for backward compatibility
     const projectId: string | undefined = body.sessionId ?? body.projectId;
+
+    // Fetch consumer-facing markup so DB costs match what users see.
+    let markupMultiplier = DEFAULT_MARKUP_MULTIPLIER;
+    try {
+      const supabaseInit = getSupabaseServer();
+      const { data: appCfg } = await supabaseInit.from("app_config").select("markup_multiplier").eq("id", "global").single();
+      if (appCfg?.markup_multiplier != null) markupMultiplier = Number(appCfg.markup_multiplier);
+    } catch { /* use default */ }
 
     // Server-side spend limit + exposure cap enforcement (skip for superadmin)
     if (projectId && !(await isSuperAdmin(userId))) {
@@ -164,8 +172,9 @@ export async function POST(req: NextRequest) {
         const supabase = getSupabaseServer();
         const dbSessionId = projectId?.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
 
-        // Compute cost server-side from tokens + model pricing with cache awareness.
-        // This ensures the cost field is populated even if the client disconnects.
+        // Compute consumer-facing cost server-side from tokens + model pricing
+        // with cache awareness and account markup. This ensures the DB cost
+        // matches what users see in the footer bar and receipt page.
         let cost = msg.cost ?? null;
         if (cost == null && msg.model && (msg.tokensIn || msg.tokensOut)) {
           try {
@@ -179,8 +188,11 @@ export async function POST(req: NextRequest) {
                 (cacheWrite * modelInfo.inputPrice * 1.25) +
                 (cacheHit * modelInfo.inputPrice * readRate)
               : (msg.tokensIn ?? 0) * modelInfo.inputPrice;
-            cost = inputCost + (msg.tokensOut ?? 0) * modelInfo.outputPrice;
+            cost = (inputCost + (msg.tokensOut ?? 0) * modelInfo.outputPrice) * markupMultiplier;
           } catch { /* unknown model — leave cost null */ }
+        } else if (cost != null) {
+          // msg.cost from provider is raw — apply markup for consumer pricing
+          cost = cost * markupMultiplier;
         }
 
         const { error: upsertErr } = await supabase.from("chat_messages").upsert({
