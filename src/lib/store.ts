@@ -9,6 +9,15 @@ import { authFetch } from "@/lib/auth-fetch";
 
 export type ReceiptStatus = "metering" | "metered" | "settled";
 
+/** Map legacy DB values ("signing"/"signed") to current terminology. */
+export function normalizeReceiptStatus(s: string | undefined | null): ReceiptStatus | undefined {
+  if (!s) return undefined;
+  if (s === "signing" || s === "metering") return "metering";
+  if (s === "signed" || s === "metered") return "metered";
+  if (s === "settled") return "settled";
+  return undefined;
+}
+
 export interface ActionCard {
   id: string;
   type: "domain" | "service" | "action";
@@ -1563,7 +1572,7 @@ export const useMeterStore = create<MeterState>()(
             cost: m.cost as number | undefined,
             confidence: m.confidence as number | undefined,
             settled: m.settled as boolean | undefined,
-            receiptStatus: m.receipt_status as ReceiptStatus | undefined,
+            receiptStatus: normalizeReceiptStatus(m.receipt_status as string | undefined),
             signature: m.signature as string | undefined,
             txHash: m.tx_hash as string | undefined,
             cards: m.cards as ActionCard[] | undefined,
