@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireSuperAdmin } from "@/lib/auth";
+import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 
 const STRIPE_FEE_RATE = 0.029;
 const STRIPE_FEE_FIXED = 0.30;
-const MARKUP_MULTIPLIER = 2.0;
 
 // Paginate through all rows — Supabase caps at 1000 per request
 async function fetchAllMessages(supabase: ReturnType<typeof getSupabaseServer>) {
@@ -53,6 +53,14 @@ export async function GET() {
 
   try {
     const supabase = getSupabaseServer();
+
+    // Fetch global markup multiplier from app_config
+    const { data: configRow } = await supabase
+      .from("app_config")
+      .select("markup_multiplier")
+      .eq("id", "global")
+      .single();
+    const markupMultiplier = Number(configRow?.markup_multiplier) || DEFAULT_MARKUP_MULTIPLIER;
 
     // Fetch ALL messages (paginated) — no cost filter so tokens are counted accurately
     const messages = await fetchAllMessages(supabase);
@@ -177,7 +185,7 @@ export async function GET() {
       stripeFees += fee;
 
       // Per-settlement profit: revenue - inference cost - stripe fee
-      const inferenceCost = amt / MARKUP_MULTIPLIER;
+      const inferenceCost = amt / markupMultiplier;
       const profit = amt - inferenceCost - fee;
 
       if (createdAt) {
@@ -187,7 +195,7 @@ export async function GET() {
       }
     }
 
-    const inferenceCost = totalSettled / MARKUP_MULTIPLIER;
+    const inferenceCost = totalSettled / markupMultiplier;
     const totalProfit = totalSettled - inferenceCost - stripeFees;
 
     // Cumulative profit timeline
