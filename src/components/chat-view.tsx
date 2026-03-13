@@ -871,7 +871,9 @@ function MessageFooter({ msg, sessionId }: { msg: ChatMessage; sessionId: string
 
   const modelName = msg.model ? shortModelName(msg.model) : "—";
   const cost = msg.cost ?? 0;
-  const totalTokens = (msg.tokensIn ?? 0) + (msg.tokensOut ?? 0);
+  const tokensIn = msg.tokensIn ?? 0;
+  const tokensOut = msg.tokensOut ?? 0;
+  const cacheRead = msg.cacheReadTokens ?? 0;
   const isSigned = msg.receiptStatus === "signed" || msg.receiptStatus === "settled";
 
   if (!hasCost) return null;
@@ -883,7 +885,12 @@ function MessageFooter({ msg, sessionId }: { msg: ChatMessage; sessionId: string
         {msg.model === "debate" && <DebateModelDots />}
       </span>
       <span className="text-muted-foreground/30">&middot;</span>
-      <span>{totalTokens.toLocaleString()} tokens</span>
+      <span>
+        {tokensIn.toLocaleString()} in &middot; {tokensOut.toLocaleString()} out
+        {cacheRead > 0 && (
+          <span className="text-emerald-500/50"> ({cacheRead.toLocaleString()} cached)</span>
+        )}
+      </span>
       <span className="text-muted-foreground/30">&middot;</span>
       <span>${cost.toFixed(cost < 0.01 ? 4 : 3)}</span>
       <span className="text-muted-foreground/30">&middot;</span>

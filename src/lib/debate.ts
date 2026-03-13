@@ -73,6 +73,8 @@ function extractDebateContext(conversation: Message[]): {
 interface DebateUsage {
   tokensIn: number;
   tokensOut: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
   /** Actual dollar cost summed across all models (at base rate; account markup applied client-side) */
   actualCost: number;
 }
@@ -99,6 +101,9 @@ async function runModelTurn(
   let content = "";
   let roundIn = 0;
   let roundOut = 0;
+  let roundCacheCreation = 0;
+  let roundCacheRead = 0;
+  let roundCacheReadRate = 0;
 
   const turnSend: Send = (data) => {
     if (data.type === "delta") {
@@ -108,6 +113,9 @@ async function runModelTurn(
     if (data.type === "usage") {
       roundIn = (data.tokensIn as number) || 0;
       roundOut = (data.tokensOut as number) || 0;
+      roundCacheCreation = (data.cacheCreationTokens as number) || 0;
+      roundCacheRead = (data.cacheReadTokens as number) || 0;
+      roundCacheReadRate = (data.cacheReadRate as number) || 0;
     }
   };
 
@@ -123,11 +131,20 @@ async function runModelTurn(
     content = "(This model was unavailable for this round.)";
   }
 
-  // Price this turn using the ACTUAL model's rate (not a blended rate)
+  // Price this turn using the ACTUAL model's rate with cache-aware pricing
   const model = getModel(modelId);
   usage.tokensIn += roundIn;
   usage.tokensOut += roundOut;
-  usage.actualCost += roundIn * model.inputPrice + roundOut * model.outputPrice;
+  usage.cacheCreationTokens += roundCacheCreation;
+  usage.cacheReadTokens += roundCacheRead;
+
+  const uncachedIn = roundIn - roundCacheCreation - roundCacheRead;
+  const inputCost = (roundCacheCreation > 0 || roundCacheRead > 0)
+    ? (uncachedIn * model.inputPrice) +
+      (roundCacheCreation * model.inputPrice * 1.25) +
+      (roundCacheRead * model.inputPrice * (roundCacheReadRate || 0.1))
+    : roundIn * model.inputPrice;
+  usage.actualCost += inputCost + roundOut * model.outputPrice;
   send({ type: "debate_turn_end", model: modelId, phase });
 
   return content;
@@ -135,7 +152,7 @@ async function runModelTurn(
 
 export async function runDebate(conversation: Message[], send: Send, roster?: string[]) {
   const models = roster && roster.length >= 2 ? roster : [...DEFAULT_DEBATE_MODELS];
-  const usage: DebateUsage = { tokensIn: 0, tokensOut: 0, actualCost: 0 };
+  const usage: DebateUsage = { tokensIn: 0, tokensOut: 0, cacheCreationTokens: 0, cacheReadTokens: 0, actualCost: 0 };
   const { topic, context } = extractDebateContext(conversation);
   const modelNames = models.map(shortModelName);
 
@@ -276,12 +293,18 @@ Write the definitive answer. Lead with the conclusion, then briefly note why the
 
   let synthRoundIn = 0;
   let synthRoundOut = 0;
+  let synthCacheCreation = 0;
+  let synthCacheRead = 0;
+  let synthCacheReadRate = 0;
 
   const synthSend: Send = (data) => {
     if (data.type === "delta") send(data);
     if (data.type === "usage") {
       synthRoundIn = (data.tokensIn as number) || 0;
       synthRoundOut = (data.tokensOut as number) || 0;
+      synthCacheCreation = (data.cacheCreationTokens as number) || 0;
+      synthCacheRead = (data.cacheReadTokens as number) || 0;
+      synthCacheReadRate = (data.cacheReadRate as number) || 0;
     }
   };
 
@@ -299,7 +322,16 @@ Write the definitive answer. Lead with the conclusion, then briefly note why the
   const synthModel = getModel("anthropic/claude-sonnet-4.6");
   usage.tokensIn += synthRoundIn;
   usage.tokensOut += synthRoundOut;
-  usage.actualCost += synthRoundIn * synthModel.inputPrice + synthRoundOut * synthModel.outputPrice;
+  usage.cacheCreationTokens += synthCacheCreation;
+  usage.cacheReadTokens += synthCacheRead;
+
+  const synthUncachedIn = synthRoundIn - synthCacheCreation - synthCacheRead;
+  const synthInputCost = (synthCacheCreation > 0 || synthCacheRead > 0)
+    ? (synthUncachedIn * synthModel.inputPrice) +
+      (synthCacheCreation * synthModel.inputPrice * 1.25) +
+      (synthCacheRead * synthModel.inputPrice * (synthCacheReadRate || 0.1))
+    : synthRoundIn * synthModel.inputPrice;
+  usage.actualCost += synthInputCost + synthRoundOut * synthModel.outputPrice;
 
   // Send actual per-model cost so the client doesn't need to re-derive from
   // a blended rate (which can't be accurate across models with different prices).
@@ -307,6 +339,8 @@ Write the definitive answer. Lead with the conclusion, then briefly note why the
     type: "usage",
     tokensIn: usage.tokensIn,
     tokensOut: usage.tokensOut,
+    cacheCreationTokens: usage.cacheCreationTokens,
+    cacheReadTokens: usage.cacheReadTokens,
     actualCost: usage.actualCost,
   });
   send({ type: "done", actualModel: "debate" });

@@ -58,6 +58,8 @@ export interface ChatMessage {
   model?: string;
   tokensIn?: number;
   tokensOut?: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
   cost?: number;
   confidence?: number;
   settled?: boolean;
@@ -856,6 +858,8 @@ export const useMeterStore = create<MeterState>()(
               ...last,
               tokensIn,
               tokensOut,
+              cacheCreationTokens: cacheCreationTokens ?? undefined,
+              cacheReadTokens: cacheReadTokens ?? undefined,
               cost: totalMsgCost,
               confidence,
               model: pricingModelId,

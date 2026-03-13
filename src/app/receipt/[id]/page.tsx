@@ -22,7 +22,10 @@ export default function ReceiptPage() {
     return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Receipt not found.</div>;
   }
 
-  const totalTokens = (message.tokensIn ?? 0) + (message.tokensOut ?? 0);
+  const tokensIn = message.tokensIn ?? 0;
+  const tokensOut = message.tokensOut ?? 0;
+  const cacheCreation = message.cacheCreationTokens ?? 0;
+  const cacheRead = message.cacheReadTokens ?? 0;
   const when = new Date(message.timestamp);
   const isSettled = message.receiptStatus === "settled";
   const statusText = isSettled ? "Settled on Base" : "Signed · Pending settlement";
@@ -35,7 +38,14 @@ export default function ReceiptPage() {
         <div className="space-y-2 text-sm">
           <p>Time: {when.toLocaleString()}</p>
           <p>Model: {message.model ? shortModelName(message.model) : "—"}</p>
-          <p>Tokens: {totalTokens.toLocaleString()}</p>
+          <p>Input tokens: {tokensIn.toLocaleString()}</p>
+          <p>Output tokens: {tokensOut.toLocaleString()}</p>
+          {cacheRead > 0 && (
+            <p className="text-emerald-500/70">Cache read tokens: {cacheRead.toLocaleString()} (0.1x rate)</p>
+          )}
+          {cacheCreation > 0 && (
+            <p className="text-amber-500/70">Cache write tokens: {cacheCreation.toLocaleString()} (1.25x rate)</p>
+          )}
           <p>Cost: ${(message.cost ?? 0).toFixed(4)}</p>
           <p>
             Status:{" "}
