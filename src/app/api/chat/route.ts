@@ -149,6 +149,9 @@ export async function POST(req: NextRequest) {
       model?: string;
       tokensIn?: number;
       tokensOut?: number;
+      cacheCreationTokens?: number;
+      cacheReadTokens?: number;
+      cacheReadRate?: number;
       cost?: number;
       timestamp: number;
       debateTrace?: unknown;
@@ -161,13 +164,22 @@ export async function POST(req: NextRequest) {
         const supabase = getSupabaseServer();
         const dbSessionId = projectId?.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
 
-        // Compute cost server-side from tokens + model pricing if not provided.
+        // Compute cost server-side from tokens + model pricing with cache awareness.
         // This ensures the cost field is populated even if the client disconnects.
         let cost = msg.cost ?? null;
         if (cost == null && msg.model && (msg.tokensIn || msg.tokensOut)) {
           try {
             const modelInfo = getModel(msg.model);
-            cost = (msg.tokensIn ?? 0) * modelInfo.inputPrice + (msg.tokensOut ?? 0) * modelInfo.outputPrice;
+            const cacheWrite = msg.cacheCreationTokens ?? 0;
+            const cacheHit = msg.cacheReadTokens ?? 0;
+            const readRate = msg.cacheReadRate || 0.1;
+            const uncachedIn = (msg.tokensIn ?? 0) - cacheWrite - cacheHit;
+            const inputCost = (cacheWrite > 0 || cacheHit > 0)
+              ? (uncachedIn * modelInfo.inputPrice) +
+                (cacheWrite * modelInfo.inputPrice * 1.25) +
+                (cacheHit * modelInfo.inputPrice * readRate)
+              : (msg.tokensIn ?? 0) * modelInfo.inputPrice;
+            cost = inputCost + (msg.tokensOut ?? 0) * modelInfo.outputPrice;
           } catch { /* unknown model — leave cost null */ }
         }
 
@@ -179,6 +191,9 @@ export async function POST(req: NextRequest) {
           model: msg.model ?? null,
           tokens_in: msg.tokensIn ?? null,
           tokens_out: msg.tokensOut ?? null,
+          cache_creation_tokens: msg.cacheCreationTokens ?? null,
+          cache_read_tokens: msg.cacheReadTokens ?? null,
+          cache_read_rate: msg.cacheReadRate ?? null,
           cost,
           settled: false,
           receipt_status: msg.receiptStatus ?? null,
@@ -216,6 +231,13 @@ export async function POST(req: NextRequest) {
     const serverDissectorTrace: { persona: string; content: string }[] = [];
     let currentDissectorTurn: { persona: string; content: string } | null = null;
     const serverDocuments: { id: string; filePath: string; content: string; category: string }[] = [];
+    // Capture the last usage event from any mode (debate/dissect/standard)
+    // so we can persist cache token breakdown to DB for auditable pricing.
+    let lastUsageEvent: {
+      tokensIn?: number; tokensOut?: number;
+      cacheCreationTokens?: number; cacheReadTokens?: number;
+      cacheReadRate?: number; actualCost?: number;
+    } | null = null;
     // Track client connection state — when the client disconnects (e.g. page
     // refresh), we keep the upstream API call running and accumulate the full
     // response so we can save it to DB. Only the SSE push is skipped.
@@ -258,6 +280,17 @@ export async function POST(req: NextRequest) {
           }
           if (data.type === "thinking_delta" && typeof data.content === "string") {
             fullThinkingContent += data.content;
+          }
+          // Capture usage events for DB persistence
+          if (data.type === "usage") {
+            lastUsageEvent = {
+              tokensIn: data.tokensIn as number | undefined,
+              tokensOut: data.tokensOut as number | undefined,
+              cacheCreationTokens: data.cacheCreationTokens as number | undefined,
+              cacheReadTokens: data.cacheReadTokens as number | undefined,
+              cacheReadRate: data.cacheReadRate as number | undefined,
+              actualCost: data.actualCost as number | undefined,
+            };
           }
           // Accumulate debate trace server-side (survives client disconnect)
           if (data.type === "debate_turn_start") {
@@ -315,7 +348,7 @@ export async function POST(req: NextRequest) {
             send({ type: "error", code: "debate_failed", model: "debate" });
             send({ type: "done", actualModel: "debate" });
           }
-          // Save debate assistant message (with trace + cost)
+          // Save debate assistant message (with trace + cost + cache breakdown)
           if (assistantMessageId && projectId && fullAssistantContent) {
             await saveMessageToDB({
               id: assistantMessageId,
@@ -323,6 +356,12 @@ export async function POST(req: NextRequest) {
               role: "assistant",
               content: fullAssistantContent,
               model: "debate",
+              tokensIn: lastUsageEvent?.tokensIn || undefined,
+              tokensOut: lastUsageEvent?.tokensOut || undefined,
+              cacheCreationTokens: lastUsageEvent?.cacheCreationTokens || undefined,
+              cacheReadTokens: lastUsageEvent?.cacheReadTokens || undefined,
+              cacheReadRate: lastUsageEvent?.cacheReadRate || undefined,
+              cost: lastUsageEvent?.actualCost || undefined,
               receiptStatus: "signed",
               timestamp: Date.now(),
               debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
@@ -341,7 +380,7 @@ export async function POST(req: NextRequest) {
             send({ type: "error", code: "dissection_failed", model: "dissect" });
             send({ type: "done", actualModel: "dissect" });
           }
-          // Save dissect assistant message (with trace)
+          // Save dissect assistant message (with trace + cache breakdown)
           if (assistantMessageId && projectId && fullAssistantContent) {
             await saveMessageToDB({
               id: assistantMessageId,
@@ -349,6 +388,12 @@ export async function POST(req: NextRequest) {
               role: "assistant",
               content: fullAssistantContent,
               model: "dissect",
+              tokensIn: lastUsageEvent?.tokensIn || undefined,
+              tokensOut: lastUsageEvent?.tokensOut || undefined,
+              cacheCreationTokens: lastUsageEvent?.cacheCreationTokens || undefined,
+              cacheReadTokens: lastUsageEvent?.cacheReadTokens || undefined,
+              cacheReadRate: lastUsageEvent?.cacheReadRate || undefined,
+              cost: lastUsageEvent?.actualCost || undefined,
               receiptStatus: "signed",
               timestamp: Date.now(),
               dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
@@ -607,6 +652,9 @@ export async function POST(req: NextRequest) {
             model: activeModel,
             tokensIn: cumulativeTokensIn || undefined,
             tokensOut: cumulativeTokensOut || undefined,
+            cacheCreationTokens: cumulativeCacheCreation || undefined,
+            cacheReadTokens: cumulativeCacheRead || undefined,
+            cacheReadRate: roundCacheReadRate || undefined,
             receiptStatus: "signed",
             timestamp: Date.now(),
             thinking: fullThinkingContent || undefined,

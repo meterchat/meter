@@ -104,6 +104,9 @@ create table if not exists chat_messages (
   model text,
   tokens_in integer,
   tokens_out integer,
+  cache_creation_tokens integer,
+  cache_read_tokens integer,
+  cache_read_rate numeric,
   cost numeric,
   confidence numeric,
   settled boolean default false,
@@ -130,6 +133,11 @@ create table if not exists chat_messages (
 -- alter table chat_messages add column if not exists documents jsonb;
 -- alter table chat_messages add column if not exists is_fork_point boolean default false;
 -- alter table chat_messages add column if not exists fork_resolution text;
+
+-- Cache token breakdown for auditable pricing (run if table exists)
+-- alter table chat_messages add column if not exists cache_creation_tokens integer;
+-- alter table chat_messages add column if not exists cache_read_tokens integer;
+-- alter table chat_messages add column if not exists cache_read_rate numeric;
 
 -- =============================================
 -- VIEWS: workspaces & tracks

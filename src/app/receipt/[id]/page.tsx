@@ -38,6 +38,8 @@ export default function ReceiptPage() {
             model: m.model ?? undefined,
             tokensIn: m.tokens_in ?? undefined,
             tokensOut: m.tokens_out ?? undefined,
+            cacheCreationTokens: m.cache_creation_tokens ?? undefined,
+            cacheReadTokens: m.cache_read_tokens ?? undefined,
             cost: m.cost != null ? Number(m.cost) : undefined,
             confidence: m.confidence ?? undefined,
             settled: m.settled ?? undefined,
@@ -64,6 +66,10 @@ export default function ReceiptPage() {
 
   const tokensIn = message.tokensIn ?? 0;
   const tokensOut = message.tokensOut ?? 0;
+  const cacheWrite = message.cacheCreationTokens ?? 0;
+  const cacheRead = message.cacheReadTokens ?? 0;
+  const uncachedIn = tokensIn - cacheWrite - cacheRead;
+  const hasCacheBreakdown = cacheWrite > 0 || cacheRead > 0;
   const when = new Date(message.timestamp);
   const isSettled = message.receiptStatus === "settled";
   const statusText = isSettled ? "Settled on Base" : "Signed · Pending settlement";
@@ -76,7 +82,18 @@ export default function ReceiptPage() {
         <div className="space-y-2 text-sm">
           <p>Time: {when.toLocaleString()}</p>
           <p>Model: {message.model ? shortModelName(message.model) : "—"}</p>
-          <p>Input tokens: {tokensIn.toLocaleString()}</p>
+          {hasCacheBreakdown ? (
+            <>
+              <p>Input tokens: {tokensIn.toLocaleString()}</p>
+              <div className="ml-4 space-y-0.5 text-muted-foreground text-xs">
+                <p>Uncached: {uncachedIn.toLocaleString()} (full rate)</p>
+                {cacheWrite > 0 && <p>Cache write: {cacheWrite.toLocaleString()} (1.25x rate)</p>}
+                {cacheRead > 0 && <p>Cache read: {cacheRead.toLocaleString()} (0.1x rate)</p>}
+              </div>
+            </>
+          ) : (
+            <p>Input tokens: {tokensIn.toLocaleString()}</p>
+          )}
           <p>Output tokens: {tokensOut.toLocaleString()}</p>
           <p>Cost: ${(message.cost ?? 0).toFixed(4)}</p>
           <p>
