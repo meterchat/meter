@@ -1022,7 +1022,7 @@ export interface FallbackResult {
   hasToolCalls: boolean;
   /** Which model actually served the response */
   actualModel: string;
-  /** Which tier succeeded: 1=direct, 2=openrouter, 3=bedrock, 4=auto-route */
+  /** Which tier succeeded: 1=direct, 2=bedrock, 3=openrouter, 4=auto-route */
   tier: number;
 }
 
@@ -1030,8 +1030,8 @@ export interface FallbackResult {
  * Attempt to stream a response with multi-tier fallback.
  *
  * Tier 1: Direct API key for the requested model (uses free credits)
- * Tier 2: OpenRouter with the requested model (fallback)
- * Tier 3: AWS Bedrock for Claude models (silent — no client notification)
+ * Tier 2: AWS Bedrock for Claude models (uses AWS credits)
+ * Tier 3: OpenRouter with the requested model (fallback)
  * Tier 4: Different model via direct → OpenRouter → Bedrock (sends "rerouting" event)
  *
  * Throws only if ALL tiers fail.
@@ -1065,29 +1065,29 @@ export async function streamWithFallback(
     }
   }
 
-  // ── Tier 2: OpenRouter (fallback if direct key missing or fails) ──
-  if (process.env.OPENROUTER_API_KEY) {
+  // ── Tier 2: AWS Bedrock (Claude models only — uses AWS credits) ──
+  const bedrockModelId = BEDROCK_MODELS[requestedModel];
+  if (bedrockModelId && isBedrockAvailable()) {
     try {
-      console.log("[fallback] tier 2 (openrouter):", requestedModel);
-      const result = await streamOpenRouter(requestedModel, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
+      console.log("[fallback] tier 2 (bedrock, same model):", requestedModel, "→", bedrockModelId);
+      const result = await streamBedrock(bedrockModelId, conversation, tools, send, estimateTokens, totalTokensOut);
       return { ...result, actualModel: requestedModel, tier: 2 };
     } catch (err) {
       const e = err as Error;
-      console.error("[fallback] tier 2 (openrouter) failed:", requestedModel, e.message);
+      console.error("[fallback] tier 2 (bedrock) failed:", requestedModel, e.message);
       errors.push({ tier: 2, model: requestedModel, error: e.message });
     }
   }
 
-  // ── Tier 3: AWS Bedrock (Claude models only, silent) ────────────
-  const bedrockModelId = BEDROCK_MODELS[requestedModel];
-  if (bedrockModelId && isBedrockAvailable()) {
+  // ── Tier 3: OpenRouter (fallback if direct key and Bedrock both fail) ──
+  if (process.env.OPENROUTER_API_KEY) {
     try {
-      console.log("[fallback] tier 3 (bedrock, same model):", requestedModel, "→", bedrockModelId);
-      const result = await streamBedrock(bedrockModelId, conversation, tools, send, estimateTokens, totalTokensOut);
+      console.log("[fallback] tier 3 (openrouter):", requestedModel);
+      const result = await streamOpenRouter(requestedModel, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
       return { ...result, actualModel: requestedModel, tier: 3 };
     } catch (err) {
       const e = err as Error;
-      console.error("[fallback] tier 3 (bedrock) failed:", requestedModel, e.message);
+      console.error("[fallback] tier 3 (openrouter) failed:", requestedModel, e.message);
       errors.push({ tier: 3, model: requestedModel, error: e.message });
     }
   }
