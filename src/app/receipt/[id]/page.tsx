@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { useMeterStore, type ChatMessage } from "@/lib/store";
+import { useMeterStore, normalizeReceiptStatus, type ChatMessage } from "@/lib/store";
 import { shortModelName } from "@/lib/models";
 
 const BASE_EXPLORER = "https://basescan.org/tx/";
@@ -43,7 +43,7 @@ export default function ReceiptPage() {
             cost: m.cost != null ? Number(m.cost) : undefined,
             confidence: m.confidence ?? undefined,
             settled: m.settled ?? undefined,
-            receiptStatus: m.receipt_status ?? undefined,
+            receiptStatus: normalizeReceiptStatus(m.receipt_status),
             signature: m.signature ?? undefined,
             txHash: m.tx_hash ?? undefined,
             timestamp: m.timestamp,
