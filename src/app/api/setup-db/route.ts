@@ -260,6 +260,9 @@ const STATEMENTS: string[] = [
   `alter table meter_users add column if not exists handle text`,
   `create unique index if not exists idx_meter_users_handle on meter_users(handle) where handle is not null`,
 
+  // Track markup at settlement time for accurate historical profit calculations
+  `alter table settlement_history add column if not exists markup_multiplier numeric`,
+
   // Hosted docs portal slug per workspace (e.g. docs.meter.chat/{handle}/{slug})
   `alter table chat_sessions add column if not exists portal_slug text`,
   // Portal slug only needs to be unique per user (URL is /docs/{handle}/{slug})

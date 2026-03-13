@@ -4,6 +4,7 @@ import {
   serverTrackSettlementCompleted,
   serverTrackSettlementFailed,
 } from "@/lib/analytics-server";
+import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 
 export function scopedSessionId(userId: string, localId: string): string {
   if (localId.startsWith(`${userId}:`)) return localId;
@@ -46,6 +47,14 @@ export async function settleWorkspace(opts: {
       .eq("id", dbSessionId)
       .eq("user_id", userId);
   }
+
+  // Fetch current markup multiplier to store on the settlement row
+  const { data: configRow } = await supabase
+    .from("app_config")
+    .select("markup_multiplier")
+    .eq("id", "global")
+    .single();
+  const markupMultiplier = Number(configRow?.markup_multiplier) || DEFAULT_MARKUP_MULTIPLIER;
 
   try {
     // ── Free credit deduction ──
@@ -90,6 +99,7 @@ export async function settleWorkspace(opts: {
         card_last4: null,
         card_brand: null,
         status: "bonus_credit",
+        markup_multiplier: markupMultiplier,
       }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
 
       return { success: true, paymentIntentId: null, amountCharged: 0, creditUsed };
@@ -157,6 +167,7 @@ export async function settleWorkspace(opts: {
       card_last4: pmObj && "card" in pmObj ? pmObj.card?.last4 ?? null : null,
       card_brand: pmObj && "card" in pmObj ? pmObj.card?.brand ?? null : null,
       status: "succeeded",
+      markup_multiplier: markupMultiplier,
     }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
 
     // Clear settlement_failed flag
