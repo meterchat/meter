@@ -281,14 +281,15 @@ export function useSessionSync() {
     return () => clearInterval(interval);
   }, [authenticated, syncToServer]);
 
-  // Poll admin config every 60s so model/command changes propagate live
+  // Poll admin config so model/command changes propagate live
   useEffect(() => {
     if (!authenticated) return;
-    const interval = setInterval(() => {
+    const pollAdminConfig = () => {
       authFetch("/api/auth/me")
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (!data?.adminConfig) return;
+          console.log("[admin-config] poll received:", JSON.stringify(data.adminConfig));
           useMeterStore.getState().setAdminConfig({
             markupMultiplier: data.markupMultiplier,
             enabledModels: data.adminConfig.enabledModels ?? [],
@@ -297,7 +298,10 @@ export function useSessionSync() {
           });
         })
         .catch(() => {});
-    }, 15_000);
+    };
+    // Fire immediately on mount, then every 15s
+    pollAdminConfig();
+    const interval = setInterval(pollAdminConfig, 15_000);
     return () => clearInterval(interval);
   }, [authenticated]);
 
@@ -738,7 +742,9 @@ export function useSessionSync() {
         }
         // Apply global admin config (markup, enabled models/commands, free credit)
         if (data.adminConfig) {
+          console.log("[admin-config] initial load:", JSON.stringify(data.adminConfig));
           store.setAdminConfig({
+            markupMultiplier: data.markupMultiplier,
             enabledModels: data.adminConfig.enabledModels ?? [],
             enabledCommands: data.adminConfig.enabledCommands ?? [],
             freeCredit: data.freeCredit ?? 0,
