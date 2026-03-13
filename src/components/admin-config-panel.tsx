@@ -56,9 +56,11 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
   }, [open, onClose]);
 
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const save = useCallback(async (updates: Partial<AdminConfig>) => {
     setSaveError(null);
+    setSaved(false);
     try {
       const res = await authFetch("/api/admin/config", {
         method: "PUT",
@@ -77,7 +79,10 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
         markupMultiplier: updated.markupMultiplier,
         enabledModels: updated.enabledModels,
         enabledCommands: updated.enabledCommands,
+        freeCredit: updated.freeUsdCredit ?? 0,
       });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch {
       setSaveError("Network error — save failed");
     }
@@ -122,6 +127,11 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
               {saveError}
             </div>
           )}
+          {saved && (
+            <div className="px-4 pt-3 font-mono text-[10px] text-emerald-400">
+              Saved
+            </div>
+          )}
           {tab === "pricing" && <PricingTab config={config} onSave={save} />}
           {tab === "models" && <ModelsTab config={config} onSave={save} />}
           {tab === "commands" && <CommandsTab config={config} onSave={save} />}
@@ -139,14 +149,16 @@ function PricingTab({ config, onSave }: { config: AdminConfig; onSave: (u: Parti
   const [bonusLimit, setBonusLimit] = useState(String(config.bonusCreditLimit));
   const [bonusAmount, setBonusAmount] = useState(String(config.bonusCreditAmount));
   const [saving, setSaving] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSave = async () => {
     const m = parseFloat(markup);
     const bl = parseInt(bonusLimit, 10);
     const ba = parseFloat(bonusAmount);
-    if (isNaN(m) || m < 1) return;
-    if (isNaN(bl) || bl < 0) return;
-    if (isNaN(ba) || ba < 0) return;
+    if (isNaN(m) || m < 1) { setLocalError("Markup must be a number \u2265 1"); return; }
+    if (isNaN(bl) || bl < 0) { setLocalError("User limit must be a non-negative integer"); return; }
+    if (isNaN(ba) || ba < 0) { setLocalError("Credit amount must be \u2265 0"); return; }
+    setLocalError(null);
     setSaving(true);
     await onSave({ markupMultiplier: m, bonusCreditLimit: bl, bonusCreditAmount: ba });
     setSaving(false);
@@ -157,6 +169,7 @@ function PricingTab({ config, onSave }: { config: AdminConfig; onSave: (u: Parti
     setMarkup(String(config.markupMultiplier));
     setBonusLimit(String(config.bonusCreditLimit));
     setBonusAmount(String(config.bonusCreditAmount));
+    setLocalError(null);
     setEditing(false);
   };
 
@@ -213,6 +226,11 @@ function PricingTab({ config, onSave }: { config: AdminConfig; onSave: (u: Parti
           </div>
         </div>
       </div>
+
+      {/* Validation error */}
+      {localError && (
+        <div className="font-mono text-[10px] text-red-400">{localError}</div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-2">
