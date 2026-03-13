@@ -7,7 +7,7 @@ import { useDecisionsStore } from "@/lib/decisions-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { authFetch } from "@/lib/auth-fetch";
 
-export type ReceiptStatus = "signing" | "signed" | "settled";
+export type ReceiptStatus = "metering" | "metered" | "settled";
 
 export interface ActionCard {
   id: string;
@@ -784,7 +784,7 @@ export const useMeterStore = create<MeterState>()(
           const msgs = [...active.messages];
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
-            msgs[msgs.length - 1] = { ...last, content, tokensOut, receiptStatus: "signing" };
+            msgs[msgs.length - 1] = { ...last, content, tokensOut, receiptStatus: "metering" };
           }
 
           const prevOut = last?.tokensOut || 0;
@@ -864,7 +864,7 @@ export const useMeterStore = create<MeterState>()(
               confidence,
               model: pricingModelId,
               settled: false,
-              receiptStatus: "signed",
+              receiptStatus: "metered",
               signature: `0x${shortHex()}${shortHex()}${shortHex()}`,
             };
           }

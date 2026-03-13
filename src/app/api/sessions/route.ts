@@ -275,28 +275,28 @@ export async function POST(req: NextRequest) {
         fork_resolution: m.forkResolution ?? null,
       }));
 
-      // Guard: don't let a stale "signing" upsert overwrite a "signed" row.
+      // Guard: don't let a stale "metering" upsert overwrite a "metered" row.
       // This prevents the race where sendBeacon or periodic sync arrives after
       // the server-side chat route has already saved the completed response.
-      const signingIds = rows
-        .filter((r: Record<string, unknown>) => r.receipt_status === "signing")
+      const meteringIds = rows
+        .filter((r: Record<string, unknown>) => r.receipt_status === "metering")
         .map((r: Record<string, unknown>) => r.id as string);
 
-      let alreadySignedIds = new Set<string>();
-      if (signingIds.length > 0) {
-        const { data: signedRows } = await supabase
+      let alreadyMeteredIds = new Set<string>();
+      if (meteringIds.length > 0) {
+        const { data: meteredRows } = await supabase
           .from("chat_messages")
           .select("id")
-          .in("id", signingIds)
-          .eq("receipt_status", "signed");
-        if (signedRows) {
-          alreadySignedIds = new Set(signedRows.map((r: { id: string }) => r.id));
+          .in("id", meteringIds)
+          .eq("receipt_status", "metered");
+        if (meteredRows) {
+          alreadyMeteredIds = new Set(meteredRows.map((r: { id: string }) => r.id));
         }
       }
 
-      const filteredRows = alreadySignedIds.size > 0
+      const filteredRows = alreadyMeteredIds.size > 0
         ? rows.filter((r: Record<string, unknown>) =>
-            !(r.receipt_status === "signing" && alreadySignedIds.has(r.id as string))
+            !(r.receipt_status === "metering" && alreadyMeteredIds.has(r.id as string))
           )
         : rows;
 
