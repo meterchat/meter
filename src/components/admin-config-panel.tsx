@@ -13,6 +13,8 @@ interface AdminConfig {
   enabledModels: string[];
   enabledCommands: string[];
   freeUsdCredit: number;
+  bonusCreditLimit: number;
+  bonusCreditAmount: number;
 }
 
 type Tab = "pricing" | "models" | "commands";
@@ -110,23 +112,27 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
 function PricingTab({ config, onSave }: { config: AdminConfig; onSave: (u: Partial<AdminConfig>) => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [markup, setMarkup] = useState(String(config.markupMultiplier));
-  const [freeCredit, setFreeCredit] = useState(String(config.freeUsdCredit));
+  const [bonusLimit, setBonusLimit] = useState(String(config.bonusCreditLimit));
+  const [bonusAmount, setBonusAmount] = useState(String(config.bonusCreditAmount));
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     const m = parseFloat(markup);
-    const f = parseFloat(freeCredit);
+    const bl = parseInt(bonusLimit, 10);
+    const ba = parseFloat(bonusAmount);
     if (isNaN(m) || m < 1) return;
-    if (isNaN(f) || f < 0) return;
+    if (isNaN(bl) || bl < 0) return;
+    if (isNaN(ba) || ba < 0) return;
     setSaving(true);
-    await onSave({ markupMultiplier: m, freeUsdCredit: f });
+    await onSave({ markupMultiplier: m, bonusCreditLimit: bl, bonusCreditAmount: ba });
     setSaving(false);
     setEditing(false);
   };
 
   const handleCancel = () => {
     setMarkup(String(config.markupMultiplier));
-    setFreeCredit(String(config.freeUsdCredit));
+    setBonusLimit(String(config.bonusCreditLimit));
+    setBonusAmount(String(config.bonusCreditAmount));
     setEditing(false);
   };
 
@@ -149,23 +155,38 @@ function PricingTab({ config, onSave }: { config: AdminConfig; onSave: (u: Parti
         />
       </div>
 
-      {/* Free Credit for New Users */}
+      {/* Bonus Credits */}
       <div>
         <label className="block font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-1">
-          Free Credit (New Users)
+          Bonus Credits
         </label>
         <p className="text-[10px] text-muted-foreground/40 mb-2">
-          USD credited to every new account on signup
+          First N users to sign up receive bonus credits
         </p>
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-lg text-muted-foreground">$</span>
-          <input
-            type="text"
-            value={freeCredit}
-            onChange={(e) => setFreeCredit(e.target.value)}
-            disabled={!editing}
-            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 font-mono text-lg text-foreground tabular-nums disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-foreground/20"
-          />
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <span className="font-mono text-[10px] text-muted-foreground/50 block mb-1">First N users</span>
+            <input
+              type="text"
+              value={bonusLimit}
+              onChange={(e) => setBonusLimit(e.target.value)}
+              disabled={!editing}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-lg text-foreground tabular-nums disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-foreground/20"
+            />
+          </div>
+          <div className="flex-1">
+            <span className="font-mono text-[10px] text-muted-foreground/50 block mb-1">Credit amount</span>
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-lg text-muted-foreground">$</span>
+              <input
+                type="text"
+                value={bonusAmount}
+                onChange={(e) => setBonusAmount(e.target.value)}
+                disabled={!editing}
+                className="flex-1 rounded-lg border border-border bg-background px-3 py-2 font-mono text-lg text-foreground tabular-nums disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-foreground/20"
+              />
+            </div>
+          </div>
         </div>
       </div>
 

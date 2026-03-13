@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
         charge_count: chargeIds?.length ?? 0,
         card_last4: null,
         card_brand: null,
-        status: "free_credit",
+        status: "bonus_credit",
       }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
 
       return NextResponse.json({
