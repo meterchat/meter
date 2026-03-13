@@ -94,13 +94,13 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
       "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
   },
   {
-    command: "tradeoffs",
-    label: "/tradeoffs",
+    command: "score",
+    label: "/score",
     chatPrompt:
-      "Tradeoffs. Lay out the key tradeoffs for the options we're discussing. For each option, what do I gain and what do I give up? Be specific — costs, risks, timelines, and second-order effects.",
+      "Score this idea out of 100. Evaluate across the most important criteria — market size, feasibility, timing, defensibility, and any other dimensions that matter for this specific idea. Present the scores in a simple table with each criterion, its score, and one line of reasoning. End with an overall score and a one-sentence verdict.",
     connectorId: "_builtin",
     iconPath:
-      "M3 3v18h18 M18.7 8l-5.1 5.2-2.8-2.7L7 14.3",
+      "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
   },
   {
     command: "blueprint",
@@ -119,15 +119,6 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",
-  },
-  {
-    command: "feedback",
-    label: "/feedback",
-    chatPrompt:
-      "I want to submit feedback about Meter.",
-    connectorId: "_builtin",
-    iconPath:
-      "M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z",
   },
 ];
 

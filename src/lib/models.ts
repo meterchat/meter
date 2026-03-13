@@ -24,7 +24,7 @@ export function costBadge(m: ModelConfig): string {
 }
 
 /** Default markup applied to base model prices. Change this one value to update pricing everywhere. */
-export const DEFAULT_MARKUP_MULTIPLIER = 2.5;
+export const DEFAULT_MARKUP_MULTIPLIER = 2.0;
 
 /** Default debate roster when user toggles debate mode without selecting models */
 export const DEFAULT_DEBATE_MODELS = [
@@ -76,16 +76,6 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (15.0 / 1_000_000),
     quality: 92,  // GPQA Diamond
     speed: 90,
-  },
-  {
-    id: "minimax/minimax-m2.5",
-    name: "MiniMax M2.5",
-    provider: "MiniMax",
-    color: "#E84142",
-    inputPrice: (0.30 / 1_000_000),
-    outputPrice: (1.20 / 1_000_000),
-    quality: 62,  // GPQA Diamond
-    speed: 50,
   },
   {
     id: "google/gemini-3.1-pro-preview",

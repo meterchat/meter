@@ -466,7 +466,7 @@ const STATEMENTS: string[] = [
   // ── Global admin config (single-row, controls markup / enabled models / commands) ──
   `create table if not exists app_config (
     id text primary key default 'global',
-    markup_multiplier numeric not null default 2.5,
+    markup_multiplier numeric not null default 2,
     enabled_models jsonb not null default '[]'::jsonb,
     enabled_commands jsonb not null default '[]'::jsonb,
     free_usd_credit numeric not null default 0,
