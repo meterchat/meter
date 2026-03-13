@@ -1410,54 +1410,23 @@ export function LandingPage() {
 
       {/* ── Pricing ────────────────────────────────────────────── */}
       <RevealSection className="relative z-10 py-24 sm:py-32 px-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-10">
-            <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
-              Pricing
-            </p>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
-              Pay for what you think. Nothing else.
-            </h2>
-            <p className="text-base sm:text-lg text-muted-foreground/60 max-w-md mx-auto leading-relaxed">
-              No seats. No tiers. No annual contracts. Use any model, pay per token.
-              Set a hard cap so you never overspend.
-            </p>
-          </div>
-
-          {/* Token price table */}
-          <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] overflow-hidden">
-            {/* Table header */}
-            <div className="grid grid-cols-3 gap-4 px-4 py-2.5 border-b border-foreground/[0.04]">
-              <div className="font-mono text-[10px] text-muted-foreground/40 uppercase tracking-wider">Model</div>
-              <div className="font-mono text-[10px] text-muted-foreground/40 uppercase tracking-wider text-right">Input</div>
-              <div className="font-mono text-[10px] text-muted-foreground/40 uppercase tracking-wider text-right">Output</div>
-            </div>
-            {/* Table rows */}
-            {MODELS.filter((m) => m.id !== "auto").map((m) => (
-              <div key={m.id} className="grid grid-cols-3 gap-4 px-4 py-2.5 border-b border-foreground/[0.02] last:border-b-0 hover:bg-foreground/[0.02] transition-colors">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} />
-                  <span className="text-[12px] text-foreground/70 truncate">{m.name}</span>
-                  <span className="font-mono text-[9px] text-muted-foreground/30 hidden sm:inline">{m.provider}</span>
-                </div>
-                <div className="font-mono text-[12px] text-muted-foreground/60 text-right tabular-nums">
-                  ${(m.inputPrice * 1_000_000).toFixed(2)}<span className="text-muted-foreground/30">/M</span>
-                </div>
-                <div className="font-mono text-[12px] text-muted-foreground/60 text-right tabular-nums">
-                  ${(m.outputPrice * 1_000_000).toFixed(2)}<span className="text-muted-foreground/30">/M</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-6">
-            <a
-              href="/docs/pricing"
-              className="font-mono text-[12px] text-muted-foreground/50 hover:text-foreground/70 transition-colors"
-            >
-              Full pricing details &rarr;
-            </a>
-          </div>
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
+            Pricing
+          </p>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight mb-4 leading-tight">
+            Pay for what you think. Nothing else.
+          </h2>
+          <p className="text-base sm:text-lg text-muted-foreground/60 max-w-md mx-auto leading-relaxed mb-6">
+            No seats. No tiers. No annual contracts. Use any model, pay per token.
+            Set a hard cap so you never overspend.
+          </p>
+          <a
+            href="/docs#pricing"
+            className="font-mono text-[12px] text-muted-foreground/50 hover:text-foreground/70 transition-colors"
+          >
+            See pricing details &rarr;
+          </a>
         </div>
       </RevealSection>
 

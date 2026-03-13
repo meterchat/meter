@@ -149,14 +149,20 @@ export default function DocsPage() {
                   </tr>
                 </thead>
                 <tbody className="text-muted-foreground">
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Sonnet 4.6</td><td className="py-1.5 pr-4">Anthropic</td><td className="py-1.5 pr-4">74%</td><td className="py-1.5">60 tok/s</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Opus 4.6</td><td className="py-1.5 pr-4">Anthropic</td><td className="py-1.5 pr-4">91%</td><td className="py-1.5">70 tok/s</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.4</td><td className="py-1.5 pr-4">OpenAI</td><td className="py-1.5 pr-4">92%</td><td className="py-1.5">90 tok/s</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">MiniMax M2.5</td><td className="py-1.5 pr-4">MiniMax</td><td className="py-1.5 pr-4">62%</td><td className="py-1.5">50 tok/s</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Gemini 3.1 Pro</td><td className="py-1.5 pr-4">Google</td><td className="py-1.5 pr-4">92%</td><td className="py-1.5">138 tok/s</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Grok 4.1 Fast</td><td className="py-1.5 pr-4">xAI</td><td className="py-1.5 pr-4">86%</td><td className="py-1.5">129 tok/s</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">DeepSeek V3</td><td className="py-1.5 pr-4">DeepSeek</td><td className="py-1.5 pr-4">59%</td><td className="py-1.5">50 tok/s</td></tr>
-                  <tr><td className="py-1.5 pr-4">Meter 1.0 (Debate)</td><td className="py-1.5 pr-4">Meter</td><td className="py-1.5 pr-4">93%</td><td className="py-1.5">30 tok/s</td></tr>
+                  {DOCS_MODELS.map((m, i) => (
+                    <tr key={m.id} className={i < DOCS_MODELS.length ? "border-b border-border/50" : ""}>
+                      <td className="py-1.5 pr-4">{m.name}</td>
+                      <td className="py-1.5 pr-4">{m.provider}</td>
+                      <td className="py-1.5 pr-4">{m.quality != null ? `${m.quality}%` : "—"}</td>
+                      <td className="py-1.5">{m.speed != null ? `${m.speed} tok/s` : "—"}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td className="py-1.5 pr-4">{DEBATE_MODEL.name} (Debate)</td>
+                    <td className="py-1.5 pr-4">{DEBATE_MODEL.provider}</td>
+                    <td className="py-1.5 pr-4">93%</td>
+                    <td className="py-1.5">30 tok/s</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
