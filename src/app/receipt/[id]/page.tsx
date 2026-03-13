@@ -24,8 +24,6 @@ export default function ReceiptPage() {
 
   const tokensIn = message.tokensIn ?? 0;
   const tokensOut = message.tokensOut ?? 0;
-  const cacheCreation = message.cacheCreationTokens ?? 0;
-  const cacheRead = message.cacheReadTokens ?? 0;
   const when = new Date(message.timestamp);
   const isSettled = message.receiptStatus === "settled";
   const statusText = isSettled ? "Settled on Base" : "Signed · Pending settlement";
@@ -40,12 +38,6 @@ export default function ReceiptPage() {
           <p>Model: {message.model ? shortModelName(message.model) : "—"}</p>
           <p>Input tokens: {tokensIn.toLocaleString()}</p>
           <p>Output tokens: {tokensOut.toLocaleString()}</p>
-          {cacheRead > 0 && (
-            <p className="text-emerald-500/70">Cache read tokens: {cacheRead.toLocaleString()} (0.1x rate)</p>
-          )}
-          {cacheCreation > 0 && (
-            <p className="text-amber-500/70">Cache write tokens: {cacheCreation.toLocaleString()} (1.25x rate)</p>
-          )}
           <p>Cost: ${(message.cost ?? 0).toFixed(4)}</p>
           <p>
             Status:{" "}
