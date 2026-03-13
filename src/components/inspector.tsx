@@ -23,6 +23,66 @@ import {
 
 const INSPECTOR_TABS = ["decisions", "documents", "timeline", "connect"] as const;
 
+function DeleteDangerZone({
+  workspaceName,
+  deleteConfirmText,
+  onConfirmTextChange,
+  onDelete,
+  deleting,
+  settlingBeforeDelete,
+  deleteSettleError,
+}: {
+  workspaceName: string;
+  deleteConfirmText: string;
+  onConfirmTextChange: (v: string) => void;
+  onDelete: () => void;
+  deleting: boolean;
+  settlingBeforeDelete: boolean;
+  deleteSettleError: string | null;
+}) {
+  const pendingBalance = useMeterStore.getState().getPendingBalance();
+  const hasPending = pendingBalance > 0.01;
+  const busy = deleting || settlingBeforeDelete;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="font-mono text-[12px] text-red-400/70 uppercase tracking-wider">
+        Danger Zone
+      </div>
+      <p className="font-mono text-[12px] text-muted-foreground/60 leading-relaxed">
+        Type <span className="text-foreground/80">{workspaceName}</span> to confirm deletion. This removes all messages and data for this workspace.
+      </p>
+      {hasPending && (
+        <p className="font-mono text-[12px] text-amber-400/90 leading-relaxed">
+          You have ${pendingBalance.toFixed(2)} pending. Your card on file will be charged before this workspace is deleted.
+        </p>
+      )}
+      <input
+        type="text"
+        value={deleteConfirmText}
+        onChange={(e) => onConfirmTextChange(e.target.value)}
+        placeholder={workspaceName}
+        className="h-9 rounded-lg border border-red-500/20 bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-red-500/40 transition-colors"
+      />
+      {deleteSettleError && (
+        <p className="font-mono text-[12px] text-red-400 leading-relaxed">
+          {deleteSettleError}
+        </p>
+      )}
+      <button
+        onClick={onDelete}
+        disabled={busy || deleteConfirmText !== workspaceName}
+        className="h-9 rounded-lg bg-red-500/10 border border-red-500/20 font-mono text-[12px] text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {settlingBeforeDelete ? "Settling..." : deleting ? "Deleting..." : hasPending ? "Settle & Delete" : "Delete Workspace"}
+      </button>
+      <p className="font-mono text-[12px] text-muted-foreground/70 leading-relaxed">
+        Deleted workspaces are retained for 7 days. To recover, email support@meter.chat within 7 days of deletion.
+      </p>
+    </div>
+  );
+}
+
 export function Inspector() {
   const {
     inspectorOpen,
@@ -53,6 +113,8 @@ export function Inspector() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [deleteSettleError, setDeleteSettleError] = useState<string | null>(null);
+  const [settlingBeforeDelete, setSettlingBeforeDelete] = useState(false);
   const feedbackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,6 +125,21 @@ export function Inspector() {
 
   const handleDeleteWorkspace = async () => {
     if (!activeWorkspace) return;
+
+    // Settle any pending balance before deletion
+    const store = useMeterStore.getState();
+    const pendingBalance = store.getPendingBalance();
+    if (pendingBalance > 0.01) {
+      setSettlingBeforeDelete(true);
+      setDeleteSettleError(null);
+      const result = await store.settleAll();
+      setSettlingBeforeDelete(false);
+      if (!result.success) {
+        setDeleteSettleError(result.error ?? "Settlement failed. Please update your payment method and try again.");
+        return;
+      }
+    }
+
     trackWorkspaceDeleted({ workspaceId: activeWorkspace.id, workspaceName: activeWorkspace.name });
     setDeleting(true);
 
@@ -117,6 +194,7 @@ export function Inspector() {
       setEditingName(activeWorkspace.name);
       setNameEdited(false);
       setDeleteConfirmText("");
+      setDeleteSettleError(null);
     }
     setManageOpen(true);
   };
@@ -293,31 +371,15 @@ export function Inspector() {
           <div className="h-px bg-border" />
 
           {/* Danger Zone */}
-          <div className="flex flex-col gap-3">
-            <div className="font-mono text-[12px] text-red-400/70 uppercase tracking-wider">
-              Danger Zone
-            </div>
-            <p className="font-mono text-[12px] text-muted-foreground/60 leading-relaxed">
-              Type <span className="text-foreground/80">{activeWorkspace.name}</span> to confirm deletion. This removes all messages and data for this workspace.
-            </p>
-            <input
-              type="text"
-              value={deleteConfirmText}
-              onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder={activeWorkspace.name}
-              className="h-9 rounded-lg border border-red-500/20 bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-red-500/40 transition-colors"
-            />
-            <button
-              onClick={handleDeleteWorkspace}
-              disabled={deleting || deleteConfirmText !== activeWorkspace.name}
-              className="h-9 rounded-lg bg-red-500/10 border border-red-500/20 font-mono text-[12px] text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {deleting ? "Deleting..." : "Delete Workspace"}
-            </button>
-            <p className="font-mono text-[12px] text-muted-foreground/70 leading-relaxed">
-              Deleted workspaces are retained for 7 days. To recover, email support@meter.chat within 7 days of deletion.
-            </p>
-          </div>
+          <DeleteDangerZone
+            workspaceName={activeWorkspace.name}
+            deleteConfirmText={deleteConfirmText}
+            onConfirmTextChange={setDeleteConfirmText}
+            onDelete={handleDeleteWorkspace}
+            deleting={deleting}
+            settlingBeforeDelete={settlingBeforeDelete}
+            deleteSettleError={deleteSettleError}
+          />
         </div>
       </div>
     </>
