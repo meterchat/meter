@@ -7,6 +7,7 @@ import {
 import crypto from "crypto";
 import { createSession, setSessionCookie } from "@/lib/session";
 import { serverTrackAccountCreated } from "@/lib/analytics-server";
+import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 
 const RP_NAME = "Meter";
 const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID || "meter.chat";
@@ -160,7 +161,7 @@ export async function POST(req: NextRequest) {
           cardLast4: user?.card_last4,
           gmailConnected: user?.gmail_connected ?? false,
           accountType: user?.account_type ?? "standard",
-          markupMultiplier: Number(user?.markup_multiplier ?? 2),
+          markupMultiplier: Number(user?.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER),
         },
       });
       setSessionCookie(response, sessionToken);

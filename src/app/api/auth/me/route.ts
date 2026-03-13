@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { getSupabaseServer } from "@/lib/supabase";
+import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 
 /**
  * GET /api/auth/me
@@ -33,7 +34,7 @@ export async function GET() {
       cardOnFile: !!(user.stripe_customer_id && user.card_last4),
       cardLast4: user.card_last4 ?? null,
       cardBrand: user.card_brand ?? null,
-      markupMultiplier: user.markup_multiplier ?? 2,
+      markupMultiplier: user.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER,
     });
   } catch (err) {
     console.error("Failed to load user profile:", err);

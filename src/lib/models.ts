@@ -3,8 +3,8 @@ export interface ModelConfig {
   name: string;
   provider: string;
   color: string;
-  inputPrice: number;  // per token (user-facing, includes markup)
-  outputPrice: number; // per token (user-facing, includes markup)
+  inputPrice: number;  // per token (base / wholesale rate, before markup)
+  outputPrice: number; // per token (base / wholesale rate, before markup)
   /** GPQA Diamond accuracy — graduate-level science benchmark (0-100%) */
   quality?: number;
   /** Output speed in tokens/sec from native API */
@@ -22,6 +22,9 @@ export function costBadge(m: ModelConfig): string {
   if (perThought < 0.10) return "$$$";
   return "$$$$";
 }
+
+/** Default markup applied to base model prices. Change this one value to update pricing everywhere. */
+export const DEFAULT_MARKUP_MULTIPLIER = 2.5;
 
 /** Default debate roster when user toggles debate mode without selecting models */
 export const DEFAULT_DEBATE_MODELS = [

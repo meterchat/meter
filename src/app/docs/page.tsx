@@ -2,6 +2,21 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { MODELS, DEBATE_MODEL, DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
+
+function fmtPrice(v: number): string {
+  if (v >= 1) return `$${v.toFixed(2)}`;
+  if (v >= 0.01) return `$${v.toFixed(2)}`;
+  return `$${v.toPrecision(1)}`;
+}
+
+function fmtPerMsg(m: { inputPrice: number; outputPrice: number }): string {
+  const cost = (2000 * m.inputPrice + 1000 * m.outputPrice) * DEFAULT_MARKUP_MULTIPLIER;
+  return `~${fmtPrice(cost)}`;
+}
+
+/** Models shown in docs pricing table (skip "Auto" since it routes to other models) */
+const DOCS_MODELS = MODELS.filter((m) => m.id !== "auto");
 
 export default function DocsPage() {
   return (
@@ -68,7 +83,7 @@ export default function DocsPage() {
           <section className="mb-10">
             <h2 className="text-lg font-medium text-foreground mb-2" id="pricing">Pricing</h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-              Pay-per-token at provider base rates (no markup by default). Most messages cost between $0.01 and $0.25.
+              Pay-per-token pricing at {DEFAULT_MARKUP_MULTIPLIER}x provider base rates. Most messages cost between $0.01 and $0.25.
             </p>
             <div className="overflow-x-auto mb-3">
               <table className="w-full text-xs font-mono">
@@ -81,14 +96,20 @@ export default function DocsPage() {
                   </tr>
                 </thead>
                 <tbody className="text-muted-foreground">
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Sonnet 4.6</td><td className="py-1.5 pr-4">$6.00</td><td className="py-1.5 pr-4">$30.00</td><td className="py-1.5">~$0.02</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Claude Opus 4.6</td><td className="py-1.5 pr-4">$10.00</td><td className="py-1.5 pr-4">$50.00</td><td className="py-1.5">~$0.03</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">GPT-5.4</td><td className="py-1.5 pr-4">$5.00</td><td className="py-1.5 pr-4">$30.00</td><td className="py-1.5">~$0.02</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">MiniMax M2.5</td><td className="py-1.5 pr-4">$0.60</td><td className="py-1.5 pr-4">$2.40</td><td className="py-1.5">~$0.001</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Gemini 3.1 Pro</td><td className="py-1.5 pr-4">$4.00</td><td className="py-1.5 pr-4">$24.00</td><td className="py-1.5">~$0.01</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">Grok 4.1 Fast</td><td className="py-1.5 pr-4">$0.40</td><td className="py-1.5 pr-4">$1.00</td><td className="py-1.5">~$0.001</td></tr>
-                  <tr className="border-b border-border/50"><td className="py-1.5 pr-4">DeepSeek V3</td><td className="py-1.5 pr-4">$0.54</td><td className="py-1.5 pr-4">$2.20</td><td className="py-1.5">~$0.001</td></tr>
-                  <tr><td className="py-1.5 pr-4">Meter 1.0 (Debate)</td><td className="py-1.5 pr-4">$13.90</td><td className="py-1.5 pr-4">$79.00</td><td className="py-1.5">~$1.00</td></tr>
+                  {DOCS_MODELS.map((m, i) => (
+                    <tr key={m.id} className={i < DOCS_MODELS.length - 1 ? "border-b border-border/50" : "border-b border-border/50"}>
+                      <td className="py-1.5 pr-4">{m.name}</td>
+                      <td className="py-1.5 pr-4">{fmtPrice(m.inputPrice * 1_000_000 * DEFAULT_MARKUP_MULTIPLIER)}</td>
+                      <td className="py-1.5 pr-4">{fmtPrice(m.outputPrice * 1_000_000 * DEFAULT_MARKUP_MULTIPLIER)}</td>
+                      <td className="py-1.5">{fmtPerMsg(m)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td className="py-1.5 pr-4">{DEBATE_MODEL.name} (Debate)</td>
+                    <td className="py-1.5 pr-4">{fmtPrice(DEBATE_MODEL.inputPrice * 1_000_000 * DEFAULT_MARKUP_MULTIPLIER)}</td>
+                    <td className="py-1.5 pr-4">{fmtPrice(DEBATE_MODEL.outputPrice * 1_000_000 * DEFAULT_MARKUP_MULTIPLIER)}</td>
+                    <td className="py-1.5">{fmtPerMsg(DEBATE_MODEL)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
