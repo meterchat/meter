@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { useMeterStore } from "@/lib/store";
+import { useMeterStore, type ChatMessage } from "@/lib/store";
 import { shortModelName } from "@/lib/models";
 
 const BASE_EXPLORER = "https://basescan.org/tx/";
@@ -13,10 +13,50 @@ export default function ReceiptPage() {
   const projectId = search.get("session") ?? search.get("project");
   const sessions = useMeterStore((s) => s.sessions);
 
-  const message = useMemo(() => {
+  // Try local store first (works when opened in same tab)
+  const localMessage = useMemo(() => {
     const inSession = sessions.find((p) => p.id === projectId) ?? sessions[0];
     return inSession?.messages.find((m) => m.id === params.id);
   }, [sessions, projectId, params.id]);
+
+  // Fallback: fetch from server when not in local store (new tab)
+  const [serverMessage, setServerMessage] = useState<ChatMessage | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (localMessage || !projectId || !params.id) return;
+    setLoading(true);
+    fetch(`/api/receipt/${encodeURIComponent(params.id)}?session=${encodeURIComponent(projectId)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.message) {
+          const m = data.message;
+          setServerMessage({
+            id: m.id,
+            role: m.role,
+            content: m.content ?? "",
+            model: m.model ?? undefined,
+            tokensIn: m.tokens_in ?? undefined,
+            tokensOut: m.tokens_out ?? undefined,
+            cost: m.cost != null ? Number(m.cost) : undefined,
+            confidence: m.confidence ?? undefined,
+            settled: m.settled ?? undefined,
+            receiptStatus: m.receipt_status ?? undefined,
+            signature: m.signature ?? undefined,
+            txHash: m.tx_hash ?? undefined,
+            timestamp: m.timestamp,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [localMessage, projectId, params.id]);
+
+  const message = localMessage ?? serverMessage;
+
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading receipt...</div>;
+  }
 
   if (!message) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Receipt not found.</div>;
