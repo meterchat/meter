@@ -500,6 +500,13 @@ const STATEMENTS: string[] = [
   `alter table app_config add column if not exists bonus_credit_limit integer not null default 100`,
   `alter table app_config add column if not exists bonus_credit_amount numeric not null default 10`,
 
+  // ── Remove legacy crypto/blockchain columns ──
+  `alter table chat_messages drop column if exists signature`,
+  `alter table chat_messages drop column if exists tx_hash`,
+  `alter table settlement_history drop column if exists tx_hash`,
+  // wallet_address: make nullable for existing rows, no longer required
+  `do $$ begin alter table users alter column wallet_address drop not null; exception when undefined_table then null; when undefined_column then null; end $$`,
+
   // Reload PostgREST schema cache so new columns (preview, commit_message) are visible via REST API
   `notify pgrst, 'reload schema'`,
 
