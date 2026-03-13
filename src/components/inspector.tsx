@@ -53,6 +53,7 @@ export function Inspector() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [deleteBalanceError, setDeleteBalanceError] = useState(false);
   const feedbackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,6 +64,15 @@ export function Inspector() {
 
   const handleDeleteWorkspace = async () => {
     if (!activeWorkspace) return;
+
+    // Block deletion if there is an unsettled pending balance
+    const pendingBalance = useMeterStore.getState().getPendingBalance();
+    if (pendingBalance > 0.01) {
+      setDeleteBalanceError(true);
+      return;
+    }
+    setDeleteBalanceError(false);
+
     trackWorkspaceDeleted({ workspaceId: activeWorkspace.id, workspaceName: activeWorkspace.name });
     setDeleting(true);
 
@@ -117,6 +127,7 @@ export function Inspector() {
       setEditingName(activeWorkspace.name);
       setNameEdited(false);
       setDeleteConfirmText("");
+      setDeleteBalanceError(false);
     }
     setManageOpen(true);
   };
@@ -307,6 +318,11 @@ export function Inspector() {
               placeholder={activeWorkspace.name}
               className="h-9 rounded-lg border border-red-500/20 bg-background px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-red-500/40 transition-colors"
             />
+            {deleteBalanceError && (
+              <p className="font-mono text-[12px] text-red-400 leading-relaxed">
+                Please settle your outstanding balance before deleting this workspace.
+              </p>
+            )}
             <button
               onClick={handleDeleteWorkspace}
               disabled={deleting || deleteConfirmText !== activeWorkspace.name}

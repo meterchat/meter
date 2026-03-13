@@ -2145,6 +2145,16 @@ export function ChatView() {
       // time to roll to the final cost value before locking.
       setTimeout(() => setStreaming(false, streamSessionId), 350);
 
+      // Auto-settle after message completion when pending balance >= threshold.
+      // This catches the $10 threshold promptly instead of waiting for midnight.
+      setTimeout(() => {
+        const st = useMeterStore.getState();
+        const balance = st.getPendingBalance();
+        if (balance >= st.autoSettleThreshold && !st.isSettling) {
+          st.settleAll();
+        }
+      }, 500);
+
       // Show fork confirmation form if the AI called fork_paths
       if (pendingForkRef.current && pendingForkRef.current.length >= 2) {
         const pathNames = pendingForkRef.current;
@@ -2162,7 +2172,19 @@ export function ChatView() {
     const hasAttachments = pendingAttachments.length > 0;
     if (!input || (!hasText && !hasAttachments) || isStreaming || !workspaceCardReady) return;
 
-    if (chatBlocked) {
+    // Block chat if explicitly blocked OR if pending balance exceeds the
+    // auto-settle threshold (protects against cases where settlement was
+    // never attempted, e.g. after toggling auto-settle off and back on).
+    const storeState = useMeterStore.getState();
+    const pendingBalance = storeState.getPendingBalance();
+    const shouldBlock = chatBlocked || pendingBalance >= storeState.autoSettleThreshold;
+
+    if (shouldBlock) {
+      // Attempt auto-settle in the background if not already settling
+      if (!storeState.isSettling && pendingBalance >= storeState.autoSettleThreshold) {
+        storeState.settleAll();
+      }
+
       trackChatBlocked({ projectId: activeSessionId });
       const userContent = input.value.trim();
       input.value = "";
