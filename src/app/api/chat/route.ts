@@ -42,12 +42,13 @@ export async function POST(req: NextRequest) {
     // Accept both sessionId (new) and projectId (legacy) for backward compatibility
     const projectId: string | undefined = body.sessionId ?? body.projectId;
 
-    // Fetch consumer-facing markup so DB costs match what users see.
+    // Fetch consumer-facing markup from the user's row so DB costs match
+    // what users see in the footer bar. Falls back to compile-time default.
     let markupMultiplier = DEFAULT_MARKUP_MULTIPLIER;
     try {
       const supabaseInit = getSupabaseServer();
-      const { data: appCfg } = await supabaseInit.from("app_config").select("markup_multiplier").eq("id", "global").single();
-      if (appCfg?.markup_multiplier != null) markupMultiplier = Number(appCfg.markup_multiplier);
+      const { data: userRow } = await supabaseInit.from("meter_users").select("markup_multiplier").eq("id", userId).single();
+      if (userRow?.markup_multiplier != null) markupMultiplier = Number(userRow.markup_multiplier);
     } catch { /* use default */ }
 
     // Server-side spend limit + exposure cap enforcement (skip for superadmin)
