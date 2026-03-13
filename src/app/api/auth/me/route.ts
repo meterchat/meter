@@ -3,6 +3,9 @@ import { requireAuth } from "@/lib/auth";
 import { getSupabaseServer } from "@/lib/supabase";
 import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 
+// Prevent Next.js from caching this route — it must always read fresh from DB
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/auth/me
  * Returns the authenticated user's profile data from the database.
@@ -35,7 +38,7 @@ export async function GET() {
     // Global markup overrides per-user value; fall back to compile-time constant
     const globalMarkup = config ? Number(config.markup_multiplier) : DEFAULT_MARKUP_MULTIPLIER;
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       userId: user.id,
       handle: user.handle ?? null,
       email: user.email ?? null,
@@ -51,6 +54,8 @@ export async function GET() {
         enabledCommands: config?.enabled_commands ?? [],
       },
     });
+    res.headers.set("Cache-Control", "no-store");
+    return res;
   } catch (err) {
     console.error("Failed to load user profile:", err);
     return NextResponse.json({ error: "Failed to load profile" }, { status: 500 });

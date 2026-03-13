@@ -4,6 +4,8 @@ import { getSupabaseServer } from "@/lib/supabase";
 import { MODELS } from "@/lib/models";
 import { SLASH_COMMANDS } from "@/lib/connectors";
 
+export const dynamic = "force-dynamic";
+
 const VALID_MODEL_IDS = new Set(MODELS.filter((m) => m.id !== "auto").map((m) => m.id));
 const VALID_COMMAND_NAMES = new Set(SLASH_COMMANDS.map((c) => c.command));
 
