@@ -1047,6 +1047,9 @@ export const useMeterStore = create<MeterState>()(
           set((prev) => {
             const current = prev.sessions.find((p) => p.id === active.id);
             if (!current) return { isSettling: false };
+            const settledMsgCost = current.messages
+              .filter((m) => messageIds.includes(m.id) && m.cost !== undefined)
+              .reduce((sum, m) => sum + (m.cost ?? 0), 0);
             const updatedSession = {
               ...current,
               messages: current.messages.map((m) =>
@@ -1061,6 +1064,7 @@ export const useMeterStore = create<MeterState>()(
               ),
               settlementError: null,
               chatBlocked: false,
+              serverPendingBalance: Math.max(0, (current.serverPendingBalance ?? 0) - settledMsgCost),
             };
             const remainingCharges = prev.pendingCharges.filter((c) => c.workspaceId !== active.id);
             return {
