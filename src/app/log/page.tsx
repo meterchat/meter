@@ -39,6 +39,12 @@ interface LogStats {
   dailyAverage: number;
   weeklyAverage: number;
   monthlyAverage: number;
+  totalSettled: number;
+  todaySettled: number;
+  stripeFees: number;
+  inferenceCost: number;
+  totalProfit: number;
+  profitTimeline: { time: number; value: number }[];
   totalTokensIn: number;
   totalTokensOut: number;
   totalMessages: number;
@@ -224,14 +230,18 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
 
   // Live data state — continuously updated so Liveline scrolls forward
   const [spendLive, setSpendLive] = useState<{ time: number; value: number }[]>([]);
+  const [profitLive, setProfitLive] = useState<{ time: number; value: number }[]>([]);
   const [messagesLive, setMessagesLive] = useState<{ time: number; value: number }[]>([]);
   const [spendWindow, setSpendWindow] = useState(604800); // default 1w
+  const [profitWindow, setProfitWindow] = useState(604800);
   const [messagesWindow, setMessagesWindow] = useState(604800);
 
   // Refs so the formatTime closure always reads the latest window value
   // (Liveline's canvas rAF loop may hold a stale function reference)
   const spendWindowRef = useRef(spendWindow);
   spendWindowRef.current = spendWindow;
+  const profitWindowRef = useRef(profitWindow);
+  profitWindowRef.current = profitWindow;
   const messagesWindowRef = useRef(messagesWindow);
   messagesWindowRef.current = messagesWindow;
 
@@ -277,11 +287,13 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
       return [...timeline, { time: now, value: latestVal }];
     };
     setSpendLive(seed(stats.spendTimeline, stats.totalSpend));
+    setProfitLive(seed(stats.profitTimeline, stats.totalProfit));
     setMessagesLive(seed(stats.messagesTimeline, stats.totalMessages));
 
     const interval = setInterval(() => {
       const now = Math.floor(Date.now() / 1000);
       setSpendLive((prev) => [...prev, { time: now, value: prev[prev.length - 1]?.value ?? 0 }]);
+      setProfitLive((prev) => [...prev, { time: now, value: prev[prev.length - 1]?.value ?? 0 }]);
       setMessagesLive((prev) => [...prev, { time: now, value: prev[prev.length - 1]?.value ?? 0 }]);
     }, 1000);
     return () => clearInterval(interval);
@@ -362,6 +374,59 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
                   ]}
                   windowStyle="default"
                   onWindowChange={(secs: number) => setSpendWindow(secs)}
+                  padding={{ top: 12, right: 60, bottom: 32, left: 12 }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="h-px bg-border" />
+
+          {/* Profit */}
+          <div className="py-3">
+            <div className="px-4 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
+              Profit
+            </div>
+            <div className="px-4 space-y-1.5">
+              <StatSpendRow label="Total settled" amount={stats.totalSettled} />
+              <StatSpendRow label="Today settled" amount={stats.todaySettled} />
+              <StatSpendRow label="Stripe fees" amount={stats.stripeFees} />
+              <StatSpendRow label="Inference cost" amount={stats.inferenceCost} />
+              <StatSpendRow label="Profit" amount={stats.totalProfit} />
+            </div>
+            {profitLive.length > 1 && (
+              <div className="mt-2 py-2 h-[200px]">
+                <Liveline
+                  data={profitLive}
+                  value={stats.totalProfit}
+                  window={profitWindow}
+                  theme="dark"
+                  color="#10b981"
+                  grid
+                  badge={false}
+                  fill
+                  pulse
+                  momentum={false}
+                  scrub
+                  exaggerate
+                  formatValue={(v: number) => `$${v.toFixed(2)}`}
+                  formatTime={(t: number) => {
+                    const d = new Date(t * 1000);
+                    const w = profitWindowRef.current;
+                    if (w <= 60) return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    if (w <= 86400) return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                  }}
+                  windows={[
+                    { label: "1mo", secs: 2592000 },
+                    { label: "1w", secs: 604800 },
+                    { label: "1d", secs: 86400 },
+                    { label: "1h", secs: 3600 },
+                    { label: "1m", secs: 60 },
+                    { label: "1s", secs: 1 },
+                  ]}
+                  windowStyle="default"
+                  onWindowChange={(secs: number) => setProfitWindow(secs)}
                   padding={{ top: 12, right: 60, bottom: 32, left: 12 }}
                 />
               </div>

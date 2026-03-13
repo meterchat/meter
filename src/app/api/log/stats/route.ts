@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireSuperAdmin } from "@/lib/auth";
 
+const STRIPE_FEE_RATE = 0.029;
+const STRIPE_FEE_FIXED = 0.30;
+const MARKUP_MULTIPLIER = 2.0;
+
 // Paginate through all rows — Supabase caps at 1000 per request
 async function fetchAllMessages(supabase: ReturnType<typeof getSupabaseServer>) {
   const PAGE = 1000;
@@ -11,6 +15,26 @@ async function fetchAllMessages(supabase: ReturnType<typeof getSupabaseServer>) 
     const { data, error } = await supabase
       .from("chat_messages")
       .select("cost, model, tokens_in, tokens_out, created_at")
+      .order("created_at", { ascending: true })
+      .range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
+}
+
+async function fetchAllSettlements(supabase: ReturnType<typeof getSupabaseServer>) {
+  const PAGE = 1000;
+  const all: { amount: string; status: string; created_at: string }[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("settlement_history")
+      .select("amount, status, created_at")
+      .in("status", ["succeeded", "bonus_credit"])
       .order("created_at", { ascending: true })
       .range(offset, offset + PAGE - 1);
     if (error) throw error;
@@ -133,6 +157,47 @@ export async function GET() {
     // but message-level may have more granular data in some cases)
     const totalSpend = Math.max(sessionTotalSpend, messageTotalSpend);
 
+    // ── Settlement & Profit ──
+    const settlements = await fetchAllSettlements(supabase);
+    let totalSettled = 0;
+    let todaySettled = 0;
+    let stripeFees = 0;
+    const profitByBucket: Record<number, number> = {};
+
+    for (const s of settlements) {
+      const amt = Number(s.amount) || 0;
+      const createdAt = s.created_at as string;
+      const dateStr = createdAt?.slice(0, 10) ?? "";
+
+      totalSettled += amt;
+      if (dateStr === todayStr) todaySettled += amt;
+
+      // Stripe fees only on card charges, not bonus credit
+      const fee = s.status === "succeeded" ? amt * STRIPE_FEE_RATE + STRIPE_FEE_FIXED : 0;
+      stripeFees += fee;
+
+      // Per-settlement profit: revenue - inference cost - stripe fee
+      const inferenceCost = amt / MARKUP_MULTIPLIER;
+      const profit = amt - inferenceCost - fee;
+
+      if (createdAt) {
+        const t = new Date(createdAt);
+        const bucketTs = Math.floor(new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime() / 1000);
+        profitByBucket[bucketTs] = (profitByBucket[bucketTs] || 0) + profit;
+      }
+    }
+
+    const inferenceCost = totalSettled / MARKUP_MULTIPLIER;
+    const totalProfit = totalSettled - inferenceCost - stripeFees;
+
+    // Cumulative profit timeline
+    const profitBuckets = Object.keys(profitByBucket).map(Number).sort((a, b) => a - b);
+    let cumProfit = 0;
+    const profitTimeline = profitBuckets.map((ts) => {
+      cumProfit += profitByBucket[ts];
+      return { time: ts, value: Math.round(cumProfit * 100) / 100 };
+    });
+
     // Calculate averages
     const daysSinceFirst = firstMessageDate
       ? Math.max(1, Math.floor((now.getTime() - new Date(firstMessageDate).getTime()) / dayMs) + 1)
@@ -178,6 +243,12 @@ export async function GET() {
         dailyAverage: totalSpend / daysSinceFirst,
         weeklyAverage: weekSpend / daysIntoWeek * 7,
         monthlyAverage: monthSpend / daysIntoMonth * 30,
+        totalSettled,
+        todaySettled,
+        stripeFees,
+        inferenceCost,
+        totalProfit,
+        profitTimeline,
         totalTokensIn,
         totalTokensOut,
         totalMessages,
