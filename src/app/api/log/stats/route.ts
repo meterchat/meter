@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireSuperAdmin } from "@/lib/auth";
+import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 
 const STRIPE_FEE_RATE = 0.029;
 const STRIPE_FEE_FIXED = 0.30;
-const MARKUP_MULTIPLIER = 2.0;
 
 // Paginate through all rows — Supabase caps at 1000 per request
 async function fetchAllMessages(supabase: ReturnType<typeof getSupabaseServer>) {
@@ -28,12 +28,12 @@ async function fetchAllMessages(supabase: ReturnType<typeof getSupabaseServer>) 
 
 async function fetchAllSettlements(supabase: ReturnType<typeof getSupabaseServer>) {
   const PAGE = 1000;
-  const all: { amount: string; status: string; created_at: string }[] = [];
+  const all: { amount: string; status: string; created_at: string; markup_multiplier: string | null }[] = [];
   let offset = 0;
   while (true) {
     const { data, error } = await supabase
       .from("settlement_history")
-      .select("amount, status, created_at")
+      .select("amount, status, created_at, markup_multiplier")
       .in("status", ["succeeded", "bonus_credit"])
       .order("created_at", { ascending: true })
       .range(offset, offset + PAGE - 1);
@@ -53,6 +53,14 @@ export async function GET() {
 
   try {
     const supabase = getSupabaseServer();
+
+    // Fetch global markup multiplier from app_config
+    const { data: configRow } = await supabase
+      .from("app_config")
+      .select("markup_multiplier")
+      .eq("id", "global")
+      .single();
+    const markupMultiplier = Number(configRow?.markup_multiplier) || DEFAULT_MARKUP_MULTIPLIER;
 
     // Fetch ALL messages (paginated) — no cost filter so tokens are counted accurately
     const messages = await fetchAllMessages(supabase);
@@ -162,12 +170,15 @@ export async function GET() {
     let totalSettled = 0;
     let todaySettled = 0;
     let stripeFees = 0;
+    let totalInferenceCost = 0;
     const profitByBucket: Record<number, number> = {};
 
     for (const s of settlements) {
       const amt = Number(s.amount) || 0;
       const createdAt = s.created_at as string;
       const dateStr = createdAt?.slice(0, 10) ?? "";
+      // Use per-row markup if available, fall back to current global for legacy rows
+      const rowMarkup = Number(s.markup_multiplier) || markupMultiplier;
 
       totalSettled += amt;
       if (dateStr === todayStr) todaySettled += amt;
@@ -177,8 +188,9 @@ export async function GET() {
       stripeFees += fee;
 
       // Per-settlement profit: revenue - inference cost - stripe fee
-      const inferenceCost = amt / MARKUP_MULTIPLIER;
-      const profit = amt - inferenceCost - fee;
+      const rowInferenceCost = amt / rowMarkup;
+      totalInferenceCost += rowInferenceCost;
+      const profit = amt - rowInferenceCost - fee;
 
       if (createdAt) {
         const t = new Date(createdAt);
@@ -187,8 +199,7 @@ export async function GET() {
       }
     }
 
-    const inferenceCost = totalSettled / MARKUP_MULTIPLIER;
-    const totalProfit = totalSettled - inferenceCost - stripeFees;
+    const totalProfit = totalSettled - totalInferenceCost - stripeFees;
 
     // Cumulative profit timeline
     const profitBuckets = Object.keys(profitByBucket).map(Number).sort((a, b) => a - b);
@@ -246,7 +257,7 @@ export async function GET() {
         totalSettled,
         todaySettled,
         stripeFees,
-        inferenceCost,
+        inferenceCost: totalInferenceCost,
         totalProfit,
         profitTimeline,
         totalTokensIn,
