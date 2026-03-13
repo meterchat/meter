@@ -6,7 +6,7 @@ If you discover a security vulnerability in Meter, please report it responsibly.
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, email **security@getmeter.xyz** with:
+Instead, email **security@getmeter.dev** with:
 
 - A description of the vulnerability
 - Steps to reproduce
@@ -19,19 +19,18 @@ We will acknowledge receipt within 48 hours and provide a detailed response with
 
 The following are in scope:
 
-- Smart contract interactions (pathUSD transfers, session key approvals)
-- Session key generation and management
 - API authentication (API key validation, rate limiting)
-- Wallet connection and authorization flow
-- Server-side API routes (`/api/chat`, `/api/faucet`, `/api/v1/*`)
+- WebAuthn authentication flow
+- Server-side API routes (`/api/chat`, `/api/v1/*`)
+- Stripe billing integration
+- OAuth token handling (GitHub, Google, Vercel)
 
 ## Architecture Security Notes
 
-- **Non-custodial** — Meter never holds user private keys or seed phrases
-- **Session keys** — Ephemeral keypairs generated in-browser, stored only in memory, destroyed on tab close
-- **Scoped approvals** — Session keys can only spend pathUSD up to the user-defined cap
-- **No PII** — No email, password, or personal data collected. Wallet address only
+- **No PII** — No personal data collected beyond what's needed for authentication
 - **Server-side secrets** — API keys and service role keys are never exposed to the client
+- **WebAuthn** — Passkey-based authentication, no passwords stored
+- **OAuth tokens** — Encrypted at rest with `OAUTH_TOKEN_SECRET`
 
 ## Supported Versions
 

@@ -159,7 +159,6 @@ export function serverTrackSettlementCompleted(
     messageCount: number;
     chargeCount: number;
     stripePaymentIntentId: string;
-    txHash?: string;
     cardLast4?: string;
     cardBrand?: string;
   },

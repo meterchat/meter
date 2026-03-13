@@ -111,8 +111,6 @@ create table if not exists chat_messages (
   confidence numeric,
   settled boolean default false,
   receipt_status text,
-  signature text,
-  tx_hash text,
   cards jsonb,
   attachments jsonb,
   debate_trace jsonb,
@@ -217,7 +215,7 @@ create index if not exists idx_log_entries_created_at on log_entries(created_at 
 
 create table if not exists users (
   id uuid primary key default gen_random_uuid(),
-  wallet_address text unique not null,
+  wallet_address text unique,
   created_at timestamptz default now()
 );
 
@@ -265,7 +263,6 @@ create table if not exists settlement_history (
   workspace_id text,
   amount numeric not null,
   stripe_payment_intent_id text,
-  tx_hash text,
   message_count integer default 0,
   charge_count integer default 0,
   card_last4 text,

@@ -263,8 +263,6 @@ export async function POST(req: NextRequest) {
         confidence: m.confidence ?? null,
         settled: m.settled ?? false,
         receipt_status: m.receiptStatus ?? null,
-        signature: m.signature ?? null,
-        tx_hash: m.txHash ?? null,
         cards: m.cards ?? null,
         attachments: m.attachments ?? null,
         debate_trace: m.debateTrace ?? null,
@@ -278,9 +276,8 @@ export async function POST(req: NextRequest) {
       // Guard: don't let a stale "metering" upsert overwrite a "metered" row.
       // This prevents the race where sendBeacon or periodic sync arrives after
       // the server-side chat route has already saved the completed response.
-      // Also handle legacy "signing"/"signed" values from older rows.
       const meteringIds = rows
-        .filter((r: Record<string, unknown>) => r.receipt_status === "metering" || r.receipt_status === "signing")
+        .filter((r: Record<string, unknown>) => r.receipt_status === "metering")
         .map((r: Record<string, unknown>) => r.id as string);
 
       let alreadyMeteredIds = new Set<string>();
@@ -289,7 +286,7 @@ export async function POST(req: NextRequest) {
           .from("chat_messages")
           .select("id")
           .in("id", meteringIds)
-          .in("receipt_status", ["metered", "signed"]);
+          .in("receipt_status", ["metered"]);
         if (meteredRows) {
           alreadyMeteredIds = new Set(meteredRows.map((r: { id: string }) => r.id));
         }
@@ -297,7 +294,7 @@ export async function POST(req: NextRequest) {
 
       const filteredRows = alreadyMeteredIds.size > 0
         ? rows.filter((r: Record<string, unknown>) =>
-            !((r.receipt_status === "metering" || r.receipt_status === "signing") && alreadyMeteredIds.has(r.id as string))
+            !(r.receipt_status === "metering" && alreadyMeteredIds.has(r.id as string))
           )
         : rows;
 
