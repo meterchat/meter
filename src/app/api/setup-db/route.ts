@@ -262,6 +262,7 @@ const STATEMENTS: string[] = [
 
   // Track markup at settlement time for accurate historical profit calculations
   `alter table settlement_history add column if not exists markup_multiplier numeric`,
+  `update settlement_history set markup_multiplier = 2 where markup_multiplier is null`,
 
   // Hosted docs portal slug per workspace (e.g. docs.meter.chat/{handle}/{slug})
   `alter table chat_sessions add column if not exists portal_slug text`,
