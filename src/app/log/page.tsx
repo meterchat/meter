@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import dynamic from "next/dynamic";
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 import { AdminConfigButton } from "@/components/admin-config-panel";
 
 const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), {
@@ -236,7 +236,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
   messagesWindowRef.current = messagesWindow;
 
   useEffect(() => {
-    fetch(apiUrl("/api/log/stats"))
+    authFetch("/api/log/stats")
       .then((r) => r.json())
       .then((d) => {
         if (d && typeof d.totalSpend === "number") setStats(d);
@@ -490,7 +490,7 @@ function EntryDetail({ entry }: { entry: LogEntry }) {
   useEffect(() => {
     setEnrichment(null);
     setEnrichLoading(true);
-    fetch(apiUrl(`/api/log/detail?id=${encodeURIComponent(entry.id)}`))
+    authFetch(`/api/log/detail?id=${encodeURIComponent(entry.id)}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.enrichment) setEnrichment(d.enrichment);
@@ -744,7 +744,7 @@ export default function LogPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(apiUrl("/api/log?limit=200"));
+        const res = await authFetch("/api/log?limit=200");
         const data = await res.json();
         setEntries((data.entries ?? []).reverse());
       } catch {
@@ -767,7 +767,7 @@ export default function LogPage() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(apiUrl("/api/log?limit=200"));
+        const res = await authFetch("/api/log?limit=200");
         const data = await res.json();
         const newEntries = (data.entries ?? []).reverse();
         setEntries((prev: LogEntry[]) => {

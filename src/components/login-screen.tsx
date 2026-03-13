@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMeterStore } from "@/lib/store";
 import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 import {
   identifyUser,
   trackAccountCreated,
@@ -273,7 +273,7 @@ export function LoginScreen() {
       }
 
       // 1. Get auth options from server (no email, no allowCredentials)
-      const optRes = await fetch(apiUrl("/api/auth/passkey"), {
+      const optRes = await authFetch("/api/auth/passkey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ step: "auth-options" }),
@@ -310,7 +310,7 @@ export function LoginScreen() {
 
       // 3. Verify with server
       setStatus("Verifying...");
-      const verifyRes = await fetch(apiUrl("/api/auth/passkey"), {
+      const verifyRes = await authFetch("/api/auth/passkey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -360,7 +360,7 @@ export function LoginScreen() {
     setStatus("Setting up passkey...");
 
     try {
-      const optRes = await fetch(apiUrl("/api/auth/passkey"), {
+      const optRes = await authFetch("/api/auth/passkey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ step: "register-options" }),
@@ -371,7 +371,7 @@ export function LoginScreen() {
       const credential = await startRegistration({ optionsJSON: optData.options });
 
       setStatus("Verifying...");
-      const verifyRes = await fetch(apiUrl("/api/auth/passkey"), {
+      const verifyRes = await authFetch("/api/auth/passkey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -410,7 +410,7 @@ export function LoginScreen() {
     trackCrossDeviceAuthStarted();
 
     try {
-      const optRes = await fetch(apiUrl("/api/auth/passkey"), {
+      const optRes = await authFetch("/api/auth/passkey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ step: "auth-options" }),
@@ -437,7 +437,7 @@ export function LoginScreen() {
       }
 
       setStatus("Verifying...");
-      const verifyRes = await fetch(apiUrl("/api/auth/passkey"), {
+      const verifyRes = await authFetch("/api/auth/passkey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

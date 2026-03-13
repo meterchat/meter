@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 
 export interface Artifact {
   id: string;
@@ -44,7 +44,7 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
     try {
       const params = new URLSearchParams();
       if (sessionId) params.set("sessionId", sessionId);
-      const res = await fetch(apiUrl(`/api/artifacts?${params}`));
+      const res = await authFetch(`/api/artifacts?${params}`);
       if (!res.ok) {
         set({ loading: false });
         return;

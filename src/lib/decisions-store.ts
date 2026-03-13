@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 import { emitLogEvent } from "@/lib/log-event";
 
 export interface Decision {
@@ -114,7 +114,7 @@ export const useDecisionsStore = create<DecisionsState>()(
 
       fetchDecisions: async () => {
         try {
-          const res = await fetch(apiUrl("/api/decisions"));
+          const res = await authFetch("/api/decisions");
           if (!res.ok) return;
           const data = await res.json();
 
@@ -144,7 +144,7 @@ export const useDecisionsStore = create<DecisionsState>()(
         try {
           const params = new URLSearchParams({ history_for: title });
           if (sessionId) params.set("session_id", sessionId);
-          const res = await fetch(apiUrl(`/api/decisions?${params}`));
+          const res = await authFetch(`/api/decisions?${params}`);
           if (!res.ok) return [];
           const data = await res.json();
           return (data.decisions ?? []) as Decision[];

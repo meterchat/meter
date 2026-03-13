@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn, type DissectorTurn, type DocumentPreview } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { getModel } from "@/lib/models";
 
@@ -215,7 +215,7 @@ export function useSessionSync() {
       }
 
       try {
-        const res = await fetch(apiUrl("/api/sessions"), {
+        const res = await authFetch("/api/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -285,7 +285,7 @@ export function useSessionSync() {
   useEffect(() => {
     if (!authenticated) return;
     const interval = setInterval(() => {
-      fetch(apiUrl("/api/auth/me"))
+      authFetch("/api/auth/me")
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (!data?.adminConfig) return;
@@ -297,7 +297,7 @@ export function useSessionSync() {
           });
         })
         .catch(() => {});
-    }, 60_000);
+    }, 15_000);
     return () => clearInterval(interval);
   }, [authenticated]);
 
@@ -452,12 +452,12 @@ export function useSessionSync() {
           await new Promise((r) => setTimeout(r, 500));
           if (cancelled) return;
         }
-        let res = await fetch(apiUrl("/api/sessions"));
+        let res = await authFetch("/api/sessions");
         if (res.status === 401) {
           // Retry once — transient DB errors can cause false 401s
           await new Promise((r) => setTimeout(r, 1000));
           if (cancelled) return;
-          res = await fetch(apiUrl("/api/sessions"));
+          res = await authFetch("/api/sessions");
         }
         if (!res.ok) {
           if (res.status === 401) {
@@ -649,7 +649,7 @@ export function useSessionSync() {
           setTimeout(async () => {
             if (cancelled) return;
             try {
-              const retryRes = await fetch(apiUrl("/api/sessions"));
+              const retryRes = await authFetch("/api/sessions");
               if (!retryRes.ok) return;
               const retryData = await retryRes.json();
               if (!retryData.sessions?.length || cancelled) return;
@@ -716,7 +716,7 @@ export function useSessionSync() {
 
     // Refresh user profile data from server (handle, email, card info, etc.)
     // This ensures fields not in localStorage (or stale values) are restored.
-    fetch(apiUrl("/api/auth/me"))
+    authFetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data || cancelled) return;
