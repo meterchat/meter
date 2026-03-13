@@ -43,8 +43,6 @@ export default function ReceiptPage() {
             confidence: m.confidence ?? undefined,
             settled: m.settled ?? undefined,
             receiptStatus: normalizeReceiptStatus(m.receipt_status),
-            signature: m.signature ?? undefined,
-            txHash: m.tx_hash ?? undefined,
             timestamp: m.timestamp,
           });
         }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
 import { getSupabaseServer } from "@/lib/supabase";
-import { batchSettle, SettlementItem } from "@/lib/base";
+
 import { requireAuth } from "@/lib/auth";
 import {
   serverTrackSettlementCompleted,
@@ -96,7 +96,6 @@ export async function POST(req: NextRequest) {
         workspace_id: workspaceId,
         amount,
         stripe_payment_intent_id: null,
-        tx_hash: null,
         message_count: messageIds?.length ?? 0,
         charge_count: chargeIds?.length ?? 0,
         card_last4: null,
@@ -107,7 +106,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         paymentIntentId: null,
-        txHash: null,
         amountCharged: 0,
         creditUsed,
         freeCredit: true,
@@ -164,27 +162,6 @@ export async function POST(req: NextRequest) {
         .in("id", messageIds);
     }
 
-    // Batch settle on Base
-    const items: SettlementItem[] = [
-      ...(messageIds ?? []).map((id: string) => ({ id, amount: 0, type: "usage" as const })),
-      ...(chargeIds ?? []).map((id: string) => ({ id, amount: 0, type: "card" as const })),
-    ];
-
-    let txHash: string | undefined;
-    try {
-      txHash = await batchSettle(userId, items, amount);
-
-      // Persist tx hash to settled messages
-      if (txHash && messageIds && messageIds.length > 0) {
-        await supabase
-          .from("chat_messages")
-          .update({ tx_hash: txHash })
-          .in("id", messageIds);
-      }
-    } catch (err) {
-      console.error("Base settlement failed (charge succeeded):", err);
-    }
-
     // Get card info for history record
     const pmObj = typeof defaultPm === "string"
       ? await getStripe().paymentMethods.retrieve(defaultPm)
@@ -196,7 +173,6 @@ export async function POST(req: NextRequest) {
       workspace_id: workspaceId,
       amount,
       stripe_payment_intent_id: paymentIntent.id,
-      tx_hash: txHash ?? null,
       message_count: messageIds?.length ?? 0,
       charge_count: chargeIds?.length ?? 0,
       card_last4: pmObj && "card" in pmObj ? pmObj.card?.last4 ?? null : null,
@@ -217,7 +193,6 @@ export async function POST(req: NextRequest) {
       messageCount: messageIds?.length ?? 0,
       chargeCount: chargeIds?.length ?? 0,
       stripePaymentIntentId: paymentIntent.id,
-      txHash: txHash ?? undefined,
       cardLast4: pmObj && "card" in pmObj ? pmObj.card?.last4 ?? undefined : undefined,
       cardBrand: pmObj && "card" in pmObj ? pmObj.card?.brand ?? undefined : undefined,
     });
@@ -225,7 +200,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       paymentIntentId: paymentIntent.id,
-      txHash: txHash ?? null,
       amountCharged: amount,
     });
   } catch (err) {

@@ -1,6 +1,6 @@
 # @meterxyz/sdk
 
-Official SDK for the [Meter](https://getmeter.xyz) AI API — metered, crypto-settled AI.
+Official SDK for the [Meter](https://getmeter.xyz) AI API — metered, pay-per-use AI.
 
 ## Install
 

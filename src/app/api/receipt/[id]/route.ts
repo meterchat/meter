@@ -32,7 +32,7 @@ export async function GET(
 
     const { data: msg, error } = await supabase
       .from("chat_messages")
-      .select("id, role, content, model, tokens_in, tokens_out, cache_creation_tokens, cache_read_tokens, cache_read_rate, cost, confidence, settled, receipt_status, signature, tx_hash, timestamp")
+      .select("id, role, content, model, tokens_in, tokens_out, cache_creation_tokens, cache_read_tokens, cache_read_rate, cost, confidence, settled, receipt_status, timestamp")
       .eq("id", messageId)
       .eq("session_id", dbSessionId)
       .single();

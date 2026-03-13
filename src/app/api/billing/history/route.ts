@@ -32,7 +32,6 @@ export async function GET(req: NextRequest) {
       amount: Number(r.amount),
       workspaceId: r.workspace_id,
       stripePaymentIntentId: r.stripe_payment_intent_id,
-      txHash: r.tx_hash,
       messageCount: r.message_count ?? 0,
       chargeCount: r.charge_count ?? 0,
       cardLast4: r.card_last4,

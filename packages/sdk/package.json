@@ -16,9 +16,7 @@
     "llm",
     "openrouter",
     "streaming",
-    "sse",
-    "crypto",
-    "web3"
+    "sse"
   ],
   "type": "module",
   "main": "./dist/index.js",

@@ -9,11 +9,10 @@ import { authFetch } from "@/lib/auth-fetch";
 
 export type ReceiptStatus = "metering" | "metered" | "settled";
 
-/** Map legacy DB values ("signing"/"signed") to current terminology. */
 export function normalizeReceiptStatus(s: string | undefined | null): ReceiptStatus | undefined {
   if (!s) return undefined;
-  if (s === "signing" || s === "metering") return "metering";
-  if (s === "signed" || s === "metered") return "metered";
+  if (s === "metering") return "metering";
+  if (s === "metered") return "metered";
   if (s === "settled") return "settled";
   return undefined;
 }
@@ -73,8 +72,6 @@ export interface ChatMessage {
   confidence?: number;
   settled?: boolean;
   receiptStatus?: ReceiptStatus;
-  signature?: string;
-  txHash?: string;
   timestamp: number;
   cards?: ActionCard[];
   decisionId?: string;
@@ -105,7 +102,6 @@ export interface SettlementRecord {
   amount: number;
   workspaceId?: string;
   stripePaymentIntentId?: string;
-  txHash?: string;
   messageCount: number;
   chargeCount: number;
   cardLast4?: string;
@@ -411,10 +407,6 @@ function getSessionByIdOrActive(state: MeterState, forSessionId?: string): Sessi
 
 function replaceActiveSession(state: MeterState, session: Session): Session[] {
   return state.sessions.map((p) => (p.id === session.id ? session : p));
-}
-
-function shortHex() {
-  return Math.random().toString(16).slice(2, 10);
 }
 
 function buildConnectionMessage(providerId: string): ChatMessage | null {
@@ -874,7 +866,6 @@ export const useMeterStore = create<MeterState>()(
               model: pricingModelId,
               settled: false,
               receiptStatus: "metered",
-              signature: `0x${shortHex()}${shortHex()}${shortHex()}`,
             };
           }
 
@@ -947,7 +938,6 @@ export const useMeterStore = create<MeterState>()(
                     ...m,
                     settled: true,
                     receiptStatus: "settled" as const,
-                    txHash: `0x${shortHex()}${shortHex()}${shortHex()}${shortHex()}`,
                   }
                 : m
             ),
@@ -1042,7 +1032,6 @@ export const useMeterStore = create<MeterState>()(
           }
 
           const data = await res.json();
-          const batchTxHash = data.txHash as string | undefined;
 
           set((prev) => {
             const current = prev.sessions.find((p) => p.id === active.id);
@@ -1058,7 +1047,6 @@ export const useMeterStore = create<MeterState>()(
                       ...m,
                       settled: true,
                       receiptStatus: "settled" as const,
-                      txHash: batchTxHash ?? `0x${shortHex()}${shortHex()}${shortHex()}${shortHex()}`,
                     }
                   : m
               ),
@@ -1576,8 +1564,6 @@ export const useMeterStore = create<MeterState>()(
             confidence: m.confidence as number | undefined,
             settled: m.settled as boolean | undefined,
             receiptStatus: normalizeReceiptStatus(m.receipt_status as string | undefined),
-            signature: m.signature as string | undefined,
-            txHash: m.tx_hash as string | undefined,
             cards: m.cards as ActionCard[] | undefined,
             attachments: m.attachments as Attachment[] | undefined,
             debateTrace: m.debate_trace as DebateTurn[] | undefined,

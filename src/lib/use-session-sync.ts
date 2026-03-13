@@ -81,8 +81,6 @@ export function useSessionSync() {
       confidence: m.confidence as number | undefined,
       settled: m.settled as boolean | undefined,
       receiptStatus: m.receipt_status as ReceiptStatus | undefined,
-      signature: m.signature as string | undefined,
-      txHash: m.tx_hash as string | undefined,
       cards: m.cards as ActionCard[] | undefined,
       attachments: m.attachments as Attachment[] | undefined,
       debateTrace: m.debate_trace as DebateTurn[] | undefined,
@@ -621,21 +619,8 @@ export function useSessionSync() {
           };
         }
 
-        // Clean up stale "signing" messages from interrupted streams.
-        // Clean up stale "signing" messages from interrupted streams.
-        // If a message has content, upgrade to "signed". If empty shell, remove it.
-        const cleanedMerged = merged.map((p) => ({
-          ...p,
-          messages: p.messages
-            .filter((m) => !(m.role === "assistant" && !m.content && m.receiptStatus === "signing"))
-            .map((m) => (m.role === "assistant" && m.receiptStatus === "signing" && m.content)
-              ? { ...m, receiptStatus: "signed" as const }
-              : m
-            ),
-        }));
-
         useMeterStore.setState(() => ({
-          sessions: cleanedMerged,
+          sessions: merged,
           activeSessionId: nextActiveSessionId,
         }));
         useMeterStore.getState().resetDailyIfNeeded();
@@ -643,47 +628,6 @@ export function useSessionSync() {
 
         useWorkspaceStore.getState().upsertWorkspacesFromSessions(serverSessions, nextActiveSessionId);
         useMeterStore.getState().fetchConnectionStatus();
-
-        // If any messages were mid-stream ("signing"), refetch after a delay
-        // to pick up the completed response from the server.
-        const hadSigningMessages = merged.some((p) =>
-          p.messages.some((m) => m.role === "assistant" && m.receiptStatus === "signing")
-        );
-        if (hadSigningMessages && !cancelled) {
-          setTimeout(async () => {
-            if (cancelled) return;
-            try {
-              const retryRes = await authFetch("/api/sessions");
-              if (!retryRes.ok) return;
-              const retryData = await retryRes.json();
-              if (!retryData.sessions?.length || cancelled) return;
-              const retrySessions = retryData.sessions as ServerSession[];
-              const currentStore = useMeterStore.getState();
-              // Update only messages that have been upgraded from signing to signed
-              for (const serverSess of retrySessions) {
-                const localSess = currentStore.sessions.find((p) => p.id === serverSess.id);
-                if (!localSess) continue;
-                const serverMsgs = Array.isArray(serverSess.messages) ? serverSess.messages : [];
-                let changed = false;
-                const updatedMessages = localSess.messages.map((lm) => {
-                  const sm = serverMsgs.find((m: Record<string, unknown>) => m.id === lm.id);
-                  if (sm && lm.receiptStatus === "signed" && (sm.content as string)?.length > (lm.content?.length ?? 0)) {
-                    changed = true;
-                    return mapServerMessage(sm);
-                  }
-                  return lm;
-                });
-                if (changed) {
-                  useMeterStore.setState((s) => ({
-                    sessions: s.sessions.map((p) =>
-                      p.id === serverSess.id ? { ...p, messages: updatedMessages } : p
-                    ),
-                  }));
-                }
-              }
-            } catch { /* background retry — non-critical */ }
-          }, 3000);
-        }
 
         // Auto-fetch ALL remaining messages for sessions that have more than
         // the initial 200 loaded. This runs in the background so the UI
