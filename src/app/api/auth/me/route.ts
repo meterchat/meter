@@ -29,11 +29,21 @@ export async function GET() {
     }
 
     // Fetch global admin config (piggyback on auth to avoid extra round-trip)
-    const { data: config } = await supabase
+    const { data: config, error: configError } = await supabase
       .from("app_config")
       .select("markup_multiplier, enabled_models, enabled_commands, free_usd_credit")
       .eq("id", "global")
       .single();
+
+    if (configError) {
+      console.warn("[auth/me] Failed to read app_config:", configError.message, configError.code);
+    } else {
+      console.log("[auth/me] app_config:", JSON.stringify({
+        enabled_models: config?.enabled_models,
+        enabled_commands: config?.enabled_commands,
+        markup_multiplier: config?.markup_multiplier,
+      }));
+    }
 
     // Global markup overrides per-user value; fall back to compile-time constant
     const globalMarkup = config ? Number(config.markup_multiplier) : DEFAULT_MARKUP_MULTIPLIER;

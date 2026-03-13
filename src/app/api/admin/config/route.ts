@@ -22,11 +22,17 @@ export async function GET() {
     .single();
 
   if (error || !data) {
+    console.warn("[admin-config] GET: no app_config row found, returning defaults.", error?.message);
     return NextResponse.json(
       { markupMultiplier: 2.5, enabledModels: [], enabledCommands: [], freeUsdCredit: 0, bonusCreditLimit: 100, bonusCreditAmount: 10 },
     );
   }
 
+  console.log("[admin-config] GET:", JSON.stringify({
+    enabled_models: data.enabled_models,
+    enabled_commands: data.enabled_commands,
+    markup_multiplier: data.markup_multiplier,
+  }));
   return NextResponse.json({
     markupMultiplier: Number(data.markup_multiplier),
     enabledModels: data.enabled_models ?? [],
@@ -43,6 +49,7 @@ export async function PUT(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json();
+  console.log("[admin-config] PUT request body:", JSON.stringify(body));
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString(), updated_by: auth.userId };
 
   if (body.markupMultiplier != null) {
@@ -101,20 +108,29 @@ export async function PUT(req: NextRequest) {
     updates.bonus_credit_amount = a;
   }
 
+  console.log("[admin-config] Upserting updates:", JSON.stringify(updates));
   const supabase = getSupabaseServer();
   const { error } = await supabase
     .from("app_config")
     .upsert({ id: "global", ...updates });
 
   if (error) {
+    console.error("[admin-config] Upsert FAILED:", error.message, error.details, error.hint);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  console.log("[admin-config] Upsert succeeded");
 
   // Return updated config
-  const { data } = await supabase.from("app_config").select("*").eq("id", "global").single();
-  if (!data) {
+  const { data, error: readError } = await supabase.from("app_config").select("*").eq("id", "global").single();
+  if (readError || !data) {
+    console.error("[admin-config] Read-back FAILED:", readError?.message);
     return NextResponse.json({ error: "Failed to read config after save" }, { status: 500 });
   }
+  console.log("[admin-config] Read-back data:", JSON.stringify({
+    enabled_models: data.enabled_models,
+    enabled_commands: data.enabled_commands,
+    markup_multiplier: data.markup_multiplier,
+  }));
   return NextResponse.json({
     markupMultiplier: Number(data.markup_multiplier ?? 2.5),
     enabledModels: data.enabled_models ?? [],
