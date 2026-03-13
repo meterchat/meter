@@ -493,8 +493,6 @@ const STATEMENTS: string[] = [
 
   // Sync markup multiplier to 2x everywhere
   `update app_config set markup_multiplier = 2 where id = 'global' and markup_multiplier != 2`,
-  `update meter_users set markup_multiplier = 2 where markup_multiplier != 2`,
-  `alter table meter_users alter column markup_multiplier set default 2`,
 
   // Bonus credit gating: first N signups get $X credit
   `alter table app_config add column if not exists bonus_credit_limit integer not null default 100`,
