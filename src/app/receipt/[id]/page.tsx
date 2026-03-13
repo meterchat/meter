@@ -68,7 +68,6 @@ export default function ReceiptPage() {
   const tokensOut = message.tokensOut ?? 0;
   const when = new Date(message.timestamp);
   const isSettled = message.receiptStatus === "settled";
-  const statusText = isSettled ? "Metered & Settled" : "Metered · Pending settlement";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -81,10 +80,11 @@ export default function ReceiptPage() {
           <p>Input tokens: {tokensIn.toLocaleString()}</p>
           <p>Output tokens: {tokensOut.toLocaleString()}</p>
           <p>Cost: ${(message.cost ?? 0).toFixed(4)}</p>
+          <p>Status: <span className="text-emerald-400">Metered</span></p>
           <p>
-            Status:{" "}
+            Settlement:{" "}
             <span className={isSettled ? "text-emerald-400" : "text-amber-400"}>
-              {statusText}
+              {isSettled ? "Settled" : "Pending"}
             </span>
           </p>
         </div>
