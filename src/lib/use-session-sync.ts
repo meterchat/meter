@@ -281,6 +281,26 @@ export function useSessionSync() {
     return () => clearInterval(interval);
   }, [authenticated, syncToServer]);
 
+  // Poll admin config every 60s so model/command changes propagate live
+  useEffect(() => {
+    if (!authenticated) return;
+    const interval = setInterval(() => {
+      fetch(apiUrl("/api/auth/me"))
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data?.adminConfig) return;
+          useMeterStore.getState().setAdminConfig({
+            markupMultiplier: data.markupMultiplier,
+            enabledModels: data.adminConfig.enabledModels ?? [],
+            enabledCommands: data.adminConfig.enabledCommands ?? [],
+            freeCredit: data.freeCredit ?? 0,
+          });
+        })
+        .catch(() => {});
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [authenticated]);
+
   // Debounced sync on message changes
   useEffect(() => {
     if (!authenticated) return;
