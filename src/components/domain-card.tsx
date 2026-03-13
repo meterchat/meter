@@ -72,6 +72,23 @@ export function DomainCard({ card }: DomainCardProps) {
         </div>
       )}
 
+      {/* Buy on Porkbun */}
+      {isAvailable && (
+        <div className="border-t border-border px-3 py-2.5">
+          <a
+            href={`https://porkbun.com/checkout/search?q=${encodeURIComponent(card.title)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 font-mono text-[11px] text-background transition-colors hover:bg-foreground/90"
+          >
+            Buy Now ${card.cost?.toFixed(2)}
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+            </svg>
+          </a>
+        </div>
+      )}
+
       {/* Unavailable domain */}
       {!isAvailable && (
         <div className="border-t border-border px-3 py-2 text-center">
