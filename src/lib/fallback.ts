@@ -1,10 +1,10 @@
 /**
  * Multi-tier fallback streaming for Meter.
  *
- * Tier 1: OpenRouter (user's selected model)
- * Tier 2: Same model via direct API key (CLAUDE_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY) — silent
+ * Tier 1: Direct API key (OPENAI_API_KEY / CLAUDE_API_KEY / GEMINI_API_KEY / etc.) — uses free credits
+ * Tier 2: OpenRouter (same model) — fallback if direct key missing or fails
  * Tier 3: AWS Bedrock (Claude models only) — silent
- * Tier 4: Auto-route to a different model (OpenRouter → direct → Bedrock) — sends "rerouting" event
+ * Tier 4: Auto-route to a different model (direct → OpenRouter → Bedrock) — sends "rerouting" event
  *
  * If all tiers fail, sends a final error event.
  */
@@ -65,12 +65,6 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4-1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
   "deepseek/deepseek-chat-v3-0324": { envKey: "DEEPSEEK_API_KEY", nativeModel: "deepseek-chat", sdk: "openai", baseURL: "https://api.deepseek.com", cacheReadRate: 0.1 },
 };
-
-/** Models where direct API should be preferred over OpenRouter.
- *  Direct-first gives lower latency and avoids OpenRouter rerouting issues. */
-const PREFER_DIRECT: Set<string> = new Set([
-  "openai/gpt-5.4",
-]);
 
 /* ─── Bedrock provider (Claude models via AWS) ─────────────────── */
 
@@ -1028,19 +1022,18 @@ export interface FallbackResult {
   hasToolCalls: boolean;
   /** Which model actually served the response */
   actualModel: string;
-  /** Which tier succeeded: 1=openrouter, 2=direct-same-model, 3=bedrock, 4=auto-route */
+  /** Which tier succeeded: 1=direct, 2=openrouter, 3=bedrock, 4=auto-route */
   tier: number;
 }
 
 /**
  * Attempt to stream a response with multi-tier fallback.
  *
- * Tier 1: OpenRouter with the requested model
- * Tier 2: Same model via direct API key (silent — no client notification)
+ * Tier 1: Direct API key for the requested model (uses free credits)
+ * Tier 2: OpenRouter with the requested model (fallback)
  * Tier 3: AWS Bedrock for Claude models (silent — no client notification)
- * Tier 4: Different model via OpenRouter → direct → Bedrock (sends "rerouting" event)
+ * Tier 4: Different model via direct → OpenRouter → Bedrock (sends "rerouting" event)
  *
- * Final fallback: GPT 5.4 (via OpenRouter or direct OpenAI key).
  * Throws only if ALL tiers fail.
  */
 export async function streamWithFallback(
@@ -1058,43 +1051,29 @@ export async function streamWithFallback(
 
   const directProvider = DIRECT_PROVIDERS[requestedModel];
   const directKey = directProvider ? process.env[directProvider.envKey] : undefined;
-  const preferDirect = PREFER_DIRECT.has(requestedModel) && directProvider && directKey;
 
-  // ── For Anthropic models: try direct API FIRST (enables prompt caching) ──
-  if (preferDirect) {
+  // ── Tier 1: Direct API key (uses free credits on OpenAI/Bedrock/etc.) ──
+  if (directProvider && directKey) {
     try {
-      console.log("[fallback] tier 1 (direct, preferred for caching):", requestedModel);
-      const result = await streamDirect(directProvider, directKey!, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
-      return { ...result, actualModel: requestedModel, tier: 2 };
-    } catch (err) {
-      const e = err as Error;
-      console.error("[fallback] tier 1 direct (preferred) failed:", requestedModel, e.message, (e as any).status, (e as any).code, JSON.stringify((e as any).error ?? "").slice(0, 500));
-      errors.push({ tier: 2, model: requestedModel, error: e.message });
-    }
-  }
-
-  // ── Tier 1: OpenRouter ──────────────────────────────────────────
-  if (process.env.OPENROUTER_API_KEY) {
-    try {
-      const result = await streamOpenRouter(requestedModel, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
+      console.log("[fallback] tier 1 (direct key):", requestedModel);
+      const result = await streamDirect(directProvider, directKey, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
       return { ...result, actualModel: requestedModel, tier: 1 };
     } catch (err) {
       const e = err as Error;
-      console.error("[fallback] tier 1 (openrouter) failed:", requestedModel, e.message);
+      console.error("[fallback] tier 1 (direct) failed:", requestedModel, e.message, (e as any).status, (e as any).code, JSON.stringify((e as any).error ?? "").slice(0, 500));
       errors.push({ tier: 1, model: requestedModel, error: e.message });
     }
   }
 
-  // ── Tier 2: Same model via direct API key (silent) ──────────────
-  // Skip if already tried above as preferred direct
-  if (!preferDirect && directProvider && directKey) {
+  // ── Tier 2: OpenRouter (fallback if direct key missing or fails) ──
+  if (process.env.OPENROUTER_API_KEY) {
     try {
-      console.log("[fallback] tier 2 (direct key, same model):", requestedModel);
-      const result = await streamDirect(directProvider, directKey, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
+      console.log("[fallback] tier 2 (openrouter):", requestedModel);
+      const result = await streamOpenRouter(requestedModel, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
       return { ...result, actualModel: requestedModel, tier: 2 };
     } catch (err) {
       const e = err as Error;
-      console.error("[fallback] tier 2 (direct) failed:", requestedModel, e.message);
+      console.error("[fallback] tier 2 (openrouter) failed:", requestedModel, e.message);
       errors.push({ tier: 2, model: requestedModel, error: e.message });
     }
   }
@@ -1126,21 +1105,7 @@ export async function streamWithFallback(
     const providerName = requestedModel.split("/")[0];
     const providerLabel = providerName.charAt(0).toUpperCase() + providerName.slice(1);
 
-    // Try OpenRouter first for this candidate
-    if (process.env.OPENROUTER_API_KEY) {
-      try {
-        console.log("[fallback] tier 4 (openrouter, auto-route):", candidateModel);
-        if (!silent) send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
-        const result = await streamOpenRouter(candidateModel, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
-        return { ...result, actualModel: candidateModel, tier: 4 };
-      } catch (err) {
-        const e = err as Error;
-        console.error("[fallback] tier 4 openrouter failed:", candidateModel, e.message);
-        errors.push({ tier: 4, model: candidateModel, error: e.message });
-      }
-    }
-
-    // Then try direct key for this candidate
+    // Try direct key first for this candidate
     if (candidateProvider && candidateKey) {
       try {
         console.log("[fallback] tier 4 (direct, auto-route):", candidateModel);
@@ -1150,6 +1115,20 @@ export async function streamWithFallback(
       } catch (err) {
         const e = err as Error;
         console.error("[fallback] tier 4 direct failed:", candidateModel, e.message);
+        errors.push({ tier: 4, model: candidateModel, error: e.message });
+      }
+    }
+
+    // Then try OpenRouter for this candidate
+    if (process.env.OPENROUTER_API_KEY) {
+      try {
+        console.log("[fallback] tier 4 (openrouter, auto-route):", candidateModel);
+        if (!silent) send({ type: "rerouting", from: requestedModel, to: candidateModel, provider: providerLabel });
+        const result = await streamOpenRouter(candidateModel, conversation, tools, send, estimateTokens, totalTokensOut, timeoutMs);
+        return { ...result, actualModel: candidateModel, tier: 4 };
+      } catch (err) {
+        const e = err as Error;
+        console.error("[fallback] tier 4 openrouter failed:", candidateModel, e.message);
         errors.push({ tier: 4, model: candidateModel, error: e.message });
       }
     }
