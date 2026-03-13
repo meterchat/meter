@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/auth";
 import { getSupabaseServer } from "@/lib/supabase";
-import { MODELS } from "@/lib/models";
+import { MODELS, DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 import { SLASH_COMMANDS } from "@/lib/connectors";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export async function GET() {
   if (error || !data) {
     console.warn("[admin-config] GET: no app_config row found, returning defaults.", error?.message);
     return NextResponse.json(
-      { markupMultiplier: 2.5, enabledModels: [], enabledCommands: [], freeUsdCredit: 0, bonusCreditLimit: 100, bonusCreditAmount: 10 },
+      { markupMultiplier: DEFAULT_MARKUP_MULTIPLIER, enabledModels: [], enabledCommands: [], freeUsdCredit: 0, bonusCreditLimit: 100, bonusCreditAmount: 10 },
     );
   }
 
@@ -132,7 +132,7 @@ export async function PUT(req: NextRequest) {
     markup_multiplier: data.markup_multiplier,
   }));
   return NextResponse.json({
-    markupMultiplier: Number(data.markup_multiplier ?? 2.5),
+    markupMultiplier: Number(data.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER),
     enabledModels: data.enabled_models ?? [],
     enabledCommands: data.enabled_commands ?? [],
     freeUsdCredit: Number(data.free_usd_credit ?? 0),
