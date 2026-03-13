@@ -1438,15 +1438,8 @@ export const useMeterStore = create<MeterState>()(
         }),
 
       attemptDailySettlement: async () => {
-        const today = todayStr();
-        const state = get();
-        if (state.lastAutoSettleDate === today) return;
-        set({ lastAutoSettleDate: today });
-
-        const balance = state.getPendingBalance();
-        if (balance >= state.autoSettleThreshold) {
-          await state.settleAll();
-        }
+        // Settlement is now handled server-side by /api/cron/settle-all.
+        // This function is kept as a no-op to avoid breaking callers.
       },
 
       setPendingInput: (v) => set({ pendingInput: v }),
