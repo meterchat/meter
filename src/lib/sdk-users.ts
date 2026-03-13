@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase";
+import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 import crypto from "crypto";
 
 /**
@@ -56,6 +57,6 @@ export async function getEndUserBillingStatus(endUserId: string) {
     cardOnFile: !!(data?.stripe_customer_id && data?.card_last4),
     cardLast4: data?.card_last4 ?? null,
     cardBrand: data?.card_brand ?? null,
-    markupMultiplier: Number(data?.markup_multiplier ?? 2.5),
+    markupMultiplier: Number(data?.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER),
   };
 }

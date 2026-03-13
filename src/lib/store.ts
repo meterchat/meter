@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { DEFAULT_MODEL, getModel } from "@/lib/models";
+import { DEFAULT_MODEL, DEFAULT_MARKUP_MULTIPLIER, getModel } from "@/lib/models";
 import { CONNECTORS } from "@/lib/connectors";
 import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-store";
 import { useDecisionsStore } from "@/lib/decisions-store";
@@ -426,7 +426,7 @@ export const useMeterStore = create<MeterState>()(
       handle: null,
       email: null,
       accountType: "standard" as const,
-      markupMultiplier: 2.5,
+      markupMultiplier: DEFAULT_MARKUP_MULTIPLIER,
       authenticated: false,
       cardOnFile: false,
       cardLast4: null,
@@ -464,7 +464,7 @@ export const useMeterStore = create<MeterState>()(
       inspectorTab: "decisions",
       scrollToMessageId: null,
 
-      setAuth: (userId: string, handle: string | null, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, handle, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? 2.5, authenticated: true }),
+      setAuth: (userId: string, handle: string | null, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, handle, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? DEFAULT_MARKUP_MULTIPLIER, authenticated: true }),
       setSessionsLoaded: (v) => set({ sessionsLoaded: v }),
       setEmail: (email) => set({ email }),
       setCardOnFile: (v, last4, brand) =>

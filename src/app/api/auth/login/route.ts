@@ -8,6 +8,7 @@ import crypto from "crypto";
 import { createSession, setSessionCookie } from "@/lib/session";
 import { serverTrackUserLoggedIn, serverTrackLoginFailed } from "@/lib/analytics-server";
 import { generateHandle } from "@/lib/handle";
+import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 
 const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID || "meter.chat";
 const BASE_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://meter.chat";
@@ -175,7 +176,7 @@ export async function POST(req: NextRequest) {
           cardBrand: user?.card_brand,
           gmailConnected: user?.gmail_connected ?? false,
           accountType: user?.account_type ?? "standard",
-          markupMultiplier: Number(user?.markup_multiplier ?? 2.5),
+          markupMultiplier: Number(user?.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER),
           hasWorkspaces: (sessionCount ?? 0) > 0,
         },
       });

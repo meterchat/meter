@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMeterStore } from "@/lib/store";
+import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 import { apiUrl } from "@/lib/api-url";
 import {
   identifyUser,
@@ -471,7 +472,7 @@ export function LoginScreen() {
       await useMeterStore.getState().logout();
     }
 
-    setAuth(user.id, user.handle ?? null, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard", user.markupMultiplier ?? 2.5);
+    setAuth(user.id, user.handle ?? null, user.email ?? "", (user.accountType as "standard" | "superadmin") ?? "standard", user.markupMultiplier ?? DEFAULT_MARKUP_MULTIPLIER);
 
     identifyUser(user.id, {
       email: user.email,
