@@ -17,13 +17,23 @@ export async function GET() {
     const supabase = getSupabaseServer();
     const { data: user, error } = await supabase
       .from("meter_users")
-      .select("id, handle, email, account_type, stripe_customer_id, card_last4, card_brand, markup_multiplier")
+      .select("id, handle, email, account_type, stripe_customer_id, card_last4, card_brand, markup_multiplier, free_credit_remaining")
       .eq("id", userId)
       .single();
 
     if (error || !user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    // Fetch global admin config (piggyback on auth to avoid extra round-trip)
+    const { data: config } = await supabase
+      .from("app_config")
+      .select("markup_multiplier, enabled_models, enabled_commands, free_usd_credit")
+      .eq("id", "global")
+      .single();
+
+    // Global markup overrides per-user value; fall back to compile-time constant
+    const globalMarkup = config ? Number(config.markup_multiplier) : DEFAULT_MARKUP_MULTIPLIER;
 
     return NextResponse.json({
       userId: user.id,
@@ -34,7 +44,12 @@ export async function GET() {
       cardOnFile: !!(user.stripe_customer_id && user.card_last4),
       cardLast4: user.card_last4 ?? null,
       cardBrand: user.card_brand ?? null,
-      markupMultiplier: user.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER,
+      markupMultiplier: globalMarkup,
+      freeCredit: Number(user.free_credit_remaining ?? 0),
+      adminConfig: {
+        enabledModels: config?.enabled_models ?? [],
+        enabledCommands: config?.enabled_commands ?? [],
+      },
     });
   } catch (err) {
     console.error("Failed to load user profile:", err);

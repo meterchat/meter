@@ -193,6 +193,12 @@ interface MeterState {
   inspectorTab: string;
   scrollToMessageId: string | null;
 
+  /** Admin-configured global settings (from app_config table) */
+  enabledModels: string[];
+  enabledCommands: string[];
+  freeCredit: number;
+
+  setAdminConfig: (config: { markupMultiplier?: number; enabledModels?: string[]; enabledCommands?: string[]; freeCredit?: number }) => void;
   setAuth: (userId: string, handle: string | null, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => void;
   setSessionsLoaded: (v: boolean) => void;
   setEmail: (email: string) => void;
@@ -464,6 +470,16 @@ export const useMeterStore = create<MeterState>()(
       inspectorTab: "decisions",
       scrollToMessageId: null,
 
+      enabledModels: [],
+      enabledCommands: [],
+      freeCredit: 0,
+
+      setAdminConfig: (config) => set((s) => ({
+        ...(config.markupMultiplier != null ? { markupMultiplier: config.markupMultiplier } : {}),
+        ...(config.enabledModels != null ? { enabledModels: config.enabledModels } : {}),
+        ...(config.enabledCommands != null ? { enabledCommands: config.enabledCommands } : {}),
+        ...(config.freeCredit != null ? { freeCredit: config.freeCredit } : {}),
+      })),
       setAuth: (userId: string, handle: string | null, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, handle, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? DEFAULT_MARKUP_MULTIPLIER, authenticated: true }),
       setSessionsLoaded: (v) => set({ sessionsLoaded: v }),
       setEmail: (email) => set({ email }),

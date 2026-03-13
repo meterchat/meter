@@ -99,6 +99,63 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // ── Free credit deduction ──
+    // Check if user has free credit remaining and deduct before card charge
+    const { data: userRow } = await supabase
+      .from("meter_users")
+      .select("free_credit_remaining")
+      .eq("id", userId)
+      .single();
+    const freeCredit = Number(userRow?.free_credit_remaining ?? 0);
+    let creditUsed = 0;
+    let chargeAmount = amount;
+
+    if (freeCredit > 0) {
+      creditUsed = Math.min(freeCredit, amount);
+      chargeAmount = Math.round((amount - creditUsed) * 100) / 100; // round to cents
+      // Deduct free credit
+      await supabase
+        .from("meter_users")
+        .update({ free_credit_remaining: Math.max(0, freeCredit - creditUsed) })
+        .eq("id", userId);
+    }
+
+    // If free credit covers the full amount, skip card charge
+    if (chargeAmount <= 0) {
+      if (messageIds && messageIds.length > 0) {
+        if (!(await verifyMessageOwnership(supabase, userId, messageIds))) {
+          return NextResponse.json({ error: "Forbidden: message ownership mismatch" }, { status: 403 });
+        }
+        await supabase
+          .from("chat_messages")
+          .update({ settled: true, receipt_status: "settled" })
+          .in("id", messageIds);
+      }
+      const historyId = `stl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      await supabase.from("settlement_history").insert({
+        id: historyId,
+        user_id: userId,
+        workspace_id: workspaceId,
+        amount,
+        stripe_payment_intent_id: null,
+        tx_hash: null,
+        message_count: messageIds?.length ?? 0,
+        charge_count: chargeIds?.length ?? 0,
+        card_last4: null,
+        card_brand: null,
+        status: "free_credit",
+      }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
+
+      return NextResponse.json({
+        success: true,
+        paymentIntentId: null,
+        txHash: null,
+        amountCharged: 0,
+        creditUsed,
+        freeCredit: true,
+      });
+    }
+
     // Resolve Stripe customer (auto-creates if stale/missing)
     const customerId = await ensureStripeCustomer(userId);
 
@@ -112,8 +169,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No payment method on file" }, { status: 400 });
     }
 
-    // Create and confirm PaymentIntent
-    const amountCents = Math.round(amount * 100);
+    // Create and confirm PaymentIntent (charge only the remainder after free credit)
+    const amountCents = Math.round(chargeAmount * 100);
     const paymentIntent = await getStripe().paymentIntents.create({
       amount: amountCents,
       currency: "usd",

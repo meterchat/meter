@@ -43,9 +43,16 @@ export async function POST(req: NextRequest) {
         userId = existingUser.id;
       } else {
         userId = `usr_${crypto.randomBytes(12).toString("hex")}`;
+        // Fetch free credit amount from global config
+        const { data: appConfig } = await supabase
+          .from("app_config")
+          .select("free_usd_credit")
+          .eq("id", "global")
+          .single();
+        const freeCredit = Number(appConfig?.free_usd_credit ?? 0);
         const { error: insertErr } = await supabase
           .from("meter_users")
-          .insert({ id: userId, email: normalizedEmail });
+          .insert({ id: userId, email: normalizedEmail, free_credit_remaining: freeCredit });
         if (insertErr) throw insertErr;
       }
 

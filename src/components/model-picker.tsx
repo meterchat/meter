@@ -193,11 +193,17 @@ export function ModelPickerPanel({
   const setDebateRoster = useMeterStore((s) => s.setDebateRoster);
   const debateRoster = useMeterStore((s) => s.debateRoster);
   const toggleDebateRosterModel = useMeterStore((s) => s.toggleDebateRosterModel);
+  const enabledModels = useMeterStore((s) => s.enabledModels);
+
+  // Filter models by admin config (empty = all enabled, always keep "auto")
+  const visibleModels = enabledModels.length === 0
+    ? MODELS
+    : MODELS.filter((m) => m.id === "auto" || enabledModels.includes(m.id));
 
   return (
     <div className="p-1.5">
       <div className="space-y-0.5">
-        {MODELS.map((m) => {
+        {visibleModels.map((m) => {
           const isAuto = m.id === "auto";
           const isSelected = m.id === selectedModelId;
           const isInRoster = debateRoster.includes(m.id);
