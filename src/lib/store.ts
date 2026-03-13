@@ -886,6 +886,17 @@ export const useMeterStore = create<MeterState>()(
           const streamedEstimateOut = last?.tokensOut ?? 0;
           const tokensOutAdjustment = tokensOut - streamedEstimateOut;
 
+          // When bonus credits are active, route the cost adjustment
+          // through credits before it hits the pending balance.
+          // If adjustment is positive (actual > estimate), deduct extra from credits.
+          // If negative (actual < estimate), refund back to credits.
+          let creditDelta = 0;
+          let balanceAdjustment = costAdjustment;
+          if (s.freeCredit > 0 && costAdjustment > 0) {
+            creditDelta = Math.min(costAdjustment, s.freeCredit);
+            balanceAdjustment = costAdjustment - creditDelta;
+          }
+
           const updated = {
             ...active,
             messages: msgs,
@@ -893,10 +904,10 @@ export const useMeterStore = create<MeterState>()(
             todayTokensOut: Math.max(0, active.todayTokensOut + tokensOutAdjustment),
             todayMessageCount: active.todayMessageCount + 1,
             todayByModel: byModel,
-            todayCost: active.todayCost + costAdjustment,
-            weekCost: (active.weekCost ?? 0) + costAdjustment,
-            monthCost: (active.monthCost ?? 0) + costAdjustment,
-            totalCost: active.totalCost + costAdjustment,
+            todayCost: active.todayCost + balanceAdjustment,
+            weekCost: (active.weekCost ?? 0) + balanceAdjustment,
+            monthCost: (active.monthCost ?? 0) + balanceAdjustment,
+            totalCost: active.totalCost + balanceAdjustment,
             currentMessageCost: totalMsgCost,
             // Keep server aggregate counters in sync with new messages
             serverTokensIn: active.serverTokensIn + tokensIn,
@@ -905,7 +916,10 @@ export const useMeterStore = create<MeterState>()(
             serverPendingBalance: (active.serverPendingBalance ?? 0) + totalMsgCost,
           };
 
-          return { sessions: replaceActiveSession(s, updated) };
+          return {
+            ...(creditDelta > 0 ? { freeCredit: s.freeCredit - creditDelta } : {}),
+            sessions: replaceActiveSession(s, updated),
+          };
         });
       },
 
@@ -1492,14 +1506,21 @@ export const useMeterStore = create<MeterState>()(
         set((s) => {
           const active = ensureDaily(getSessionByIdOrActive(s, forSessionId));
           const scaled = costDelta * s.markupMultiplier;
+          // When bonus credits are active, deduct from credits instead of
+          // accumulating pending balance. Costs still track on the session
+          // for analytics, but freeCredit ticks down visually.
+          const creditAvailable = s.freeCredit > 0;
+          const creditDeducted = creditAvailable ? Math.min(scaled, s.freeCredit) : 0;
+          const overflow = scaled - creditDeducted;
           return {
+            ...(creditDeducted > 0 ? { freeCredit: s.freeCredit - creditDeducted } : {}),
             sessions: replaceActiveSession(s, {
               ...active,
               currentMessageCost: active.currentMessageCost + scaled,
-              todayCost: active.todayCost + scaled,
-              weekCost: (active.weekCost ?? 0) + scaled,
-              monthCost: (active.monthCost ?? 0) + scaled,
-              totalCost: active.totalCost + scaled,
+              todayCost: active.todayCost + overflow,
+              weekCost: (active.weekCost ?? 0) + overflow,
+              monthCost: (active.monthCost ?? 0) + overflow,
+              totalCost: active.totalCost + overflow,
             }),
           };
         }),

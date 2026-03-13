@@ -43,13 +43,14 @@ export async function POST(req: NextRequest) {
         userId = existingUser.id;
       } else {
         userId = `usr_${crypto.randomBytes(12).toString("hex")}`;
-        // Fetch free credit amount from global config
-        const { data: appConfig } = await supabase
-          .from("app_config")
-          .select("free_usd_credit")
-          .eq("id", "global")
-          .single();
-        const freeCredit = Number(appConfig?.free_usd_credit ?? 0);
+        // Fetch bonus credit config and count existing users
+        const [{ data: appConfig }, { count: userCount }] = await Promise.all([
+          supabase.from("app_config").select("bonus_credit_limit, bonus_credit_amount").eq("id", "global").single(),
+          supabase.from("meter_users").select("id", { count: "exact", head: true }),
+        ]);
+        const bonusLimit = Number(appConfig?.bonus_credit_limit ?? 100);
+        const bonusAmount = Number(appConfig?.bonus_credit_amount ?? 10);
+        const freeCredit = (userCount ?? 0) < bonusLimit ? bonusAmount : 0;
         const { error: insertErr } = await supabase
           .from("meter_users")
           .insert({ id: userId, email: normalizedEmail, free_credit_remaining: freeCredit });

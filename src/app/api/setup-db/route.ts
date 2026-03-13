@@ -487,6 +487,10 @@ const STATEMENTS: string[] = [
   // Free USD credit per user (deducted before card charges at settlement)
   `alter table meter_users add column if not exists free_credit_remaining numeric not null default 0`,
 
+  // Bonus credit gating: first N signups get $X credit
+  `alter table app_config add column if not exists bonus_credit_limit integer not null default 100`,
+  `alter table app_config add column if not exists bonus_credit_amount numeric not null default 10`,
+
   // Reload PostgREST schema cache so new columns (preview, commit_message) are visible via REST API
   `notify pgrst, 'reload schema'`,
 
