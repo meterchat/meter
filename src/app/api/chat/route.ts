@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
     // the footer bar. Passed from the client store; falls back to default.
     const markupMultiplier = Number(body.markupMultiplier) || DEFAULT_MARKUP_MULTIPLIER;
 
-    // Server-side spend limit + exposure cap enforcement (skip for superadmin)
-    if (projectId && !(await isSuperAdmin(userId))) {
+    // Server-side spend limit + exposure cap enforcement
+    if (projectId) {
       const limitCheck = await checkSpendLimits(userId, projectId);
       if (limitCheck) {
         serverTrackSpendLimitHit(userId, {

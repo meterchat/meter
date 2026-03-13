@@ -1453,7 +1453,6 @@ export const useMeterStore = create<MeterState>()(
         const today = todayStr();
         const state = get();
         if (state.lastAutoSettleDate === today) return;
-        if (state.accountType === "superadmin") return; // superadmin never auto-settles
         set({ lastAutoSettleDate: today });
 
         const balance = state.getPendingBalance();

@@ -21,9 +21,6 @@ export function SettlePill() {
   const cardLast4 = useMeterStore((s) => s.cardLast4);
   const cardBrand = useMeterStore((s) => s.cardBrand);
   const clearSettlementError = useMeterStore((s) => s.clearSettlementError);
-  const accountType = useMeterStore((s) => s.accountType);
-
-  const isSuperAdmin = accountType === "superadmin";
 
   const activeProject = sessions.find((p) => p.id === activeSessionId) ?? null;
   const settlementError = activeProject?.settlementError ?? null;
@@ -38,14 +35,6 @@ export function SettlePill() {
       .reduce((sum, c) => sum + c.cost, 0);
     return msgCost + cardCost;
   }, [activeProject, pendingCharges]);
-
-  // For superadmin, calculate total cost (all messages, settled or not)
-  const totalCost = useMemo(() => {
-    if (!activeProject) return 0;
-    return activeProject.messages
-      .filter((m) => m.role === "assistant" && m.cost !== undefined)
-      .reduce((sum, m) => sum + (m.cost ?? 0), 0);
-  }, [activeProject]);
 
   const lineItems = useMemo(() => {
     const unsettledMsgs = activeProject
@@ -126,80 +115,6 @@ export function SettlePill() {
 
   const hasError = !!settlementError;
 
-  // ── Superadmin pill: shows running total with "Creator" badge ──
-  if (isSuperAdmin) {
-    const displayCost = totalCost || pendingBalance;
-    return (
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={handleOpen}
-          className="flex h-8 items-center rounded-lg border border-amber-500/20 bg-amber-500/5 transition-colors font-mono text-[11px]"
-        >
-          <span className="px-2.5 tabular-nums text-foreground">
-            ${displayCost.toFixed(2)}
-          </span>
-          <span className="h-4 w-px bg-amber-500/20" />
-          <span className="px-2.5 text-amber-400">
-            Creator
-          </span>
-        </button>
-
-        {open && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-[340px] rounded-xl border border-border bg-card shadow-xl">
-            <div className="border-b border-border px-4 py-3">
-              <div className="font-mono text-[10px] uppercase tracking-wider text-amber-400/60">
-                Creator Account
-              </div>
-            </div>
-
-            <div className="max-h-[280px] overflow-y-auto">
-              {lineItems.length === 0 ? (
-                <div className="flex items-center justify-center py-8">
-                  <span className="font-mono text-[11px] text-muted-foreground/40">
-                    No usage yet
-                  </span>
-                </div>
-              ) : (
-                <div className="divide-y divide-border/50">
-                  {lineItems.map((item) => (
-                    <div key={item.id} className="px-4 py-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0">
-                          <span className="block truncate font-mono text-[11px] text-foreground/80">
-                            {item.title}
-                          </span>
-                          <span className="font-mono text-[9px] text-muted-foreground/40">
-                            {item.subtitle}
-                          </span>
-                        </div>
-                        <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground">
-                          ${item.cost.toFixed(item.cost < 0.01 ? 4 : 2)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-border px-4 py-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[11px] text-muted-foreground">Running Total</span>
-                <span className="font-mono text-sm font-medium tabular-nums text-foreground">
-                  ${displayCost.toFixed(2)}
-                </span>
-              </div>
-              <div className="text-center font-mono text-[9px] text-amber-400/50">
-                Settlement waived — creator account
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── Standard user pill ──
   return (
     <div className="relative" ref={dropdownRef}>
       <button
