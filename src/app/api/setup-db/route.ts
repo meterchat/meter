@@ -217,6 +217,11 @@ const STATEMENTS: string[] = [
   `alter table chat_messages add column if not exists is_fork_point boolean default false`,
   `alter table chat_messages add column if not exists fork_resolution text`,
 
+  // Cache token breakdown for auditable pricing receipts
+  `alter table chat_messages add column if not exists cache_creation_tokens integer`,
+  `alter table chat_messages add column if not exists cache_read_tokens integer`,
+  `alter table chat_messages add column if not exists cache_read_rate numeric`,
+
   // Week/month cost tracking on sessions
   `alter table chat_sessions add column if not exists week_cost numeric default 0`,
   `alter table chat_sessions add column if not exists week_key text`,

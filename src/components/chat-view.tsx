@@ -874,21 +874,6 @@ function MessageFooter({ msg, sessionId }: { msg: ChatMessage; sessionId: string
   const totalTokens = (msg.tokensIn ?? 0) + (msg.tokensOut ?? 0);
   const isSigned = msg.receiptStatus === "signed" || msg.receiptStatus === "settled";
 
-  // Build token breakdown tooltip
-  const cacheWrite = msg.cacheCreationTokens ?? 0;
-  const cacheRead = msg.cacheReadTokens ?? 0;
-  const tokensIn = msg.tokensIn ?? 0;
-  const tokensOut = msg.tokensOut ?? 0;
-  const uncachedIn = tokensIn - cacheWrite - cacheRead;
-  const parts = [`In: ${tokensIn.toLocaleString()}`, `Out: ${tokensOut.toLocaleString()}`];
-  if (cacheWrite > 0 || cacheRead > 0) {
-    parts.push(`---`);
-    parts.push(`Uncached in: ${uncachedIn.toLocaleString()} (full rate)`);
-    if (cacheWrite > 0) parts.push(`Cache write: ${cacheWrite.toLocaleString()} (1.25x)`);
-    if (cacheRead > 0) parts.push(`Cache read: ${cacheRead.toLocaleString()} (0.1x)`);
-  }
-  const tokenTooltip = parts.join("\n");
-
   if (!hasCost) return null;
 
   return (
@@ -898,7 +883,7 @@ function MessageFooter({ msg, sessionId }: { msg: ChatMessage; sessionId: string
         {msg.model === "debate" && <DebateModelDots />}
       </span>
       <span className="text-muted-foreground/30">&middot;</span>
-      <span title={tokenTooltip}>{totalTokens.toLocaleString()} tokens</span>
+      <span>{totalTokens.toLocaleString()} tokens</span>
       <span className="text-muted-foreground/30">&middot;</span>
       <span>${cost.toFixed(cost < 0.01 ? 4 : 3)}</span>
       <span className="text-muted-foreground/30">&middot;</span>
