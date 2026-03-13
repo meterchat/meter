@@ -104,8 +104,7 @@ export async function PUT(req: NextRequest) {
   const supabase = getSupabaseServer();
   const { error } = await supabase
     .from("app_config")
-    .update(updates)
-    .eq("id", "global");
+    .upsert({ id: "global", ...updates });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -113,12 +112,15 @@ export async function PUT(req: NextRequest) {
 
   // Return updated config
   const { data } = await supabase.from("app_config").select("*").eq("id", "global").single();
+  if (!data) {
+    return NextResponse.json({ error: "Failed to read config after save" }, { status: 500 });
+  }
   return NextResponse.json({
-    markupMultiplier: Number(data?.markup_multiplier ?? 2.5),
-    enabledModels: data?.enabled_models ?? [],
-    enabledCommands: data?.enabled_commands ?? [],
-    freeUsdCredit: Number(data?.free_usd_credit ?? 0),
-    bonusCreditLimit: Number(data?.bonus_credit_limit ?? 100),
-    bonusCreditAmount: Number(data?.bonus_credit_amount ?? 10),
+    markupMultiplier: Number(data.markup_multiplier ?? 2.5),
+    enabledModels: data.enabled_models ?? [],
+    enabledCommands: data.enabled_commands ?? [],
+    freeUsdCredit: Number(data.free_usd_credit ?? 0),
+    bonusCreditLimit: Number(data.bonus_credit_limit ?? 100),
+    bonusCreditAmount: Number(data.bonus_credit_amount ?? 10),
   });
 }

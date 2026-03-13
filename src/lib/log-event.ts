@@ -2,7 +2,7 @@
  * Utility for emitting events to the public development log.
  * Called from client-side stores after actions (decision locked, debate started, etc.).
  */
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 
 export type LogEventType =
   | "message_sent"
@@ -45,7 +45,7 @@ export function emitLogEvent(
   (async () => {
     try {
       const actor = userId ? await hashUserId(userId) : "anon";
-      await fetch(apiUrl("/api/log"), {
+      await authFetch("/api/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

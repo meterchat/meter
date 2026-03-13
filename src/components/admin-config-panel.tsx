@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MODELS } from "@/lib/models";
 import { SLASH_COMMANDS } from "@/lib/connectors";
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 import { useMeterStore } from "@/lib/store";
 
 // ── Types ──
@@ -27,16 +27,21 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
   const [tab, setTab] = useState<Tab>("pricing");
   const [config, setConfig] = useState<AdminConfig | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   // Fetch config when panel opens
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    fetch(apiUrl("/api/admin/config"))
-      .then((r) => r.json())
+    setError(null);
+    authFetch("/api/admin/config")
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
       .then((d) => setConfig(d))
-      .catch(() => {})
+      .catch((e) => setError(`Failed to load config (${e.message})`))
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -50,13 +55,21 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
     return () => document.removeEventListener("mousedown", handler);
   }, [open, onClose]);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const save = useCallback(async (updates: Partial<AdminConfig>) => {
-    const res = await fetch(apiUrl("/api/admin/config"), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updates),
-    });
-    if (res.ok) {
+    setSaveError(null);
+    try {
+      const res = await authFetch("/api/admin/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSaveError(body.error || `Save failed (${res.status})`);
+        return;
+      }
       const updated = await res.json();
       setConfig(updated);
       // Propagate to store so the app reflects changes immediately
@@ -65,6 +78,8 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
         enabledModels: updated.enabledModels,
         enabledCommands: updated.enabledCommands,
       });
+    } catch {
+      setSaveError("Network error — save failed");
     }
   }, []);
 
@@ -92,17 +107,26 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
         ))}
       </div>
 
-      {loading || !config ? (
+      {loading || (!config && !error) ? (
         <div className="px-4 py-8 text-center font-mono text-[11px] text-muted-foreground/40">
           loading...
         </div>
-      ) : (
+      ) : error ? (
+        <div className="px-4 py-8 text-center font-mono text-[11px] text-red-400">
+          {error}
+        </div>
+      ) : config ? (
         <>
+          {saveError && (
+            <div className="px-4 pt-3 font-mono text-[10px] text-red-400">
+              {saveError}
+            </div>
+          )}
           {tab === "pricing" && <PricingTab config={config} onSave={save} />}
           {tab === "models" && <ModelsTab config={config} onSave={save} />}
           {tab === "commands" && <CommandsTab config={config} onSave={save} />}
         </>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useMeterStore } from "@/lib/store";
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 import Image from "next/image";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -41,7 +41,7 @@ function CardForm() {
       setStatus("Saving email...");
 
       try {
-        const emailRes = await fetch(apiUrl("/api/auth/email"), {
+        const emailRes = await authFetch("/api/auth/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: trimmed }),
@@ -76,7 +76,7 @@ function CardForm() {
       if (setupIntent?.status === "succeeded") {
         // Confirm with our server to save card details
         setStatus("Confirming...");
-        const res = await fetch(apiUrl("/api/billing/confirm"), {
+        const res = await authFetch("/api/billing/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -187,7 +187,7 @@ export function AuthorizeScreen() {
   useEffect(() => {
     if (!userId) return;
 
-    fetch(apiUrl("/api/billing/setup-intent"), {
+    authFetch("/api/billing/setup-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),

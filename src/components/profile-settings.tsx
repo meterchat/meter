@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMeterStore } from "@/lib/store";
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 import {
   trackProfileOpened,
   trackAccountDeleted,
@@ -24,7 +24,7 @@ export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () 
   useEffect(() => {
     if (!open || !userId) return;
     trackProfileOpened();
-    fetch(apiUrl("/api/auth/passkeys"))
+    authFetch("/api/auth/passkeys")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.passkeys) setPasskeys(data.passkeys);
@@ -44,7 +44,7 @@ export function ProfileSettings({ open, onClose }: { open: boolean; onClose: () 
     setDeleting(true);
     setDeleteError(null);
     try {
-      const res = await fetch(apiUrl("/api/account/delete"), {
+      const res = await authFetch("/api/account/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),

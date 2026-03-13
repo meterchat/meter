@@ -6,7 +6,7 @@ import { motion, useScroll, useTransform, useInView } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useMeterStore } from "@/lib/store";
 import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
-import { apiUrl } from "@/lib/api-url";
+import { authFetch } from "@/lib/auth-fetch";
 import {
   identifyUser,
   trackAccountCreated,
@@ -1114,7 +1114,7 @@ export function LandingPage() {
         setStatus(null);
         return;
       }
-      const optRes = await fetch(apiUrl("/api/auth/passkey"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-options" }) });
+      const optRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-options" }) });
       const optData = await optRes.json();
       if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
       setStatus("Authenticating...");
@@ -1125,7 +1125,7 @@ export function LandingPage() {
       });
       if (!credential) { setStep("no-account"); setLoading(false); setStatus(null); return; }
       setStatus("Verifying...");
-      const verifyRes = await fetch(apiUrl("/api/auth/passkey"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-verify", challengeId: optData.challengeId, credential: credentialToJSON(credential as PublicKeyCredential) }) });
+      const verifyRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-verify", challengeId: optData.challengeId, credential: credentialToJSON(credential as PublicKeyCredential) }) });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) throw new Error(verifyData.error || "Login failed");
       afterPasskey(verifyData.user, "login");
@@ -1148,12 +1148,12 @@ export function LandingPage() {
     setError(null);
     setStatus("Setting up passkey...");
     try {
-      const optRes = await fetch(apiUrl("/api/auth/passkey"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "register-options" }) });
+      const optRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "register-options" }) });
       const optData = await optRes.json();
       if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
       const credential = await startRegistration({ optionsJSON: optData.options });
       setStatus("Verifying...");
-      const verifyRes = await fetch(apiUrl("/api/auth/passkey"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "register-verify", challengeId: optData.challengeId, credential, userId: optData.userId }) });
+      const verifyRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "register-verify", challengeId: optData.challengeId, credential, userId: optData.userId }) });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) throw new Error(verifyData.error || "Registration failed");
       afterPasskey(verifyData.user, "register");
@@ -1177,7 +1177,7 @@ export function LandingPage() {
     setStatus("Waiting for cross-device authentication...");
     trackCrossDeviceAuthStarted();
     try {
-      const optRes = await fetch(apiUrl("/api/auth/passkey"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-options" }) });
+      const optRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-options" }) });
       const optData = await optRes.json();
       if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
       const credential = await navigator.credentials.get({
@@ -1185,7 +1185,7 @@ export function LandingPage() {
       });
       if (!credential) { setError("No credential received. Try again."); setLoading(false); setStatus(null); return; }
       setStatus("Verifying...");
-      const verifyRes = await fetch(apiUrl("/api/auth/passkey"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-verify", challengeId: optData.challengeId, credential: credentialToJSON(credential as PublicKeyCredential) }) });
+      const verifyRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-verify", challengeId: optData.challengeId, credential: credentialToJSON(credential as PublicKeyCredential) }) });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) throw new Error(verifyData.error || "Login failed");
       afterPasskey(verifyData.user, "cross_device");
