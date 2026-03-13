@@ -152,6 +152,10 @@ export async function POST(req: NextRequest) {
 
     // ── register-options: create new account + generate passkey registration ──
     if (step === "register-options") {
+      // Pre-launch signup gate — remove or set ALLOW_SIGNUPS=true to open
+      if (process.env.ALLOW_SIGNUPS !== "true") {
+        return NextResponse.json({ error: "Signups aren't open yet — check back soon!" }, { status: 403 });
+      }
       const userId = `usr_${crypto.randomBytes(12).toString("hex")}`;
 
       // Generate a unique short handle (e.g. "ab41ki")
