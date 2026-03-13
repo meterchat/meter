@@ -1,222 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
-import { getSupabaseServer } from "@/lib/supabase";
-
 import { requireAuth } from "@/lib/auth";
-import {
-  serverTrackSettlementCompleted,
-  serverTrackSettlementFailed,
-} from "@/lib/analytics-server";
-
-function scopedSessionId(userId: string, localId: string): string {
-  if (localId.startsWith(`${userId}:`)) return localId;
-  return `${userId}:${localId}`;
-}
-
-/** Verify all messageIds belong to sessions owned by userId */
-async function verifyMessageOwnership(
-  supabase: ReturnType<typeof getSupabaseServer>,
-  userId: string,
-  messageIds: string[],
-): Promise<boolean> {
-  if (!messageIds || messageIds.length === 0) return true;
-  const { data: sessions } = await supabase
-    .from("chat_sessions")
-    .select("id")
-    .eq("user_id", userId);
-  if (!sessions?.length) return false;
-  const sessionIds = sessions.map((s: { id: string }) => s.id);
-  const { data: msgs } = await supabase
-    .from("chat_messages")
-    .select("id")
-    .in("id", messageIds)
-    .in("session_id", sessionIds);
-  return msgs !== null && msgs.length === messageIds.length;
-}
+import { settleWorkspace } from "@/lib/settle-workspace";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
   const { userId } = auth;
 
-  const { stripeCustomerId, workspaceId, amount, messageIds, chargeIds } = await req.json();
+  const { workspaceId, amount, messageIds, chargeIds } = await req.json();
 
   if (!workspaceId || !amount || amount <= 0) {
     return NextResponse.json({ error: "workspaceId and positive amount required" }, { status: 400 });
   }
 
-  const supabase = getSupabaseServer();
-  const dbSessionId = scopedSessionId(userId, workspaceId);
+  const result = await settleWorkspace({
+    userId,
+    workspaceId,
+    amount,
+    messageIds: messageIds ?? [],
+    chargeIds: chargeIds ?? [],
+  });
 
-  async function markSettlementFailed() {
-    await supabase
-      .from("chat_sessions")
-      .update({ settlement_failed: true })
-      .eq("id", dbSessionId)
-      .eq("user_id", userId);
+  if (!result.success) {
+    const isPaymentError = result.error?.includes("authentication_required")
+      || result.error?.includes("card_declined")
+      || result.error?.includes("Payment not succeeded");
+    const isForbidden = result.error?.includes("Forbidden");
+    const status = isForbidden ? 403 : isPaymentError ? 402 : 400;
+    return NextResponse.json({ error: result.error }, { status });
   }
 
-  try {
-    // ── Free credit deduction ──
-    // Check if user has free credit remaining and deduct before card charge
-    const { data: userRow } = await supabase
-      .from("meter_users")
-      .select("free_credit_remaining")
-      .eq("id", userId)
-      .single();
-    const freeCredit = Number(userRow?.free_credit_remaining ?? 0);
-    let creditUsed = 0;
-    let chargeAmount = amount;
-
-    if (freeCredit > 0) {
-      creditUsed = Math.min(freeCredit, amount);
-      chargeAmount = Math.round((amount - creditUsed) * 100) / 100; // round to cents
-      // Deduct free credit
-      await supabase
-        .from("meter_users")
-        .update({ free_credit_remaining: Math.max(0, freeCredit - creditUsed) })
-        .eq("id", userId);
-    }
-
-    // If free credit covers the full amount, skip card charge
-    if (chargeAmount <= 0) {
-      if (messageIds && messageIds.length > 0) {
-        if (!(await verifyMessageOwnership(supabase, userId, messageIds))) {
-          return NextResponse.json({ error: "Forbidden: message ownership mismatch" }, { status: 403 });
-        }
-        await supabase
-          .from("chat_messages")
-          .update({ settled: true, receipt_status: "settled" })
-          .in("id", messageIds);
-      }
-      const historyId = `stl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-      await supabase.from("settlement_history").insert({
-        id: historyId,
-        user_id: userId,
-        workspace_id: workspaceId,
-        amount,
-        stripe_payment_intent_id: null,
-        message_count: messageIds?.length ?? 0,
-        charge_count: chargeIds?.length ?? 0,
-        card_last4: null,
-        card_brand: null,
-        status: "bonus_credit",
-      }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
-
-      return NextResponse.json({
-        success: true,
-        paymentIntentId: null,
-        amountCharged: 0,
-        creditUsed,
-        freeCredit: true,
-      });
-    }
-
-    // Resolve Stripe customer (auto-creates if stale/missing)
-    const customerId = await ensureStripeCustomer(userId);
-
-    // Get customer's default payment method
-    const customer = await getStripe().customers.retrieve(customerId);
-    if (customer.deleted) {
-      return NextResponse.json({ error: "Stripe customer deleted" }, { status: 400 });
-    }
-    const defaultPm = customer.invoice_settings?.default_payment_method;
-    if (!defaultPm) {
-      return NextResponse.json({ error: "No payment method on file" }, { status: 400 });
-    }
-
-    // Create and confirm PaymentIntent (charge only the remainder after free credit)
-    const amountCents = Math.round(chargeAmount * 100);
-    const paymentIntent = await getStripe().paymentIntents.create({
-      amount: amountCents,
-      currency: "usd",
-      customer: customerId,
-      payment_method: typeof defaultPm === "string" ? defaultPm : defaultPm.id,
-      confirm: true,
-      off_session: true,
-      description: `Meter settlement — ${(messageIds?.length ?? 0)} messages, ${(chargeIds?.length ?? 0)} card charges`,
-      metadata: {
-        meter_user_id: userId,
-        workspace_id: workspaceId,
-        message_count: String(messageIds?.length ?? 0),
-        charge_count: String(chargeIds?.length ?? 0),
-      },
-    });
-
-    if (paymentIntent.status !== "succeeded") {
-      await markSettlementFailed();
-      return NextResponse.json(
-        { error: "Payment not succeeded", status: paymentIntent.status },
-        { status: 402 }
-      );
-    }
-
-    // Update messages in Supabase
-    if (messageIds && messageIds.length > 0) {
-      if (!(await verifyMessageOwnership(supabase, userId, messageIds))) {
-        return NextResponse.json({ error: "Forbidden: message ownership mismatch" }, { status: 403 });
-      }
-      await supabase
-        .from("chat_messages")
-        .update({ settled: true, receipt_status: "settled" })
-        .in("id", messageIds);
-    }
-
-    // Get card info for history record
-    const pmObj = typeof defaultPm === "string"
-      ? await getStripe().paymentMethods.retrieve(defaultPm)
-      : defaultPm;
-    const historyId = `stl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    await supabase.from("settlement_history").insert({
-      id: historyId,
-      user_id: userId,
-      workspace_id: workspaceId,
-      amount,
-      stripe_payment_intent_id: paymentIntent.id,
-      message_count: messageIds?.length ?? 0,
-      charge_count: chargeIds?.length ?? 0,
-      card_last4: pmObj && "card" in pmObj ? pmObj.card?.last4 ?? null : null,
-      card_brand: pmObj && "card" in pmObj ? pmObj.card?.brand ?? null : null,
-      status: "succeeded",
-    }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
-
-    // Clear settlement_failed flag on success
-    await supabase
-      .from("chat_sessions")
-      .update({ settlement_failed: false })
-      .eq("id", dbSessionId)
-      .eq("user_id", userId);
-
-    serverTrackSettlementCompleted(userId, {
-      amount,
-      workspaceId,
-      messageCount: messageIds?.length ?? 0,
-      chargeCount: chargeIds?.length ?? 0,
-      stripePaymentIntentId: paymentIntent.id,
-      cardLast4: pmObj && "card" in pmObj ? pmObj.card?.last4 ?? undefined : undefined,
-      cardBrand: pmObj && "card" in pmObj ? pmObj.card?.brand ?? undefined : undefined,
-    });
-
-    return NextResponse.json({
-      success: true,
-      paymentIntentId: paymentIntent.id,
-      amountCharged: amount,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("Settlement error:", message);
-
-    serverTrackSettlementFailed(userId, {
-      amount,
-      workspaceId,
-      error: message,
-    });
-
-    if (message.includes("authentication_required") || message.includes("card_declined")) {
-      await markSettlementFailed().catch(() => {});
-      return NextResponse.json({ error: "Payment failed: " + message }, { status: 402 });
-    }
-
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  return NextResponse.json({
+    success: true,
+    paymentIntentId: result.paymentIntentId,
+    amountCharged: result.amountCharged,
+    creditUsed: result.creditUsed,
+    freeCredit: result.paymentIntentId === null,
+  });
 }

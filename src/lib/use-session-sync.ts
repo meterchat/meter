@@ -39,7 +39,6 @@ export function useSessionSync() {
   const sessions = useMeterStore((s) => s.sessions);
   const authenticated = useMeterStore((s) => s.authenticated);
   const resetDailyIfNeeded = useMeterStore((s) => s.resetDailyIfNeeded);
-  const attemptDailySettlement = useMeterStore((s) => s.attemptDailySettlement);
   const lastSyncRef = useRef<string>("");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncedMessageCountRef = useRef<Map<string, number>>(new Map());
@@ -315,18 +314,16 @@ export function useSessionSync() {
     };
   }, [authenticated, sessions, syncToServer]);
 
-  // Reset daily counters at local midnight + attempt settlement
+  // Reset daily counters at local midnight
   useEffect(() => {
     if (!authenticated) return;
 
     resetDailyIfNeeded();
-    attemptDailySettlement();
     let timeout: ReturnType<typeof setTimeout> | null = null;
     const schedule = () => {
       const ms = getMsUntilMidnight() + 50;
       timeout = setTimeout(() => {
         resetDailyIfNeeded();
-        attemptDailySettlement();
         schedule();
       }, ms);
     };
@@ -335,7 +332,7 @@ export function useSessionSync() {
     return () => {
       if (timeout) clearTimeout(timeout);
     };
-  }, [authenticated, resetDailyIfNeeded, attemptDailySettlement]);
+  }, [authenticated, resetDailyIfNeeded]);
 
   // Sync on page unload
   useEffect(() => {
@@ -624,7 +621,6 @@ export function useSessionSync() {
           activeSessionId: nextActiveSessionId,
         }));
         useMeterStore.getState().resetDailyIfNeeded();
-        useMeterStore.getState().attemptDailySettlement();
 
         useWorkspaceStore.getState().upsertWorkspacesFromSessions(serverSessions, nextActiveSessionId);
         useMeterStore.getState().fetchConnectionStatus();
