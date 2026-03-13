@@ -223,6 +223,8 @@ function extractDissectorContext(conversation: Message[]): {
 interface DissectionUsage {
   tokensIn: number;
   tokensOut: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
   actualCost: number;
 }
 
@@ -241,6 +243,9 @@ async function runPass(
   let content = "";
   let roundIn = 0;
   let roundOut = 0;
+  let roundCacheCreation = 0;
+  let roundCacheRead = 0;
+  let roundCacheReadRate = 0;
 
   const passSend: Send = (data) => {
     if (data.type === "delta") {
@@ -250,6 +255,9 @@ async function runPass(
     if (data.type === "usage") {
       roundIn = (data.tokensIn as number) || 0;
       roundOut = (data.tokensOut as number) || 0;
+      roundCacheCreation = (data.cacheCreationTokens as number) || 0;
+      roundCacheRead = (data.cacheReadTokens as number) || 0;
+      roundCacheReadRate = (data.cacheReadRate as number) || 0;
     }
   };
 
@@ -262,7 +270,16 @@ async function runPass(
 
   usage.tokensIn += roundIn;
   usage.tokensOut += roundOut;
-  usage.actualCost += roundIn * model.inputPrice + roundOut * model.outputPrice;
+  usage.cacheCreationTokens += roundCacheCreation;
+  usage.cacheReadTokens += roundCacheRead;
+
+  const uncachedIn = roundIn - roundCacheCreation - roundCacheRead;
+  const inputCost = (roundCacheCreation > 0 || roundCacheRead > 0)
+    ? (uncachedIn * model.inputPrice) +
+      (roundCacheCreation * model.inputPrice * 1.25) +
+      (roundCacheRead * model.inputPrice * (roundCacheReadRate || 0.1))
+    : roundIn * model.inputPrice;
+  usage.actualCost += inputCost + roundOut * model.outputPrice;
 
   send({ type: "dissector_turn_end", persona });
 
@@ -275,7 +292,7 @@ export async function runDissection(
   conversation: Message[],
   send: Send,
 ) {
-  const usage: DissectionUsage = { tokensIn: 0, tokensOut: 0, actualCost: 0 };
+  const usage: DissectionUsage = { tokensIn: 0, tokensOut: 0, cacheCreationTokens: 0, cacheReadTokens: 0, actualCost: 0 };
   const { topic, context } = extractDissectorContext(conversation);
   const model = getModel(META_MODEL);
 
@@ -294,12 +311,18 @@ export async function runDissection(
 
     let roundIn = 0;
     let roundOut = 0;
+    let roundCacheCreation = 0;
+    let roundCacheRead = 0;
+    let roundCacheReadRate = 0;
     let textContent = "";
 
     const clarifySend: Send = (data) => {
       if (data.type === "usage") {
         roundIn = (data.tokensIn as number) || 0;
         roundOut = (data.tokensOut as number) || 0;
+        roundCacheCreation = (data.cacheCreationTokens as number) || 0;
+        roundCacheRead = (data.cacheReadTokens as number) || 0;
+        roundCacheReadRate = (data.cacheReadRate as number) || 0;
       }
       if (data.type === "delta") {
         textContent += data.content as string;
@@ -319,7 +342,15 @@ export async function runDissection(
 
     usage.tokensIn += roundIn;
     usage.tokensOut += roundOut;
-    usage.actualCost += roundIn * model.inputPrice + roundOut * model.outputPrice;
+    usage.cacheCreationTokens += roundCacheCreation;
+    usage.cacheReadTokens += roundCacheRead;
+    const clarifyUncachedIn = roundIn - roundCacheCreation - roundCacheRead;
+    const clarifyInputCost = (roundCacheCreation > 0 || roundCacheRead > 0)
+      ? (clarifyUncachedIn * model.inputPrice) +
+        (roundCacheCreation * model.inputPrice * 1.25) +
+        (roundCacheRead * model.inputPrice * (roundCacheReadRate || 0.1))
+      : roundIn * model.inputPrice;
+    usage.actualCost += clarifyInputCost + roundOut * model.outputPrice;
 
     if (result.hasToolCalls && result.toolCalls.size > 0) {
       for (const tc of result.toolCalls.values()) {
@@ -333,6 +364,8 @@ export async function runDissection(
             type: "usage",
             tokensIn: usage.tokensIn,
             tokensOut: usage.tokensOut,
+            cacheCreationTokens: usage.cacheCreationTokens,
+            cacheReadTokens: usage.cacheReadTokens,
             actualCost: usage.actualCost,
           });
           send({ type: "done", actualModel: "dissect" });
@@ -386,11 +419,17 @@ export async function runDissection(
 
   let roundIn = 0;
   let roundOut = 0;
+  let roundCacheCreation = 0;
+  let roundCacheRead = 0;
+  let roundCacheReadRate = 0;
 
   const verdictSend: Send = (data) => {
     if (data.type === "usage") {
       roundIn = (data.tokensIn as number) || 0;
       roundOut = (data.tokensOut as number) || 0;
+      roundCacheCreation = (data.cacheCreationTokens as number) || 0;
+      roundCacheRead = (data.cacheReadTokens as number) || 0;
+      roundCacheReadRate = (data.cacheReadRate as number) || 0;
       return;
     }
     // Forward deltas — verdict + table stream into the message bubble
@@ -410,7 +449,16 @@ export async function runDissection(
 
   usage.tokensIn += roundIn;
   usage.tokensOut += roundOut;
-  usage.actualCost += roundIn * model.inputPrice + roundOut * model.outputPrice;
+  usage.cacheCreationTokens += roundCacheCreation;
+  usage.cacheReadTokens += roundCacheRead;
+
+  const verdictUncachedIn = roundIn - roundCacheCreation - roundCacheRead;
+  const verdictInputCost = (roundCacheCreation > 0 || roundCacheRead > 0)
+    ? (verdictUncachedIn * model.inputPrice) +
+      (roundCacheCreation * model.inputPrice * 1.25) +
+      (roundCacheRead * model.inputPrice * (roundCacheReadRate || 0.1))
+    : roundIn * model.inputPrice;
+  usage.actualCost += verdictInputCost + roundOut * model.outputPrice;
 
   // ── Done ──────────────────────────────────────────────────────────────
 
@@ -418,6 +466,8 @@ export async function runDissection(
     type: "usage",
     tokensIn: usage.tokensIn,
     tokensOut: usage.tokensOut,
+    cacheCreationTokens: usage.cacheCreationTokens,
+    cacheReadTokens: usage.cacheReadTokens,
     actualCost: usage.actualCost,
   });
   send({ type: "done", actualModel: "dissect" });

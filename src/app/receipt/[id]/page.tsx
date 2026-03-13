@@ -38,6 +38,8 @@ export default function ReceiptPage() {
             model: m.model ?? undefined,
             tokensIn: m.tokens_in ?? undefined,
             tokensOut: m.tokens_out ?? undefined,
+            cacheCreationTokens: m.cache_creation_tokens ?? undefined,
+            cacheReadTokens: m.cache_read_tokens ?? undefined,
             cost: m.cost != null ? Number(m.cost) : undefined,
             confidence: m.confidence ?? undefined,
             settled: m.settled ?? undefined,
