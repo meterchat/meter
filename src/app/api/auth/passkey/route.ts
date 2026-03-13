@@ -166,9 +166,16 @@ export async function POST(req: NextRequest) {
 
       // Create user with handle and auto-generated internal email
       const internalEmail = `${handle}@meter.chat`;
+      // Fetch free credit amount from global config
+      const { data: appConfig } = await supabase
+        .from("app_config")
+        .select("free_usd_credit")
+        .eq("id", "global")
+        .single();
+      const freeCredit = Number(appConfig?.free_usd_credit ?? 0);
       const { error: insertErr } = await supabase
         .from("meter_users")
-        .insert({ id: userId, handle, email: internalEmail });
+        .insert({ id: userId, handle, email: internalEmail, free_credit_remaining: freeCredit });
       if (insertErr) throw insertErr;
 
       const options = await generateRegistrationOptions({

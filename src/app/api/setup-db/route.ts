@@ -463,6 +463,30 @@ const STATEMENTS: string[] = [
        using (developer_id::text = current_setting('app.user_id', true));
    exception when duplicate_object then null; when undefined_table then null; end $$`,
 
+  // ── Global admin config (single-row, controls markup / enabled models / commands) ──
+  `create table if not exists app_config (
+    id text primary key default 'global',
+    markup_multiplier numeric not null default 2.5,
+    enabled_models jsonb not null default '[]'::jsonb,
+    enabled_commands jsonb not null default '[]'::jsonb,
+    free_usd_credit numeric not null default 0,
+    updated_at timestamptz not null default now(),
+    updated_by text references meter_users(id)
+  )`,
+  `insert into app_config (id) values ('global') on conflict (id) do nothing`,
+  // app_config is public-read (needed by /api/auth/me), write gated by superadmin in API
+  `alter table app_config enable row level security`,
+  `do $$ begin
+     create policy app_config_read on app_config for select using (true);
+   exception when duplicate_object then null; end $$`,
+  `do $$ begin
+     create policy app_config_write on app_config for all
+       using (current_setting('app.user_id', true) is not null);
+   exception when duplicate_object then null; end $$`,
+
+  // Free USD credit per user (deducted before card charges at settlement)
+  `alter table meter_users add column if not exists free_credit_remaining numeric not null default 0`,
+
   // Reload PostgREST schema cache so new columns (preview, commit_message) are visible via REST API
   `notify pgrst, 'reload schema'`,
 

@@ -716,6 +716,14 @@ export function useSessionSync() {
             stripeCustomerId: data.stripeCustomerId,
           });
         }
+        // Apply global admin config (markup, enabled models/commands, free credit)
+        if (data.adminConfig) {
+          store.setAdminConfig({
+            enabledModels: data.adminConfig.enabledModels ?? [],
+            enabledCommands: data.adminConfig.enabledCommands ?? [],
+            freeCredit: data.freeCredit ?? 0,
+          });
+        }
       })
       .catch(() => { /* silent — localStorage still has basics */ });
 

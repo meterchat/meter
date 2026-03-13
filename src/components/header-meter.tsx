@@ -72,6 +72,20 @@ function startOfWeek(): number {
   return monday.getTime();
 }
 
+function FreeCreditBanner() {
+  const freeCredit = useMeterStore((s) => s.freeCredit);
+  if (!freeCredit || freeCredit <= 0) return null;
+  return (
+    <>
+      <div className="px-4 py-2.5 flex items-center justify-between">
+        <span className="font-mono text-[11px] text-emerald-400/80">Free credit</span>
+        <span className="font-mono text-[12px] text-emerald-400 tabular-nums">${freeCredit.toFixed(2)}</span>
+      </div>
+      <div className="h-px bg-border" />
+    </>
+  );
+}
+
 export function HeaderMeter() {
   const [open, setOpen] = useState(false);
   const [remaining, setRemaining] = useState(getMsUntilMidnight);
@@ -300,6 +314,9 @@ export function HeaderMeter() {
 
       {open && (
         <div className={`absolute top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl ${isMobile ? "fixed left-2 right-2 w-auto" : "right-0 w-[360px]"}`}>
+          {/* Free Credit */}
+          <FreeCreditBanner />
+
           {/* Pending Balance — top */}
           <PendingBalanceSection
             getPendingBalance={getWorkspacePendingBalance}

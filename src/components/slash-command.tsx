@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
 import { SLASH_COMMANDS } from "@/lib/connectors";
+import { useMeterStore } from "@/lib/store";
 
 export interface SlashCommandHandle {
   handleKey: (key: string) => boolean;
@@ -47,9 +48,15 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
       return () => document.removeEventListener("mousedown", handler);
     }, [open, onClose]);
 
+    // Filter commands by admin-enabled list (empty = all enabled)
+    const enabledCommands = useMeterStore((s) => s.enabledCommands);
+
     // Top-level slash commands (/debate, /decide, /fork, etc.)
-    const allCommands: FlatCommand[] = useMemo(() =>
-      SLASH_COMMANDS.map((sc) => ({
+    const allCommands: FlatCommand[] = useMemo(() => {
+      const commands = enabledCommands.length === 0
+        ? SLASH_COMMANDS
+        : SLASH_COMMANDS.filter((sc) => enabledCommands.includes(sc.command));
+      return commands.map((sc) => ({
         connectorId: sc.connectorId,
         connectorName: sc.label,
         connectorIcon: sc.iconPath,
@@ -58,8 +65,9 @@ export const SlashCommandPopover = forwardRef<SlashCommandHandle, SlashCommandPo
         description: sc.command,
         connected: sc.connectorId === "_builtin" || !!connectedServices[sc.connectorId],
         isSlashCommand: true,
-      })),
-      [connectedServices]
+      }));
+    },
+      [connectedServices, enabledCommands]
     );
 
     // Filter by query (matches connector name, command label, or description)

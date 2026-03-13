@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import dynamic from "next/dynamic";
 import { apiUrl } from "@/lib/api-url";
+import { AdminConfigButton } from "@/components/admin-config-panel";
 
 const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), {
   ssr: false,
@@ -825,6 +826,7 @@ export default function LogPage() {
               </button>
             </div>
           )}
+          <AdminConfigButton />
           <LogMeterBar entryCount={entries.length} />
         </div>
       </header>
