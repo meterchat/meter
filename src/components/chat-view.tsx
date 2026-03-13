@@ -73,8 +73,8 @@ function getPathColor(index: number) {
 
 function statusLabel(msg: ChatMessage) {
   if (msg.receiptStatus === "settled") return "Settled";
-  if (msg.receiptStatus === "signed") return "Signed";
-  return "Signing";
+  if (msg.receiptStatus === "metered") return "Metered";
+  return "Metering";
 }
 
 function ErrorCard({ payload }: { payload: string }) {
@@ -872,7 +872,7 @@ function MessageFooter({ msg, sessionId }: { msg: ChatMessage; sessionId: string
   const modelName = msg.model ? shortModelName(msg.model) : "—";
   const cost = msg.cost ?? 0;
   const totalTokens = (msg.tokensIn ?? 0) + (msg.tokensOut ?? 0);
-  const isSigned = msg.receiptStatus === "signed" || msg.receiptStatus === "settled";
+  const isMetered = msg.receiptStatus === "metered" || msg.receiptStatus === "settled";
 
   if (!hasCost) return null;
 
@@ -887,19 +887,19 @@ function MessageFooter({ msg, sessionId }: { msg: ChatMessage; sessionId: string
       <span className="text-muted-foreground/30">&middot;</span>
       <span>${cost.toFixed(cost < 0.01 ? 4 : 3)}</span>
       <span className="text-muted-foreground/30">&middot;</span>
-      {isSigned ? (
+      {isMetered ? (
         <a
           href={`/receipt/${msg.id}?session=${sessionId}`}
           target="_blank"
           rel="noopener noreferrer"
-          className={`inline-flex items-center gap-1 transition-colors ${msg.receiptStatus === "settled" ? "text-emerald-500/80 hover:text-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
+          className={`inline-flex items-center gap-1 transition-colors ${msg.receiptStatus === "settled" ? "text-emerald-500/80 hover:text-emerald-400" : "text-emerald-500/80 hover:text-emerald-400"}`}
           title="Open receipt"
         >
           {statusLabel(msg)}
           <span>↗</span>
         </a>
       ) : (
-        <span className="text-yellow-500/80">{statusLabel(msg)}</span>
+        <span className="text-amber-500/80">{statusLabel(msg)}</span>
       )}
     </div>
   );
@@ -1747,7 +1747,7 @@ export function ChatView() {
       role: "assistant",
       content: "",
       tokensOut: 0,
-      receiptStatus: "signing",
+      receiptStatus: "metering",
       timestamp: Date.now(),
     };
     addMessage(assistantMsg, streamSessionId);

@@ -68,7 +68,7 @@ export default function ReceiptPage() {
   const tokensOut = message.tokensOut ?? 0;
   const when = new Date(message.timestamp);
   const isSettled = message.receiptStatus === "settled";
-  const statusText = isSettled ? "Settled on Base" : "Signed · Pending settlement";
+  const statusText = isSettled ? "Metered & Settled" : "Metered · Pending settlement";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -89,42 +89,25 @@ export default function ReceiptPage() {
           </p>
         </div>
 
-        <div className="my-4 h-px bg-border" />
-
-        <div className="space-y-2 font-mono text-[11px] text-muted-foreground">
-          <p>Signed by: meter.base.eth</p>
-          <p>Signature: {message.signature ?? "pending"}</p>
-          {message.txHash && (
-            <p>
-              Tx:{" "}
-              <a
-                href={`${BASE_EXPLORER}${message.txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                {message.txHash.slice(0, 10)}...{message.txHash.slice(-8)}
-                <span className="ml-1">↗</span>
-              </a>
-            </p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 mt-4">
-          <button className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-foreground/5 transition-colors">
-            Verify Signature
-          </button>
-          {message.txHash && (
-            <a
-              href={`${BASE_EXPLORER}${message.txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-foreground/5 transition-colors"
-            >
-              View on Base
-            </a>
-          )}
-        </div>
+        {message.txHash && (
+          <>
+            <div className="my-4 h-px bg-border" />
+            <div className="space-y-2 font-mono text-[11px] text-muted-foreground">
+              <p>
+                Tx:{" "}
+                <a
+                  href={`${BASE_EXPLORER}${message.txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  {message.txHash.slice(0, 10)}...{message.txHash.slice(-8)}
+                  <span className="ml-1">↗</span>
+                </a>
+              </p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
