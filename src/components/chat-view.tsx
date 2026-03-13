@@ -1800,6 +1800,7 @@ export function ChatView() {
           sessionId: streamSessionId,
           userMessageId: userMsg.id,
           assistantMessageId: assistantMsg.id,
+          markupMultiplier,
           connectedServices: Object.keys(connectedServices).filter(
             (k) => connectedServices[k]
           ),
