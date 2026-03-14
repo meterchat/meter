@@ -18,6 +18,45 @@ import { authFetch } from "./auth-fetch";
 /** The model used for sync analysis — most intelligent available */
 const SYNC_MODEL = "anthropic/claude-opus-4-6";
 
+/**
+ * Read a full SSE response from /api/chat and return the accumulated text.
+ * The API always returns text/event-stream with `data: {...}` lines.
+ */
+async function readSSEResponse(response: Response): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No reader on response");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullContent = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIdx: number;
+    while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+      const line = buffer.slice(0, newlineIdx).trim();
+      buffer = buffer.slice(newlineIdx + 1);
+      if (!line.startsWith("data: ")) continue;
+      const payload = line.slice(6);
+      if (payload === "[DONE]") continue;
+
+      try {
+        const data = JSON.parse(payload);
+        if (data.type === "delta" && typeof data.content === "string") {
+          fullContent += data.content;
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+  }
+
+  return fullContent;
+}
+
 const SYNC_SYSTEM_PROMPT = `You are Meter's Strategy Sync engine. Your job is to analyze a user's complete strategy — all decisions, documents, specs, and conversation history — and find internal inconsistencies.
 
 You must find:
@@ -177,16 +216,18 @@ export async function runSync(): Promise<string> {
 
       const prompt = buildAnalysisPrompt(ctx, pass, totalPasses);
 
+      const meterState = useMeterStore.getState();
+      const activeSessionId = meterState.activeSessionId;
+
       const response = await authFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [
-            { role: "system", content: SYNC_SYSTEM_PROMPT },
-            { role: "user", content: prompt },
+            { role: "user", content: SYNC_SYSTEM_PROMPT + "\n\n" + prompt },
           ],
           model: SYNC_MODEL,
-          stream: false,
+          sessionId: activeSessionId,
         }),
       });
 
@@ -194,8 +235,7 @@ export async function runSync(): Promise<string> {
         throw new Error(`Sync API error: ${response.status}`);
       }
 
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content ?? data.content ?? "";
+      const content = await readSSEResponse(response);
 
       // Parse findings line by line
       const lines = content.split("\n").filter((l: string) => l.trim().startsWith("{"));

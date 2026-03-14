@@ -209,13 +209,14 @@
   }
 }
 
-/* Sync button — infinity icon spin (figure-8 feel) */
-@keyframes sync-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Sync button — tracer running along the infinity path */
+@keyframes sync-trace {
+  0% { stroke-dashoffset: 80; }
+  100% { stroke-dashoffset: 0; }
 }
-.sync-spin {
-  animation: sync-spin 2s linear infinite;
+.sync-tracer {
+  stroke-dasharray: 12 68;
+  animation: sync-trace 1.8s linear infinite;
 }
 
 /* Sync button — gold glow while running */
