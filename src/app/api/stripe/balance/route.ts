@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireSuperAdmin } from "@/lib/auth";
 import { getStripe } from "@/lib/stripe";
 
 export async function GET() {
+  const auth = await requireSuperAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const [balance, payouts] = await Promise.all([
       getStripe().balance.retrieve(),

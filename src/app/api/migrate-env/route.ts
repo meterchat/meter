@@ -1,6 +1,10 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireSuperAdmin } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   const { vercelToken, vercelProject, cfAccountId, cfToken, cfProject, env } =
     await req.json();
 
