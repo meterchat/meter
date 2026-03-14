@@ -29,6 +29,7 @@ import {
 import { emitLogEvent } from "@/lib/log-event";
 import { MeterPill } from "@/components/meter-pill";
 import { HeaderMeter } from "@/components/header-meter";
+import { SyncButton } from "@/components/sync-button";
 // CommitButton removed from header — decisions now log directly
 import { ModelSelectorBar, ModelPickerPanel } from "@/components/model-picker";
 import { Inspector } from "@/components/inspector";
@@ -276,6 +277,33 @@ function ActionPointButtons({
           Dissect
         </button>
       )}
+    </div>
+  );
+}
+
+/* ─── Sync Report Actions (Reconcile / Dismiss) ─── */
+
+function SyncReportActions({ onReconcile }: { onReconcile: () => void }) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <button
+        onClick={onReconcile}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-400 active:bg-amber-500/20 active:text-amber-400"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z" />
+        </svg>
+        Reconcile all
+      </button>
+      <button
+        onClick={() => setDismissed(true)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/20 bg-transparent px-3 py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-foreground/5 hover:text-foreground"
+      >
+        Dismiss
+      </button>
     </div>
   );
 }
@@ -2349,6 +2377,15 @@ export function ChatView() {
     if (!inputRef.current) return;
     trackSlashCommandUsed({ command: chatPrompt.slice(0, 50) });
 
+    // /sync command — triggers the sync engine directly, not a chat message
+    if (chatPrompt === "__SYNC__") {
+      setSlashOpen(false);
+      setSlashQuery("");
+      // Import dynamically to avoid circular deps
+      import("@/lib/sync-engine").then(({ runSync }) => runSync());
+      return;
+    }
+
     // Switch modes to match the command: /debate activates debate mode,
     // any other command drops back to discuss mode.
     const isDebateCommand = chatPrompt === "Debate this.";
@@ -2489,6 +2526,7 @@ export function ChatView() {
             )}
           </div>
           <div className="relative flex items-center gap-2">
+            <SyncButton />
             <HeaderMeter />
             <button
               onClick={toggleInspector}
@@ -2798,6 +2836,16 @@ export function ChatView() {
 
                       {msg.role === "assistant" && msg.decisionId && (
                         <DecisionPill decisionId={msg.decisionId} onOpen={() => { trackInspectorToggled({ open: true }); setInspectorOpen(true); setInspectorTab("decisions"); }} />
+                      )}
+                      {msg.role === "assistant" && msg.id.startsWith("sync-report-") && (
+                        <SyncReportActions onReconcile={() => {
+                          addMessage({
+                            id: `sync-reconcile-${Date.now()}`,
+                            role: "user",
+                            content: "Reconcile all contradictions and conflicts found in the sync report. Update all affected decisions, documents, and specs to be internally consistent.",
+                            timestamp: Date.now(),
+                          });
+                        }} />
                       )}
                       {msg.role === "assistant" && <MessageFooter msg={msg} sessionId={activeSessionId} />}
                     </div>

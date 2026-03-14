@@ -209,6 +209,24 @@
   }
 }
 
+/* Sync button — infinity icon spin (figure-8 feel) */
+@keyframes sync-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.sync-spin {
+  animation: sync-spin 2s linear infinite;
+}
+
+/* Sync button — gold glow while running */
+@keyframes sync-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(245, 158, 11, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.4); }
+}
+.sync-glow {
+  animation: sync-glow 2s ease-in-out infinite;
+}
+
 /* Hide Next.js error overlay portal */
 nextjs-portal {
   display: none !important;
