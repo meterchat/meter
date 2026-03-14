@@ -613,15 +613,39 @@ async function saveArtifact(
     const category = (args.category as string) || inferCategory(filePath);
 
     if (existingId) {
+      // Snapshot the current version before overwriting
+      const { data: current } = await supabase
+        .from("artifacts")
+        .select("id, version, content, category, file_path")
+        .eq("id", existingId)
+        .single();
+
+      if (current && current.content) {
+        const versionId = `artv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        await supabase.from("artifact_versions").insert({
+          id: versionId,
+          artifact_id: current.id,
+          user_id: ctx.userId,
+          version: current.version ?? 1,
+          file_path: current.file_path,
+          content: current.content,
+          category: current.category ?? "other",
+          change_summary: (args.change_summary as string) || null,
+        });
+      }
+
+      const newVersion = (current?.version ?? 1) + 1;
+
       const { error: updateErr } = await supabase.from("artifacts").update({
         content,
         status: "draft",
         category,
+        version: newVersion,
         last_generated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }).eq("id", existingId);
       if (updateErr) throw updateErr;
-      return JSON.stringify({ id: existingId, filePath, content, category, message: `Updated document: ${filePath}` });
+      return JSON.stringify({ id: existingId, filePath, content, category, version: newVersion, message: `Updated document: ${filePath} (v${newVersion})` });
     } else {
       const id = `art_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const { error: insertErr } = await supabase.from("artifacts").insert({

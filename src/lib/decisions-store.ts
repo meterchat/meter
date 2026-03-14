@@ -37,6 +37,8 @@ interface DecisionsState {
   reopenDecision: (id: string) => void;
   archiveDecision: (id: string) => void;
   fetchDecisions: () => Promise<void>;
+  /** Fetch all decisions including archived (superseded) — used by sync engine */
+  fetchAllDecisions: () => Promise<Decision[]>;
   fetchDecisionHistory: (title: string, sessionId?: string) => Promise<Decision[]>;
 }
 
@@ -137,6 +139,17 @@ export const useDecisionsStore = create<DecisionsState>()(
           });
         } catch {
           // Silent fail — localStorage still works as fallback
+        }
+      },
+
+      fetchAllDecisions: async () => {
+        try {
+          const res = await authFetch("/api/decisions?include_archived=true");
+          if (!res.ok) return [];
+          const data = await res.json();
+          return (data.decisions ?? []) as Decision[];
+        } catch {
+          return [];
         }
       },
 

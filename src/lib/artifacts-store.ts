@@ -6,6 +6,7 @@ export interface Artifact {
   filePath: string;
   content: string;
   status: "draft" | "synced";
+  version?: number;
   category?: string;
   githubRepo?: string;
   githubSha?: string;
@@ -16,6 +17,17 @@ export interface Artifact {
   sessionId?: string;
 }
 
+export interface ArtifactVersion {
+  id: string;
+  artifactId: string;
+  version: number;
+  filePath: string;
+  content: string;
+  category?: string;
+  changeSummary?: string;
+  createdAt: number;
+}
+
 interface ArtifactsState {
   artifacts: Artifact[];
   currentSessionId: string | null;
@@ -24,6 +36,7 @@ interface ArtifactsState {
   targetRepo: string | null;
 
   fetchArtifacts: (sessionId: string | null) => Promise<void>;
+  fetchArtifactHistory: (artifactId: string) => Promise<ArtifactVersion[]>;
   upsertArtifact: (artifact: Partial<Artifact> & { id: string; filePath: string }) => void;
   setTargetRepo: (repo: string | null) => void;
   setPushing: (v: boolean) => void;
@@ -52,6 +65,7 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
       const data = await res.json();
       const fetched = (data.artifacts ?? []).map((a: Artifact) => ({
         ...a,
+        version: a.version ?? 1,
         sessionId: a.sessionId ?? sessionId ?? undefined,
         lastCommittedContent: a.lastCommittedContent ?? a.content,
       }));
@@ -74,6 +88,17 @@ export const useArtifactsStore = create<ArtifactsState>()((set) => ({
       });
     } catch {
       set({ loading: false });
+    }
+  },
+
+  fetchArtifactHistory: async (artifactId) => {
+    try {
+      const res = await authFetch(`/api/artifacts?history_for=${artifactId}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.versions ?? []) as ArtifactVersion[];
+    } catch {
+      return [];
     }
   },
 
