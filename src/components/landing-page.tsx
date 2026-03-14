@@ -1382,7 +1382,7 @@ export function LandingPage() {
         reverse
         footer={
           <a
-            href="https://mcp.meter.chat"
+            href="https://docs.meter.chat#mcp"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 mt-4 font-mono text-[12px] text-muted-foreground/50 hover:text-foreground/70 transition-colors group"
