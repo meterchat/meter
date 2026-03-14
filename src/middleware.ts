@@ -4,6 +4,7 @@ const DEV_HOSTS = ["dev.getmeter.xyz", "getmeter.dev"];
 const PROD_HOST = "getmeter.xyz";
 const LOG_HOST = "log.meter.chat";
 const DOCS_HOST = "docs.meter.chat";
+const TECH_HOST = "tech.meter.chat";
 
 export function middleware(req: NextRequest) {
   const hostname = req.headers.get("host") ?? "";
@@ -14,6 +15,15 @@ export function middleware(req: NextRequest) {
     if (!pathname.startsWith("/docs") && !pathname.startsWith("/api") && !pathname.startsWith("/_next") && !pathname.startsWith("/favicon")) {
       const url = req.nextUrl.clone();
       url.pathname = `/docs${pathname}`;
+      return NextResponse.rewrite(url);
+    }
+  }
+
+  // tech.meter.chat → rewrite to /tech
+  if (hostname === TECH_HOST || hostname.startsWith("tech.meter")) {
+    if (!pathname.startsWith("/tech") && !pathname.startsWith("/api") && !pathname.startsWith("/_next") && !pathname.startsWith("/favicon")) {
+      const url = req.nextUrl.clone();
+      url.pathname = `/tech${pathname}`;
       return NextResponse.rewrite(url);
     }
   }
