@@ -107,6 +107,8 @@ interface ModelSelectorBarProps {
   selectedModelId: string;
   onSelect: (modelId: string) => void;
   className?: string;
+  /** Markup multiplier applied to base prices for display (default 1) */
+  markupMultiplier?: number;
 }
 
 export function ModelSelectorBar({
@@ -114,6 +116,7 @@ export function ModelSelectorBar({
   selectedModelId,
   onSelect,
   className,
+  markupMultiplier = 1,
 }: ModelSelectorBarProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -214,7 +217,7 @@ export function ModelSelectorBar({
                   {m.provider}
                 </span>
                 <span style={{ marginLeft: "6px", color: "var(--meter-text-secondary, #666)", fontFamily: "monospace", fontSize: "10px" }}>
-                  {fmtPrice(m.inputPrice)}/{fmtPrice(m.outputPrice)} per 1M
+                  {fmtPrice(m.inputPrice * markupMultiplier)}/{fmtPrice(m.outputPrice * markupMultiplier)} per 1M
                 </span>
                 <span style={{ marginLeft: "6px", color: badgeColor(costBadge(m)), fontFamily: "monospace", fontSize: "10px" }}>
                   {costBadge(m)}
