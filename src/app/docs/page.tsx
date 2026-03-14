@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MODELS, DEBATE_MODEL, DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
@@ -20,27 +20,58 @@ function fmtPerMsg(m: { inputPrice: number; outputPrice: number }, markup: numbe
 /** Models shown in docs pricing table (skip "Auto" since it routes to other models) */
 const DOCS_MODELS = MODELS.filter((m) => m.id !== "auto");
 
+const SECTION_IDS = [
+  "introduction", "how-it-works", "quickstart",
+  "pay-per-use", "pricing", "billing", "models",
+  "api-reference", "sdk", "mcp",
+];
+
 export default function DocsPage() {
   const markup = useMeterStore((s) => s.markupMultiplier) || DEFAULT_MARKUP_MULTIPLIER;
+  const mainRef = useRef<HTMLElement>(null);
+  const [activeId, setActiveId] = useState<string>("introduction");
+
+  useEffect(() => {
+    const root = mainRef.current;
+    if (!root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveId(entry.target.id);
+          }
+        }
+      },
+      { root, rootMargin: "0px 0px -60% 0px", threshold: 0 }
+    );
+
+    for (const id of SECTION_IDS) {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <aside className="w-56 border-r border-border p-6 flex flex-col gap-6 shrink-0">
+      <aside className="w-56 pl-10 pr-6 pt-6 pb-6 flex flex-col gap-6 shrink-0">
         <Link href="/">
           <Image src="/logo-dark-copy.webp" alt="Meter" width={64} height={18} />
         </Link>
 
         <nav className="flex flex-col gap-4">
-          <Section label="GET STARTED" items={["Introduction", "How It Works", "Quickstart"]} />
-          <Section label="CONCEPTS" items={["Pay Per Use", "Pricing", "Billing", "Models"]} />
-          <Section label="DEVELOPERS" items={["API Reference", "SDK", "MCP"]} />
+          <Section label="GET STARTED" items={["Introduction", "How It Works", "Quickstart"]} activeId={activeId} />
+          <Section label="CONCEPTS" items={["Pay Per Use", "Pricing", "Billing", "Models"]} activeId={activeId} />
+          <Section label="DEVELOPERS" items={["API Reference", "SDK", "MCP"]} activeId={activeId} />
         </nav>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-2xl mx-auto">
+      <main ref={mainRef} className="flex-1 overflow-y-auto pl-12 pr-8 pt-8 pb-8">
+        <div className="max-w-xl">
           <h1 className="text-2xl font-medium text-foreground mb-4">Meter Documentation</h1>
 
           <section className="mb-10">
@@ -174,7 +205,7 @@ export default function DocsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-lg font-medium text-foreground mb-2" id="api">API Reference</h2>
+            <h2 className="text-lg font-medium text-foreground mb-2" id="api-reference">API Reference</h2>
             <h3 className="text-sm font-medium text-foreground mb-2">POST /api/v1/chat</h3>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
               Streaming chat endpoint. Returns SSE events.
@@ -343,20 +374,24 @@ function McpSection() {
   );
 }
 
-function Section({ label, items }: { label: string; items: string[] }) {
+function Section({ label, items, activeId }: { label: string; items: string[]; activeId: string }) {
   return (
     <div>
-      <p className="font-mono text-[9px] text-muted-foreground/50 uppercase tracking-widest mb-2">{label}</p>
+      <p className="font-mono text-[10px] text-muted-foreground/50 uppercase tracking-widest mb-2">{label}</p>
       <div className="flex flex-col gap-1">
-        {items.map((item) => (
-          <a
-            key={item}
-            href={`#${item.toLowerCase().replace(/\s+/g, "-")}`}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5"
-          >
-            {item}
-          </a>
-        ))}
+        {items.map((item) => {
+          const slug = item.toLowerCase().replace(/\s+/g, "-");
+          const isActive = slug === activeId;
+          return (
+            <a
+              key={item}
+              href={`#${slug}`}
+              className={`text-sm transition-colors py-0.5 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {item}
+            </a>
+          );
+        })}
       </div>
     </div>
   );
