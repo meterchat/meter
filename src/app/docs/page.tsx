@@ -118,7 +118,7 @@ export default function DocsPage() {
           <section className="mb-10">
             <h2 className="text-lg font-medium text-foreground mb-2" id="pricing">Pricing</h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-              Pay-per-token pricing at {markup}x provider base rates. Most messages cost between $0.01 and $0.25.
+              Pay-per-token pricing.
             </p>
             <div className="overflow-x-auto mb-3">
               <table className="w-full text-xs font-mono">
@@ -127,7 +127,6 @@ export default function DocsPage() {
                     <th className="py-1.5 pr-4">Model</th>
                     <th className="py-1.5 pr-4">Input / 1M</th>
                     <th className="py-1.5 pr-4">Output / 1M</th>
-                    <th className="py-1.5">~Per Msg</th>
                   </tr>
                 </thead>
                 <tbody className="text-muted-foreground">
@@ -136,14 +135,12 @@ export default function DocsPage() {
                       <td className="py-1.5 pr-4">{m.name}</td>
                       <td className="py-1.5 pr-4">{fmtPrice(m.inputPrice * 1_000_000 * markup)}</td>
                       <td className="py-1.5 pr-4">{fmtPrice(m.outputPrice * 1_000_000 * markup)}</td>
-                      <td className="py-1.5">{fmtPerMsg(m, markup)}</td>
                     </tr>
                   ))}
                   <tr>
                     <td className="py-1.5 pr-4">{DEBATE_MODEL.name} (Debate)</td>
                     <td className="py-1.5 pr-4">{fmtPrice(DEBATE_MODEL.inputPrice * 1_000_000 * markup)}</td>
                     <td className="py-1.5 pr-4">{fmtPrice(DEBATE_MODEL.outputPrice * 1_000_000 * markup)}</td>
-                    <td className="py-1.5">{fmtPerMsg(DEBATE_MODEL, markup)}</td>
                   </tr>
                 </tbody>
               </table>
