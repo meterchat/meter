@@ -1228,12 +1228,6 @@ export function LandingPage() {
             >
               Docs
             </a>
-            <a
-              href="/console"
-              className="font-mono text-[12px] text-muted-foreground/60 hover:text-foreground transition-colors tracking-wide hidden sm:block"
-            >
-              Console
-            </a>
             <button
               onClick={handleContinue}
               disabled={loading}
