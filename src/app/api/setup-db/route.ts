@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireSuperAdmin } from "@/lib/auth";
 
 // One-time DB setup endpoint.
 // Uses the Supabase Management API (requires SUPABASE_ACCESS_TOKEN).
 // Runs each statement individually so ALTER effects are visible to later statements.
-// Call once after deploying: GET https://meter.chat/api/setup-db
+// Requires superadmin authentication.
 
 const STATEMENTS: string[] = [
   // Tables
@@ -578,6 +579,9 @@ async function runQuery(
 }
 
 export async function GET() {
+  const auth = await requireSuperAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const accessToken = process.env.SUPABASE_ACCESS_TOKEN;
 

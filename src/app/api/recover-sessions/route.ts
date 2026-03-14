@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth";
 
 /**
  * GET /api/recover-sessions — Dry-run audit of all sessions.
@@ -178,7 +178,7 @@ function groupByWorkspace(summaries: SessionSummary[]): WorkspaceGroup[] {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireSuperAdmin();
   if (auth instanceof NextResponse) return auth;
   const { userId } = auth;
 
@@ -553,7 +553,7 @@ export async function GET(request: NextRequest) {
  * to soft-delete sessions after you've verified the migration worked.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireSuperAdmin();
   if (auth instanceof NextResponse) return auth;
   const { userId } = auth;
 

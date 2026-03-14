@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth";
 
 /**
- * GET /api/debug-sessions — Diagnostic endpoint to audit all sessions.
+ * GET /api/debug-sessions — Diagnostic endpoint to audit all sessions (superadmin only).
  * Returns a summary of every session with message counts, date ranges,
  * and relationship metadata (is_subtrack, parent_session_id, workspace_name).
  *
@@ -11,7 +11,7 @@ import { requireAuth } from "@/lib/auth";
  * or phantom workspaces were created from track sessions.
  */
 export async function GET() {
-  const auth = await requireAuth();
+  const auth = await requireSuperAdmin();
   if (auth instanceof NextResponse) return auth;
   const { userId } = auth;
 

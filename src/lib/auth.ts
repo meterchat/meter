@@ -45,7 +45,10 @@ export async function requireSuperAdmin(): Promise<
   if (auth instanceof NextResponse) return auth;
   const superAdmin = await isSuperAdmin(auth.userId);
   if (!superAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json(
+      { error: "not authorized", message: "sign in at meter.chat with a superadmin account" },
+      { status: 403 },
+    );
   }
   return auth;
 }
