@@ -28,21 +28,44 @@ function findingCounts(findings: { type: string; dismissed?: boolean }[]) {
   };
 }
 
-/** Infinity icon SVG — the sync symbol */
-function InfinityIcon({ className, size = 16 }: { className?: string; size?: number }) {
+/** Infinity path data (shared between base and tracer) */
+const INFINITY_PATH = "M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z";
+
+/** Infinity icon SVG — the sync symbol.
+ *  When `active`, a gold tracer runs along the path like a guideline. */
+function InfinityIcon({ className, size = 16, active = false }: { className?: string; size?: number; active?: boolean }) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
     >
-      <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z" />
+      {/* Base path — always visible */}
+      <path d={INFINITY_PATH} stroke="currentColor" />
+      {/* Tracer path — short bright dash that runs along the infinity loop */}
+      {active && (
+        <path
+          d={INFINITY_PATH}
+          stroke="url(#sync-tracer-gradient)"
+          strokeWidth="2.5"
+          className="sync-tracer"
+        />
+      )}
+      {active && (
+        <defs>
+          <linearGradient id="sync-tracer-gradient">
+            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0" />
+            <stop offset="40%" stopColor="#f59e0b" stopOpacity="1" />
+            <stop offset="60%" stopColor="#fbbf24" stopOpacity="1" />
+            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+      )}
     </svg>
   );
 }
@@ -114,7 +137,7 @@ export function SyncButton() {
       >
         <InfinityIcon
           size={14}
-          className={isSyncing ? "sync-spin" : ""}
+          active={isSyncing}
         />
       </button>
 
@@ -124,7 +147,7 @@ export function SyncButton() {
           {/* Header */}
           <div className="px-4 py-3">
             <div className="flex items-center gap-2 mb-1">
-              <InfinityIcon size={12} className={isSyncing ? "sync-spin text-amber-400" : "text-muted-foreground/60"} />
+              <InfinityIcon size={12} active={isSyncing} className={isSyncing ? "text-amber-400" : "text-muted-foreground/60"} />
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
                 Strategy Sync
               </span>
