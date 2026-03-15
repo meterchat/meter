@@ -1,17 +1,22 @@
 /**
  * Sync Engine — strategy coherence analyzer.
  *
- * Ingests all decisions, documents, and conversation history.
+ * Ingests all decisions (including archived/superseded versions),
+ * documents (with version history), and conversation history.
  * Runs multiple passes looking for contradictions, gaps, stale
  * assumptions, and conflicts. Uses Claude Opus 4.6 for maximum
  * intelligence. Streams progress updates back via the sync store.
+ *
+ * Version-aware: understands decision chains (v1 → v2 → v3) and
+ * doc revisions. Flags when a decision was rethought but downstream
+ * docs or dependent decisions were never updated to match.
  *
  * The engine runs in the background — the user can keep chatting.
  */
 
 import { useSyncStore, type SyncFinding } from "./sync-store";
 import { useDecisionsStore, type Decision } from "./decisions-store";
-import { useArtifactsStore } from "./artifacts-store";
+import { useArtifactsStore, type Artifact } from "./artifacts-store";
 import { useMeterStore } from "./store";
 import { authFetch } from "./auth-fetch";
 
@@ -57,46 +62,115 @@ async function readSSEResponse(response: Response): Promise<string> {
   return fullContent;
 }
 
-const SYNC_SYSTEM_PROMPT = `You are Meter's Strategy Sync engine. Your job is to analyze a user's complete strategy — all decisions, documents, specs, and conversation history — and find internal inconsistencies.
+const SYNC_SYSTEM_PROMPT = `You are Meter's Strategy Sync engine. You analyze a user's complete strategy — all decisions (including version history), documents (including past versions), and conversation — to find internal inconsistencies.
 
-You must find:
-1. **Contradictions** — two decisions or docs that say opposite things
+CRITICAL: Decisions and documents are VERSIONED. When you see a decision chain (v1 → v2 → v3), the LATEST version is the current truth. Earlier versions show what was previously decided. Your job includes:
+
+1. **Contradictions** — two active decisions or docs that say opposite things
 2. **Gaps** — important areas with no decision or coverage
 3. **Stale assumptions** — decisions based on facts that may no longer be true
 4. **Conflicts** — decisions that work against each other even if not directly contradictory
+5. **Superseded but not propagated** — a decision was updated (v1→v2) but documents, specs, or dependent decisions still reference or assume the OLD version. This is the most important category.
+
+When analyzing version chains:
+- Compare current (active) decisions against what docs/specs say
+- If a decision was revised (has parentDecisionId or version > 1), check if all docs that reference the topic were updated AFTER the decision changed
+- If a doc still contains language matching an archived decision's choice but not the current version's choice, that is a propagation failure
 
 For each finding, output a JSON object on its own line with this exact shape:
-{"type":"contradiction|gap|stale|conflict","severity":"high|medium|low","title":"Short title","description":"Detailed explanation with specific references","ref_decisions":["decision title 1"],"ref_docs":["doc name 1"]}
+{"type":"contradiction|gap|stale|conflict","severity":"high|medium|low","title":"Short title","description":"Detailed explanation with specific references to decision titles, doc names, and version numbers","ref_decisions":["decision title 1"],"ref_docs":["doc name 1"]}
 
 Do NOT output anything except finding JSON objects, one per line. If you find nothing, output nothing.
 Be thorough but precise. Only flag real issues, not style preferences.`;
 
 interface SyncContext {
-  decisions: Decision[];
-  documents: { id: string; filePath: string; content: string; category: string }[];
+  /** Active (non-archived) decisions — the current truth */
+  activeDecisions: Decision[];
+  /** Archived decisions — previous versions, grouped by title for chain analysis */
+  archivedDecisions: Decision[];
+  /** Current documents with version numbers */
+  documents: { id: string; filePath: string; content: string; category: string; version: number; updatedAt?: number }[];
+  /** Recent conversation messages */
   recentMessages: { role: string; content: string }[];
 }
 
-function gatherContext(): SyncContext {
-  const decisions = useDecisionsStore.getState().decisions.filter((d) => !d.archived);
+async function gatherContext(): Promise<SyncContext> {
+  // Fetch ALL decisions from server (including archived/superseded)
+  // so we can build full version chains for analysis
+  const allDecisions = await useDecisionsStore.getState().fetchAllDecisions();
+  // Fall back to local store if server fetch fails
+  const decisions = allDecisions.length > 0 ? allDecisions : useDecisionsStore.getState().decisions;
+  const activeDecisions = decisions.filter((d) => !d.archived);
+  const archivedDecisions = decisions.filter((d) => d.archived);
+
   const artifacts = useArtifactsStore.getState().artifacts ?? [];
-  const documents = artifacts.map((a) => ({
+  const documents = artifacts.map((a: Artifact) => ({
     id: a.id ?? a.filePath,
     filePath: a.filePath,
     content: a.content,
     category: a.category ?? "general",
+    version: a.version ?? 1,
+    updatedAt: a.lastGeneratedAt,
   }));
 
   const meterState = useMeterStore.getState();
   const session = meterState.sessions.find((s) => s.id === meterState.activeSessionId);
   const allMessages = session?.messages ?? [];
-  // Take last 100 messages for context (enough to catch recent strategy shifts)
   const recentMessages = allMessages.slice(-100).map((m) => ({
     role: m.role,
     content: m.content,
   }));
 
-  return { decisions, documents, recentMessages };
+  return { activeDecisions, archivedDecisions, documents, recentMessages };
+}
+
+/**
+ * Build decision version chains for analysis.
+ * Groups decisions by title, ordered by version, showing the evolution.
+ */
+function buildDecisionChains(active: Decision[], archived: Decision[]): string {
+  // Group by title
+  const byTitle = new Map<string, Decision[]>();
+  for (const d of [...archived, ...active]) {
+    const key = d.title.toLowerCase();
+    const list = byTitle.get(key) ?? [];
+    list.push(d);
+    byTitle.set(key, list);
+  }
+
+  const parts: string[] = [];
+
+  for (const [, chain] of byTitle) {
+    // Sort by version ascending
+    chain.sort((a, b) => (a.version ?? 1) - (b.version ?? 1));
+
+    if (chain.length === 1) {
+      // Single version — no chain
+      const d = chain[0];
+      parts.push(`### ${d.title} [${d.status}] (v${d.version ?? 1})`);
+      if (d.choice) parts.push(`Choice: ${d.choice}`);
+      if (d.reasoning) parts.push(`Reasoning: ${d.reasoning}`);
+      if (d.category) parts.push(`Category: ${d.category}`);
+      parts.push(`Created: ${new Date(d.createdAt).toISOString().split("T")[0]}`);
+      parts.push("");
+    } else {
+      // Multi-version chain — show evolution
+      const current = chain[chain.length - 1];
+      parts.push(`### ${current.title} [${current.status}] (CURRENT: v${current.version ?? 1}, ${chain.length} versions)`);
+      parts.push(`**Current choice:** ${current.choice ?? "undecided"}`);
+      if (current.reasoning) parts.push(`**Current reasoning:** ${current.reasoning}`);
+      parts.push("");
+      parts.push("**Version history (oldest → newest):**");
+      for (const d of chain) {
+        const label = d.archived ? "SUPERSEDED" : "ACTIVE";
+        parts.push(`  v${d.version ?? 1} [${label}]: ${d.choice ?? "undecided"} (${new Date(d.createdAt).toISOString().split("T")[0]})`);
+        if (d.reasoning) parts.push(`    Reasoning: ${d.reasoning}`);
+      }
+      parts.push("");
+    }
+  }
+
+  return parts.join("\n");
 }
 
 function buildAnalysisPrompt(ctx: SyncContext, passNumber: number, totalPasses: number): string {
@@ -104,23 +178,18 @@ function buildAnalysisPrompt(ctx: SyncContext, passNumber: number, totalPasses: 
 
   parts.push(`=== SYNC PASS ${passNumber} of ${totalPasses} ===\n`);
 
-  if (ctx.decisions.length > 0) {
-    parts.push("## Decisions\n");
-    for (const d of ctx.decisions) {
-      parts.push(`### ${d.title} [${d.status}]`);
-      if (d.choice) parts.push(`Choice: ${d.choice}`);
-      if (d.reasoning) parts.push(`Reasoning: ${d.reasoning}`);
-      if (d.alternatives?.length) parts.push(`Alternatives considered: ${d.alternatives.join(", ")}`);
-      if (d.category) parts.push(`Category: ${d.category}`);
-      parts.push("");
-    }
+  if (ctx.activeDecisions.length > 0 || ctx.archivedDecisions.length > 0) {
+    parts.push("## Decisions (with version history)\n");
+    parts.push(buildDecisionChains(ctx.activeDecisions, ctx.archivedDecisions));
   }
 
   if (ctx.documents.length > 0) {
     parts.push("## Documents & Specs\n");
     for (const doc of ctx.documents) {
-      parts.push(`### ${doc.filePath} [${doc.category}]`);
-      // Truncate very long documents to keep within context
+      parts.push(`### ${doc.filePath} [${doc.category}] (v${doc.version})`);
+      if (doc.updatedAt) {
+        parts.push(`Last updated: ${new Date(doc.updatedAt).toISOString().split("T")[0]}`);
+      }
       const content = doc.content.length > 3000
         ? doc.content.slice(0, 3000) + "\n[... truncated ...]"
         : doc.content;
@@ -136,13 +205,12 @@ function buildAnalysisPrompt(ctx: SyncContext, passNumber: number, totalPasses: 
     }
   }
 
-  // Focus each pass on different aspects
   const focuses = [
-    "Focus on direct contradictions between decisions.",
-    "Focus on gaps — important strategic areas with no coverage.",
-    "Focus on stale assumptions — decisions based on outdated information.",
-    "Focus on subtle conflicts — decisions that undermine each other.",
-    "Final sweep — catch anything missed in previous passes.",
+    "Focus on direct contradictions between active decisions. Check if any two current decisions say opposite things.",
+    "Focus on superseded-but-not-propagated: decisions that were updated (v1→v2) but documents still reflect the old version's choice. Compare document content against current decision choices.",
+    "Focus on gaps — important strategic areas discussed in conversation but with no formal decision or document coverage.",
+    "Focus on stale assumptions — decisions based on information that may have changed, and subtle conflicts where decisions undermine each other.",
+    "Final sweep — check every document against every active decision. Flag any doc that references or assumes a choice that was later superseded.",
   ];
   parts.push(`\n${focuses[(passNumber - 1) % focuses.length]}`);
 
@@ -156,7 +224,6 @@ function parseFinding(line: string, decisions: Decision[], documents: { id: stri
 
     const references: SyncFinding["references"] = [];
 
-    // Match referenced decisions
     if (obj.ref_decisions) {
       for (const refTitle of obj.ref_decisions) {
         const match = decisions.find((d) =>
@@ -169,7 +236,6 @@ function parseFinding(line: string, decisions: Decision[], documents: { id: stri
       }
     }
 
-    // Match referenced docs
     if (obj.ref_docs) {
       for (const refDoc of obj.ref_docs) {
         const match = documents.find((d) =>
@@ -204,11 +270,11 @@ export async function runSync(): Promise<string> {
   if (store.isSyncing) return store.lastReport?.id ?? "";
 
   const reportId = store.startSync();
-  const ctx = gatherContext();
+  const ctx = await gatherContext();
   const totalPasses = 5;
 
-  // Deduplicate findings across passes by title
   const seenTitles = new Set<string>();
+  const allDecisions = [...ctx.activeDecisions, ...ctx.archivedDecisions];
 
   try {
     for (let pass = 1; pass <= totalPasses; pass++) {
@@ -237,17 +303,15 @@ export async function runSync(): Promise<string> {
 
       const content = await readSSEResponse(response);
 
-      // Parse findings line by line
       const lines = content.split("\n").filter((l: string) => l.trim().startsWith("{"));
       for (const line of lines) {
-        const finding = parseFinding(line, ctx.decisions, ctx.documents);
+        const finding = parseFinding(line, allDecisions, ctx.documents);
         if (finding && !seenTitles.has(finding.title.toLowerCase())) {
           seenTitles.add(finding.title.toLowerCase());
           useSyncStore.getState().addFinding(reportId, finding);
         }
       }
 
-      // Update cost estimate (rough: ~$0.05 per pass for Opus)
       const currentReport = useSyncStore.getState().lastReport;
       if (currentReport) {
         useSyncStore.getState().updateProgress(reportId, {
@@ -275,7 +339,7 @@ export function formatSyncReport(): string {
   const findings = report.findings.filter((f) => !f.dismissed);
 
   if (findings.length === 0) {
-    return "**Strategy Sync Complete**\n\nNo contradictions, gaps, or conflicts found. Your strategy is internally consistent.";
+    return "**Strategy Sync Complete**\n\nNo contradictions, gaps, or conflicts found. Your strategy is internally consistent across all decisions and documents.";
   }
 
   const contradictions = findings.filter((f) => f.type === "contradiction");

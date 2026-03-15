@@ -342,6 +342,25 @@ const STATEMENTS: string[] = [
   `create unique index if not exists idx_artifacts_user_project_path on artifacts(user_id, coalesce(project_id, ''), file_path)`,
   `create unique index if not exists idx_artifacts_user_session_path on artifacts(user_id, coalesce(session_id, ''), file_path)`,
 
+  // ── Artifact versioning columns ──
+  `alter table artifacts add column if not exists version integer default 1`,
+  `alter table artifacts add column if not exists parent_version_id text`,
+
+  // ── Artifact version history table ──
+  `create table if not exists artifact_versions (
+    id text primary key,
+    artifact_id text not null,
+    user_id text not null references meter_users(id) on delete cascade,
+    version integer not null default 1,
+    file_path text not null,
+    content text not null default '',
+    category text not null default 'other',
+    change_summary text,
+    created_at timestamptz default now()
+  )`,
+  `create index if not exists idx_artifact_versions_artifact on artifact_versions(artifact_id)`,
+  `create index if not exists idx_artifact_versions_user on artifact_versions(user_id)`,
+
   // ── RLS: helper function to set app context ──
   `create or replace function set_app_user(p_user_id text)
    returns void as $$
@@ -382,6 +401,12 @@ const STATEMENTS: string[] = [
 
   `do $$ begin
      create policy artifacts_owner on artifacts for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null; end $$`,
+
+  `alter table artifact_versions enable row level security`,
+  `do $$ begin
+     create policy artifact_versions_owner on artifact_versions for all
        using (user_id = current_setting('app.user_id', true));
    exception when duplicate_object then null; end $$`,
 

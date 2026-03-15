@@ -403,6 +403,26 @@ create index if not exists idx_artifacts_session on artifacts(session_id);
 create unique index if not exists idx_artifacts_user_project_path on artifacts(user_id, coalesce(project_id, ''), file_path);
 create unique index if not exists idx_artifacts_user_session_path on artifacts(user_id, coalesce(session_id, ''), file_path);
 
+-- Artifact versioning columns (added to main artifacts table)
+alter table artifacts add column if not exists version integer default 1;
+alter table artifacts add column if not exists parent_version_id text;
+
+-- Artifact version history — snapshots content before each overwrite
+create table if not exists artifact_versions (
+  id text primary key,
+  artifact_id text not null,
+  user_id text not null references meter_users(id) on delete cascade,
+  version integer not null default 1,
+  file_path text not null,
+  content text not null default '',
+  category text not null default 'other',
+  change_summary text,                  -- optional note about what changed
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_artifact_versions_artifact on artifact_versions(artifact_id);
+create index if not exists idx_artifact_versions_user on artifact_versions(user_id);
+
 -- =============================================
 -- ROW LEVEL SECURITY
 -- =============================================

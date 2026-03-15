@@ -56,12 +56,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Default: non-archived decisions, scoped to workspace if specified
+    // Pass include_archived=true to also return archived (superseded) decisions
+    const includeArchived = searchParams.get("include_archived") === "true";
     let listQuery = supabase
       .from("decisions")
       .select("*")
       .eq("user_id", userId)
-      .eq("archived", false)
       .order("created_at", { ascending: false });
+
+    if (!includeArchived) {
+      listQuery = listQuery.eq("archived", false);
+    }
 
     if (sessionId) {
       listQuery = listQuery.or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`);
