@@ -209,14 +209,21 @@
   }
 }
 
-/* Sync button — tracer running along the infinity path */
-@keyframes sync-trace {
-  0% { stroke-dashoffset: 80; }
-  100% { stroke-dashoffset: 0; }
+/* Sync button — gold fill that progressively draws the infinity symbol,
+   holds briefly, then resets through dark before filling again.
+   Path length ~80 units. */
+@keyframes sync-fill {
+  0%   { stroke-dashoffset: 80; }   /* fully hidden */
+  70%  { stroke-dashoffset: 0; }    /* fully filled with gold */
+  80%  { stroke-dashoffset: 0; opacity: 1; }  /* hold lit */
+  90%  { opacity: 0; }              /* fade out → dark grey shows through */
+  91%  { stroke-dashoffset: 80; opacity: 0; } /* reset hidden */
+  100% { stroke-dashoffset: 80; opacity: 1; } /* reappear, ready to fill again */
 }
-.sync-tracer {
-  stroke-dasharray: 12 68;
-  animation: sync-trace 1.8s linear infinite;
+.sync-fill {
+  stroke-dasharray: 80;
+  stroke-dashoffset: 80;
+  animation: sync-fill 2.4s ease-in-out infinite;
 }
 
 /* Sync button — gold glow while running */
