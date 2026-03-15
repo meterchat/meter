@@ -95,14 +95,22 @@ interface SyncContext {
 }
 
 async function gatherContext(): Promise<SyncContext> {
-  // Fetch ALL decisions from server (including archived/superseded)
-  // so we can build full version chains for analysis
-  const allDecisions = await useDecisionsStore.getState().fetchAllDecisions();
-  // Fall back to local store if server fetch fails
-  const decisions = allDecisions.length > 0 ? allDecisions : useDecisionsStore.getState().decisions;
+  const meterState = useMeterStore.getState();
+  const workspaceSessionId = meterState.activeSessionId;
+
+  // Fetch ALL decisions from server (including archived/superseded),
+  // scoped to the current workspace session
+  const allDecisions = await useDecisionsStore.getState().fetchAllDecisions(workspaceSessionId);
+  // Fall back to local store if server fetch fails (filter to current session)
+  const decisions = allDecisions.length > 0
+    ? allDecisions
+    : useDecisionsStore.getState().decisions.filter(
+        (d) => !d.sessionId || d.sessionId === workspaceSessionId
+      );
   const activeDecisions = decisions.filter((d) => !d.archived);
   const archivedDecisions = decisions.filter((d) => d.archived);
 
+  // Artifacts store is already scoped to the current workspace session
   const artifacts = useArtifactsStore.getState().artifacts ?? [];
   const documents = artifacts.map((a: Artifact) => ({
     id: a.id ?? a.filePath,
@@ -113,8 +121,7 @@ async function gatherContext(): Promise<SyncContext> {
     updatedAt: a.lastGeneratedAt,
   }));
 
-  const meterState = useMeterStore.getState();
-  const session = meterState.sessions.find((s) => s.id === meterState.activeSessionId);
+  const session = meterState.sessions.find((s) => s.id === workspaceSessionId);
   const allMessages = session?.messages ?? [];
   const recentMessages = allMessages.slice(-100).map((m) => ({
     role: m.role,

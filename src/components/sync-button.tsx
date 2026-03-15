@@ -32,7 +32,8 @@ function findingCounts(findings: { type: string; dismissed?: boolean }[]) {
 const INFINITY_PATH = "M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z";
 
 /** Infinity icon SVG — the sync symbol.
- *  When `active`, a gold tracer runs along the path like a guideline. */
+ *  When `active`, the symbol fills with gold from start to end,
+ *  then cycles through dark grey before filling again. */
 function InfinityIcon({ className, size = 16, active = false }: { className?: string; size?: number; active?: boolean }) {
   return (
     <svg
@@ -45,24 +46,23 @@ function InfinityIcon({ className, size = 16, active = false }: { className?: st
       strokeLinejoin="round"
       className={className}
     >
-      {/* Base path — always visible */}
+      {/* Base path — always visible, dark grey */}
       <path d={INFINITY_PATH} stroke="currentColor" />
-      {/* Tracer path — short bright dash that runs along the infinity loop */}
+      {/* Fill path — gold stroke that progressively draws the full symbol */}
       {active && (
         <path
           d={INFINITY_PATH}
-          stroke="url(#sync-tracer-gradient)"
+          stroke="url(#sync-fill-gradient)"
           strokeWidth="2.5"
-          className="sync-tracer"
+          className="sync-fill"
         />
       )}
       {active && (
         <defs>
-          <linearGradient id="sync-tracer-gradient">
-            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0" />
-            <stop offset="40%" stopColor="#f59e0b" stopOpacity="1" />
-            <stop offset="60%" stopColor="#fbbf24" stopOpacity="1" />
-            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+          <linearGradient id="sync-fill-gradient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#d97706" />
+            <stop offset="50%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#fbbf24" />
           </linearGradient>
         </defs>
       )}
