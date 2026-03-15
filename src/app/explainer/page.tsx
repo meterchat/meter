@@ -703,7 +703,7 @@ const styles = `
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: shine-sweep 4s ease-in-out forwards;
+    animation: shine-sweep 2s ease-in-out forwards;
   }
 
   /* ── Closing ── */
