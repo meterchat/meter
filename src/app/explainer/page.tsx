@@ -161,6 +161,8 @@ export default function ExplainerPage() {
     if (ctaUrl) { ctaUrl.style.opacity = "0"; ctaUrl.style.transform = "translateY(20px)"; }
     const ct = document.querySelector<HTMLElement>(".closing-tagline");
     if (ct) ct.style.opacity = "0";
+    const shineEl = document.querySelector<HTMLElement>(".shine-target");
+    if (shineEl) shineEl.classList.remove("shine-active");
   }
 
   function animate(i: number) {
@@ -188,6 +190,11 @@ export default function ExplainerPage() {
     if (i === 3) {
       const el = document.querySelector<HTMLElement>(".meter-logo-large");
       if (el) setTimeout(() => { el.style.transition = "opacity 1s ease, transform 1s cubic-bezier(0.16,1,0.3,1)"; el.style.opacity = "1"; el.style.transform = "scale(1)"; }, 200);
+    }
+    // Frame 5: shine effect
+    if (i === 4) {
+      const shineEl = document.querySelector<HTMLElement>(".shine-target");
+      if (shineEl) setTimeout(() => shineEl.classList.add("shine-active"), 300);
     }
     // Frame 8: model pills with logos
     if (i === 7) {
@@ -333,7 +340,7 @@ export default function ExplainerPage() {
         {/* 5: The first pay per thought AI */}
         <div className={`scene ${visible === 4 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text">
-            <div className="headline shine-text">The first pay-per-thought AI.</div>
+            <div className="headline shine-target">The first pay-per-thought AI.</div>
           </div>
         </div>
 
@@ -691,7 +698,7 @@ const styles = `
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }
-  .shine-text {
+  .shine-target {
     background: linear-gradient(
       90deg,
       rgba(255,255,255,1) 0%,
@@ -700,9 +707,12 @@ const styles = `
       rgba(255,255,255,0.4) 100%
     );
     background-size: 200% 100%;
+    background-position: 200% 0;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+  }
+  .shine-target.shine-active {
     animation: shine-sweep 2s ease-in-out forwards;
   }
 
