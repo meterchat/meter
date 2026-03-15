@@ -700,8 +700,8 @@ const styles = `
 
   /* ── Shine effect (like thinking shimmer) ── */
   @keyframes shine-sweep {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
   .shine-text {
     background: linear-gradient(
@@ -715,7 +715,7 @@ const styles = `
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: shine-sweep 3s ease-in-out infinite;
+    animation: shine-sweep 4s ease-in-out forwards;
   }
 
   /* ── Closing ── */
