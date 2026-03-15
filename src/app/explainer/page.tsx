@@ -345,7 +345,7 @@ export default function ExplainerPage() {
         {/* 5: The first pay per thought AI */}
         <div className={`scene ${visible === 4 ? "active" : ""} ${fading ? "fading" : ""}`}>
           <div className="scene-text">
-            <div className="headline">The first pay-per-thought AI.</div>
+            <div className="headline shine-text">The first pay-per-thought AI.</div>
           </div>
         </div>
 
@@ -696,6 +696,26 @@ const styles = `
   .cta-url {
     font-size: clamp(40px, 5vw, 68px); font-weight: 500; letter-spacing: -3px;
     margin-bottom: 16px; opacity: 0; transform: translateY(20px); color: #fff;
+  }
+
+  /* ── Shine effect (like thinking shimmer) ── */
+  @keyframes shine-sweep {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .shine-text {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,1) 0%,
+      rgba(255,255,255,0.4) 45%,
+      rgba(255,255,255,1) 55%,
+      rgba(255,255,255,0.4) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shine-sweep 3s ease-in-out infinite;
   }
 
   /* ── Closing ── */
