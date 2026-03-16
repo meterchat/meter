@@ -1,8 +1,8 @@
 **METER THESIS**
 
-We have entered the era of the vibebuilder. Anyone who can chat, can code.
+We have entered the era of the AI coder. Anyone who can chat, can code.
 
-Vibe coding tools have exploded. Cursor hit $1B ARR faster than any SaaS company in history,¹ Lovable reached $100M ARR in just eight months,² and globally, 41% of all code is now written by AI like Claude Code and Codex.³
+Coding tools have exploded. Cursor hit $1B ARR faster than any SaaS company in history,¹ Lovable reached $100M ARR in just eight months,² and globally, 41% of all code is now written by AI like Claude Code and Codex.³
 
 Building software is no longer constrained by technical knowhow. Anyone can spin up a full-stack application in hours.
 
@@ -32,7 +32,7 @@ Every stress-tested decision is logged. Over time, this log compounds as institu
 
 Routing is replicable. Your decision history is not.
 
-When it's time to execute, Meter handles the transition from thinking to coding. It synthesizes your decisions and debates into the artifacts your coding agent needs. Architecture docs, product requirements, business rules, and agent configuration files. These commit directly to your GitHub repo.
+When it's time to execute, Meter handles the transition from thinking to coding. It synthesizes your decisions and debates into the artifacts your coding agent needs. Architecture docs, product requirements, business rules, and agent configuration files, all generated as live specs that are shared with AI coders through our MCP.
 
 When you open Cursor, Claude Code, or Codex, your coding agent reads those files. It starts with perfect context. It knows the business rules, it knows the architecture, and it knows exactly what to build.
 
