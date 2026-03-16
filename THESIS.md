@@ -16,9 +16,9 @@ Worse, when we start coding without a plan, the data model breaks three days lat
 
 A brilliant codebase built on a broken decision is still a broken product.
 
-To fix this, we have to stop treating AI like a collection of subscription chatbots and start treating it like infrastructure. Intelligence is a utility. It should be metered like compute, routed like traffic, and logged like code.
+To fix this, we have to stop treating AI like a collection of subscription chatbots and start treating it like infrastructure. Intelligence is a utility. It should be metered like electricity.
 
-Meter is the first AI that lets you think like you code.
+Meter is the first pay-per-thought AI, that lets you think like you code.
 
 It gives you every frontier model on a single, postpaid tab. You pay per thought. You never hit a rate limit, because Meter routes around them. You set hard caps to protect your wallet, and you keep a perfect receipt of every dollar spent on intelligence.
 
