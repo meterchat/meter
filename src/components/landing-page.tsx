@@ -1118,11 +1118,23 @@ export function LandingPage() {
       const optData = await optRes.json();
       if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
       setStatus("Authenticating...");
+      // AbortController: safety net for browsers that ignore `hints` —
+      // kills any QR-code dialog within 3 s so first-time users aren't stuck.
+      const abortController = new AbortController();
+      const abortTimeout = setTimeout(() => abortController.abort(), 3000);
       const credential = await navigator.credentials.get({
-        publicKey: { challenge: base64URLStringToBuffer(optData.options.challenge), rpId: optData.options.rpId, timeout: 15000, userVerification: optData.options.userVerification ?? "preferred", allowCredentials: [] },
-        // @ts-expect-error -- hints is WebAuthn L3
-        hints: ["client-device"],
+        publicKey: {
+          challenge: base64URLStringToBuffer(optData.options.challenge),
+          rpId: optData.options.rpId,
+          timeout: 15000,
+          userVerification: optData.options.userVerification ?? "preferred",
+          allowCredentials: [],
+          // @ts-expect-error -- hints is WebAuthn L3, not in TS DOM types yet
+          hints: ["client-device"],
+        },
+        signal: abortController.signal,
       });
+      clearTimeout(abortTimeout);
       if (!credential) { setStep("no-account"); setLoading(false); setStatus(null); return; }
       setStatus("Verifying...");
       const verifyRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-verify", challengeId: optData.challengeId, credential: credentialToJSON(credential as PublicKeyCredential) }) });
