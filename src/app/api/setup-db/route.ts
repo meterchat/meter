@@ -528,6 +528,19 @@ const STATEMENTS: string[] = [
   `alter table app_config add column if not exists bonus_credit_limit integer not null default 100`,
   `alter table app_config add column if not exists bonus_credit_amount numeric not null default 10`,
 
+  // ── Stripe → Whop migration: rename columns + add new ones ──
+  // meter_users: stripe_customer_id → whop_member_id (if old column exists)
+  `do $$ begin alter table meter_users rename column stripe_customer_id to whop_member_id; exception when undefined_column then null; end $$`,
+  `alter table meter_users add column if not exists whop_member_id text`,
+  `alter table meter_users add column if not exists whop_payment_method_id text`,
+  // sdk_end_users: stripe_customer_id → whop_member_id (if old column exists)
+  `do $$ begin alter table sdk_end_users rename column stripe_customer_id to whop_member_id; exception when undefined_column then null; when undefined_table then null; end $$`,
+  `do $$ begin alter table sdk_end_users add column if not exists whop_member_id text; exception when undefined_table then null; end $$`,
+  `do $$ begin alter table sdk_end_users add column if not exists whop_payment_method_id text; exception when undefined_table then null; end $$`,
+  // settlement_history: stripe_payment_intent_id → whop_payment_id (if old column exists)
+  `do $$ begin alter table settlement_history rename column stripe_payment_intent_id to whop_payment_id; exception when undefined_column then null; end $$`,
+  `alter table settlement_history add column if not exists whop_payment_id text`,
+
   // ── Remove legacy crypto/blockchain columns ──
   `alter table chat_messages drop column if exists signature`,
   `alter table chat_messages drop column if exists tx_hash`,
