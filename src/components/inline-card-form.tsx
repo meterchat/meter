@@ -5,6 +5,7 @@ import { useMeterStore } from "@/lib/store";
 import { trackCardAdded } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";
 import { WhopCheckoutEmbed } from "@whop/checkout/react";
+import { Spinner } from "@/components/ui/spinner";
 
 export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {}) {
   const userId = useMeterStore((s) => s.userId);
@@ -62,6 +63,7 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
       <WhopCheckoutEmbed
         sessionId={sessionId}
         disableEmail
+        theme="dark"
         prefill={email ? { email } : undefined}
         returnUrl={`${window.location.origin}/`}
         onComplete={() => {
@@ -69,6 +71,14 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
           setCardOnFile(true);
           onComplete?.();
         }}
+        fallback={
+          <div className="flex items-center gap-2 py-4">
+            <Spinner className="size-3 text-muted-foreground" />
+            <span className="font-mono text-[10px] text-muted-foreground/50">
+              Loading payment form...
+            </span>
+          </div>
+        }
       />
 
       <p className="mt-2 font-mono text-[10px] text-muted-foreground/50 leading-relaxed">
