@@ -8,6 +8,7 @@ import { WhopCheckoutEmbed } from "@whop/checkout/react";
 
 export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const userId = useMeterStore((s) => s.userId);
+  const email = useMeterStore((s) => s.email);
   const fetchCards = useMeterStore((s) => s.fetchCards);
   const setCardOnFile = useMeterStore((s) => s.setCardOnFile);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -82,7 +83,8 @@ export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => 
             <div className="flex flex-col gap-4">
               <WhopCheckoutEmbed
                 sessionId={sessionId}
-                hideEmail
+                disableEmail
+                prefill={email ? { email } : undefined}
                 returnUrl={`${window.location.origin}/`}
                 onComplete={() => {
                   trackCardAdded({ brand: "card", last4: "****", source: "modal" });
