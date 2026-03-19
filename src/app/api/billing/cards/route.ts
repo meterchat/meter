@@ -27,14 +27,18 @@ export async function GET() {
 
     const defaultPmId = user.whop_payment_method_id;
 
-    const cards = (methods.data ?? []).map((pm: Record<string, unknown>) => ({
-      id: pm.id as string,
-      brand: (pm.brand as string) ?? "unknown",
-      last4: (pm.last4 as string) ?? "0000",
-      expMonth: (pm.exp_month as number) ?? 0,
-      expYear: (pm.exp_year as number) ?? 0,
-      isDefault: pm.id === defaultPmId,
-    }));
+    // Card details are nested under pm.card for CardPaymentMethod variants
+    const cards = (methods.data ?? []).map((pm) => {
+      const card = "card" in pm ? (pm as { card: { brand?: string | null; last4?: string | null; exp_month?: number | null; exp_year?: number | null } }).card : null;
+      return {
+        id: pm.id,
+        brand: card?.brand ?? "unknown",
+        last4: card?.last4 ?? "0000",
+        expMonth: card?.exp_month ?? 0,
+        expYear: card?.exp_year ?? 0,
+        isDefault: pm.id === defaultPmId,
+      };
+    });
 
     return NextResponse.json({ cards });
   } catch (err) {

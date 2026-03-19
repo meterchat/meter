@@ -50,15 +50,16 @@ export async function DELETE(
     // await whop.paymentMethods.detach(paymentMethodId);
 
     if (isDefault) {
-      const remaining = allCards.filter((m: Record<string, unknown>) => m.id !== paymentMethodId);
+      const remaining = allCards.filter((m) => m.id !== paymentMethodId);
       if (remaining.length > 0) {
         const newDefault = remaining[0];
+        const newCard = "card" in newDefault ? (newDefault as { card: { last4?: string | null; brand?: string | null } }).card : null;
         await supabase
           .from("meter_users")
           .update({
-            whop_payment_method_id: newDefault.id as string,
-            card_last4: (newDefault.last4 as string) ?? "0000",
-            card_brand: (newDefault.brand as string) ?? "unknown",
+            whop_payment_method_id: newDefault.id,
+            card_last4: newCard?.last4 ?? "0000",
+            card_brand: newCard?.brand ?? "unknown",
             updated_at: new Date().toISOString(),
           })
           .eq("id", userId);

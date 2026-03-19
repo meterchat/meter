@@ -8,6 +8,7 @@ import { WhopCheckoutEmbed } from "@whop/checkout/react";
 
 export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {}) {
   const userId = useMeterStore((s) => s.userId);
+  const email = useMeterStore((s) => s.email);
   const setCardOnFile = useMeterStore((s) => s.setCardOnFile);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +61,8 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
     <div className="mt-3 max-w-sm">
       <WhopCheckoutEmbed
         sessionId={sessionId}
+        disableEmail
+        prefill={email ? { email } : undefined}
         returnUrl={`${window.location.origin}/`}
         onComplete={() => {
           trackCardAdded({ brand: "card", last4: "****", source: "inline_form" });
