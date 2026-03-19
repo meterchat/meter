@@ -1063,7 +1063,7 @@ function SubscriptionLogos() {
 // ── Main Landing Page ──────────────────────────────────────────────────
 
 export function LandingPage() {
-  const { setAuth, setCardOnFile } = useMeterStore();
+  const { setAuth, setCardOnFile, fetchCards } = useMeterStore();
   const [step, setStep] = useState<AuthStep>("passkey");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -1101,6 +1101,9 @@ export function LandingPage() {
     if (user.cardOnFile) {
       setCardOnFile(true, user.cardLast4 ?? undefined, user.cardBrand);
     }
+    // Eagerly fetch cards from Whop — covers cases where the webhook
+    // didn't save card details to the DB but the card exists in Whop.
+    fetchCards();
   };
 
   const handleContinue = async () => {

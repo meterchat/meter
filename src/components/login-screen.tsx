@@ -246,7 +246,7 @@ function AsciiCanvas({ side }: { side: "left" | "right" }) {
 
 // ── Main LoginScreen ────────────────────────────────────────────────────
 export function LoginScreen() {
-  const { setAuth, setCardOnFile } = useMeterStore();
+  const { setAuth, setCardOnFile, fetchCards } = useMeterStore();
 
   const [step, setStep] = useState<OnboardingStep>("passkey");
   const [loading, setLoading] = useState(false);
@@ -488,6 +488,9 @@ export function LoginScreen() {
     if (user.cardOnFile) {
       setCardOnFile(true, user.cardLast4 ?? undefined, user.cardBrand);
     }
+    // Eagerly fetch cards from Whop — covers cases where the webhook
+    // didn't save card details to the DB but the card exists in Whop.
+    fetchCards();
     // Auth set → page.tsx renders ChatView; onboarding handled in-chat
   };
 
