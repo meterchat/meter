@@ -7,7 +7,7 @@ import Image from "next/image";
 import { WhopCheckoutEmbed } from "@whop/checkout/react";
 
 function CardForm() {
-  const { userId, email, setCardOnFile, setEmail, logout } = useMeterStore();
+  const { userId, email, setCardOnFile, setEmail, logout, loggingOut } = useMeterStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localEmail, setLocalEmail] = useState(email ?? "");
@@ -136,14 +136,21 @@ function CardForm() {
         </span>
         <button
           onClick={logout}
-          className="text-muted-foreground/40 hover:text-foreground transition-colors ml-1"
+          disabled={loggingOut}
+          className="text-muted-foreground/40 hover:text-foreground transition-colors ml-1 disabled:opacity-50"
           title="Sign out"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
+          {loggingOut ? (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          )}
         </button>
       </div>
     </div>

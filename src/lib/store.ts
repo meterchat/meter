@@ -195,6 +195,7 @@ interface MeterState {
   decisionMode: boolean;
 
   sessionsLoaded: boolean;
+  loggingOut: boolean;
 
   inspectorOpen: boolean;
   inspectorTab: string;
@@ -468,6 +469,7 @@ export const useMeterStore = create<MeterState>()(
       decisionMode: false,
 
       sessionsLoaded: false,
+      loggingOut: false,
 
       inspectorOpen: false,
       inspectorTab: "decisions",
@@ -599,6 +601,7 @@ export const useMeterStore = create<MeterState>()(
       },
 
       logout: async () => {
+        set({ loggingOut: true });
         // Flush unsaved messages to server BEFORE clearing state.
         // Fire all syncs in parallel (not sequential) to avoid N×latency.
         const currentSessions = get().sessions;
@@ -675,6 +678,7 @@ export const useMeterStore = create<MeterState>()(
           sessions: initialSessions,
           activeSessionId: "default",
           inspectorOpen: false,
+          loggingOut: false,
           pendingCharges: [],
           isSettling: false,
           cards: [],
