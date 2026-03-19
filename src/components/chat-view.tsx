@@ -2438,7 +2438,7 @@ export function ChatView() {
 
   const connectedServices = useMeterStore(selectConnectedServices);
   const logout = useMeterStore((s) => s.logout);
-  const [loggingOut, setLoggingOut] = useState(false);
+  const loggingOut = useMeterStore((s) => s.loggingOut);
 
   const scrollToBottom = useCallback(() => {
     userScrolledAwayRef.current = false;
@@ -2516,16 +2516,20 @@ export function ChatView() {
                 </button>
                 <div className="mx-2 my-1 h-px bg-border" />
                 <button
+                  onClick={() => { setLogoMenuOpen(false); resetUser(); logout(); }}
                   disabled={loggingOut}
-                  onClick={async () => { setLoggingOut(true); setLogoMenuOpen(false); resetUser(); await logout(); }}
                   className="flex w-full items-center gap-2.5 px-3 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-50"
                 >
-                  {loggingOut ? <Spinner className="size-3.5" /> : (
+                  {loggingOut ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="animate-spin">
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
+                    </svg>
+                  ) : (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
                     </svg>
                   )}
-                  {loggingOut ? "Signing Out..." : "Sign Out"}
+                  {loggingOut ? "Signing Out…" : "Sign Out"}
                 </button>
               </div>
             )}

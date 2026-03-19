@@ -21,7 +21,7 @@ interface UsageStats {
 }
 
 export default function ConsolePage() {
-  const { authenticated, email, logout } = useMeterStore();
+  const { authenticated, email, logout, loggingOut } = useMeterStore();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -134,12 +134,16 @@ Parse "delta" events for streamed text. "usage" has final token counts and confi
             {dropdownOpen && (
               <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-[#1a1a1a] shadow-lg overflow-hidden z-50">
                 <button
+                  onClick={() => { logout(); setDropdownOpen(false); }}
                   disabled={loggingOut}
-                  onClick={async () => { setLoggingOut(true); setDropdownOpen(false); await logout(); }}
-                  className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-400/10 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
-                  {loggingOut && <Spinner className="size-3 text-red-400" />}
-                  {loggingOut ? "Signing Out..." : "Sign Out"}
+                  {loggingOut && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  {loggingOut ? "Signing Out…" : "Sign Out"}
                 </button>
               </div>
             )}
