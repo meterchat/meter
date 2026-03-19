@@ -6,7 +6,7 @@ Meter gives you every top model — Claude, GPT, Gemini, and open-source — on 
 
 Connect Stripe, Mercury, Gmail, and more. Open source and end-to-end encrypted — auditable, self-hostable, fully yours.
 
----
+--
 
 ## What Meter Does
 
