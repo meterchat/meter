@@ -45,6 +45,7 @@ function CardForm() {
           <WhopCheckoutEmbed
             sessionId={sessionId}
             hideEmail
+            prefill={email ? { email } : undefined}
             returnUrl={`${window.location.origin}/`}
             onComplete={() => {
               setCardOnFile(true);

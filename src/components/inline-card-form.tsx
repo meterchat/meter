@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {}) {
   const userId = useMeterStore((s) => s.userId);
+  const email = useMeterStore((s) => s.email);
   const setCardOnFile = useMeterStore((s) => s.setCardOnFile);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +63,7 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
       <WhopCheckoutEmbed
         sessionId={sessionId}
         hideEmail
+        prefill={email ? { email } : undefined}
         theme="dark"
         returnUrl={`${window.location.origin}/`}
         onComplete={() => {
