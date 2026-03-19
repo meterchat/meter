@@ -5,15 +5,15 @@ const isMobileBuild = process.env.CAPACITOR_BUILD === "1";
 
 const csp = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com;
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://whop.com;
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob: https:;
   font-src 'self';
   object-src 'none';
   base-uri 'self';
   form-action 'self';
-  connect-src 'self' https://openrouter.ai https://js.stripe.com https://api.stripe.com https://*.supabase.co https://accounts.google.com https://oauth2.googleapis.com https://github.com https://api.github.com https://vercel.com https://api.vercel.com https://connect.stripe.com https://api.mercury.com https://api.ramp.com https://*.ingest.sentry.io;
-  frame-src https://js.stripe.com https://accounts.google.com;
+  connect-src 'self' https://openrouter.ai https://whop.com https://api.whop.com https://*.supabase.co https://accounts.google.com https://oauth2.googleapis.com https://github.com https://api.github.com https://vercel.com https://api.vercel.com https://connect.stripe.com https://api.mercury.com https://api.ramp.com https://*.ingest.sentry.io;
+  frame-src https://whop.com https://accounts.google.com;
   worker-src 'self' blob:;
   manifest-src 'self';
 `.replace(/\n/g, ' ').trim();
