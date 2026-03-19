@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWhop, WHOP_COMPANY_ID } from "@/lib/whop";
+import { getWhop, getWhopCompanyId } from "@/lib/whop";
 import { requireAuth } from "@/lib/auth";
 
 // POST /api/billing/setup-intent — create Whop checkout config for saving a card
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const whop = getWhop();
     const config = await whop.checkoutConfigurations.create({
-      company_id: WHOP_COMPANY_ID,
+      company_id: getWhopCompanyId(),
       mode: "setup",
       redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/billing/confirm-redirect`,
       metadata: { meter_user_id: userId },

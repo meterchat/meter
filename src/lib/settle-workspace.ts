@@ -1,4 +1,4 @@
-import { getWhop, WHOP_COMPANY_ID, ensureWhopMember } from "@/lib/whop";
+import { getWhop, getWhopCompanyId, ensureWhopMember } from "@/lib/whop";
 import { getSupabaseServer } from "@/lib/supabase";
 import {
   serverTrackSettlementCompleted,
@@ -111,7 +111,7 @@ export async function settleWorkspace(opts: {
     // Create off-session payment via Whop
     const whop = getWhop();
     const payment = await whop.payments.create({
-      company_id: WHOP_COMPANY_ID,
+      company_id: getWhopCompanyId(),
       member_id: memberId,
       payment_method_id: paymentMethodId,
       plan: {

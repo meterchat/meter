@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { resolveEndUser } from "@/lib/sdk-users";
 import { authenticateApiKey } from "@/lib/api-auth";
-import { getWhop, WHOP_COMPANY_ID } from "@/lib/whop";
+import { getWhop, getWhopCompanyId } from "@/lib/whop";
 
 // POST /api/v1/billing/setup — create Whop setup checkout for end-user card
 export async function POST(req: NextRequest) {
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   const whop = getWhop();
   const config = await whop.checkoutConfigurations.create({
-    company_id: WHOP_COMPANY_ID,
+    company_id: getWhopCompanyId(),
     mode: "setup",
     redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/billing/confirm-redirect`,
     metadata: {
