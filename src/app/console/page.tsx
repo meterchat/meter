@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useMeterStore } from "@/lib/store";
+import { Spinner } from "@/components/ui/spinner";
 import Image from "next/image";
 
 interface ApiKey {
@@ -25,6 +26,7 @@ export default function ConsolePage() {
   const [loading, setLoading] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [codeTab, setCodeTab] = useState<"js" | "curl" | "ai">("js");
   const [stats] = useState<UsageStats>({ requests: 0, tokens: 0, cost: 0 });
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -132,10 +134,12 @@ Parse "delta" events for streamed text. "usage" has final token counts and confi
             {dropdownOpen && (
               <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-[#1a1a1a] shadow-lg overflow-hidden z-50">
                 <button
-                  onClick={() => { logout(); setDropdownOpen(false); }}
-                  className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-400/10 transition-colors"
+                  disabled={loggingOut}
+                  onClick={async () => { setLoggingOut(true); setDropdownOpen(false); await logout(); }}
+                  className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-400/10 transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
-                  Sign Out
+                  {loggingOut && <Spinner className="size-3 text-red-400" />}
+                  {loggingOut ? "Signing Out..." : "Sign Out"}
                 </button>
               </div>
             )}
