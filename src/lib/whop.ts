@@ -18,7 +18,11 @@ export function getWhop(): InstanceType<typeof Whop> {
   return _whop;
 }
 
-export const WHOP_COMPANY_ID = process.env.WHOP_COMPANY_ID ?? "";
+export function getWhopCompanyId(): string {
+  const id = process.env.WHOP_COMPANY_ID;
+  if (!id) throw new Error("WHOP_COMPANY_ID is not set");
+  return id;
+}
 
 /**
  * Ensure the user has a Whop member ID stored.
