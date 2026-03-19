@@ -54,6 +54,7 @@ import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
 import { Brainwave, type BrainwaveHandle } from "@/components/brainwave";
 import { ClarifyingCard } from "@/components/clarifying-card";
 import { DissectorTrace } from "@/components/dissector-trace";
+import { Spinner } from "@/components/ui/spinner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -2437,6 +2438,7 @@ export function ChatView() {
 
   const connectedServices = useMeterStore(selectConnectedServices);
   const logout = useMeterStore((s) => s.logout);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const scrollToBottom = useCallback(() => {
     userScrolledAwayRef.current = false;
@@ -2514,13 +2516,16 @@ export function ChatView() {
                 </button>
                 <div className="mx-2 my-1 h-px bg-border" />
                 <button
-                  onClick={() => { setLogoMenuOpen(false); resetUser(); logout(); }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+                  disabled={loggingOut}
+                  onClick={async () => { setLoggingOut(true); setLogoMenuOpen(false); resetUser(); await logout(); }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-50"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                  Sign Out
+                  {loggingOut ? <Spinner className="size-3.5" /> : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                  )}
+                  {loggingOut ? "Signing Out..." : "Sign Out"}
                 </button>
               </div>
             )}
