@@ -1602,7 +1602,7 @@ export function ChatView() {
   useEffect(() => {
     if (!logoMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (logoMenuRef.current && !logoMenuRef.current.contains(e.target as Node)) {
+      if (logoMenuRef.current && !logoMenuRef.current.contains(e.target as Node) && !useMeterStore.getState().loggingOut) {
         setLogoMenuOpen(false);
       }
     };
@@ -2516,7 +2516,7 @@ export function ChatView() {
                 </button>
                 <div className="mx-2 my-1 h-px bg-border" />
                 <button
-                  onClick={() => { setLogoMenuOpen(false); resetUser(); logout(); }}
+                  onClick={() => { resetUser(); logout(); }}
                   disabled={loggingOut}
                   className="flex w-full items-center gap-2.5 px-3 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-50"
                 >
