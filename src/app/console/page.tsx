@@ -32,7 +32,7 @@ export default function ConsolePage() {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) && !useMeterStore.getState().loggingOut) {
         setDropdownOpen(false);
       }
     }
@@ -133,7 +133,7 @@ Parse "delta" events for streamed text. "usage" has final token counts and confi
             {dropdownOpen && (
               <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-[#1a1a1a] shadow-lg overflow-hidden z-50">
                 <button
-                  onClick={() => { logout(); setDropdownOpen(false); }}
+                  onClick={() => { logout(); }}
                   disabled={loggingOut}
                   className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
