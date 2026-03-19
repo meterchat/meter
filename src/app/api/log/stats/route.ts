@@ -3,8 +3,8 @@ import { getSupabaseServer } from "@/lib/supabase";
 import { requireSuperAdmin } from "@/lib/auth";
 import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 
-const STRIPE_FEE_RATE = 0.029;
-const STRIPE_FEE_FIXED = 0.30;
+const PAYMENT_FEE_RATE = 0.029;
+const PAYMENT_FEE_FIXED = 0.30;
 
 // Paginate through all rows — Supabase caps at 1000 per request
 async function fetchAllMessages(supabase: ReturnType<typeof getSupabaseServer>) {
@@ -169,7 +169,7 @@ export async function GET() {
     const settlements = await fetchAllSettlements(supabase);
     let totalSettled = 0;
     let todaySettled = 0;
-    let stripeFees = 0;
+    let paymentFees = 0;
     let totalInferenceCost = 0;
     const profitByBucket: Record<number, number> = {};
 
@@ -183,11 +183,11 @@ export async function GET() {
       totalSettled += amt;
       if (dateStr === todayStr) todaySettled += amt;
 
-      // Stripe fees only on card charges, not bonus credit
-      const fee = s.status === "succeeded" ? amt * STRIPE_FEE_RATE + STRIPE_FEE_FIXED : 0;
-      stripeFees += fee;
+      // Payment fees only on card charges, not bonus credit
+      const fee = s.status === "succeeded" ? amt * PAYMENT_FEE_RATE + PAYMENT_FEE_FIXED : 0;
+      paymentFees += fee;
 
-      // Per-settlement profit: revenue - inference cost - stripe fee
+      // Per-settlement profit: revenue - inference cost - payment fee
       const rowInferenceCost = amt / rowMarkup;
       totalInferenceCost += rowInferenceCost;
       const profit = amt - rowInferenceCost - fee;
@@ -199,7 +199,7 @@ export async function GET() {
       }
     }
 
-    const totalProfit = totalSettled - totalInferenceCost - stripeFees;
+    const totalProfit = totalSettled - totalInferenceCost - paymentFees;
 
     // Cumulative profit timeline
     const profitBuckets = Object.keys(profitByBucket).map(Number).sort((a, b) => a - b);
@@ -256,7 +256,7 @@ export async function GET() {
         monthlyAverage: monthSpend / daysIntoMonth * 30,
         totalSettled,
         todaySettled,
-        stripeFees,
+        paymentFees,
         inferenceCost: totalInferenceCost,
         totalProfit,
         profitTimeline,

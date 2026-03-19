@@ -41,7 +41,7 @@ interface LogStats {
   monthlyAverage: number;
   totalSettled: number;
   todaySettled: number;
-  stripeFees: number;
+  paymentFees: number;
   inferenceCost: number;
   totalProfit: number;
   profitTimeline: { time: number; value: number }[];
@@ -390,7 +390,7 @@ function LogMeterBar({ entryCount }: { entryCount: number }) {
             <div className="px-4 space-y-1.5">
               <StatSpendRow label="Total settled" amount={stats.totalSettled} />
               <StatSpendRow label="Today settled" amount={stats.todaySettled} />
-              <StatSpendRow label="Stripe fees" amount={stats.stripeFees} />
+              <StatSpendRow label="Payment fees" amount={stats.paymentFees} />
               <StatSpendRow label="Inference cost" amount={stats.inferenceCost} />
               <StatSpendRow label="Profit" amount={stats.totalProfit} />
             </div>
@@ -749,7 +749,7 @@ function EntryDetail({ entry }: { entry: LogEntry }) {
         </p>
       )}
 
-      {/* ── Stripe payment events ──────────────────────────── */}
+      {/* ── Payment events ──────────────────────────── */}
       {["payment_succeeded", "payment_failed", "auth_hold_created", "refund_issued"].includes(entry.type) && (
         <div className="flex flex-col gap-2">
           {entry.preview && (
@@ -757,7 +757,7 @@ function EntryDetail({ entry }: { entry: LogEntry }) {
               {entry.preview}
             </p>
           )}
-          <DetailRow label="Source" value="Stripe" />
+          <DetailRow label="Source" value="Whop" />
         </div>
       )}
 

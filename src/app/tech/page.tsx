@@ -54,7 +54,7 @@ const STACK: Category[] = [
   {
     label: "Payments",
     tools: [
-      { name: "Stripe", url: "https://stripe.com" },
+      { name: "Whop", url: "https://whop.com" },
     ],
   },
   {

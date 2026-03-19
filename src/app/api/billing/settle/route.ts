@@ -32,9 +32,9 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    paymentIntentId: result.paymentIntentId,
+    paymentId: result.paymentId,
     amountCharged: result.amountCharged,
     creditUsed: result.creditUsed,
-    freeCredit: result.paymentIntentId === null,
+    freeCredit: result.paymentId === null,
   });
 }

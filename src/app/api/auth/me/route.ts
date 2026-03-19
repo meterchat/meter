@@ -20,7 +20,7 @@ export async function GET() {
     const supabase = getSupabaseServer();
     const { data: user, error } = await supabase
       .from("meter_users")
-      .select("id, handle, email, account_type, stripe_customer_id, card_last4, card_brand, markup_multiplier, free_credit_remaining")
+      .select("id, handle, email, account_type, whop_member_id, card_last4, card_brand, markup_multiplier, free_credit_remaining")
       .eq("id", userId)
       .single();
 
@@ -53,8 +53,8 @@ export async function GET() {
       handle: user.handle ?? null,
       email: user.email ?? null,
       accountType: user.account_type ?? "standard",
-      stripeCustomerId: user.stripe_customer_id ?? null,
-      cardOnFile: !!(user.stripe_customer_id && user.card_last4),
+      whopMemberId: user.whop_member_id ?? null,
+      cardOnFile: !!(user.whop_member_id && user.card_last4),
       cardLast4: user.card_last4 ?? null,
       cardBrand: user.card_brand ?? null,
       markupMultiplier: globalMarkup,

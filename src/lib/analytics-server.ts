@@ -158,7 +158,7 @@ export function serverTrackSettlementCompleted(
     workspaceId: string;
     messageCount: number;
     chargeCount: number;
-    stripePaymentIntentId: string;
+    stripePaymentIntentId: string; // kept as analytics property name for backward compat
     cardLast4?: string;
     cardBrand?: string;
   },

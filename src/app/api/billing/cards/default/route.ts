@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
 import { getSupabaseServer } from "@/lib/supabase";
+import { getWhop } from "@/lib/whop";
 import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -14,20 +14,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "paymentMethodId required" }, { status: 400 });
     }
 
-    const customerId = await ensureStripeCustomer(userId);
+    const supabase = getSupabaseServer();
 
-    await getStripe().customers.update(customerId, {
-      invoice_settings: { default_payment_method: paymentMethodId },
+    // Look up payment method details from Whop if needed for last4/brand
+    // For now, update our tracking of which payment method is default
+    const { data: user } = await supabase
+      .from("meter_users")
+      .select("whop_member_id")
+      .eq("id", userId)
+      .single();
+
+    if (!user?.whop_member_id) {
+      return NextResponse.json({ error: "No payment methods on file" }, { status: 400 });
+    }
+
+    // Get all payment methods to find the card details for the selected one
+    const whop = getWhop();
+    const methods = await whop.paymentMethods.list({
+      member_id: user.whop_member_id,
     });
 
-    const pm = await getStripe().paymentMethods.retrieve(paymentMethodId);
-    const last4 = pm.card?.last4 ?? "0000";
-    const brand = pm.card?.brand ?? "unknown";
+    const selected = (methods.data ?? []).find((pm: Record<string, unknown>) => pm.id === paymentMethodId);
+    const last4 = (selected?.last4 as string) ?? "0000";
+    const brand = (selected?.brand as string) ?? "unknown";
 
-    const supabase = getSupabaseServer();
     await supabase
       .from("meter_users")
-      .update({ card_last4: last4, card_brand: brand, updated_at: new Date().toISOString() })
+      .update({
+        whop_payment_method_id: paymentMethodId,
+        card_last4: last4,
+        card_brand: brand,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", userId);
 
     return NextResponse.json({ success: true, cardLast4: last4, cardBrand: brand });

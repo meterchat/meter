@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe } from "@/lib/stripe";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { deleteAllUserSessions } from "@/lib/session";
@@ -16,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const { data: user } = await supabase
       .from("meter_users")
-      .select("id, stripe_customer_id")
+      .select("id, whop_member_id")
       .eq("id", userId)
       .single();
 
@@ -49,14 +48,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Delete Stripe customer
-    if (user.stripe_customer_id) {
-      try {
-        await getStripe().customers.del(user.stripe_customer_id);
-      } catch (e) {
-        console.error("Stripe customer deletion failed:", e);
-      }
-    }
+    // Note: Whop member cleanup is handled by Whop when the member is removed.
+    // No explicit deletion needed on our side.
 
     // Delete related data without cascade
     const { data: userSessions } = await supabase

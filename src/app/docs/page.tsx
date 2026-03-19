@@ -154,7 +154,7 @@ export default function DocsPage() {
             <h2 className="text-lg font-medium text-foreground mb-2" id="billing">Billing</h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
               Your card is charged when your balance reaches $10, or at the end of each month — whichever comes first.
-              Stripe handles all payments securely.
+              Whop handles all payments securely.
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Most founders spend $20-40/month — less than a single AI subscription, with every model included.

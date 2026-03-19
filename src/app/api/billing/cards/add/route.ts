@@ -1,24 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
+import { getWhop, WHOP_COMPANY_ID } from "@/lib/whop";
 import { requireAuth } from "@/lib/auth";
 
+// POST /api/billing/cards/add — create Whop checkout config for adding a new card
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
   const { userId } = auth;
 
   try {
-    const customerId = await ensureStripeCustomer(userId);
-
-    const setupIntent = await getStripe().setupIntents.create({
-      customer: customerId,
-      payment_method_types: ["card"],
+    const whop = getWhop();
+    const config = await whop.checkoutConfigurations.create({
+      company_id: WHOP_COMPANY_ID,
+      mode: "setup",
+      redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/billing/confirm-redirect`,
       metadata: { meter_user_id: userId },
     });
 
     return NextResponse.json({
-      clientSecret: setupIntent.client_secret,
-      customerId,
+      sessionId: config.id,
+      purchaseUrl: config.purchase_url,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
