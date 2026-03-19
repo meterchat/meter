@@ -11,7 +11,7 @@ const STATEMENTS: string[] = [
   `create table if not exists meter_users (
     id text primary key,
     email text unique not null,
-    stripe_customer_id text,
+    whop_member_id text,
     card_last4 text,
     card_brand text,
     gmail_connected boolean default false,
@@ -116,7 +116,7 @@ const STATEMENTS: string[] = [
     user_id text not null references meter_users(id) on delete cascade,
     workspace_id text,
     amount numeric not null,
-    stripe_payment_intent_id text,
+    whop_payment_id text,
     message_count integer default 0,
     charge_count integer default 0,
     card_last4 text,
@@ -291,7 +291,7 @@ const STATEMENTS: string[] = [
   `create index if not exists idx_log_entries_created_at on log_entries(created_at desc)`,
   `alter table log_entries add column if not exists commit_message text`,
   `alter table log_entries add column if not exists preview text`,
-  // Expand type check constraint to include Stripe events
+  // Expand type check constraint to include payment events
   `alter table log_entries drop constraint if exists log_entries_type_check`,
   `alter table log_entries add constraint log_entries_type_check check (type in (
     'message_sent', 'decision_locked', 'debate_started',

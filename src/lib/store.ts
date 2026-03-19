@@ -101,7 +101,7 @@ export interface SettlementRecord {
   id: string;
   amount: number;
   workspaceId?: string;
-  stripePaymentIntentId?: string;
+  paymentId?: string;
   messageCount: number;
   chargeCount: number;
   cardLast4?: string;
@@ -158,7 +158,7 @@ interface MeterState {
   cardOnFile: boolean;
   cardLast4: string | null;
   cardBrand: string | null;
-  stripeCustomerId: string | null;
+  whopMemberId: string | null;
   connectionsLoading: boolean;
 
   selectedModelId: string;
@@ -210,7 +210,7 @@ interface MeterState {
   setSessionsLoaded: (v: boolean) => void;
   setEmail: (email: string) => void;
   setCardOnFile: (v: boolean, last4?: string, brand?: string) => void;
-  setStripeCustomerId: (id: string) => void;
+  setWhopMemberId: (id: string) => void;
   connectService: (id: string) => void;
   disconnectService: (id: string) => void;
   fetchConnectionStatus: () => Promise<void>;
@@ -440,7 +440,7 @@ export const useMeterStore = create<MeterState>()(
       cardOnFile: false,
       cardLast4: null,
       cardBrand: null,
-      stripeCustomerId: null,
+      whopMemberId: null,
       connectionsLoading: false,
 
       selectedModelId: DEFAULT_MODEL.id,
@@ -497,7 +497,7 @@ export const useMeterStore = create<MeterState>()(
             ),
           } : {}),
         })),
-      setStripeCustomerId: (id) => set({ stripeCustomerId: id }),
+      setWhopMemberId: (id) => set({ whopMemberId: id }),
       connectService: (id) => {
         set((s) => {
           const active = getActiveSession(s);
@@ -671,7 +671,7 @@ export const useMeterStore = create<MeterState>()(
           cardOnFile: false,
           cardLast4: null,
           cardBrand: null,
-          stripeCustomerId: null,
+          whopMemberId: null,
           sessions: initialSessions,
           activeSessionId: "default",
           inspectorOpen: false,
@@ -1005,7 +1005,7 @@ export const useMeterStore = create<MeterState>()(
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              stripeCustomerId: s.stripeCustomerId,
+              whopMemberId: s.whopMemberId,
               workspaceId: active.id,
               amount,
               messageIds,
@@ -1708,7 +1708,7 @@ export const useMeterStore = create<MeterState>()(
         cardOnFile: s.cardOnFile,
         cardLast4: s.cardLast4,
         cardBrand: s.cardBrand,
-        stripeCustomerId: s.stripeCustomerId,
+        whopMemberId: s.whopMemberId,
         selectedModelId: s.selectedModelId,
         debateMode: s.debateMode,
         debateRoster: s.debateRoster,

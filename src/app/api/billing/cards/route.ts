@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
+import { getWhop } from "@/lib/whop";
+import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET() {
@@ -8,29 +9,30 @@ export async function GET() {
   const { userId } = auth;
 
   try {
-    const customerId = await ensureStripeCustomer(userId);
+    const supabase = getSupabaseServer();
+    const { data: user } = await supabase
+      .from("meter_users")
+      .select("whop_member_id, whop_payment_method_id")
+      .eq("id", userId)
+      .single();
 
-    const customer = await getStripe().customers.retrieve(customerId);
-    if (customer.deleted) {
+    if (!user?.whop_member_id) {
       return NextResponse.json({ cards: [] });
     }
 
-    const defaultPmId =
-      typeof customer.invoice_settings?.default_payment_method === "string"
-        ? customer.invoice_settings.default_payment_method
-        : customer.invoice_settings?.default_payment_method?.id ?? null;
+    const whop = getWhop();
+    const methods = await whop.paymentMethods.list({
+      member_id: user.whop_member_id,
+    });
 
-    const methods = await getStripe().customers.listPaymentMethods(
-      customerId,
-      { type: "card", limit: 10 }
-    );
+    const defaultPmId = user.whop_payment_method_id;
 
-    const cards = methods.data.map((pm) => ({
-      id: pm.id,
-      brand: pm.card?.brand ?? "unknown",
-      last4: pm.card?.last4 ?? "0000",
-      expMonth: pm.card?.exp_month ?? 0,
-      expYear: pm.card?.exp_year ?? 0,
+    const cards = (methods.data ?? []).map((pm: Record<string, unknown>) => ({
+      id: pm.id as string,
+      brand: (pm.brand as string) ?? "unknown",
+      last4: (pm.last4 as string) ?? "0000",
+      expMonth: (pm.exp_month as number) ?? 0,
+      expYear: (pm.exp_year as number) ?? 0,
       isDefault: pm.id === defaultPmId,
     }));
 

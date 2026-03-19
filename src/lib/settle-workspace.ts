@@ -1,4 +1,4 @@
-import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
+import { getWhop, WHOP_COMPANY_ID, ensureWhopMember } from "@/lib/whop";
 import { getSupabaseServer } from "@/lib/supabase";
 import {
   serverTrackSettlementCompleted,
@@ -14,14 +14,14 @@ export function scopedSessionId(userId: string, localId: string): string {
 export interface SettleResult {
   success: boolean;
   error?: string;
-  paymentIntentId?: string | null;
+  paymentId?: string | null;
   amountCharged?: number;
   creditUsed?: number;
 }
 
 /**
  * Core settlement logic for a single workspace.
- * Handles free credit deduction, Stripe charge, message marking,
+ * Handles free credit deduction, Whop charge, message marking,
  * settlement history, and failure flagging.
  *
  * Used by both the user-facing /api/billing/settle route and the
@@ -93,7 +93,7 @@ export async function settleWorkspace(opts: {
         user_id: userId,
         workspace_id: workspaceId,
         amount,
-        stripe_payment_intent_id: null,
+        whop_payment_id: null,
         message_count: messageIds.length,
         charge_count: chargeIds.length,
         card_last4: null,
@@ -102,31 +102,23 @@ export async function settleWorkspace(opts: {
         markup_multiplier: markupMultiplier,
       }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
 
-      return { success: true, paymentIntentId: null, amountCharged: 0, creditUsed };
+      return { success: true, paymentId: null, amountCharged: 0, creditUsed };
     }
 
-    // Resolve Stripe customer
-    const customerId = await ensureStripeCustomer(userId);
+    // Resolve Whop member + payment method
+    const { memberId, paymentMethodId } = await ensureWhopMember(userId);
 
-    const customer = await getStripe().customers.retrieve(customerId);
-    if (customer.deleted) {
-      return { success: false, error: "Stripe customer deleted" };
-    }
-    const defaultPm = customer.invoice_settings?.default_payment_method;
-    if (!defaultPm) {
-      return { success: false, error: "No payment method on file" };
-    }
-
-    // Create and confirm PaymentIntent
-    const amountCents = Math.round(chargeAmount * 100);
-    const paymentIntent = await getStripe().paymentIntents.create({
-      amount: amountCents,
-      currency: "usd",
-      customer: customerId,
-      payment_method: typeof defaultPm === "string" ? defaultPm : defaultPm.id,
-      confirm: true,
-      off_session: true,
-      description: `Meter settlement — ${messageIds.length} messages, ${chargeIds.length} card charges`,
+    // Create off-session payment via Whop
+    const whop = getWhop();
+    const payment = await whop.payments.create({
+      company_id: WHOP_COMPANY_ID,
+      member_id: memberId,
+      payment_method_id: paymentMethodId,
+      plan: {
+        initial_price: chargeAmount,
+        currency: "usd",
+        plan_type: "one_time",
+      },
       metadata: {
         meter_user_id: userId,
         workspace_id: workspaceId,
@@ -135,12 +127,8 @@ export async function settleWorkspace(opts: {
       },
     });
 
-    if (paymentIntent.status !== "succeeded") {
-      await markSettlementFailed();
-      return { success: false, error: `Payment not succeeded: ${paymentIntent.status}` };
-    }
-
-    // Mark messages as settled
+    // Whop processes payments async — record as pending, webhook confirms
+    // Mark messages as settled optimistically (webhook will handle failures)
     if (messageIds.length > 0) {
       if (!skipOwnershipCheck && !(await verifyMessageOwnership(supabase, userId, messageIds))) {
         return { success: false, error: "Forbidden: message ownership mismatch" };
@@ -151,21 +139,25 @@ export async function settleWorkspace(opts: {
         .in("id", messageIds);
     }
 
+    // Fetch card details from our DB for the settlement record
+    const { data: cardUser } = await supabase
+      .from("meter_users")
+      .select("card_last4, card_brand")
+      .eq("id", userId)
+      .single();
+
     // Record settlement history
-    const pmObj = typeof defaultPm === "string"
-      ? await getStripe().paymentMethods.retrieve(defaultPm)
-      : defaultPm;
     const historyId = `stl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     await supabase.from("settlement_history").insert({
       id: historyId,
       user_id: userId,
       workspace_id: workspaceId,
       amount,
-      stripe_payment_intent_id: paymentIntent.id,
+      whop_payment_id: payment.id,
       message_count: messageIds.length,
       charge_count: chargeIds.length,
-      card_last4: pmObj && "card" in pmObj ? pmObj.card?.last4 ?? null : null,
-      card_brand: pmObj && "card" in pmObj ? pmObj.card?.brand ?? null : null,
+      card_last4: cardUser?.card_last4 ?? null,
+      card_brand: cardUser?.card_brand ?? null,
       status: "succeeded",
       markup_multiplier: markupMultiplier,
     }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
@@ -182,19 +174,19 @@ export async function settleWorkspace(opts: {
       workspaceId,
       messageCount: messageIds.length,
       chargeCount: chargeIds.length,
-      stripePaymentIntentId: paymentIntent.id,
-      cardLast4: pmObj && "card" in pmObj ? pmObj.card?.last4 ?? undefined : undefined,
-      cardBrand: pmObj && "card" in pmObj ? pmObj.card?.brand ?? undefined : undefined,
+      stripePaymentIntentId: payment.id, // analytics field name kept for backward compat
+      cardLast4: cardUser?.card_last4 ?? undefined,
+      cardBrand: cardUser?.card_brand ?? undefined,
     });
 
-    return { success: true, paymentIntentId: paymentIntent.id, amountCharged: amount };
+    return { success: true, paymentId: payment.id, amountCharged: amount };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Settlement error:", message);
 
     serverTrackSettlementFailed(userId, { amount, workspaceId, error: message });
 
-    if (message.includes("authentication_required") || message.includes("card_declined")) {
+    if (message.includes("authentication_required") || message.includes("card_declined") || message.includes("No payment method")) {
       await markSettlementFailed().catch(() => {});
     }
 

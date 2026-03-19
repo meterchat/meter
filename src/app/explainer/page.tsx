@@ -425,7 +425,7 @@ export default function ExplainerPage() {
                 <span className="log-check">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
                 </span>
-                <span className="log-text">Ship Stripe billing on day one</span>
+                <span className="log-text">Ship Whop billing on day one</span>
                 <span className="log-models">GPT-4o &amp; Gemini</span>
               </div>
               <div className="log-entry" data-delay="500">

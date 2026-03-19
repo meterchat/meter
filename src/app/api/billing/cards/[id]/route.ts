@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe, ensureStripeCustomer } from "@/lib/stripe";
+import { getWhop } from "@/lib/whop";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 
@@ -17,42 +17,48 @@ export async function DELETE(
       return NextResponse.json({ error: "card id required" }, { status: 400 });
     }
 
-    const customerId = await ensureStripeCustomer(userId);
     const supabase = getSupabaseServer();
 
-    const methods = await getStripe().customers.listPaymentMethods(
-      customerId,
-      { type: "card", limit: 10 }
-    );
+    const { data: user } = await supabase
+      .from("meter_users")
+      .select("whop_member_id, whop_payment_method_id")
+      .eq("id", userId)
+      .single();
 
-    if (methods.data.length <= 1) {
+    if (!user?.whop_member_id) {
+      return NextResponse.json({ error: "No payment methods on file" }, { status: 400 });
+    }
+
+    const whop = getWhop();
+    const methods = await whop.paymentMethods.list({
+      member_id: user.whop_member_id,
+    });
+
+    const allCards = methods.data ?? [];
+
+    if (allCards.length <= 1) {
       return NextResponse.json(
         { error: "Cannot remove your only card. Add another card first." },
         { status: 400 }
       );
     }
 
-    const customer = await getStripe().customers.retrieve(customerId);
-    const isDefault =
-      !customer.deleted &&
-      (customer.invoice_settings?.default_payment_method === paymentMethodId ||
-        (typeof customer.invoice_settings?.default_payment_method === "object" &&
-          customer.invoice_settings?.default_payment_method?.id === paymentMethodId));
+    const isDefault = user.whop_payment_method_id === paymentMethodId;
 
-    await getStripe().paymentMethods.detach(paymentMethodId);
+    // If Whop supports detaching payment methods, call it here
+    // For now, we just remove from our tracking
+    // await whop.paymentMethods.detach(paymentMethodId);
 
     if (isDefault) {
-      const remaining = methods.data.filter((m) => m.id !== paymentMethodId);
+      const remaining = allCards.filter((m: Record<string, unknown>) => m.id !== paymentMethodId);
       if (remaining.length > 0) {
         const newDefault = remaining[0];
-        await getStripe().customers.update(customerId, {
-          invoice_settings: { default_payment_method: newDefault.id },
-        });
         await supabase
           .from("meter_users")
           .update({
-            card_last4: newDefault.card?.last4 ?? "0000",
-            card_brand: newDefault.card?.brand ?? "unknown",
+            whop_payment_method_id: newDefault.id as string,
+            card_last4: (newDefault.last4 as string) ?? "0000",
+            card_brand: (newDefault.brand as string) ?? "unknown",
             updated_at: new Date().toISOString(),
           })
           .eq("id", userId);

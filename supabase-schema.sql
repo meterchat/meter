@@ -9,10 +9,11 @@
 create table if not exists meter_users (
   id text primary key,
   handle text unique,                   -- short alphanumeric user ID (e.g. "ab41ki"), public-facing
-  email text unique,                    -- optional, auto-generated as {handle}@meter.chat for Stripe
+  email text unique,                    -- optional, auto-generated as {handle}@meter.chat
   account_type text not null default 'standard',  -- 'standard' | 'superadmin'
   markup_multiplier numeric not null default 2,   -- per-account pricing multiplier (2 = 2x consumer markup)
-  stripe_customer_id text,
+  whop_member_id text,
+  whop_payment_method_id text,
   card_last4 text,
   card_brand text,
   gmail_connected boolean default false,
@@ -245,7 +246,8 @@ create table if not exists sdk_end_users (
   id text primary key,
   developer_id uuid not null references users(id) on delete cascade,
   external_user_id text not null,
-  stripe_customer_id text,
+  whop_member_id text,
+  whop_payment_method_id text,
   card_last4 text,
   card_brand text,
   markup_multiplier numeric not null default 2,
@@ -262,7 +264,7 @@ create table if not exists settlement_history (
   user_id text not null references meter_users(id) on delete cascade,
   workspace_id text,
   amount numeric not null,
-  stripe_payment_intent_id text,
+  whop_payment_id text,
   message_count integer default 0,
   charge_count integer default 0,
   card_last4 text,

@@ -49,12 +49,12 @@ export async function getEndUserBillingStatus(endUserId: string) {
   const supabase = getSupabaseServer();
   const { data } = await supabase
     .from("sdk_end_users")
-    .select("stripe_customer_id, card_last4, card_brand, markup_multiplier")
+    .select("whop_member_id, card_last4, card_brand, markup_multiplier")
     .eq("id", endUserId)
     .single();
 
   return {
-    cardOnFile: !!(data?.stripe_customer_id && data?.card_last4),
+    cardOnFile: !!(data?.whop_member_id && data?.card_last4),
     cardLast4: data?.card_last4 ?? null,
     cardBrand: data?.card_brand ?? null,
     markupMultiplier: Number(data?.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER),
