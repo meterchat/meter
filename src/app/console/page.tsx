@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useMeterStore } from "@/lib/store";
+import { Spinner } from "@/components/ui/spinner";
 import Image from "next/image";
 
 interface ApiKey {
@@ -25,6 +26,7 @@ export default function ConsolePage() {
   const [loading, setLoading] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [codeTab, setCodeTab] = useState<"js" | "curl" | "ai">("js");
   const [stats] = useState<UsageStats>({ requests: 0, tokens: 0, cost: 0 });
   const dropdownRef = useRef<HTMLDivElement>(null);

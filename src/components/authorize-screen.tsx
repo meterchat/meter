@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMeterStore } from "@/lib/store";
 import { authFetch } from "@/lib/auth-fetch";
 import Image from "next/image";
@@ -10,7 +10,6 @@ function CardForm() {
   const { userId, email, setCardOnFile, setEmail, logout, loggingOut } = useMeterStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [localEmail, setLocalEmail] = useState(email ?? "");
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,35 +31,6 @@ function CardForm() {
       .catch(() => setError("Failed to connect to payment service"));
   }, [userId]);
 
-  const handleEmailSubmit = async () => {
-    if (email) return; // already have email
-
-    const trimmed = localEmail.trim().toLowerCase();
-    if (!trimmed || !trimmed.includes("@")) {
-      setError("Valid email required for receipts");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const emailRes = await authFetch("/api/auth/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmed }),
-      });
-      const emailData = await emailRes.json();
-      if (!emailRes.ok) throw new Error(emailData.error || "Failed to save email");
-      setEmail(trimmed);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to save email";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-sm flex flex-col items-center gap-6">
       <div className="flex flex-col items-center gap-2">
@@ -70,29 +40,7 @@ function CardForm() {
         </h1>
       </div>
 
-      {!email && (
-        <div className="w-full">
-          <label className="block font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 px-1">
-            Email (for receipts)
-          </label>
-          <input
-            type="email"
-            value={localEmail}
-            onChange={(e) => setLocalEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="w-full rounded-xl border border-border bg-card px-4 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-foreground/30 transition-colors"
-          />
-          <button
-            onClick={handleEmailSubmit}
-            disabled={loading}
-            className="mt-2 w-full rounded-xl bg-foreground py-3 font-mono text-sm text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
-          >
-            {loading ? "Saving..." : "Continue"}
-          </button>
-        </div>
-      )}
-
-      {email && sessionId && (
+      {sessionId && (
         <div className="w-full rounded-xl border border-border bg-card p-5">
           <WhopCheckoutEmbed
             sessionId={sessionId}
@@ -106,7 +54,7 @@ function CardForm() {
         </div>
       )}
 
-      {email && !sessionId && !error && (
+      {!sessionId && !error && (
         <div className="flex items-center gap-2">
           <svg className="animate-spin h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

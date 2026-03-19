@@ -1347,7 +1347,14 @@ export const useMeterStore = create<MeterState>()(
           const res = await authFetch("/api/billing/cards");
           if (res.ok) {
             const data = await res.json();
-            set({ cards: data.cards ?? [] });
+            const cards = data.cards ?? [];
+            set({ cards });
+            // Sync cardOnFile from actual Whop card data — covers cases where
+            // the webhook didn't save card_last4/whop_member_id to the DB.
+            if (cards.length > 0 && !get().cardOnFile) {
+              const defaultCard = cards.find((c: { isDefault?: boolean }) => c.isDefault) ?? cards[0];
+              get().setCardOnFile(true, defaultCard.last4, defaultCard.brand);
+            }
           }
         } catch { /* silent */ } finally {
           set({ cardsLoading: false });

@@ -246,7 +246,7 @@ function AsciiCanvas({ side }: { side: "left" | "right" }) {
 
 // ── Main LoginScreen ────────────────────────────────────────────────────
 export function LoginScreen() {
-  const { setAuth, setCardOnFile } = useMeterStore();
+  const { setAuth, setCardOnFile, fetchCards } = useMeterStore();
 
   const [step, setStep] = useState<OnboardingStep>("passkey");
   const [loading, setLoading] = useState(false);
@@ -288,10 +288,6 @@ export function LoginScreen() {
       //      - N passkeys → account picker then biometric
       //      - 0 passkeys → throws NotAllowedError (caught below)
       setStatus("Authenticating...");
-      // AbortController: safety net for browsers that ignore `hints` —
-      // kills any QR-code dialog within 3 s so first-time users aren't stuck.
-      const abortController = new AbortController();
-      const abortTimeout = setTimeout(() => abortController.abort(), 3000);
       const credential = await navigator.credentials.get({
         publicKey: {
           challenge: base64URLStringToBuffer(optData.options.challenge),
@@ -302,9 +298,7 @@ export function LoginScreen() {
           // @ts-expect-error -- hints is WebAuthn L3, not in TS DOM types yet
           hints: ["client-device"],
         },
-        signal: abortController.signal,
       });
-      clearTimeout(abortTimeout);
 
       if (!credential) {
         // No credential available — show fallback UI
@@ -337,7 +331,6 @@ export function LoginScreen() {
       if (
         msg.includes("NotAllowedError") ||
         msg.includes("not allowed") ||
-        msg.includes("AbortError") ||
         msg.includes("timed out") ||
         msg.includes("The operation either timed out")
       ) {
@@ -495,6 +488,9 @@ export function LoginScreen() {
     if (user.cardOnFile) {
       setCardOnFile(true, user.cardLast4 ?? undefined, user.cardBrand);
     }
+    // Eagerly fetch cards from Whop — covers cases where the webhook
+    // didn't save card details to the DB but the card exists in Whop.
+    fetchCards();
     // Auth set → page.tsx renders ChatView; onboarding handled in-chat
   };
 

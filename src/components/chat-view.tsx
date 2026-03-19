@@ -54,6 +54,7 @@ import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
 import { Brainwave, type BrainwaveHandle } from "@/components/brainwave";
 import { ClarifyingCard } from "@/components/clarifying-card";
 import { DissectorTrace } from "@/components/dissector-trace";
+import { Spinner } from "@/components/ui/spinner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
