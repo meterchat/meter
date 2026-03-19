@@ -34,9 +34,10 @@ export async function POST(req: NextRequest) {
       member_id: user.whop_member_id,
     });
 
-    const selected = (methods.data ?? []).find((pm: Record<string, unknown>) => pm.id === paymentMethodId);
-    const last4 = (selected?.last4 as string) ?? "0000";
-    const brand = (selected?.brand as string) ?? "unknown";
+    const selected = (methods.data ?? []).find((pm) => pm.id === paymentMethodId);
+    const card = selected && "card" in selected ? (selected as { card: { last4?: string | null; brand?: string | null } }).card : null;
+    const last4 = card?.last4 ?? "0000";
+    const brand = card?.brand ?? "unknown";
 
     await supabase
       .from("meter_users")

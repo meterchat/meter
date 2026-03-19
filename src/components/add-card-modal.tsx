@@ -82,6 +82,7 @@ export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => 
             <div className="flex flex-col gap-4">
               <WhopCheckoutEmbed
                 sessionId={sessionId}
+                hideEmail
                 returnUrl={`${window.location.origin}/`}
                 onComplete={() => {
                   trackCardAdded({ brand: "card", last4: "****", source: "modal" });

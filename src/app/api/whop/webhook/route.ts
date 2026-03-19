@@ -71,16 +71,18 @@ export async function POST(request: NextRequest) {
         const metadata = (setupIntent.metadata ?? {}) as Record<string, string>;
         const userId = metadata.meter_user_id;
         const memberId = (setupIntent.member as { id: string })?.id ?? (setupIntent.member_id as string);
-        const paymentMethod = setupIntent.payment_method as { id: string; last4?: string; brand?: string } | undefined;
+        const paymentMethod = setupIntent.payment_method as { id: string; card?: { last4?: string; brand?: string } | null; last4?: string; brand?: string } | undefined;
 
         if (userId && memberId && paymentMethod?.id) {
+          // Card details are nested under payment_method.card in the Whop API
+          const cardData = paymentMethod.card;
           await supabase
             .from("meter_users")
             .update({
               whop_member_id: memberId,
               whop_payment_method_id: paymentMethod.id,
-              card_last4: paymentMethod.last4 ?? null,
-              card_brand: paymentMethod.brand ?? null,
+              card_last4: cardData?.last4 ?? paymentMethod.last4 ?? null,
+              card_brand: cardData?.brand ?? paymentMethod.brand ?? null,
               updated_at: new Date().toISOString(),
             })
             .eq("id", userId);

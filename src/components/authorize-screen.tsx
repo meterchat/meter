@@ -96,6 +96,7 @@ function CardForm() {
         <div className="w-full rounded-xl border border-border bg-card p-5">
           <WhopCheckoutEmbed
             sessionId={sessionId}
+            hideEmail
             returnUrl={`${window.location.origin}/`}
             onComplete={() => {
               setCardOnFile(true);

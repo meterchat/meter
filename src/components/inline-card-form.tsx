@@ -60,6 +60,7 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
     <div className="mt-3 max-w-sm">
       <WhopCheckoutEmbed
         sessionId={sessionId}
+        hideEmail
         returnUrl={`${window.location.origin}/`}
         onComplete={() => {
           trackCardAdded({ brand: "card", last4: "****", source: "inline_form" });
