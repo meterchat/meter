@@ -9,7 +9,7 @@ If you are using the Service on behalf of an organization, you represent that yo
 ## 1. Who we are
 
 Company: Startup Works, Inc. d/b/a Meter
-Address: 2261 Market St. Ste 86407, San Francisco, CA 94114
+Address: 326 Mira Loma Ave, Glendale, CA 91204
 Email: support@meter.chat
 Legal notices: legal@meter.chat
 
@@ -114,4 +114,4 @@ If any provision of these Terms is unenforceable, the remaining provisions will 
 
 Questions: support@meter.chat
 Legal notices: legal@meter.chat
-Mail: 2261 Market St. Ste 86407, San Francisco, CA 94114
+Mail: 326 Mira Loma Ave, Glendale, CA 91204
