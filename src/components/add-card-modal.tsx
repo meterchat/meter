@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const userId = useMeterStore((s) => s.userId);
+  const email = useMeterStore((s) => s.email);
   const fetchCards = useMeterStore((s) => s.fetchCards);
   const setCardOnFile = useMeterStore((s) => s.setCardOnFile);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -84,6 +85,7 @@ export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => 
               <WhopCheckoutEmbed
                 sessionId={sessionId}
                 hideEmail
+                prefill={email ? { email } : undefined}
                 theme="dark"
                 returnUrl={`${window.location.origin}/`}
                 onComplete={() => {
