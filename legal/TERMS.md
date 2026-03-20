@@ -2,14 +2,14 @@
 
 Effective date: 2026-02-24
 
-These Terms of Service ("Terms") govern your access to and use of Meter (the "Service"). The Service is operated by Startup Works, Inc. d/b/a Meter ("Meter," "we," "us," or "our"). By accessing or using the Service, you agree to these Terms.
+These Terms of Service ("Terms") govern your access to and use of Meter (the "Service"). The Service is operated by Meter ("we," "us," or "our"). By accessing or using the Service, you agree to these Terms.
 
 If you are using the Service on behalf of an organization, you represent that you have authority to bind that organization, and these Terms apply to that organization.
 
 ## 1. Who we are
 
-Company: Startup Works, Inc. d/b/a Meter
-Address: 326 Mira Loma Ave, Glendale, CA 91204
+Meter
+326 Mira Loma Ave, Glendale, CA 91204
 Email: support@meter.chat
 Legal notices: legal@meter.chat
 
