@@ -2,14 +2,14 @@
 
 Effective date: 2026-02-24
 
-This Privacy Policy explains how Startup Works, Inc. d/b/a Meter ("Meter," "we," "us," or "our") collects, uses, and shares information when you use Meter (the "Service").
+This Privacy Policy explains how Meter ("we," "us," or "our") collects, uses, and shares information when you use Meter (the "Service").
 
 If you have questions, contact us at legal@meter.chat.
 
 ## 1. Who we are
 
-Company: Startup Works, Inc. d/b/a Meter
-Address: 326 Mira Loma Ave, Glendale, CA 91204
+Meter
+326 Mira Loma Ave, Glendale, CA 91204
 Support: support@meter.chat
 Privacy: legal@meter.chat
 
@@ -93,7 +93,7 @@ We may update this Privacy Policy from time to time. If we make material changes
 
 ## 12. Contact
 
-Startup Works, Inc. d/b/a Meter
+Meter
 326 Mira Loma Ave
 Glendale, CA 91204
 support@meter.chat

@@ -8,7 +8,7 @@
  * Examples:
  *   "Conjure"        → "conjure"
  *   "My Cool App"    → "my-cool-app"
- *   "Startup Works"  → "startup-works"
+ *   "Side Project"   → "side-project"
  */
 
 /** Convert a workspace name to a URL-safe slug */
