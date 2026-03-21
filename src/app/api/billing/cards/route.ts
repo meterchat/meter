@@ -16,7 +16,7 @@ export async function GET() {
       .eq("id", userId)
       .single();
 
-    if (!user?.stripe_customer_id) {
+    if (!user?.stripe_customer_id || !user.stripe_customer_id.startsWith("cus_")) {
       return NextResponse.json({ cards: [] });
     }
 
