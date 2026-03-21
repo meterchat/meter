@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWhop } from "@/lib/whop";
+import { getStripe } from "@/lib/stripe-billing";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 
@@ -21,20 +21,21 @@ export async function DELETE(
 
     const { data: user } = await supabase
       .from("meter_users")
-      .select("whop_member_id, whop_payment_method_id")
+      .select("stripe_customer_id, stripe_payment_method_id")
       .eq("id", userId)
       .single();
 
-    if (!user?.whop_member_id) {
+    if (!user?.stripe_customer_id) {
       return NextResponse.json({ error: "No payment methods on file" }, { status: 400 });
     }
 
-    const whop = getWhop();
-    const methods = await whop.paymentMethods.list({
-      member_id: user.whop_member_id,
+    const stripe = getStripe();
+    const methods = await stripe.paymentMethods.list({
+      customer: user.stripe_customer_id,
+      type: "card",
     });
 
-    const allCards = methods.data ?? [];
+    const allCards = methods.data;
 
     if (allCards.length <= 1) {
       return NextResponse.json(
@@ -43,23 +44,21 @@ export async function DELETE(
       );
     }
 
-    const isDefault = user.whop_payment_method_id === paymentMethodId;
+    const isDefault = user.stripe_payment_method_id === paymentMethodId;
 
-    // If Whop supports detaching payment methods, call it here
-    // For now, we just remove from our tracking
-    // await whop.paymentMethods.detach(paymentMethodId);
+    // Detach the payment method from the customer
+    await stripe.paymentMethods.detach(paymentMethodId);
 
     if (isDefault) {
       const remaining = allCards.filter((m) => m.id !== paymentMethodId);
       if (remaining.length > 0) {
         const newDefault = remaining[0];
-        const newCard = "card" in newDefault ? (newDefault as { card: { last4?: string | null; brand?: string | null } }).card : null;
         await supabase
           .from("meter_users")
           .update({
-            whop_payment_method_id: newDefault.id,
-            card_last4: newCard?.last4 ?? "0000",
-            card_brand: newCard?.brand ?? "unknown",
+            stripe_payment_method_id: newDefault.id,
+            card_last4: newDefault.card?.last4 ?? "0000",
+            card_brand: newDefault.card?.brand ?? "unknown",
             updated_at: new Date().toISOString(),
           })
           .eq("id", userId);

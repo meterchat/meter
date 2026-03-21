@@ -488,8 +488,8 @@ export function LoginScreen() {
     if (user.cardOnFile) {
       setCardOnFile(true, user.cardLast4 ?? undefined, user.cardBrand);
     }
-    // Eagerly fetch cards from Whop — covers cases where the webhook
-    // didn't save card details to the DB but the card exists in Whop.
+    // Eagerly fetch cards from Stripe — covers cases where the webhook
+    // didn't save card details to the DB but the card exists in Stripe.
     fetchCards();
     // Auth set → page.tsx renders ChatView; onboarding handled in-chat
   };

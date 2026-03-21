@@ -757,7 +757,7 @@ function EntryDetail({ entry }: { entry: LogEntry }) {
               {entry.preview}
             </p>
           )}
-          <DetailRow label="Source" value="Whop" />
+          <DetailRow label="Source" value="Stripe" />
         </div>
       )}
 

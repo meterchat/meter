@@ -677,7 +677,7 @@ export function useSessionSync() {
             cardOnFile: data.cardOnFile,
             cardLast4: data.cardLast4,
             cardBrand: data.cardBrand,
-            whopMemberId: data.whopMemberId,
+            stripeCustomerId: data.stripeCustomerId,
           });
         }
         // Apply global admin config (markup, enabled models/commands, free credit)

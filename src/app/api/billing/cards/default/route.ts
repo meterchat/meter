@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
-import { getWhop } from "@/lib/whop";
+import { getStripe } from "@/lib/stripe-billing";
 import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -16,33 +16,31 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabaseServer();
 
-    // Look up payment method details from Whop if needed for last4/brand
-    // For now, update our tracking of which payment method is default
     const { data: user } = await supabase
       .from("meter_users")
-      .select("whop_member_id")
+      .select("stripe_customer_id")
       .eq("id", userId)
       .single();
 
-    if (!user?.whop_member_id) {
+    if (!user?.stripe_customer_id) {
       return NextResponse.json({ error: "No payment methods on file" }, { status: 400 });
     }
 
-    // Get all payment methods to find the card details for the selected one
-    const whop = getWhop();
-    const methods = await whop.paymentMethods.list({
-      member_id: user.whop_member_id,
+    // Update the default payment method on the Stripe customer
+    const stripe = getStripe();
+    await stripe.customers.update(user.stripe_customer_id, {
+      invoice_settings: { default_payment_method: paymentMethodId },
     });
 
-    const selected = (methods.data ?? []).find((pm) => pm.id === paymentMethodId);
-    const card = selected && "card" in selected ? (selected as { card: { last4?: string | null; brand?: string | null } }).card : null;
-    const last4 = card?.last4 ?? "0000";
-    const brand = card?.brand ?? "unknown";
+    // Fetch card details for the selected payment method
+    const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+    const last4 = pm.card?.last4 ?? "0000";
+    const brand = pm.card?.brand ?? "unknown";
 
     await supabase
       .from("meter_users")
       .update({
-        whop_payment_method_id: paymentMethodId,
+        stripe_payment_method_id: paymentMethodId,
         card_last4: last4,
         card_brand: brand,
         updated_at: new Date().toISOString(),

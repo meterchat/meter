@@ -1,4 +1,4 @@
-import { getWhop, getWhopCompanyId, ensureWhopMember } from "@/lib/whop";
+import { getStripe, ensureStripeCustomer } from "@/lib/stripe-billing";
 import { getSupabaseServer } from "@/lib/supabase";
 import {
   serverTrackSettlementCompleted,
@@ -21,7 +21,7 @@ export interface SettleResult {
 
 /**
  * Core settlement logic for a single workspace.
- * Handles free credit deduction, Whop charge, message marking,
+ * Handles free credit deduction, Stripe charge, message marking,
  * settlement history, and failure flagging.
  *
  * Used by both the user-facing /api/billing/settle route and the
@@ -93,7 +93,7 @@ export async function settleWorkspace(opts: {
         user_id: userId,
         workspace_id: workspaceId,
         amount,
-        whop_payment_id: null,
+        stripe_payment_intent_id: null,
         message_count: messageIds.length,
         charge_count: chargeIds.length,
         card_last4: null,
@@ -105,20 +105,22 @@ export async function settleWorkspace(opts: {
       return { success: true, paymentId: null, amountCharged: 0, creditUsed };
     }
 
-    // Resolve Whop member + payment method
-    const { memberId, paymentMethodId } = await ensureWhopMember(userId);
+    // Resolve Stripe customer + payment method
+    const { customerId, paymentMethodId } = await ensureStripeCustomer(userId);
 
-    // Create off-session payment via Whop
-    const whop = getWhop();
-    const payment = await whop.payments.create({
-      company_id: getWhopCompanyId(),
-      member_id: memberId,
-      payment_method_id: paymentMethodId,
-      plan: {
-        initial_price: chargeAmount,
-        currency: "usd",
-        plan_type: "one_time",
-      },
+    if (!paymentMethodId) {
+      throw new Error("No payment method on file");
+    }
+
+    // Create off-session payment via Stripe
+    const stripe = getStripe();
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(chargeAmount * 100), // Stripe uses cents
+      currency: "usd",
+      customer: customerId,
+      payment_method: paymentMethodId,
+      off_session: true,
+      confirm: true,
       metadata: {
         meter_user_id: userId,
         workspace_id: workspaceId,
@@ -127,8 +129,7 @@ export async function settleWorkspace(opts: {
       },
     });
 
-    // Whop processes payments async — record as pending, webhook confirms
-    // Mark messages as settled optimistically (webhook will handle failures)
+    // Mark messages as settled
     if (messageIds.length > 0) {
       if (!skipOwnershipCheck && !(await verifyMessageOwnership(supabase, userId, messageIds))) {
         return { success: false, error: "Forbidden: message ownership mismatch" };
@@ -153,7 +154,7 @@ export async function settleWorkspace(opts: {
       user_id: userId,
       workspace_id: workspaceId,
       amount,
-      whop_payment_id: payment.id,
+      stripe_payment_intent_id: paymentIntent.id,
       message_count: messageIds.length,
       charge_count: chargeIds.length,
       card_last4: cardUser?.card_last4 ?? null,
@@ -174,12 +175,12 @@ export async function settleWorkspace(opts: {
       workspaceId,
       messageCount: messageIds.length,
       chargeCount: chargeIds.length,
-      stripePaymentIntentId: payment.id, // analytics field name kept for backward compat
+      stripePaymentIntentId: paymentIntent.id,
       cardLast4: cardUser?.card_last4 ?? undefined,
       cardBrand: cardUser?.card_brand ?? undefined,
     });
 
-    return { success: true, paymentId: payment.id, amountCharged: amount };
+    return { success: true, paymentId: paymentIntent.id, amountCharged: amount };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Settlement error:", message);

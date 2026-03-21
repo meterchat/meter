@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       id: r.id,
       amount: Number(r.amount),
       workspaceId: r.workspace_id,
-      paymentId: r.whop_payment_id,
+      paymentId: r.stripe_payment_intent_id,
       messageCount: r.message_count ?? 0,
       chargeCount: r.charge_count ?? 0,
       cardLast4: r.card_last4,

@@ -4,13 +4,57 @@ import { useEffect, useState } from "react";
 import { useMeterStore } from "@/lib/store";
 import { authFetch } from "@/lib/auth-fetch";
 import Image from "next/image";
-import { WhopCheckoutEmbed } from "@whop/checkout/react";
+import { StripeProvider } from "@/components/stripe-provider";
+import { PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+
+function CardFormInner() {
+  const stripe = useStripe();
+  const elements = useElements();
+  const setCardOnFile = useMeterStore((s) => s.setCardOnFile);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    const { error: stripeError } = await stripe.confirmSetup({
+      elements,
+      redirect: "if_required",
+    });
+
+    if (stripeError) {
+      setError(stripeError.message ?? "Payment setup failed");
+      setSubmitting(false);
+    } else {
+      setCardOnFile(true);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <PaymentElement />
+      {error && (
+        <p className="font-mono text-[11px] text-red-400 text-center">{error}</p>
+      )}
+      <button
+        type="submit"
+        disabled={!stripe || submitting}
+        className="w-full rounded-lg bg-emerald-600 px-4 py-2 font-mono text-[11px] text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+      >
+        {submitting ? "Saving..." : "Save Card"}
+      </button>
+    </form>
+  );
+}
 
 function CardForm() {
-  const { userId, email, setCardOnFile, setEmail, logout, loggingOut } = useMeterStore();
-  const [loading, setLoading] = useState(false);
+  const { userId, email, logout, loggingOut } = useMeterStore();
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -22,8 +66,8 @@ function CardForm() {
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data.sessionId) {
-          setSessionId(data.sessionId);
+        if (data.clientSecret) {
+          setClientSecret(data.clientSecret);
         } else {
           setError(data.error || "Failed to initialize payment");
         }
@@ -40,21 +84,15 @@ function CardForm() {
         </h1>
       </div>
 
-      {sessionId && (
+      {clientSecret && (
         <div className="w-full rounded-xl border border-border bg-card p-5">
-          <WhopCheckoutEmbed
-            sessionId={sessionId}
-            hideEmail
-            prefill={email ? { email } : undefined}
-            returnUrl={`${window.location.origin}/`}
-            onComplete={() => {
-              setCardOnFile(true);
-            }}
-          />
+          <StripeProvider clientSecret={clientSecret}>
+            <CardFormInner />
+          </StripeProvider>
         </div>
       )}
 
-      {!sessionId && !error && (
+      {!clientSecret && !error && (
         <div className="flex items-center gap-2">
           <svg className="animate-spin h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -80,7 +118,7 @@ function CardForm() {
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full bg-emerald-500" />
         <span className="font-mono text-[10px] text-muted-foreground/40">
-          {email ?? "—"}
+          {email ?? "\u2014"}
         </span>
         <button
           onClick={logout}
