@@ -6,6 +6,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import Image from "next/image";
 import { StripeProvider } from "@/components/stripe-provider";
 import { PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { PaymentIcons } from "@/components/payment-icons";
 
 function CardFormInner() {
   const stripe = useStripe();
@@ -37,6 +38,7 @@ function CardFormInner() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <PaymentElement />
+      <PaymentIcons />
       {error && (
         <p className="font-mono text-[11px] text-red-400 text-center">{error}</p>
       )}

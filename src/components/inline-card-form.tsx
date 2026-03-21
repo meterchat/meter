@@ -6,6 +6,7 @@ import { trackCardAdded } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";
 import { StripeProvider } from "@/components/stripe-provider";
 import { PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { PaymentIcons } from "@/components/payment-icons";
 
 function CardFormInner({ onComplete }: { onComplete?: () => void }) {
   const stripe = useStripe();
@@ -39,6 +40,7 @@ function CardFormInner({ onComplete }: { onComplete?: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <PaymentElement />
+      <PaymentIcons />
       {error && (
         <p className="font-mono text-[10px] text-red-400">{error}</p>
       )}

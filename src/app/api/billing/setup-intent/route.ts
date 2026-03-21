@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
-      payment_method_types: ["card"],
+      payment_method_types: ["card", "apple_pay"],
       metadata: { meter_user_id: userId },
     });
 
