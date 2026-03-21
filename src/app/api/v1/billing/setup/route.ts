@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   const setupIntent = await stripe.setupIntents.create({
     customer: customerId,
-    payment_method_types: ["card", "apple_pay"],
+    automatic_payment_methods: { enabled: true },
     metadata: {
       meter_sdk_user_id: internalId,
       developer_id: keyRecord.user_id,
