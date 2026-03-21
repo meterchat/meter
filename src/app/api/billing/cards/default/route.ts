@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       .eq("id", userId)
       .single();
 
-    if (!user?.stripe_customer_id) {
+    if (!user?.stripe_customer_id || !user.stripe_customer_id.startsWith("cus_")) {
       return NextResponse.json({ error: "No payment methods on file" }, { status: 400 });
     }
 

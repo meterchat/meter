@@ -30,6 +30,11 @@ export async function ensureStripeCustomer(userId: string): Promise<{ customerId
 
   let customerId = user.stripe_customer_id;
 
+  // Clear stale Whop member IDs left over from the migration
+  if (customerId && !customerId.startsWith("cus_")) {
+    customerId = null;
+  }
+
   if (!customerId) {
     // Create a new Stripe customer
     const stripe = getStripe();
