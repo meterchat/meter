@@ -11,7 +11,7 @@ const STATEMENTS: string[] = [
   `create table if not exists meter_users (
     id text primary key,
     email text unique not null,
-    whop_member_id text,
+    stripe_customer_id text,
     card_last4 text,
     card_brand text,
     gmail_connected boolean default false,
@@ -116,7 +116,7 @@ const STATEMENTS: string[] = [
     user_id text not null references meter_users(id) on delete cascade,
     workspace_id text,
     amount numeric not null,
-    whop_payment_id text,
+    stripe_payment_intent_id text,
     message_count integer default 0,
     charge_count integer default 0,
     card_last4 text,
@@ -528,18 +528,20 @@ const STATEMENTS: string[] = [
   `alter table app_config add column if not exists bonus_credit_limit integer not null default 100`,
   `alter table app_config add column if not exists bonus_credit_amount numeric not null default 10`,
 
-  // ── Stripe → Whop migration: rename columns + add new ones ──
-  // meter_users: stripe_customer_id → whop_member_id (if old column exists)
-  `do $$ begin alter table meter_users rename column stripe_customer_id to whop_member_id; exception when undefined_column then null; end $$`,
-  `alter table meter_users add column if not exists whop_member_id text`,
-  `alter table meter_users add column if not exists whop_payment_method_id text`,
-  // sdk_end_users: stripe_customer_id → whop_member_id (if old column exists)
-  `do $$ begin alter table sdk_end_users rename column stripe_customer_id to whop_member_id; exception when undefined_column then null; when undefined_table then null; end $$`,
-  `do $$ begin alter table sdk_end_users add column if not exists whop_member_id text; exception when undefined_table then null; end $$`,
-  `do $$ begin alter table sdk_end_users add column if not exists whop_payment_method_id text; exception when undefined_table then null; end $$`,
-  // settlement_history: stripe_payment_intent_id → whop_payment_id (if old column exists)
-  `do $$ begin alter table settlement_history rename column stripe_payment_intent_id to whop_payment_id; exception when undefined_column then null; end $$`,
-  `alter table settlement_history add column if not exists whop_payment_id text`,
+  // ── Whop → Stripe migration: rename columns back to Stripe equivalents ──
+  // meter_users: whop_member_id → stripe_customer_id (if old column exists)
+  `do $$ begin alter table meter_users rename column whop_member_id to stripe_customer_id; exception when undefined_column then null; end $$`,
+  `alter table meter_users add column if not exists stripe_customer_id text`,
+  `do $$ begin alter table meter_users rename column whop_payment_method_id to stripe_payment_method_id; exception when undefined_column then null; end $$`,
+  `alter table meter_users add column if not exists stripe_payment_method_id text`,
+  // sdk_end_users: whop_member_id → stripe_customer_id (if old column exists)
+  `do $$ begin alter table sdk_end_users rename column whop_member_id to stripe_customer_id; exception when undefined_column then null; when undefined_table then null; end $$`,
+  `do $$ begin alter table sdk_end_users add column if not exists stripe_customer_id text; exception when undefined_table then null; end $$`,
+  `do $$ begin alter table sdk_end_users rename column whop_payment_method_id to stripe_payment_method_id; exception when undefined_column then null; when undefined_table then null; end $$`,
+  `do $$ begin alter table sdk_end_users add column if not exists stripe_payment_method_id text; exception when undefined_table then null; end $$`,
+  // settlement_history: whop_payment_id → stripe_payment_intent_id (if old column exists)
+  `do $$ begin alter table settlement_history rename column whop_payment_id to stripe_payment_intent_id; exception when undefined_column then null; end $$`,
+  `alter table settlement_history add column if not exists stripe_payment_intent_id text`,
 
   // ── Remove legacy crypto/blockchain columns ──
   `alter table chat_messages drop column if exists signature`,

@@ -4,20 +4,62 @@ import { useEffect, useState } from "react";
 import { useMeterStore } from "@/lib/store";
 import { trackCardAdded } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";
-import { WhopCheckoutEmbed } from "@whop/checkout/react";
-import { Spinner } from "@/components/ui/spinner";
+import { StripeProvider } from "@/components/stripe-provider";
+import { PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+
+function CardForm({ onComplete }: { onComplete: () => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    const { error: stripeError } = await stripe.confirmSetup({
+      elements,
+      redirect: "if_required",
+    });
+
+    if (stripeError) {
+      setError(stripeError.message ?? "Payment setup failed");
+      setSubmitting(false);
+    } else {
+      onComplete();
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <PaymentElement />
+      {error && (
+        <p className="font-mono text-[11px] text-red-400 text-center">{error}</p>
+      )}
+      <button
+        type="submit"
+        disabled={!stripe || submitting}
+        className="w-full rounded-lg bg-emerald-600 px-4 py-2 font-mono text-[11px] text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+      >
+        {submitting ? "Saving..." : "Save Card"}
+      </button>
+    </form>
+  );
+}
 
 export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const userId = useMeterStore((s) => s.userId);
-  const email = useMeterStore((s) => s.email);
   const fetchCards = useMeterStore((s) => s.fetchCards);
   const setCardOnFile = useMeterStore((s) => s.setCardOnFile);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setSessionId(null);
+    setClientSecret(null);
     setError(null);
 
     if (!userId) {
@@ -32,8 +74,8 @@ export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => 
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data.sessionId) {
-          setSessionId(data.sessionId);
+        if (data.clientSecret) {
+          setClientSecret(data.clientSecret);
         } else {
           setError(data.error || "Failed to initialize payment");
         }
@@ -68,7 +110,7 @@ export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => 
             <p className="font-mono text-[11px] text-red-400 text-center">{error}</p>
           )}
 
-          {!error && !sessionId && (
+          {!error && !clientSecret && (
             <div className="flex items-center justify-center gap-2 py-8">
               <svg className="animate-spin h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -80,29 +122,18 @@ export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => 
             </div>
           )}
 
-          {!error && sessionId && (
+          {!error && clientSecret && (
             <div className="flex flex-col gap-4">
-              <WhopCheckoutEmbed
-                sessionId={sessionId}
-                hideEmail
-                prefill={email ? { email } : undefined}
-                theme="dark"
-                returnUrl={`${window.location.origin}/`}
-                onComplete={() => {
-                  trackCardAdded({ brand: "card", last4: "****", source: "modal" });
-                  setCardOnFile(true);
-                  fetchCards();
-                  onClose();
-                }}
-                fallback={
-                  <div className="flex flex-col items-center justify-center gap-3 py-12">
-                    <Spinner className="size-5 text-muted-foreground" />
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      Loading payment form...
-                    </span>
-                  </div>
-                }
-              />
+              <StripeProvider clientSecret={clientSecret}>
+                <CardForm
+                  onComplete={() => {
+                    trackCardAdded({ brand: "card", last4: "****", source: "modal" });
+                    setCardOnFile(true);
+                    fetchCards();
+                    onClose();
+                  }}
+                />
+              </StripeProvider>
 
               <div className="rounded-lg border border-border/50 bg-card/50 px-4 py-3">
                 <p className="font-mono text-[11px] text-muted-foreground/60 leading-relaxed">

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const { data: user } = await supabase
       .from("meter_users")
-      .select("id, whop_member_id")
+      .select("id, stripe_customer_id")
       .eq("id", userId)
       .single();
 
@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Note: Whop member cleanup is handled by Whop when the member is removed.
-    // No explicit deletion needed on our side.
+    // Note: Stripe customer cleanup can be done via stripe.customers.del() if needed.
+    // For now we just soft-delete the user record.
 
     // Delete related data without cascade
     const { data: userSessions } = await supabase

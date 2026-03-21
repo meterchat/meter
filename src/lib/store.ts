@@ -158,7 +158,7 @@ interface MeterState {
   cardOnFile: boolean;
   cardLast4: string | null;
   cardBrand: string | null;
-  whopMemberId: string | null;
+  stripeCustomerId: string | null;
   connectionsLoading: boolean;
 
   selectedModelId: string;
@@ -211,7 +211,7 @@ interface MeterState {
   setSessionsLoaded: (v: boolean) => void;
   setEmail: (email: string) => void;
   setCardOnFile: (v: boolean, last4?: string, brand?: string) => void;
-  setWhopMemberId: (id: string) => void;
+  setStripeCustomerId: (id: string) => void;
   connectService: (id: string) => void;
   disconnectService: (id: string) => void;
   fetchConnectionStatus: () => Promise<void>;
@@ -441,7 +441,7 @@ export const useMeterStore = create<MeterState>()(
       cardOnFile: false,
       cardLast4: null,
       cardBrand: null,
-      whopMemberId: null,
+      stripeCustomerId: null,
       connectionsLoading: false,
 
       selectedModelId: DEFAULT_MODEL.id,
@@ -499,7 +499,7 @@ export const useMeterStore = create<MeterState>()(
             ),
           } : {}),
         })),
-      setWhopMemberId: (id) => set({ whopMemberId: id }),
+      setStripeCustomerId: (id) => set({ stripeCustomerId: id }),
       connectService: (id) => {
         set((s) => {
           const active = getActiveSession(s);
@@ -674,7 +674,7 @@ export const useMeterStore = create<MeterState>()(
           cardOnFile: false,
           cardLast4: null,
           cardBrand: null,
-          whopMemberId: null,
+          stripeCustomerId: null,
           sessions: initialSessions,
           activeSessionId: "default",
           inspectorOpen: false,
@@ -1009,7 +1009,7 @@ export const useMeterStore = create<MeterState>()(
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              whopMemberId: s.whopMemberId,
+              stripeCustomerId: s.stripeCustomerId,
               workspaceId: active.id,
               amount,
               messageIds,
@@ -1349,8 +1349,8 @@ export const useMeterStore = create<MeterState>()(
             const data = await res.json();
             const cards = data.cards ?? [];
             set({ cards });
-            // Sync cardOnFile from actual Whop card data — covers cases where
-            // the webhook didn't save card_last4/whop_member_id to the DB.
+            // Sync cardOnFile from actual Stripe card data — covers cases where
+            // the webhook didn't save card_last4/stripe_customer_id to the DB.
             if (cards.length > 0 && !get().cardOnFile) {
               const defaultCard = cards.find((c: { isDefault?: boolean }) => c.isDefault) ?? cards[0];
               get().setCardOnFile(true, defaultCard.last4, defaultCard.brand);
@@ -1719,7 +1719,7 @@ export const useMeterStore = create<MeterState>()(
         cardOnFile: s.cardOnFile,
         cardLast4: s.cardLast4,
         cardBrand: s.cardBrand,
-        whopMemberId: s.whopMemberId,
+        stripeCustomerId: s.stripeCustomerId,
         selectedModelId: s.selectedModelId,
         debateMode: s.debateMode,
         debateRoster: s.debateRoster,
