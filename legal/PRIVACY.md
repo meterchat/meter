@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective date: 2026-02-24
+Effective date: 2026-03-22
 
 This Privacy Policy explains how Meter ("we," "us," or "our") collects, uses, and shares information when you use Meter (the "Service").
 
@@ -13,85 +13,112 @@ Meter
 Support: support@meter.chat
 Privacy: legal@meter.chat
 
-## 2. Information we collect
+## 2. Privacy by design
 
-### 2.1 Account information
+Meter is built to be used anonymously. We do not require your name, email address, or password. You authenticate with a passkey stored on your device, and your account is identified by a randomly generated ID. We have no way to determine who you are from your account alone.
 
-We collect information you provide when creating an account, such as name, email address, and authentication identifiers.
+This means the information described below is collected on an anonymized basis unless you voluntarily provide identifying information (for example, by connecting a third-party service like GitHub).
 
-### 2.2 Usage and device information
+## 3. Information we collect
 
-We collect information about how you use the Service, including request metadata, timestamps, feature usage, and approximate location derived from IP address.
+### 3.1 Account information
 
-### 2.3 Customer content
+When you create an account, we generate a random account identifier and store the public key associated with your passkey. We do not collect your name, email, or other personal identifiers.
 
-We collect and process content you submit to the Service, such as prompts, messages, decision records, debate transcripts, uploaded files, generated artifacts, and integration configuration ("Customer Content").
+### 3.2 Customer content
 
-### 2.4 Integration data
+We collect and process content you submit to the Service, such as prompts, messages, decision records, debate transcripts, uploaded files, generated artifacts, and integration configuration ("Customer Content"). This content is associated with your anonymous account ID, not with any personal identity.
 
-If you connect third-party services (such as Google/Gmail, GitHub, calendars, or financial tools), we may access and process data from those services as authorized by you and limited to the scopes/permissions you grant.
+### 3.3 Usage and device information
 
-### 2.5 Payment information
+We collect information about how you use the Service, including request metadata, timestamps, feature usage, and approximate location derived from IP address. We do not associate IP addresses with your account ID in long-term storage.
 
-If you pay for the Service, our payment processors collect payment information. We receive limited billing information (such as the last four digits of a card, billing status, and invoices).
+### 3.4 Integration data
 
-## 3. How we use information
+If you connect third-party services (such as Google/Gmail, GitHub, calendars, or financial tools), we may access and process data from those services as authorized by you and limited to the scopes and permissions you grant. Connecting a third-party service may introduce personally identifiable information (such as a GitHub username) into your session. We store only the minimum data needed to maintain the connection.
+
+### 3.5 Payment information
+
+If you pay for the Service, our payment processors collect payment information. We receive limited billing information (such as a payment token, billing status, and invoices). We do not store full card numbers or link payment identity to your anonymous account ID in the Service itself.
+
+## 4. How we use information
 
 We use information to:
 
-- provide, maintain, and improve the Service;
+- provide, maintain, and operate the Service;
 - process usage-based billing and prevent fraud;
-- personalize the Service (for example, to organize decision records and artifacts);
+- improve the Service, including by analyzing anonymized usage patterns and Customer Content to develop features and improve model quality;
 - provide customer support;
 - communicate with you about updates, security, and administrative messages;
 - comply with legal obligations.
 
-## 4. How we share information
+Because your account is anonymous, most of this processing happens without any link to your real-world identity.
+
+## 5. AI model providers
+
+The Service sends your prompts and related context to third-party AI model providers to generate Output.
+
+**What is sent.** Typically your prompt, relevant conversation context, and system instructions needed for the requested workflow.
+
+**Anonymized.** Content sent to providers is not accompanied by any personal identifiers. Providers receive the content itself, not information about who submitted it.
+
+**Provider policies.** Each provider's handling of data is governed by their own terms and privacy policies. We select providers and configurations that are consistent with the Service's privacy design, but we cannot guarantee that providers will not use content in ways permitted by their own policies.
+
+**Minimization.** We aim to send only the information necessary to fulfill your request.
+
+## 6. How we share information
 
 We share information with:
 
-- service providers (hosting, analytics, support, and payment processors) who process data on our behalf;
-- third-party integrations you enable (for example, GitHub APIs when committing artifacts, or Google APIs when accessing Gmail data);
-- law enforcement or regulators when required by law;
-- a successor entity in connection with a merger, acquisition, or sale of assets.
+- **Service providers** (hosting, analytics, support, and payment processors) who process data on our behalf;
+- **AI model providers** to generate responses, as described in Section 5;
+- **Connected services** to perform actions you request (for example, committing artifacts to GitHub);
+- **Law enforcement or regulators** when required by law;
+- **A successor entity** in connection with a merger, acquisition, or sale of assets.
 
-We do not sell your personal information.
+We do not sell your personal information. We do not share your Customer Content with other Meter users.
 
-## 5. AI models and providers
+## 7. Anonymized data and service improvement
 
-The Service may send your prompts and related context to third-party AI model providers to generate Output. These providers may process data according to their own terms and policies. We aim to minimize data shared and to use providers and settings consistent with the Service's configuration.
+Because the Service is anonymous by design, Customer Content is not linked to any personal identity. We may use anonymized Customer Content in aggregate to improve the Service, including to analyze usage patterns, improve model routing, and develop new features. This is a core part of how the Service works and improves over time.
 
-## 6. Data retention
+## 8. Data retention
 
-We retain personal information for as long as necessary to provide the Service and for legitimate business purposes, including compliance, dispute resolution, and enforcing agreements. You may request deletion subject to legal and operational constraints.
+We retain Customer Content and account data for as long as your account is active and for a reasonable period afterward for operational purposes (such as auditing, security, and compliance).
 
-## 7. Security
+You may request deletion of your account and associated data by contacting legal@meter.chat. We will process deletion requests within 30 days, subject to legal and operational constraints.
 
-We use reasonable administrative, technical, and physical safeguards designed to protect information. No method of transmission or storage is 100% secure.
+## 9. Security
 
-## 8. Your choices
+We use reasonable administrative, technical, and physical safeguards designed to protect information. The anonymous architecture of the Service provides an additional layer of privacy — even in the event of a breach, Customer Content is not linked to personal identities. No method of transmission or storage is 100% secure.
 
-You may be able to:
+## 10. Your choices
 
-- access or update account information;
-- disconnect integrations;
-- request deletion of account data by contacting legal@meter.chat.
+You may:
 
-Depending on your location, you may have additional rights.
+- disconnect integrations at any time through the third-party provider's settings;
+- request deletion of your account and data by contacting legal@meter.chat;
+- stop using the Service at any time.
 
-## 9. International users
+Because accounts are anonymous and passkey-based, some self-service account management features (such as email-based password reset) are not applicable.
 
-If you access the Service from outside the United States, your information may be processed in the United States or other jurisdictions.
+## 11. Children's privacy
 
-## 10. Children's privacy
+The Service is not directed to children under 18, and we do not knowingly collect personal information from children under 18.
 
-The Service is not directed to children under 13, and we do not knowingly collect personal information from children under 13.
+## 12. International users
 
-## 11. Changes
+If you access the Service from outside the United States, your information may be processed in the United States or other jurisdictions. We take steps designed to ensure appropriate safeguards when transferring data.
+
+## 13. Cookies and local storage
+
+We use cookies and similar technologies for authentication (passkey session management), security, preferences, and analytics. Because accounts are anonymous, cookies are not used to build a personal profile tied to your identity.
+
+## 14. Changes
 
 We may update this Privacy Policy from time to time. If we make material changes, we will provide reasonable notice by updating the effective date and, where appropriate, by other means.
 
-## 12. Contact
+## 15. Contact
 
 Meter
 326 Mira Loma Ave
