@@ -39,6 +39,7 @@ import { DomainCard } from "@/components/domain-card";
 // CommandBar removed — model selector bar replaces connections in the chat box
 import { SlashCommandPopover, type SlashCommandHandle } from "@/components/slash-command";
 import { isApiKeyProvider, initiateOAuthFlow } from "@/lib/oauth-client";
+import { runReconcile } from "@/lib/reconcile-engine";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
 import { WorkspaceBar } from "@/components/workspace-bar";
 import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-store";
@@ -2250,6 +2251,11 @@ export function ChatView() {
     await streamResponse("Debate this.", "debate");
   };
 
+  /** Triggered by "Reconcile all" on a sync report message */
+  const runReconcileFromChat = () => {
+    runReconcile();
+  };
+
   /** Triggered by the "Dissect" button on a decision-point message */
   const handleDissect = async () => {
     if (isStreaming || !workspaceCardReady) return;
@@ -2840,12 +2846,7 @@ export function ChatView() {
                       )}
                       {msg.role === "assistant" && msg.id.startsWith("sync-report-") && (
                         <SyncReportActions onReconcile={() => {
-                          addMessage({
-                            id: `sync-reconcile-${Date.now()}`,
-                            role: "user",
-                            content: "Reconcile all contradictions and conflicts found in the sync report. Update all affected decisions, documents, and specs to be internally consistent.",
-                            timestamp: Date.now(),
-                          });
+                          runReconcileFromChat();
                         }} />
                       )}
                       {msg.role === "assistant" && <MessageFooter msg={msg} sessionId={activeSessionId} />}

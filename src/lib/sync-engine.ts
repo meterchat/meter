@@ -3,13 +3,17 @@
  *
  * Ingests all decisions (including archived/superseded versions),
  * documents (with version history), and conversation history.
- * Runs a single comprehensive pass looking for contradictions, gaps,
- * stale assumptions, and conflicts. Uses Sonnet 4.6 for cost-efficient
- * structured analysis. Streams progress updates back via the sync store.
+ * Runs 5 passes with different analytical lenses looking for
+ * contradictions, gaps, stale assumptions, and conflicts.
+ * Uses Sonnet 4.6 for cost-efficient structured analysis.
+ * Streams progress updates back via the sync store.
  *
  * Version-aware: understands decision chains (v1 → v2 → v3) and
  * doc revisions. Flags when a decision was rethought but downstream
  * docs or dependent decisions were never updated to match.
+ *
+ * Costs feed into the global session meter so sync spend appears
+ * in the header counter alongside regular chat costs.
  *
  * The engine runs in the background — the user can keep chatting.
  */
@@ -22,18 +26,25 @@ import { authFetch } from "./auth-fetch";
 import { getModel } from "./models";
 
 /** The model used for sync analysis — cost-efficient structured extraction */
-const SYNC_MODEL = "anthropic/claude-sonnet-4.6";
+export const SYNC_MODEL = "anthropic/claude-sonnet-4.6";
 
-interface SSEResult {
+export interface SSEResult {
   content: string;
   usage: { tokensIn: number; tokensOut: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number } | null;
 }
 
+/** Tool result extracted from SSE stream */
+export interface SSEToolResult {
+  name: string;
+  decision?: { id?: string; title: string; status: string; choice: string; alternatives?: string[]; reasoning?: string };
+  artifact?: { id?: string; filePath: string; content?: string; category?: string; status: string };
+}
+
 /**
- * Read a full SSE response from /api/chat and return accumulated text + usage.
+ * Read a full SSE response from /api/chat and return accumulated text + usage + tool results.
  * The API returns text/event-stream with `data: {...}` lines.
  */
-async function readSSEResponse(response: Response): Promise<SSEResult> {
+export async function readSSEResponse(response: Response): Promise<SSEResult & { toolResults: SSEToolResult[] }> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error("No reader on response");
 
@@ -41,6 +52,7 @@ async function readSSEResponse(response: Response): Promise<SSEResult> {
   let buffer = "";
   let fullContent = "";
   let usage: SSEResult["usage"] = null;
+  const toolResults: SSEToolResult[] = [];
 
   while (true) {
     const { done, value } = await reader.read();
@@ -69,13 +81,19 @@ async function readSSEResponse(response: Response): Promise<SSEResult> {
             cacheReadRate: data.cacheReadRate ?? 0.1,
           };
         }
+        if (data.type === "tool_result") {
+          const tr: SSEToolResult = { name: data.name };
+          if (data.decision) tr.decision = data.decision;
+          if (data.artifact) tr.artifact = data.artifact;
+          toolResults.push(tr);
+        }
       } catch {
         // skip malformed lines
       }
     }
   }
 
-  return { content: fullContent, usage };
+  return { content: fullContent, usage, toolResults };
 }
 
 const SYNC_SYSTEM_PROMPT = `You are Meter's Strategy Sync engine. You analyze a user's complete strategy — all decisions (including version history), documents (including past versions), and conversation — to find internal inconsistencies.
@@ -110,7 +128,8 @@ interface SyncContext {
   recentMessages: { role: string; content: string }[];
 }
 
-async function gatherContext(): Promise<SyncContext> {
+/** Exported so the reconcile engine can reuse context gathering */
+export async function gatherContext(): Promise<SyncContext> {
   const meterState = useMeterStore.getState();
   const workspaceSessionId = meterState.activeSessionId;
 
@@ -196,8 +215,10 @@ function buildDecisionChains(active: Decision[], archived: Decision[]): string {
   return parts.join("\n");
 }
 
-function buildAnalysisPrompt(ctx: SyncContext): string {
+function buildAnalysisPrompt(ctx: SyncContext, passNumber: number, totalPasses: number): string {
   const parts: string[] = [];
+
+  parts.push(`=== SYNC PASS ${passNumber} of ${totalPasses} ===\n`);
 
   if (ctx.activeDecisions.length > 0 || ctx.archivedDecisions.length > 0) {
     parts.push("## Decisions (with version history)\n");
@@ -226,17 +247,19 @@ function buildAnalysisPrompt(ctx: SyncContext): string {
     }
   }
 
-  parts.push(`\nAnalyze the above strategy for ALL of the following:
-1. Direct contradictions between active decisions — any two current decisions that say opposite things
-2. Superseded-but-not-propagated — decisions updated (v1→v2) but documents still reflect the old version's choice
-3. Gaps — important strategic areas discussed in conversation but with no formal decision or document coverage
-4. Stale assumptions — decisions based on information that may have changed, and subtle conflicts where decisions undermine each other
-5. Final sweep — any document that references or assumes a choice that was later superseded`);
+  const focuses = [
+    "Focus on direct contradictions between active decisions. Check if any two current decisions say opposite things.",
+    "Focus on superseded-but-not-propagated: decisions that were updated (v1→v2) but documents still reflect the old version's choice. Compare document content against current decision choices.",
+    "Focus on gaps — important strategic areas discussed in conversation but with no formal decision or document coverage.",
+    "Focus on stale assumptions — decisions based on information that may have changed, and subtle conflicts where decisions undermine each other.",
+    "Final sweep — check every document against every active decision. Flag any doc that references or assumes a choice that was later superseded.",
+  ];
+  parts.push(`\n${focuses[(passNumber - 1) % focuses.length]}`);
 
   return parts.join("\n");
 }
 
-function parseFinding(line: string, decisions: Decision[], documents: { id: string; filePath: string }[]): SyncFinding | null {
+export function parseFinding(line: string, decisions: Decision[], documents: { id: string; filePath: string }[]): SyncFinding | null {
   try {
     const obj = JSON.parse(line.trim());
     if (!obj.type || !obj.title || !obj.description) return null;
@@ -283,9 +306,9 @@ function parseFinding(line: string, decisions: Decision[], documents: { id: stri
 /**
  * Compute actual API cost from usage data and model pricing.
  */
-function computeCost(usage: SSEResult["usage"]): number {
+export function computeCost(usage: SSEResult["usage"], modelId: string = SYNC_MODEL): number {
   if (!usage) return 0;
-  const model = getModel(SYNC_MODEL);
+  const model = getModel(modelId);
   const cacheWrite = usage.cacheCreationTokens;
   const cacheHit = usage.cacheReadTokens;
   const readRate = usage.cacheReadRate || 0.1;
@@ -307,6 +330,7 @@ function computeCost(usage: SSEResult["usage"]): number {
 /**
  * Run the sync engine. Returns the report ID.
  * Runs in background — updates sync store as it progresses.
+ * Costs feed into the global session meter.
  */
 export async function runSync(): Promise<string> {
   const store = useSyncStore.getState();
@@ -314,50 +338,93 @@ export async function runSync(): Promise<string> {
 
   const reportId = store.startSync();
   const ctx = await gatherContext();
+  const totalPasses = 5;
 
   const seenTitles = new Set<string>();
   const allDecisions = [...ctx.activeDecisions, ...ctx.archivedDecisions];
 
-  try {
-    useSyncStore.getState().updateProgress(reportId, { currentPass: 1 });
+  // Accumulators for global meter finalization
+  let totalTokensIn = 0;
+  let totalTokensOut = 0;
+  let totalCacheCreation = 0;
+  let totalCacheRead = 0;
+  let lastCacheReadRate = 0.1;
+  let totalRawCost = 0;
+  let totalSyncCost = 0;
 
-    const prompt = buildAnalysisPrompt(ctx);
+  try {
     const meterState = useMeterStore.getState();
     const activeSessionId = meterState.activeSessionId;
     const markupMultiplier = meterState.markupMultiplier;
+    const incrementCurrentMessageCost = useMeterStore.getState().incrementCurrentMessageCost;
 
-    const response = await authFetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: SYNC_SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ],
-        model: SYNC_MODEL,
-        sessionId: activeSessionId,
-      }),
-    });
+    for (let pass = 1; pass <= totalPasses; pass++) {
+      useSyncStore.getState().updateProgress(reportId, { currentPass: pass });
 
-    if (!response.ok) {
-      throw new Error(`Sync API error: ${response.status}`);
-    }
+      const prompt = buildAnalysisPrompt(ctx, pass, totalPasses);
 
-    const result = await readSSEResponse(response);
+      const response = await authFetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: SYNC_SYSTEM_PROMPT },
+            { role: "user", content: prompt },
+          ],
+          model: SYNC_MODEL,
+          sessionId: activeSessionId,
+        }),
+      });
 
-    const lines = result.content.split("\n").filter((l: string) => l.trim().startsWith("{"));
-    for (const line of lines) {
-      const finding = parseFinding(line, allDecisions, ctx.documents);
-      if (finding && !seenTitles.has(finding.title.toLowerCase())) {
-        seenTitles.add(finding.title.toLowerCase());
-        useSyncStore.getState().addFinding(reportId, finding);
+      if (!response.ok) {
+        throw new Error(`Sync API error: ${response.status}`);
       }
+
+      const result = await readSSEResponse(response);
+
+      const lines = result.content.split("\n").filter((l: string) => l.trim().startsWith("{"));
+      for (const line of lines) {
+        const finding = parseFinding(line, allDecisions, ctx.documents);
+        if (finding && !seenTitles.has(finding.title.toLowerCase())) {
+          seenTitles.add(finding.title.toLowerCase());
+          useSyncStore.getState().addFinding(reportId, finding);
+        }
+      }
+
+      // Track cost per pass
+      const passCostRaw = computeCost(result.usage);
+      const passCost = passCostRaw * markupMultiplier;
+      totalRawCost += passCostRaw;
+      totalSyncCost += passCost;
+
+      // Accumulate token counts for finalization
+      if (result.usage) {
+        totalTokensIn += result.usage.tokensIn;
+        totalTokensOut += result.usage.tokensOut;
+        totalCacheCreation += result.usage.cacheCreationTokens;
+        totalCacheRead += result.usage.cacheReadTokens;
+        lastCacheReadRate = result.usage.cacheReadRate;
+      }
+
+      // Feed cost into global session meter in real-time
+      incrementCurrentMessageCost(passCostRaw, activeSessionId);
+
+      // Update sync report cost
+      useSyncStore.getState().updateProgress(reportId, { cost: totalSyncCost });
     }
 
-    // Track actual cost from token usage (with markup for consumer-facing display)
-    const rawCost = computeCost(result.usage);
-    const cost = rawCost * markupMultiplier;
-    useSyncStore.getState().updateProgress(reportId, { cost });
+    // Finalize: snap global meter to ground truth
+    useMeterStore.getState().finalizeResponse(
+      totalTokensIn,
+      totalTokensOut,
+      1.0, // confidence
+      SYNC_MODEL,
+      totalCacheCreation,
+      totalCacheRead,
+      lastCacheReadRate,
+      totalRawCost,
+      activeSessionId,
+    );
 
     useSyncStore.getState().completeSync(reportId);
   } catch (err) {
