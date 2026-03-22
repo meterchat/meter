@@ -259,7 +259,6 @@ interface MeterState {
   setDebateMode: (on: boolean) => void;
   toggleDebateMode: () => void;
   setDebateRoster: (models: string[]) => void;
-  toggleDebateRosterModel: (modelId: string) => void;
   setSpendingCapEnabled: (v: boolean) => void;
   setSpendingCap: (v: number) => void;
   setAutoSettleThreshold: (v: number) => void;
@@ -1458,17 +1457,6 @@ export const useMeterStore = create<MeterState>()(
         return { debateMode: true, debateRoster: roster };
       }),
       setDebateRoster: (models) => set({ debateRoster: models, debateMode: models.length >= 2 }),
-      toggleDebateRosterModel: (modelId) => set((s) => {
-        const has = s.debateRoster.includes(modelId);
-        const next = has
-          ? s.debateRoster.filter((id) => id !== modelId)
-          : [...s.debateRoster, modelId];
-        // When roster drops to 1, exit debate and select the remaining model
-        if (next.length === 1) {
-          return { debateRoster: next, debateMode: false, selectedModelId: next[0] };
-        }
-        return { debateRoster: next, debateMode: next.length >= 2 };
-      }),
       setSpendingCapEnabled: (v) => set({ spendingCapEnabled: v }),
       setSpendingCap: (v) => set({ spendingCap: v }),
       setAutoSettleThreshold: (v) => set({ autoSettleThreshold: v }),

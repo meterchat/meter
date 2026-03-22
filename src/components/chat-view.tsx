@@ -711,7 +711,7 @@ function InlineForkForm({
   );
 }
 
-/* ─── Discuss / Debate toggle ─── */
+/* ─── Debate toggle ─── */
 
 function DiscussDebateToggle() {
   const debateMode = useMeterStore((s) => s.debateMode);
@@ -725,26 +725,18 @@ function DiscussDebateToggle() {
     <button
       onClick={toggleDebateMode}
       disabled={isStreaming}
-      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors disabled:opacity-40 disabled:pointer-events-none ${
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-[11px] transition-all disabled:opacity-40 disabled:pointer-events-none ${
         debateMode
-          ? "text-foreground/70 hover:bg-foreground/5 hover:text-foreground"
+          ? "text-amber-400 bg-amber-500/10 ring-1 ring-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.15)]"
           : "text-muted-foreground/60 hover:bg-foreground/5 hover:text-muted-foreground"
       }`}
-      title={debateMode ? "Switch to single-model chat" : "Switch to multi-model debate"}
+      title={debateMode ? "Exit debate mode" : "Enter debate mode"}
     >
-      {debateMode ? (
-        /* Lucide messages-square — two overlapping square bubbles */
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2z" />
-          <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
-        </svg>
-      ) : (
-        /* Single chat bubble */
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      )}
-      {debateMode ? "Debate" : "Discuss"}
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2z" />
+        <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
+      </svg>
+      Debate
     </button>
   );
 }
