@@ -16,7 +16,6 @@ export interface SettleResult {
   error?: string;
   paymentId?: string | null;
   amountCharged?: number;
-  creditUsed?: number;
 }
 
 /**
@@ -57,54 +56,6 @@ export async function settleWorkspace(opts: {
   const markupMultiplier = Number(configRow?.markup_multiplier) || DEFAULT_MARKUP_MULTIPLIER;
 
   try {
-    // ── Free credit deduction ──
-    const { data: userRow } = await supabase
-      .from("meter_users")
-      .select("free_credit_remaining")
-      .eq("id", userId)
-      .single();
-    const freeCredit = Number(userRow?.free_credit_remaining ?? 0);
-    let creditUsed = 0;
-    let chargeAmount = amount;
-
-    if (freeCredit > 0) {
-      creditUsed = Math.min(freeCredit, amount);
-      chargeAmount = Math.round((amount - creditUsed) * 100) / 100;
-      await supabase
-        .from("meter_users")
-        .update({ free_credit_remaining: Math.max(0, freeCredit - creditUsed) })
-        .eq("id", userId);
-    }
-
-    // If free credit covers the full amount, skip card charge
-    if (chargeAmount <= 0) {
-      if (messageIds.length > 0) {
-        if (!skipOwnershipCheck && !(await verifyMessageOwnership(supabase, userId, messageIds))) {
-          return { success: false, error: "Forbidden: message ownership mismatch" };
-        }
-        await supabase
-          .from("chat_messages")
-          .update({ settled: true, receipt_status: "settled" })
-          .in("id", messageIds);
-      }
-      const historyId = `stl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-      await supabase.from("settlement_history").insert({
-        id: historyId,
-        user_id: userId,
-        workspace_id: workspaceId,
-        amount,
-        stripe_payment_intent_id: null,
-        message_count: messageIds.length,
-        charge_count: chargeIds.length,
-        card_last4: null,
-        card_brand: null,
-        status: "bonus_credit",
-        markup_multiplier: markupMultiplier,
-      }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
-
-      return { success: true, paymentId: null, amountCharged: 0, creditUsed };
-    }
-
     // Resolve Stripe customer + payment method
     const { customerId, paymentMethodId } = await ensureStripeCustomer(userId);
 
@@ -115,7 +66,7 @@ export async function settleWorkspace(opts: {
     // Create off-session payment via Stripe
     const stripe = getStripe();
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(chargeAmount * 100), // Stripe uses cents
+      amount: Math.round(amount * 100), // Stripe uses cents
       currency: "usd",
       customer: customerId,
       payment_method: paymentMethodId,

@@ -13,8 +13,6 @@ interface AdminConfig {
   enabledModels: string[];
   enabledCommands: string[];
   freeUsdCredit: number;
-  bonusCreditLimit: number;
-  bonusCreditAmount: number;
 }
 
 type Tab = "pricing" | "models" | "commands";
@@ -79,7 +77,6 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
         markupMultiplier: updated.markupMultiplier,
         enabledModels: updated.enabledModels,
         enabledCommands: updated.enabledCommands,
-        freeCredit: updated.freeUsdCredit ?? 0,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -146,29 +143,21 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
 function PricingTab({ config, onSave }: { config: AdminConfig; onSave: (u: Partial<AdminConfig>) => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [markup, setMarkup] = useState(String(config.markupMultiplier));
-  const [bonusLimit, setBonusLimit] = useState(String(config.bonusCreditLimit));
-  const [bonusAmount, setBonusAmount] = useState(String(config.bonusCreditAmount));
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSave = async () => {
     const m = parseFloat(markup);
-    const bl = parseInt(bonusLimit, 10);
-    const ba = parseFloat(bonusAmount);
     if (isNaN(m) || m < 1) { setLocalError("Markup must be a number \u2265 1"); return; }
-    if (isNaN(bl) || bl < 0) { setLocalError("User limit must be a non-negative integer"); return; }
-    if (isNaN(ba) || ba < 0) { setLocalError("Credit amount must be \u2265 0"); return; }
     setLocalError(null);
     setSaving(true);
-    await onSave({ markupMultiplier: m, bonusCreditLimit: bl, bonusCreditAmount: ba });
+    await onSave({ markupMultiplier: m });
     setSaving(false);
     setEditing(false);
   };
 
   const handleCancel = () => {
     setMarkup(String(config.markupMultiplier));
-    setBonusLimit(String(config.bonusCreditLimit));
-    setBonusAmount(String(config.bonusCreditAmount));
     setLocalError(null);
     setEditing(false);
   };
@@ -190,41 +179,6 @@ function PricingTab({ config, onSave }: { config: AdminConfig; onSave: (u: Parti
           disabled={!editing}
           className="w-full rounded-lg border border-border bg-background px-4 py-3 font-mono text-2xl text-foreground tabular-nums disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-foreground/20"
         />
-      </div>
-
-      {/* Bonus Credits */}
-      <div>
-        <label className="block font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-1">
-          Bonus Credits
-        </label>
-        <p className="text-[10px] text-muted-foreground/40 mb-2">
-          First N users to sign up receive bonus credits
-        </p>
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <span className="font-mono text-[10px] text-muted-foreground/50 block mb-1">First N users</span>
-            <input
-              type="text"
-              value={bonusLimit}
-              onChange={(e) => setBonusLimit(e.target.value)}
-              disabled={!editing}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-lg text-foreground tabular-nums disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-foreground/20"
-            />
-          </div>
-          <div className="flex-1">
-            <span className="font-mono text-[10px] text-muted-foreground/50 block mb-1">Credit amount</span>
-            <div className="flex items-center gap-1">
-              <span className="font-mono text-lg text-muted-foreground">$</span>
-              <input
-                type="text"
-                value={bonusAmount}
-                onChange={(e) => setBonusAmount(e.target.value)}
-                disabled={!editing}
-                className="flex-1 rounded-lg border border-border bg-background px-3 py-2 font-mono text-lg text-foreground tabular-nums disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-foreground/20"
-              />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Validation error */}

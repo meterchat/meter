@@ -34,7 +34,5 @@ export async function POST(req: NextRequest) {
     success: true,
     paymentId: result.paymentId,
     amountCharged: result.amountCharged,
-    creditUsed: result.creditUsed,
-    freeCredit: result.paymentId === null,
   });
 }
