@@ -1,6 +1,6 @@
 # Terms of Service
 
-Effective date: 2026-02-24
+Effective date: 2026-03-22
 
 These Terms of Service ("Terms") govern your access to and use of Meter (the "Service"). The Service is operated by Meter ("we," "us," or "our"). By accessing or using the Service, you agree to these Terms.
 
@@ -17,51 +17,57 @@ Legal notices: legal@meter.chat
 
 Meter provides a pay-per-use ("pay-per-thought") AI workspace, including model routing, debate workflows, decision logging, artifact generation, and integrations (such as GitHub). The Service may change over time.
 
-## 3. Eligibility
+## 3. Anonymous by design
 
-You must be at least 13 years old (or the minimum legal age in your jurisdiction) to use the Service. If you are under 18, you may use the Service only with involvement of a parent or guardian.
+Meter is designed to be used anonymously. You sign in with a passkey on your device. We do not require your name, email address, or password. Your identity within the Service is a randomly generated identifier. We have no way to determine who you are from your account alone.
 
-## 4. Accounts and security
+## 4. Eligibility
 
-You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account. Notify us immediately of any unauthorized use.
+You must be at least 18 years old to use the Service.
 
-## 5. Billing, usage, and credits
+## 5. Accounts and security
 
-### 5.1 Pay-per-use billing
+Your account is tied to a passkey on your device. You are responsible for maintaining the security of your device and passkey, and for all activities under your account. Because accounts are anonymous, we may have limited ability to help you recover access if you lose your passkey.
+
+## 6. Billing, usage, and credits
+
+### 6.1 Pay-per-use billing
 
 Meter is billed on a pay-per-use basis (e.g., per request, token, or other usage measure) and may be presented as "pay per thought." Pricing, usage measurement, and billing cadence are described in the Service or associated order forms.
 
-### 5.2 Postpaid; caps
+### 6.2 Postpaid; caps
 
-You may be billed in arrears (postpaid). If the Service provides spending caps or budget controls, those are best-effort safety mechanisms and not a guarantee that charges will never exceed a target in all circumstances (for example, due to delayed usage reporting). You remain responsible for charges incurred through your account.
+You may be billed in arrears (postpaid). If the Service provides spending caps or budget controls, we will notify you when you approach a cap. Caps are best-effort safety mechanisms and not a guarantee that charges will never exceed a target in all circumstances (for example, due to delayed usage reporting). You remain responsible for charges incurred through your account.
 
-### 5.3 Taxes
+### 6.3 Taxes
 
 You are responsible for any taxes, levies, or duties imposed by taxing authorities, except for taxes on our income.
 
-### 5.4 Refunds
+### 6.4 Refunds
 
 Unless required by law or expressly stated otherwise, fees are non-refundable.
 
-## 6. Integrations (e.g., GitHub, Google, email)
+## 7. Integrations (e.g., GitHub, Google, email)
 
-If you connect third-party services, you authorize us to access and use those services' data as needed to provide the Service. Your use of third-party services is governed by their terms and policies. We are not responsible for third-party services.
+If you connect third-party services, you authorize us to access and use those services' data as needed to provide the Service. Connecting a third-party service may require you to provide identifying information to that service (for example, a GitHub account). That information is governed by the third-party's terms and policies — Meter does not receive or store it unless explicitly stated. We are not responsible for third-party services.
 
-## 7. Customer content and data
+## 8. Customer content and data
 
-### 7.1 Your content
+### 8.1 Your content
 
-You retain ownership of the content you submit to the Service, including prompts, messages, decision records, artifacts, files, and other materials ("Customer Content"). You grant us a worldwide, non-exclusive, royalty-free license to host, store, reproduce, and process Customer Content solely to provide and improve the Service.
+You retain ownership of the content you submit to the Service, including prompts, messages, decision records, artifacts, files, and other materials ("Customer Content"). You grant us a worldwide, non-exclusive, royalty-free license to host, store, reproduce, and process Customer Content to provide, operate, and improve the Service, including to develop and train models or features. Because the Service is anonymous, this content is not linked to any personally identifiable information.
 
-### 7.2 Output
+### 8.2 Output
 
 The Service may generate outputs ("Output"). Output can be incorrect or incomplete. You are responsible for evaluating Output for accuracy and suitability before using it, including before committing code, making business decisions, or sharing with others.
 
-### 7.3 Confidentiality
+### 8.3 Privacy and confidentiality
 
-You are responsible for not submitting sensitive information you are not authorized to share. We do not treat Customer Content as confidential by default unless you have a written agreement with us.
+We treat Customer Content as private. We will not publish your content or share it with other users. However, because the Service is anonymous and content is not linked to your identity, we may use anonymized Customer Content in aggregate to improve the Service, including to improve model quality, develop features, and analyze usage patterns.
 
-## 8. Acceptable use
+Do not submit sensitive information you are not authorized to share (for example, trade secrets, credentials, or regulated data belonging to a third party). While we protect Customer Content as described in our Privacy Policy, the Service routes content to third-party AI model providers to generate responses, and you should consider this when deciding what to submit.
+
+## 9. Acceptable use
 
 You agree not to use the Service to:
 
@@ -74,39 +80,39 @@ You agree not to use the Service to:
 
 We may suspend or terminate access for violations.
 
-## 9. Intellectual property
+## 10. Intellectual property
 
 We own and retain all rights in the Service, including software, designs, trademarks, and documentation, except for Customer Content.
 
-## 10. Suspension and termination
+## 11. Suspension and termination
 
 We may suspend or terminate your access if we reasonably believe you violated these Terms or if your use poses security, legal, or operational risk. You may stop using the Service at any time.
 
-## 11. Disclaimers
+## 12. Disclaimers
 
 THE SERVICE AND OUTPUT ARE PROVIDED "AS IS" AND "AS AVAILABLE." TO THE MAXIMUM EXTENT PERMITTED BY LAW, WE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
 
-## 12. Limitation of liability
+## 13. Limitation of liability
 
 TO THE MAXIMUM EXTENT PERMITTED BY LAW, METER WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, REVENUE, DATA, OR GOODWILL, ARISING OUT OF OR RELATED TO THE SERVICE.
 
-IN ANY EVENT, METER'S TOTAL LIABILITY FOR ANY CLAIM ARISING OUT OF OR RELATING TO THE SERVICE WILL NOT EXCEED THE AMOUNT PAID BY YOU TO METER FOR THE SERVICE IN THE 3 MONTHS BEFORE THE EVENT GIVING RISE TO THE CLAIM.
+IN ANY EVENT, METER'S TOTAL LIABILITY FOR ANY CLAIM ARISING OUT OF OR RELATING TO THE SERVICE WILL NOT EXCEED THE AMOUNT PAID BY YOU TO METER FOR THE SERVICE IN THE 12 MONTHS BEFORE THE EVENT GIVING RISE TO THE CLAIM.
 
-## 13. Indemnification
+## 14. Indemnification
 
 You will indemnify and hold harmless Meter from any claims, liabilities, damages, and expenses (including reasonable attorneys' fees) arising out of your use of the Service, your Customer Content, or your violation of these Terms.
 
-## 14. Governing law; venue
+## 15. Governing law; venue
 
 These Terms are governed by the laws of the State of Delaware, without regard to conflict of laws principles.
 
 You and Meter agree that any dispute arising out of or relating to these Terms or the Service will be brought exclusively in the state or federal courts located in New Castle County, Delaware, and you consent to personal jurisdiction in those courts.
 
-## 15. Changes
+## 16. Changes
 
 We may update these Terms from time to time. If we make material changes, we will provide reasonable notice (for example, by posting an updated effective date). Your continued use of the Service after changes become effective constitutes acceptance.
 
-## 16. Miscellaneous
+## 17. Miscellaneous
 
 If any provision of these Terms is unenforceable, the remaining provisions will remain in effect. These Terms constitute the entire agreement between you and Meter regarding the Service.
 
