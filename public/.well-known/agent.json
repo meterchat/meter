@@ -1,0 +1,57 @@
+{
+  "name": "Meter",
+  "description": "Pay-per-thought AI platform for builders. Routes across frontier models, runs structured multi-model debates, logs decisions as durable records, and commits Agent Spec Kits to GitHub.",
+  "url": "https://meter.chat",
+  "version": "1.0.0",
+  "capabilities": {
+    "chat": true,
+    "multi_model": true,
+    "debate": true,
+    "decision_records": true,
+    "artifact_generation": true,
+    "github_integration": true
+  },
+  "authentication": {
+    "type": "session",
+    "method": "webauthn",
+    "description": "Passkey-based authentication via WebAuthn. API key authentication available via the developer console."
+  },
+  "api": {
+    "base_url": "https://meter.chat/api/v1",
+    "documentation": "https://docs.meter.chat",
+    "endpoints": [
+      {
+        "path": "/chat",
+        "method": "POST",
+        "description": "Send messages to AI models"
+      },
+      {
+        "path": "/sessions",
+        "method": "GET",
+        "description": "List chat sessions"
+      },
+      {
+        "path": "/history",
+        "method": "GET",
+        "description": "Get usage history"
+      },
+      {
+        "path": "/billing/status",
+        "method": "GET",
+        "description": "Check billing status"
+      }
+    ]
+  },
+  "links": {
+    "website": "https://meter.chat",
+    "documentation": "https://docs.meter.chat",
+    "development_log": "https://log.meter.chat",
+    "tech_stack": "https://tech.meter.chat",
+    "privacy_policy": "https://meter.chat/privacy",
+    "terms_of_service": "https://meter.chat/terms",
+    "llms_txt": "https://meter.chat/llms.txt"
+  },
+  "contact": {
+    "url": "https://meter.chat"
+  }
+}

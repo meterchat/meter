@@ -16,6 +16,27 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Meter — Pay Per Thought",
   description: "Every AI model. One bill. No subscription. The meter runs in dollars.",
+  metadataBase: new URL("https://meter.chat"),
+  openGraph: {
+    title: "Meter — Pay Per Thought",
+    description: "Every AI model. One bill. No subscription. The meter runs in dollars.",
+    url: "https://meter.chat",
+    siteName: "Meter",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+    title: "Meter — Pay Per Thought",
+    description: "Every AI model. One bill. No subscription. The meter runs in dollars.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  alternates: {
+    canonical: "https://meter.chat",
+  },
 };
 
 export const viewport = {
@@ -24,6 +45,28 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover" as const,
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Meter",
+  url: "https://meter.chat",
+  description:
+    "Pay-per-thought AI platform for builders. Routes across frontier models, runs structured multi-model debates, logs decisions as durable records, and commits Agent Spec Kits to GitHub.",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "Web",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+    description: "Pay-per-use pricing based on token usage. No subscription required.",
+  },
+  creator: {
+    "@type": "Organization",
+    name: "Meter",
+    url: "https://meter.chat",
+  },
 };
 
 export default function RootLayout({
@@ -38,12 +81,18 @@ export default function RootLayout({
         {[1, 2, 3, 4, 5, 6].map((n) => (
           <link key={n} rel="preload" as="image" href={`/frame-${n}.png`} />
         ))}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
       >
         <Providers>
-          {children}
+          <main>
+            {children}
+          </main>
         </Providers>
       </body>
     </html>
