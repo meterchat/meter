@@ -291,7 +291,6 @@ export function useSessionSync() {
             markupMultiplier: data.markupMultiplier,
             enabledModels: data.adminConfig.enabledModels ?? [],
             enabledCommands: data.adminConfig.enabledCommands ?? [],
-            freeCredit: data.freeCredit ?? 0,
           });
         })
         .catch(() => {});
@@ -687,7 +686,6 @@ export function useSessionSync() {
             markupMultiplier: data.markupMultiplier,
             enabledModels: data.adminConfig.enabledModels ?? [],
             enabledCommands: data.adminConfig.enabledCommands ?? [],
-            freeCredit: data.freeCredit ?? 0,
           });
         }
       })

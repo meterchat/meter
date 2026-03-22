@@ -72,20 +72,6 @@ function startOfWeek(): number {
   return monday.getTime();
 }
 
-function BonusCreditBanner() {
-  const freeCredit = useMeterStore((s) => s.freeCredit);
-  if (!freeCredit || freeCredit <= 0) return null;
-  return (
-    <>
-      <div className="px-4 py-2.5 flex items-center justify-between">
-        <span className="font-mono text-[11px] text-emerald-400/80">Bonus Credits</span>
-        <span className="font-mono text-[12px] text-emerald-400 tabular-nums">${freeCredit.toFixed(2)}</span>
-      </div>
-      <div className="h-px bg-border" />
-    </>
-  );
-}
-
 export function HeaderMeter() {
   const [open, setOpen] = useState(false);
   const [remaining, setRemaining] = useState(getMsUntilMidnight);
@@ -314,8 +300,6 @@ export function HeaderMeter() {
 
       {open && (
         <div className={`absolute top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl ${isMobile ? "fixed left-2 right-2 w-auto" : "right-0 w-[360px]"}`}>
-          {/* Bonus Credits */}
-          <BonusCreditBanner />
 
           {/* Pending Balance — top */}
           <PendingBalanceSection
@@ -507,10 +491,7 @@ function PendingBalanceSection({ getPendingBalance, settleAll, isSettling }: {
   isSettling: boolean;
 }) {
   const [success, setSuccess] = useState(false);
-  const freeCredit = useMeterStore((s) => s.freeCredit);
-  // When bonus credits are active, pending balance stays frozen at $0.00
-  const rawPending = getPendingBalance();
-  const pending = freeCredit > 0 ? 0 : rawPending;
+  const pending = getPendingBalance();
 
   const handleSettle = async () => {
     const result = await settleAll();

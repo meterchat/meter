@@ -24,7 +24,7 @@ export async function GET() {
   if (error || !data) {
     console.warn("[admin-config] GET: no app_config row found, returning defaults.", error?.message);
     return NextResponse.json(
-      { markupMultiplier: DEFAULT_MARKUP_MULTIPLIER, enabledModels: [], enabledCommands: [], freeUsdCredit: 0, bonusCreditLimit: 100, bonusCreditAmount: 10 },
+      { markupMultiplier: DEFAULT_MARKUP_MULTIPLIER, enabledModels: [], enabledCommands: [], freeUsdCredit: 0 },
     );
   }
 
@@ -38,8 +38,6 @@ export async function GET() {
     enabledModels: data.enabled_models ?? [],
     enabledCommands: data.enabled_commands ?? [],
     freeUsdCredit: Number(data.free_usd_credit ?? 0),
-    bonusCreditLimit: Number(data.bonus_credit_limit ?? 100),
-    bonusCreditAmount: Number(data.bonus_credit_amount ?? 10),
   });
 }
 
@@ -92,22 +90,6 @@ export async function PUT(req: NextRequest) {
     updates.free_usd_credit = c;
   }
 
-  if (body.bonusCreditLimit != null) {
-    const l = Number(body.bonusCreditLimit);
-    if (isNaN(l) || l < 0 || !Number.isInteger(l)) {
-      return NextResponse.json({ error: "bonusCreditLimit must be a non-negative integer" }, { status: 400 });
-    }
-    updates.bonus_credit_limit = l;
-  }
-
-  if (body.bonusCreditAmount != null) {
-    const a = Number(body.bonusCreditAmount);
-    if (isNaN(a) || a < 0) {
-      return NextResponse.json({ error: "bonusCreditAmount must be a number >= 0" }, { status: 400 });
-    }
-    updates.bonus_credit_amount = a;
-  }
-
   console.log("[admin-config] Upserting updates:", JSON.stringify(updates));
   const supabase = getSupabaseServer();
   const { error } = await supabase
@@ -136,7 +118,5 @@ export async function PUT(req: NextRequest) {
     enabledModels: data.enabled_models ?? [],
     enabledCommands: data.enabled_commands ?? [],
     freeUsdCredit: Number(data.free_usd_credit ?? 0),
-    bonusCreditLimit: Number(data.bonus_credit_limit ?? 100),
-    bonusCreditAmount: Number(data.bonus_credit_amount ?? 10),
   });
 }
