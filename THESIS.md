@@ -38,6 +38,8 @@ When you open Cursor, Claude Code, or Codex, your coding agent reads those files
 
 Vibecoding has solved execution. Meter solves everything that comes before it.
 
+Meter is private and anonymized by default. Your thoughts remain yours.
+
 Think in Meter. Pay per thought.
 
 Sources: ¹ ² MasteringAI, "State of Vibe Coding" (2026). ³ Digital Applied, "Developer Adoption Survey" (2025).
