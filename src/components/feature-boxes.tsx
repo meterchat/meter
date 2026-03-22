@@ -32,13 +32,21 @@ function FeatureBox({
 }: {
   title: string;
   description: string;
-  children: (hovered: boolean) => React.ReactNode;
+  children: (active: boolean) => React.ReactNode;
   colSpan?: number;
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-40px" });
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMobile(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+  const active = isMobile ? isInView : isHovered;
 
   return (
     <div
+      ref={ref}
       className={`relative flex flex-col h-full border-foreground/[0.06] px-6 xl:px-8 pt-6 pb-8 transition-colors duration-300 hover:bg-foreground/[0.02] ${
         colSpan === 2 ? "col-span-1 md:col-span-2" : "col-span-1"
       }`}
@@ -48,16 +56,16 @@ function FeatureBox({
       {/* Animation area */}
       <div
         className={`h-[140px] flex items-center justify-center mb-5 transition-all duration-500 ${
-          isHovered ? "grayscale-0 opacity-100" : "grayscale opacity-50"
+          active ? "grayscale-0 opacity-100" : "grayscale opacity-50"
         }`}
       >
-        {children(isHovered)}
+        {children(active)}
       </div>
 
       {/* Title */}
       <h3
         className={`text-[15px] font-semibold tracking-tight mb-1.5 transition-colors duration-300 ${
-          isHovered ? "text-foreground" : "text-foreground/70"
+          active ? "text-foreground" : "text-foreground/70"
         }`}
       >
         {title}
