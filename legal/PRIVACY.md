@@ -13,9 +13,9 @@ Meter
 Support: support@meter.chat
 Privacy: legal@meter.chat
 
-## 2. Privacy by design
+## 2. Private by design
 
-Meter is built to be used anonymously. We do not require your name, email address, or password. You authenticate with a passkey stored on your device, and your account is identified by a randomly generated ID. We have no way to determine who you are from your account alone.
+Meter is built to keep your usage private. We do not require your name, email address, or password. You authenticate with a passkey stored on your device, and your account is identified by a randomly generated ID. Customer Content is stored and processed on an anonymized basis — it is not linked to any personally identifiable information.
 
 This means the information described below is collected on an anonymized basis unless you voluntarily provide identifying information (for example, by connecting a third-party service like GitHub).
 
@@ -23,11 +23,11 @@ This means the information described below is collected on an anonymized basis u
 
 ### 3.1 Account information
 
-When you create an account, we generate a random account identifier and store the public key associated with your passkey. We do not collect your name, email, or other personal identifiers.
+When you create an account, we generate a random account identifier and store the public key associated with your passkey. We do not require your name, email, or other personal identifiers to create an account.
 
 ### 3.2 Customer content
 
-We collect and process content you submit to the Service, such as prompts, messages, decision records, debate transcripts, uploaded files, generated artifacts, and integration configuration ("Customer Content"). This content is associated with your anonymous account ID, not with any personal identity.
+We collect and process content you submit to the Service, such as prompts, messages, decision records, debate transcripts, uploaded files, generated artifacts, and integration configuration ("Customer Content"). This content is associated with your randomized account ID and is stored on an anonymized basis — it is not linked to any personal identity.
 
 ### 3.3 Usage and device information
 
@@ -39,7 +39,7 @@ If you connect third-party services (such as Google/Gmail, GitHub, calendars, or
 
 ### 3.5 Payment information
 
-If you pay for the Service, our payment processors collect payment information. We receive limited billing information (such as a payment token, billing status, and invoices). We do not store full card numbers or link payment identity to your anonymous account ID in the Service itself.
+If you pay for the Service, our payment processors collect payment information. We receive limited billing information (such as a payment token, billing status, and invoices). We do not store full card numbers. Payment information is handled by our payment processor and is not linked to your anonymized account ID within the Service.
 
 ## 4. How we use information
 
@@ -52,7 +52,7 @@ We use information to:
 - communicate with you about updates, security, and administrative messages;
 - comply with legal obligations.
 
-Because your account is anonymous, most of this processing happens without any link to your real-world identity.
+Because Customer Content is anonymized, most of this processing happens without any link to your real-world identity.
 
 ## 5. AI model providers
 
@@ -60,7 +60,7 @@ The Service sends your prompts and related context to third-party AI model provi
 
 **What is sent.** Typically your prompt, relevant conversation context, and system instructions needed for the requested workflow.
 
-**Anonymized.** Content sent to providers is not accompanied by any personal identifiers. Providers receive the content itself, not information about who submitted it.
+**Anonymized.** Content sent to providers is not accompanied by any personal identifiers. Providers receive the content itself, not information about who you are.
 
 **Provider policies.** Each provider's handling of data is governed by their own terms and privacy policies. We select providers and configurations that are consistent with the Service's privacy design, but we cannot guarantee that providers will not use content in ways permitted by their own policies.
 
@@ -80,7 +80,7 @@ We do not sell your personal information. We do not share your Customer Content 
 
 ## 7. Anonymized data and service improvement
 
-Because the Service is anonymous by design, Customer Content is not linked to any personal identity. We may use anonymized Customer Content in aggregate to improve the Service, including to analyze usage patterns, improve model routing, and develop new features. This is a core part of how the Service works and improves over time.
+Customer Content is stored on an anonymized basis and is not linked to any personal identity. We may use anonymized Customer Content in aggregate to improve the Service, including to analyze usage patterns, improve model routing, and develop new features. This is a core part of how the Service works and improves over time.
 
 ## 8. Data retention
 
@@ -90,7 +90,7 @@ You may request deletion of your account and associated data by contacting legal
 
 ## 9. Security
 
-We use reasonable administrative, technical, and physical safeguards designed to protect information. The anonymous architecture of the Service provides an additional layer of privacy — even in the event of a breach, Customer Content is not linked to personal identities. No method of transmission or storage is 100% secure.
+We use reasonable administrative, technical, and physical safeguards designed to protect information. The anonymized architecture of the Service provides an additional layer of privacy — even in the event of a breach, Customer Content is not linked to personal identities. No method of transmission or storage is 100% secure.
 
 ## 10. Your choices
 
@@ -100,7 +100,7 @@ You may:
 - request deletion of your account and data by contacting legal@meter.chat;
 - stop using the Service at any time.
 
-Because accounts are anonymous and passkey-based, some self-service account management features (such as email-based password reset) are not applicable.
+Because accounts are passkey-based, some self-service account management features (such as email-based password reset) are not applicable.
 
 ## 11. Children's privacy
 
@@ -112,7 +112,7 @@ If you access the Service from outside the United States, your information may b
 
 ## 13. Cookies and local storage
 
-We use cookies and similar technologies for authentication (passkey session management), security, preferences, and analytics. Because accounts are anonymous, cookies are not used to build a personal profile tied to your identity.
+We use cookies and similar technologies for authentication (passkey session management), security, preferences, and analytics. Cookies are not used to build a personal profile tied to your identity.
 
 ## 14. Changes
 
