@@ -17,9 +17,9 @@ Legal notices: legal@meter.chat
 
 Meter provides a pay-per-use ("pay-per-thought") AI workspace, including model routing, debate workflows, decision logging, artifact generation, and integrations (such as GitHub). The Service may change over time.
 
-## 3. Anonymous by design
+## 3. Private by design
 
-Meter is designed to be used anonymously. You sign in with a passkey on your device. We do not require your name, email address, or password. Your identity within the Service is a randomly generated identifier. We have no way to determine who you are from your account alone.
+Meter is designed to keep your usage private. You sign in with a passkey on your device. We do not require your name, email address, or password. Your identity within the Service is a randomly generated identifier. Customer Content is stored and processed on an anonymized basis — it is not linked to any personally identifiable information.
 
 ## 4. Eligibility
 
@@ -27,7 +27,7 @@ You must be at least 18 years old to use the Service.
 
 ## 5. Accounts and security
 
-Your account is tied to a passkey on your device. You are responsible for maintaining the security of your device and passkey, and for all activities under your account. Because accounts are anonymous, we may have limited ability to help you recover access if you lose your passkey.
+Your account is tied to a passkey on your device. You are responsible for maintaining the security of your device and passkey, and for all activities under your account. Because accounts are passkey-based, we may have limited ability to help you recover access if you lose your passkey.
 
 ## 6. Billing, usage, and credits
 
@@ -55,7 +55,7 @@ If you connect third-party services, you authorize us to access and use those se
 
 ### 8.1 Your content
 
-You retain ownership of the content you submit to the Service, including prompts, messages, decision records, artifacts, files, and other materials ("Customer Content"). You grant us a worldwide, non-exclusive, royalty-free license to host, store, reproduce, and process Customer Content to provide, operate, and improve the Service, including to develop and train models or features. Because the Service is anonymous, this content is not linked to any personally identifiable information.
+You retain ownership of the content you submit to the Service, including prompts, messages, decision records, artifacts, files, and other materials ("Customer Content"). You grant us a worldwide, non-exclusive, royalty-free license to host, store, reproduce, and process Customer Content to provide, operate, and improve the Service, including to develop and train models or features. As described in Section 3, Customer Content is stored on an anonymized basis and is not linked to any personally identifiable information.
 
 ### 8.2 Output
 
@@ -63,7 +63,7 @@ The Service may generate outputs ("Output"). Output can be incorrect or incomple
 
 ### 8.3 Privacy and confidentiality
 
-We treat Customer Content as private. We will not publish your content or share it with other users. However, because the Service is anonymous and content is not linked to your identity, we may use anonymized Customer Content in aggregate to improve the Service, including to improve model quality, develop features, and analyze usage patterns.
+We treat Customer Content as private. We will not publish your content or share it with other users. Because Customer Content is stored on an anonymized basis and is not linked to your identity, we may use it in aggregate to improve the Service, including to improve model quality, develop features, and analyze usage patterns.
 
 Do not submit sensitive information you are not authorized to share (for example, trade secrets, credentials, or regulated data belonging to a third party). While we protect Customer Content as described in our Privacy Policy, the Service routes content to third-party AI model providers to generate responses, and you should consider this when deciding what to submit.
 
