@@ -170,7 +170,7 @@ function LiveMeterPill() {
       {/* Mini chat UI showing a response being metered */}
       <div className="w-full max-w-[320px] rounded-xl border border-foreground/[0.06] bg-background overflow-hidden">
         {/* Model bar */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-foreground/[0.07]">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-foreground/[0.04]">
           <ProviderLogo provider="Anthropic" size={11} />
           <span className="font-mono text-[10px] text-muted-foreground/60">Sonnet 4.6</span>
           <span className="font-mono text-[10px] text-muted-foreground/30 ml-auto">Anthropic</span>
@@ -190,7 +190,7 @@ function LiveMeterPill() {
         </div>
 
         {/* Meter pill footer */}
-        <div className="flex items-center gap-2 px-3 py-2 border-t border-foreground/[0.07]">
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-foreground/[0.04]">
           <MeterIcon active={phase === "streaming"} size={14} />
           <span
             className={`font-mono text-[11px] tabular-nums transition-colors duration-300 ${
@@ -286,7 +286,7 @@ function LiveDebateTrace() {
     <div ref={ref} className="w-full max-w-[380px]">
       <div className="rounded-xl border border-foreground/[0.06] bg-background overflow-hidden">
         {/* Debate header */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-foreground/[0.07]">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-foreground/[0.04]">
           <span className="font-mono text-[10px] text-amber-500/70 uppercase tracking-wider">
             {showSynthesis ? "Synthesis" : visibleTurns > 0 ? "Debating" : "Debate"}
           </span>
@@ -385,7 +385,7 @@ function LiveDecisionCard() {
   return (
     <div ref={ref} className="w-full max-w-[320px]">
       <div className="rounded-xl border border-foreground/[0.06] bg-background overflow-hidden">
-        <div className="px-4 py-3 border-b border-foreground/[0.07] flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-foreground/[0.04] flex items-center justify-between">
           <span className="font-mono text-[11px] text-foreground/70">Decision #0047</span>
           <span
             className={`font-mono text-[10px] px-2 py-0.5 rounded-full transition-colors duration-300 ${
@@ -476,7 +476,7 @@ function LiveModelGrid() {
             </div>
           ))}
           {/* Auto row */}
-          <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 border-t border-foreground/[0.07] mt-1">
+          <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 border-t border-foreground/[0.04] mt-1">
             <ProviderLogo provider="Meter" size={14} />
             <div className="min-w-0">
               <div className="text-[11px] font-medium text-foreground/80">Auto</div>
@@ -522,7 +522,7 @@ function LiveSpecKit() {
   return (
     <div ref={ref} className="w-full max-w-[320px]">
       <div className="rounded-xl border border-foreground/[0.06] bg-background overflow-hidden">
-        <div className="px-4 py-3 border-b border-foreground/[0.07] flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-foreground/[0.04] flex items-center justify-between">
           <span className="font-mono text-[11px] text-foreground/70">Agent Spec Kit</span>
           <span
             className={`font-mono text-[10px] ${
@@ -624,7 +624,7 @@ function LiveForkTrace() {
     <div ref={ref} className="w-full max-w-[380px]">
       <div className="rounded-xl border border-foreground/[0.06] bg-background overflow-hidden">
         {/* Chat message context */}
-        <div className="p-3 border-b border-foreground/[0.07]">
+        <div className="p-3 border-b border-foreground/[0.04]">
           <div className="text-[12px] text-muted-foreground/40 mb-1.5">
             What framework should we use for the new dashboard?
           </div>
@@ -762,7 +762,7 @@ function LivePasskeyAuth() {
     <div ref={ref} className="w-full max-w-[320px]">
       <div className="rounded-xl border border-foreground/[0.06] bg-background overflow-hidden">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-foreground/[0.07] flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-foreground/[0.04] flex items-center justify-between">
           <span className="font-mono text-[11px] text-foreground/70">Authentication</span>
           <span className={`font-mono text-[10px] px-2 py-0.5 rounded-full transition-colors ${
             phase === "verified"
@@ -880,7 +880,7 @@ function ModelLogosRow({ activeModelIdx }: { activeModelIdx: number }) {
   const displayModels = MODELS.filter((m) => m.id !== "auto");
 
   return (
-    <div className="flex items-center justify-center gap-6 sm:gap-8 py-8 border-y border-foreground/[0.08]">
+    <div className="flex items-center justify-center gap-6 sm:gap-8 py-6 border-y border-foreground/[0.04]">
       {displayModels.map((m, i) => (
         <button
           key={m.id}
@@ -918,7 +918,7 @@ function FeatureSection({
   footer?: React.ReactNode;
 }) {
   return (
-    <RevealSection className="relative z-10 py-28 sm:py-36 px-6" delay={delay}>
+    <RevealSection className="relative z-10 py-24 sm:py-32 px-6" delay={delay}>
       <div className="max-w-5xl mx-auto">
         <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start ${reverse ? "direction-rtl" : ""}`}>
           <div className={`lg:sticky lg:top-32 ${reverse ? "lg:order-2" : ""}`}>
@@ -941,88 +941,6 @@ function FeatureSection({
         </div>
       </div>
     </RevealSection>
-  );
-}
-
-// ── Fingerprint Icon ────────────────────────────────────────────────────
-
-function FingerprintIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
-      <path d="M8 28C8 17.5 14.3 9 24 9s16 8.5 16 19"/>
-      <path d="M13 28c0-7.7 4.9-14 11-14s11 6.3 11 14"/>
-      <path d="M18 28c0-4.4 2.7-8 6-8s6 3.6 6 8"/>
-      <path d="M8 28v4"/>
-      <path d="M13 28v8"/>
-      <path d="M18 28v11"/>
-      <path d="M24 28v12"/>
-      <path d="M30 28v9"/>
-      <path d="M35 28v6"/>
-      <path d="M40 28v2"/>
-    </svg>
-  );
-}
-
-// ── Animated Grid Background ────────────────────────────────────────────
-
-function AnimatedGrid({ className = "" }: { className?: string }) {
-  return (
-    <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
-      {/* Grid lines */}
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: `
-            linear-gradient(to right, hsl(var(--foreground) / 0.04) 1px, transparent 1px),
-            linear-gradient(to bottom, hsl(var(--foreground) / 0.04) 1px, transparent 1px)
-          `,
-          backgroundSize: "80px 80px",
-        }}
-      />
-      {/* Horizontal tracer lines */}
-      {[0, 1, 2].map((i) => (
-        <div
-          key={`h-${i}`}
-          className="absolute h-px animate-grid-tracer-h"
-          style={{
-            top: `${20 + i * 30}%`,
-            left: 0,
-            width: "120px",
-            background: "linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.15), transparent)",
-            animationDelay: `${i * 3.5}s`,
-            animationDuration: "8s",
-          }}
-        />
-      ))}
-      {/* Vertical tracer lines */}
-      {[0, 1, 2].map((i) => (
-        <div
-          key={`v-${i}`}
-          className="absolute w-px animate-grid-tracer-v"
-          style={{
-            left: `${15 + i * 30}%`,
-            top: 0,
-            height: "120px",
-            background: "linear-gradient(180deg, transparent, hsl(var(--foreground) / 0.12), transparent)",
-            animationDelay: `${1.5 + i * 4}s`,
-            animationDuration: "9s",
-          }}
-        />
-      ))}
-      {/* Intersection dots that pulse */}
-      {[0, 1, 2, 3].map((i) => (
-        <div
-          key={`dot-${i}`}
-          className="absolute h-1 w-1 rounded-full bg-foreground/10 animate-grid-dot"
-          style={{
-            top: `${25 + (i % 2) * 40}%`,
-            left: `${20 + Math.floor(i / 2) * 40}%`,
-            animationDelay: `${i * 2}s`,
-            animationDuration: "6s",
-          }}
-        />
-      ))}
-    </div>
   );
 }
 
@@ -1055,13 +973,11 @@ function AuthButtons({
           disabled={loading}
           className="w-full h-12 rounded-xl bg-foreground text-background text-sm font-medium transition-all hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-50 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-foreground/5"
         >
-          {loading ? (
+          {loading && (
             <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-          ) : (
-            <FingerprintIcon className="h-4 w-4" />
           )}
           {loading ? "Authenticating..." : "Start thinking"}
         </button>
@@ -1091,13 +1007,11 @@ function AuthButtons({
         disabled={loading}
         className="w-full h-12 rounded-xl bg-foreground text-background text-sm font-medium transition-all hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-50 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-foreground/5"
       >
-        {loading ? (
+        {loading && (
           <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-        ) : (
-          <FingerprintIcon className="h-4 w-4" />
         )}
         {loading ? "Setting up..." : "Create new account"}
       </button>
@@ -1300,7 +1214,7 @@ export function LandingPage() {
 
       {/* ── Navigation ─────────────────────────────────────────────── */}
       <header>
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-5 bg-background/80 backdrop-blur-xl border-b border-foreground/[0.08]">
+      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-5 bg-background/80 backdrop-blur-xl border-b border-foreground/[0.03]">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Image
             src="/logo-dark-copy.webp"
@@ -1327,17 +1241,15 @@ export function LandingPage() {
             <button
               onClick={handleContinue}
               disabled={loading}
-              className="h-9 px-5 rounded-xl bg-foreground text-background text-xs font-medium transition-all hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-50 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-foreground/5"
+              className="h-8 px-4 rounded-lg bg-foreground/[0.06] border border-foreground/[0.06] text-foreground text-xs font-medium transition-all hover:bg-foreground/[0.1] hover:border-foreground/[0.12] disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
-              {loading ? (
-                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+              {loading && (
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-              ) : (
-                <FingerprintIcon className="h-3.5 w-3.5" />
               )}
-              {loading ? "Signing in..." : "Start thinking"}
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </div>
         </div>
@@ -1349,9 +1261,8 @@ export function LandingPage() {
         className="relative z-10 flex flex-col items-center justify-center px-6 pt-32 pb-12"
         style={{ opacity: heroOpacity, scale: heroScale }}
       >
-        <AnimatedGrid />
         <motion.div
-          className="relative z-10 text-center w-full max-w-3xl mx-auto"
+          className="text-center w-full max-w-3xl mx-auto"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -1542,8 +1453,7 @@ export function LandingPage() {
 
       {/* ── Final CTA ─────────────────────────────────────────── */}
       <section className="relative z-10 py-24 sm:py-32 px-6">
-        <AnimatedGrid />
-        <div className="relative z-10 max-w-2xl mx-auto text-center">
+        <div className="max-w-2xl mx-auto text-center">
           <RevealSection>
             <p className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground/50 uppercase mb-4">
               Public beta
@@ -1572,7 +1482,7 @@ export function LandingPage() {
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────── */}
-      <footer className="relative z-10 border-t border-foreground/[0.1] py-10 px-6">
+      <footer className="relative z-10 border-t border-foreground/[0.06] py-10 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Image
