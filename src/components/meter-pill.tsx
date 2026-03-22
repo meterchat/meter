@@ -62,6 +62,7 @@ export function MeterPill() {
     sessions.find((p) => p.id === activeSessionId) ?? sessions[0];
   const isStreaming = active?.isStreaming ?? false;
   const rawCost = active?.currentMessageCost ?? 0;
+  const todayCost = active?.todayCost ?? 0;
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [displayCost, setDisplayCost] = useState(0);
@@ -123,11 +124,14 @@ export function MeterPill() {
     }
   }, [rawCost, phase]);
 
-  /* Counter visibility: shown during active phases + locked, hidden at idle */
-  const showCounter = phase !== "idle";
+  /* Counter visibility: always shown — today's cost when idle, message cost when streaming */
+  const showCounter = true;
 
-  /* Dynamic decimal places: always 4 */
-  const formatted = displayCost.toFixed(4);
+  /* Display: show per-message cost during streaming, today's accumulated cost when idle */
+  const visibleCost = phase === "idle" ? todayCost : displayCost;
+  const decimalPlaces = phase === "idle" ? 2 : 4;
+
+  const formatted = visibleCost.toFixed(decimalPlaces);
   const [intPart, decPart] = formatted.split(".");
   const intDigits = intPart.split("").map(Number);
   const decDigits = decPart.split("").map(Number);
@@ -145,7 +149,7 @@ export function MeterPill() {
     <div
       className={`flex shrink-0 items-center overflow-hidden rounded-lg border font-mono transition-all duration-300 ease-in-out ${
         phase === "idle"
-          ? "gap-0 border-transparent px-1 py-1.5"
+          ? "gap-2 border-border/50 px-2.5 py-1.5 text-muted-foreground/70"
           : phase === "locked"
             ? "gap-2 border-border px-2.5 py-1.5 text-muted-foreground/60"
             : "gap-2 border-border px-2.5 py-1.5 text-muted-foreground hover:border-foreground/20 hover:text-foreground"
@@ -157,9 +161,11 @@ export function MeterPill() {
         <>
           <span
             className={`text-[12px] leading-none tabular-nums inline-flex items-center transition-opacity duration-300 ${
-              phase === "locked"
-                ? "text-muted-foreground/40"
-                : "text-foreground"
+              phase === "idle"
+                ? "text-muted-foreground/70"
+                : phase === "locked"
+                  ? "text-muted-foreground/40"
+                  : "text-foreground"
             }`}
           >
             <span>$</span>
