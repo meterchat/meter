@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSyncStore } from "@/lib/sync-store";
 import { runSync, formatSyncReport } from "@/lib/sync-engine";
+import { runReconcile } from "@/lib/reconcile-engine";
 import { useMeterStore } from "@/lib/store";
 
 function timeAgo(ts: number): string {
@@ -17,8 +18,8 @@ function timeAgo(ts: number): string {
   return `${days}d ago`;
 }
 
-function findingCounts(findings: { type: string; dismissed?: boolean }[]) {
-  const active = findings.filter((f) => !f.dismissed);
+function findingCounts(findings: { type: string; dismissed?: boolean; fixed?: boolean }[]) {
+  const active = findings.filter((f) => !f.dismissed && !f.fixed);
   return {
     contradictions: active.filter((f) => f.type === "contradiction").length,
     gaps: active.filter((f) => f.type === "gap").length,
@@ -76,6 +77,11 @@ export function SyncButton() {
 
   const lastReport = useSyncStore((s) => s.lastReport);
   const isSyncing = useSyncStore((s) => s.isSyncing);
+  const isReconciling = useSyncStore((s) => s.isReconciling);
+  const reconciledCount = useSyncStore((s) => s.reconciledCount);
+  const reconcileTotal = useSyncStore((s) => s.reconcileTotal);
+  const reconcileCost = useSyncStore((s) => s.reconcileCost);
+  const reconcileError = useSyncStore((s) => s.reconcileError);
 
   const addMessage = useMeterStore((s) => s.addMessage);
 
@@ -97,7 +103,6 @@ export function SyncButton() {
 
   const handleViewReport = () => {
     const report = formatSyncReport();
-    // Post the full report as a chat message
     addMessage({
       id: `sync-report-${Date.now()}`,
       role: "assistant",
@@ -108,18 +113,13 @@ export function SyncButton() {
   };
 
   const handleReconcileAll = () => {
-    // Post reconcile request as user message to trigger AI action
-    addMessage({
-      id: `sync-reconcile-${Date.now()}`,
-      role: "user",
-      content: "Reconcile all contradictions and conflicts found in the sync report. Update all affected decisions, documents, and specs to be internally consistent.",
-      timestamp: Date.now(),
-    });
-    setOpen(false);
+    runReconcile();
   };
 
   const counts = lastReport ? findingCounts(lastReport.findings) : null;
   const hasFindings = counts && counts.total > 0;
+  const fixedCount = lastReport ? lastReport.findings.filter((f) => f.fixed).length : 0;
+  const isBusy = isSyncing || isReconciling;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -127,7 +127,7 @@ export function SyncButton() {
       <button
         onClick={() => setOpen((v) => !v)}
         className={`mobile-sm-ok flex h-8 w-8 items-center justify-center rounded-lg border transition-all ${
-          isSyncing
+          isBusy
             ? "border-amber-500/40 text-amber-400 sync-glow"
             : hasFindings
               ? "border-amber-500/30 text-amber-400/80 hover:border-amber-500/50 hover:text-amber-400"
@@ -137,7 +137,7 @@ export function SyncButton() {
       >
         <InfinityIcon
           size={14}
-          active={isSyncing}
+          active={isBusy}
         />
       </button>
 
@@ -147,7 +147,7 @@ export function SyncButton() {
           {/* Header */}
           <div className="px-4 py-3">
             <div className="flex items-center gap-2 mb-1">
-              <InfinityIcon size={12} active={isSyncing} className={isSyncing ? "text-amber-400" : "text-muted-foreground/60"} />
+              <InfinityIcon size={12} active={isBusy} className={isBusy ? "text-amber-400" : "text-muted-foreground/60"} />
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
                 Strategy Sync
               </span>
@@ -161,8 +161,31 @@ export function SyncButton() {
 
           {/* Status / Results */}
           <div className="px-4 py-3">
-            {isSyncing && lastReport ? (
-              /* Running state */
+            {isReconciling ? (
+              /* Reconciling state */
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[11px] text-foreground thinking-shimmer">
+                    Reconciling
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">
+                    {reconciledCount} of {reconcileTotal}
+                  </span>
+                </div>
+                <div className="h-1 w-full rounded-full bg-foreground/5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-amber-500/60 transition-all duration-500"
+                    style={{ width: `${reconcileTotal > 0 ? (reconciledCount / reconcileTotal) * 100 : 0}%` }}
+                  />
+                </div>
+                {reconcileCost > 0 && (
+                  <p className="font-mono text-[10px] text-muted-foreground/40">
+                    ${reconcileCost.toFixed(2)} so far
+                  </p>
+                )}
+              </div>
+            ) : isSyncing && lastReport ? (
+              /* Syncing state */
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[11px] text-foreground thinking-shimmer">
@@ -172,7 +195,6 @@ export function SyncButton() {
                     Pass {lastReport.currentPass} of {lastReport.totalPasses}
                   </span>
                 </div>
-                {/* Progress bar */}
                 <div className="h-1 w-full rounded-full bg-foreground/5 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-amber-500/60 transition-all duration-500"
@@ -192,7 +214,10 @@ export function SyncButton() {
                   <div className="flex items-center gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     <span className="font-mono text-[11px] text-emerald-400">
-                      All clear. Strategy is consistent.
+                      {fixedCount > 0
+                        ? `All clear. ${fixedCount} issue${fixedCount !== 1 ? "s" : ""} reconciled.`
+                        : "All clear. Strategy is consistent."
+                      }
                     </span>
                   </div>
                 ) : (
@@ -219,18 +244,38 @@ export function SyncButton() {
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={handleViewReport}
-                      className="w-full rounded-lg border border-foreground/20 bg-transparent py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-foreground/5 hover:text-foreground"
-                    >
-                      View full report
-                    </button>
+                    {fixedCount > 0 && (
+                      <p className="font-mono text-[10px] text-emerald-400/70">
+                        {fixedCount} issue{fixedCount !== 1 ? "s" : ""} reconciled
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleViewReport}
+                        className="flex-1 rounded-lg border border-foreground/20 bg-transparent py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-foreground/5 hover:text-foreground"
+                      >
+                        View full report
+                      </button>
+                      <button
+                        onClick={handleReconcileAll}
+                        disabled={isBusy}
+                        className="flex-1 rounded-lg border border-amber-500/30 bg-amber-500/10 py-1.5 font-mono text-[11px] text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Reconcile all
+                      </button>
+                    </div>
                   </>
                 )}
                 <p className="font-mono text-[10px] text-muted-foreground/30">
                   Last synced {timeAgo(lastReport.timestamp)}
                   {lastReport.cost > 0 && ` · $${lastReport.cost.toFixed(2)}`}
+                  {reconcileCost > 0 && ` · reconcile $${reconcileCost.toFixed(2)}`}
                 </p>
+                {reconcileError && (
+                  <p className="font-mono text-[10px] text-red-400/70">
+                    Reconcile error: {reconcileError}
+                  </p>
+                )}
               </div>
             ) : lastReport?.status === "error" ? (
               /* Error state */
@@ -259,18 +304,18 @@ export function SyncButton() {
           <div className="px-4 py-3 space-y-2">
             <button
               onClick={handleStartSync}
-              disabled={isSyncing}
+              disabled={isBusy}
               className={`w-full rounded-lg py-2 font-mono text-[11px] transition-colors ${
-                isSyncing
+                isBusy
                   ? "bg-foreground/5 text-muted-foreground/30 cursor-not-allowed"
                   : "bg-foreground/10 text-foreground hover:bg-foreground/15"
               }`}
             >
-              {isSyncing ? "Syncing..." : "Sync now"}
+              {isSyncing ? "Syncing..." : isReconciling ? "Reconciling..." : "Sync now"}
             </button>
             <p className="font-mono text-[9px] text-muted-foreground/25 leading-relaxed text-center">
               Uses Sonnet 4.6 to analyze your full strategy.
-              {!isSyncing && " Runs in background — you can keep chatting."}
+              {!isBusy && " Runs in background — you can keep chatting."}
             </p>
           </div>
         </div>

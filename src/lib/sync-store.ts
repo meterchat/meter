@@ -33,6 +33,17 @@ interface SyncState {
   lastReport: SyncReport | null;
   /** Whether a sync is currently running */
   isSyncing: boolean;
+  /** Whether reconciliation is currently running */
+  isReconciling: boolean;
+  /** How many findings have been reconciled so far */
+  reconciledCount: number;
+  /** Total findings being reconciled */
+  reconcileTotal: number;
+  /** Cost of the reconciliation run */
+  reconcileCost: number;
+  /** Error during reconciliation */
+  reconcileError: string | null;
+
   /** Set when sync starts */
   startSync: () => string;
   /** Update progress during sync */
@@ -47,11 +58,23 @@ interface SyncState {
   markFixed: (findingId: string) => void;
   /** Clear the last report */
   clearReport: () => void;
+
+  /** Start reconciliation */
+  startReconcile: (total: number) => void;
+  /** Update reconcile progress */
+  updateReconcileProgress: (count: number, cost: number) => void;
+  /** Complete reconciliation */
+  completeReconcile: (error?: string) => void;
 }
 
 export const useSyncStore = create<SyncState>((set, get) => ({
   lastReport: null,
   isSyncing: false,
+  isReconciling: false,
+  reconciledCount: 0,
+  reconcileTotal: 0,
+  reconcileCost: 0,
+  reconcileError: null,
 
   startSync: () => {
     const id = Math.random().toString(36).slice(2, 10);
@@ -59,7 +82,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       id,
       timestamp: Date.now(),
       findings: [],
-      totalPasses: 1,
+      totalPasses: 5,
       status: "running",
       currentPass: 1,
       cost: 0,
@@ -121,4 +144,22 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   },
 
   clearReport: () => set({ lastReport: null }),
+
+  startReconcile: (total) => set({
+    isReconciling: true,
+    reconciledCount: 0,
+    reconcileTotal: total,
+    reconcileCost: 0,
+    reconcileError: null,
+  }),
+
+  updateReconcileProgress: (count, cost) => set({
+    reconciledCount: count,
+    reconcileCost: cost,
+  }),
+
+  completeReconcile: (error) => set({
+    isReconciling: false,
+    reconcileError: error ?? null,
+  }),
 }));
