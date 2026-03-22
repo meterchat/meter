@@ -86,7 +86,7 @@ Customer Content is stored on an anonymized basis and is not linked to any perso
 
 We retain Customer Content and account data for as long as your account is active and for a reasonable period afterward for operational purposes (such as auditing, security, and compliance).
 
-You may request deletion of your account and associated data by contacting legal@meter.chat. We will process deletion requests within 30 days, subject to legal and operational constraints.
+You may delete your account and associated data at any time through Profile Settings in the app. Deletion is processed immediately.
 
 ## 9. Security
 
@@ -97,7 +97,7 @@ We use reasonable administrative, technical, and physical safeguards designed to
 You may:
 
 - disconnect integrations at any time through the third-party provider's settings;
-- request deletion of your account and data by contacting legal@meter.chat;
+- delete your account and data through Profile Settings in the app;
 - stop using the Service at any time.
 
 Because accounts are passkey-based, some self-service account management features (such as email-based password reset) are not applicable.
