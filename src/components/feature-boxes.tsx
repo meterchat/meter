@@ -39,7 +39,7 @@ function FeatureBox({
 
   return (
     <div
-      className={`relative flex flex-col border-foreground/[0.06] px-6 xl:px-8 pt-6 pb-8 transition-colors duration-300 hover:bg-foreground/[0.02] ${
+      className={`relative flex flex-col h-full border-foreground/[0.06] px-6 xl:px-8 pt-6 pb-8 transition-colors duration-300 hover:bg-foreground/[0.02] ${
         colSpan === 2 ? "col-span-1 md:col-span-2" : "col-span-1"
       }`}
       onMouseEnter={() => setIsHovered(true)}
