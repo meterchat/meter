@@ -193,6 +193,14 @@ export async function runReconcile(): Promise<void> {
       // Feed cost into global session meter
       incrementCurrentMessageCost(findingCostRaw, activeSessionId);
 
+      // Capture fix summary from AI response
+      if (result.content) {
+        const summary = result.content.slice(0, 200).trim();
+        if (summary) {
+          useSyncStore.getState().setFixSummary(finding.id, summary);
+        }
+      }
+
       // Mark finding as fixed
       useSyncStore.getState().markFixed(finding.id);
 
