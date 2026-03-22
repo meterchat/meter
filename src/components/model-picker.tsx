@@ -182,7 +182,6 @@ export function ModelPickerPanel({
   const setDebateMode = useMeterStore((s) => s.setDebateMode);
   const setDebateRoster = useMeterStore((s) => s.setDebateRoster);
   const debateRoster = useMeterStore((s) => s.debateRoster);
-  const toggleDebateRosterModel = useMeterStore((s) => s.toggleDebateRosterModel);
   const enabledModels = useMeterStore((s) => s.enabledModels);
   const markupMultiplier = useMeterStore((s) => s.markupMultiplier);
 
@@ -250,12 +249,22 @@ export function ModelPickerPanel({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    // If adding a model and the current primary isn't in the roster yet, add it too
                     const currentRoster = useMeterStore.getState().debateRoster;
-                    if (!currentRoster.includes(m.id) && !currentRoster.includes(selectedModelId) && selectedModelId !== "auto") {
-                      toggleDebateRosterModel(selectedModelId);
+
+                    // Removing a model from the roster
+                    if (currentRoster.includes(m.id)) {
+                      const next = currentRoster.filter((id) => id !== m.id);
+                      setDebateRoster(next);
+                      if (next.length === 1) setSelectedModelId(next[0]);
+                      return;
                     }
-                    toggleDebateRosterModel(m.id);
+
+                    // Adding a model — also auto-include current primary
+                    let next = [...currentRoster, m.id];
+                    if (selectedModelId !== "auto" && !next.includes(selectedModelId)) {
+                      next = [selectedModelId, ...next];
+                    }
+                    setDebateRoster(next);
                   }}
                   className="flex h-8 w-8 shrink-0 items-center justify-center"
                   title={isInRoster ? "Remove from debate" : "Add to debate"}
