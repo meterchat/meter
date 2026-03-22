@@ -125,8 +125,13 @@ export async function runReconcile(): Promise<void> {
   let lastCacheReadRate = 0.1;
   let totalRawCost = 0;
 
+  const signal = useSyncStore.getState().abortController?.signal;
+
   try {
     for (let i = 0; i < findings.length; i++) {
+      // Check if cancelled before each finding
+      if (signal?.aborted) break;
+
       const finding = findings[i];
       const prompt = buildReconcilePrompt(finding);
 
@@ -141,6 +146,7 @@ export async function runReconcile(): Promise<void> {
           model: RECONCILE_MODEL,
           sessionId: activeSessionId,
         }),
+        signal,
       });
 
       if (!response.ok) {
@@ -223,6 +229,11 @@ export async function runReconcile(): Promise<void> {
 
     useSyncStore.getState().completeReconcile();
   } catch (err) {
+    // Don't report abort as an error — it's intentional cancellation
+    if (err instanceof DOMException && err.name === "AbortError") {
+      useSyncStore.getState().completeReconcile();
+      return;
+    }
     const msg = err instanceof Error ? err.message : "Unknown error";
     useSyncStore.getState().completeReconcile(msg);
   }
