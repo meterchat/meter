@@ -1,0 +1,10 @@
+# Meter — Pay Per Thought
+# https://meter.chat
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /_next/
+Disallow: /console/
+
+Sitemap: https://meter.chat/sitemap.xml

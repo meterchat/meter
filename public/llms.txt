@@ -1,0 +1,43 @@
+# Meter
+
+> Pay-per-thought AI for builders. Every frontier model, one bill, no subscription.
+
+Meter is a pay-per-thought AI platform that routes across frontier models (GPT, Claude, Gemini, and more), runs structured multi-model debates, logs decisions as durable records, and commits an Agent Spec Kit to GitHub so coding agents start with perfect context.
+
+## Core Features
+
+- **Multi-model routing**: Access every frontier AI model through a single interface. The meter runs in dollars — pay only for what you think.
+- **Debate mode**: Force models into explicit positions, require them to critique each other's strongest arguments, and produce a final synthesis with trade-offs and a recommended decision.
+- **Decision records**: Structured decision logs (not raw chat transcripts) with context, choice, and trade-offs — stored as first-class objects.
+- **Agent Spec Kit**: Deterministic markdown artifacts (README.md, ARCHITECTURE.md, DESIGN.md, DECISIONS.md, .cursorrules, CLAUDE.md) committed to GitHub so coding agents start with perfect context.
+- **Connectors**: Planner mode (Gmail/Linear/Calendar), Coder mode (GitHub/Vercel/Porkbun), Banker mode (Stripe/Mercury/Puzzle/Gusto).
+
+## Links
+
+- Website: https://meter.chat
+- Documentation: https://docs.meter.chat
+- Development log: https://log.meter.chat
+- Tech stack: https://tech.meter.chat
+- Developer console: https://dev.getmeter.xyz
+- Privacy policy: https://meter.chat/privacy
+- Terms of service: https://meter.chat/terms
+
+## API
+
+Meter provides a versioned REST API at /api/v1/ for programmatic access:
+
+- POST /api/v1/chat — Send messages to AI models
+- GET /api/v1/sessions — List chat sessions
+- GET /api/v1/history — Get usage history
+- GET /api/v1/billing/status — Check billing status
+- POST /api/v1/billing/setup — Set up billing
+
+Authentication is via passkeys (WebAuthn) with session-based auth for the API.
+
+## Authentication
+
+Meter uses passkey-based authentication (WebAuthn/FIDO2). No passwords. Sign up with your device biometrics or security key.
+
+## Billing
+
+Pay-per-use billing via Stripe. Add a card, use any model, get billed for actual token usage with a transparent markup. No subscriptions, no tiers.

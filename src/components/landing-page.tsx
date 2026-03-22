@@ -1213,6 +1213,7 @@ export function LandingPage() {
     <div ref={containerRef} className="relative min-h-screen bg-background text-foreground overflow-x-hidden">
 
       {/* ── Navigation ─────────────────────────────────────────────── */}
+      <header>
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-5 bg-background/80 backdrop-blur-xl border-b border-foreground/[0.03]">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Image
@@ -1253,6 +1254,7 @@ export function LandingPage() {
           </div>
         </div>
       </nav>
+      </header>
 
       {/* ── Hero ───────────────────────────────────────────────────── */}
       <motion.section
