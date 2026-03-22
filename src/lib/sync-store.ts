@@ -12,6 +12,8 @@ export interface SyncFinding {
   dismissed?: boolean;
   /** Whether this was auto-fixed */
   fixed?: boolean;
+  /** Brief description of what was changed during reconciliation */
+  fixSummary?: string;
 }
 
 export interface SyncReport {
@@ -56,6 +58,8 @@ interface SyncState {
   dismissFinding: (findingId: string) => void;
   /** Mark a finding as fixed */
   markFixed: (findingId: string) => void;
+  /** Set a fix summary on a finding after reconciliation */
+  setFixSummary: (findingId: string, summary: string) => void;
   /** Clear the last report */
   clearReport: () => void;
 
@@ -138,6 +142,19 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         ...lastReport,
         findings: lastReport.findings.map((f) =>
           f.id === findingId ? { ...f, fixed: true } : f
+        ),
+      },
+    });
+  },
+
+  setFixSummary: (findingId, summary) => {
+    const { lastReport } = get();
+    if (!lastReport) return;
+    set({
+      lastReport: {
+        ...lastReport,
+        findings: lastReport.findings.map((f) =>
+          f.id === findingId ? { ...f, fixSummary: summary } : f
         ),
       },
     });

@@ -83,6 +83,7 @@ export function SyncButton() {
   const reconcileCost = useSyncStore((s) => s.reconcileCost);
   const reconcileError = useSyncStore((s) => s.reconcileError);
 
+  const clearReport = useSyncStore((s) => s.clearReport);
   const addMessage = useMeterStore((s) => s.addMessage);
 
   // Close on outside click
@@ -116,9 +117,15 @@ export function SyncButton() {
     runReconcile();
   };
 
+  const handleDismiss = () => {
+    clearReport();
+    setOpen(false);
+  };
+
   const counts = lastReport ? findingCounts(lastReport.findings) : null;
   const hasFindings = counts && counts.total > 0;
   const fixedCount = lastReport ? lastReport.findings.filter((f) => f.fixed).length : 0;
+  const fixedFindings = lastReport ? lastReport.findings.filter((f) => f.fixed) : [];
   const isBusy = isSyncing || isReconciling;
 
   return (
@@ -183,6 +190,22 @@ export function SyncButton() {
                     ${reconcileCost.toFixed(2)} so far
                   </p>
                 )}
+                {/* Real-time fix log during reconciliation */}
+                {fixedFindings.length > 0 && (
+                  <div className="max-h-[160px] overflow-y-auto space-y-1.5 pt-1 border-t border-border/50 mt-2">
+                    {fixedFindings.map((f) => (
+                      <div key={f.id} className="flex gap-1.5 items-start">
+                        <span className="text-emerald-500 text-[10px] mt-px shrink-0">&#10003;</span>
+                        <div className="min-w-0">
+                          <p className="font-mono text-[10px] text-emerald-400/80 truncate">{f.title}</p>
+                          {f.fixSummary && (
+                            <p className="font-mono text-[9px] text-muted-foreground/40 line-clamp-2 leading-relaxed">{f.fixSummary}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : isSyncing && lastReport ? (
               /* Syncing state */
@@ -211,14 +234,32 @@ export function SyncButton() {
               /* Complete state */
               <div className="space-y-2">
                 {counts.total === 0 ? (
-                  <div className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    <span className="font-mono text-[11px] text-emerald-400">
-                      {fixedCount > 0
-                        ? `All clear. ${fixedCount} issue${fixedCount !== 1 ? "s" : ""} reconciled.`
-                        : "All clear. Strategy is consistent."
-                      }
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      <span className="font-mono text-[11px] text-emerald-400">
+                        {fixedCount > 0
+                          ? `All clear. ${fixedCount} issue${fixedCount !== 1 ? "s" : ""} reconciled.`
+                          : "All clear. Strategy is consistent."
+                        }
+                      </span>
+                    </div>
+                    {/* Fix log for reconciled findings */}
+                    {fixedFindings.length > 0 && (
+                      <div className="max-h-[160px] overflow-y-auto space-y-1.5 pt-1 border-t border-border/50">
+                        {fixedFindings.map((f) => (
+                          <div key={f.id} className="flex gap-1.5 items-start">
+                            <span className="text-emerald-500 text-[10px] mt-px shrink-0">&#10003;</span>
+                            <div className="min-w-0">
+                              <p className="font-mono text-[10px] text-emerald-400/80 truncate">{f.title}</p>
+                              {f.fixSummary && (
+                                <p className="font-mono text-[9px] text-muted-foreground/40 line-clamp-2 leading-relaxed">{f.fixSummary}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -249,21 +290,12 @@ export function SyncButton() {
                         {fixedCount} issue{fixedCount !== 1 ? "s" : ""} reconciled
                       </p>
                     )}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleViewReport}
-                        className="flex-1 rounded-lg border border-foreground/20 bg-transparent py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-foreground/5 hover:text-foreground"
-                      >
-                        View full report
-                      </button>
-                      <button
-                        onClick={handleReconcileAll}
-                        disabled={isBusy}
-                        className="flex-1 rounded-lg border border-amber-500/30 bg-amber-500/10 py-1.5 font-mono text-[11px] text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        Reconcile all
-                      </button>
-                    </div>
+                    <button
+                      onClick={handleViewReport}
+                      className="w-full rounded-lg border border-foreground/20 bg-transparent py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-foreground/5 hover:text-foreground"
+                    >
+                      View full report
+                    </button>
                   </>
                 )}
                 <p className="font-mono text-[10px] text-muted-foreground/30">
@@ -300,23 +332,70 @@ export function SyncButton() {
 
           <div className="h-px bg-border" />
 
-          {/* Action */}
+          {/* Action — context-aware buttons */}
           <div className="px-4 py-3 space-y-2">
-            <button
-              onClick={handleStartSync}
-              disabled={isBusy}
-              className={`w-full rounded-lg py-2 font-mono text-[11px] transition-colors ${
-                isBusy
-                  ? "bg-foreground/5 text-muted-foreground/30 cursor-not-allowed"
-                  : "bg-foreground/10 text-foreground hover:bg-foreground/15"
-              }`}
-            >
-              {isSyncing ? "Syncing..." : isReconciling ? "Reconciling..." : "Sync now"}
-            </button>
-            <p className="font-mono text-[9px] text-muted-foreground/25 leading-relaxed text-center">
-              Uses Sonnet 4.6 to analyze your full strategy.
-              {!isBusy && " Runs in background — you can keep chatting."}
-            </p>
+            {isBusy ? (
+              /* Busy state — just show status text */
+              <p className="font-mono text-[10px] text-muted-foreground/30 text-center">
+                {isSyncing ? "Syncing..." : "Reconciling..."} Runs in background.
+              </p>
+            ) : hasFindings ? (
+              /* Has active findings — Reconcile primary, Re-sync + Dismiss secondary */
+              <>
+                <button
+                  onClick={handleReconcileAll}
+                  className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 py-2 font-mono text-[11px] text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15"
+                >
+                  Reconcile all
+                </button>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={handleStartSync}
+                    className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
+                  >
+                    Re-sync
+                  </button>
+                  <span className="text-muted-foreground/20">·</span>
+                  <button
+                    onClick={handleDismiss}
+                    className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </>
+            ) : lastReport?.status === "complete" ? (
+              /* All clear / post-reconcile — Re-sync primary, Dismiss secondary */
+              <>
+                <button
+                  onClick={handleStartSync}
+                  className="w-full rounded-lg py-2 font-mono text-[11px] bg-foreground/10 text-foreground hover:bg-foreground/15 transition-colors"
+                >
+                  Re-sync
+                </button>
+                <div className="flex items-center justify-center">
+                  <button
+                    onClick={handleDismiss}
+                    className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Idle / never synced / error — Sync now */
+              <>
+                <button
+                  onClick={handleStartSync}
+                  className="w-full rounded-lg py-2 font-mono text-[11px] bg-foreground/10 text-foreground hover:bg-foreground/15 transition-colors"
+                >
+                  Sync now
+                </button>
+                <p className="font-mono text-[9px] text-muted-foreground/25 leading-relaxed text-center">
+                  Uses Sonnet 4.6 to analyze your full strategy. Runs in background.
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
