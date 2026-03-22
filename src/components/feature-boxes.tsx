@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "framer-motion";
+import dynamic from "next/dynamic";
 import { MeterIcon } from "./meter-icon";
+
+const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), {
+  ssr: false,
+  loading: () => <div className="h-[28px]" />,
+});
 
 // ── Infinity path (reused from sync-button) ─────────────────────────
 const INFINITY_PATH =
@@ -451,10 +457,13 @@ function BoxCapsLimits({ active }: { active: boolean }) {
   );
 }
 
-// 6. Track Usage & Spend (MeterBar mini)
+// 6. Track Usage & Spend (with real Liveline)
 function BoxTrackUsage({ active }: { active: boolean }) {
   const [counters, setCounters] = useState({ today: 0, week: 0, messages: 0 });
+  const [data, setData] = useState<{ time: number; value: number }[]>([]);
+  const [currentValue, setCurrentValue] = useState(0);
 
+  // Counter animation
   useEffect(() => {
     if (!active) {
       setCounters({ today: 0, week: 0, messages: 0 });
@@ -473,8 +482,36 @@ function BoxTrackUsage({ active }: { active: boolean }) {
     return () => clearInterval(interval);
   }, [active]);
 
+  // Liveline data feed
+  useEffect(() => {
+    if (!active) {
+      setData([]);
+      setCurrentValue(0);
+      return;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    setData([
+      { time: now - 5, value: 0 },
+      { time: now, value: 0 },
+    ]);
+
+    const interval = setInterval(() => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      const spend =
+        Math.random() > 0.3
+          ? +(Math.random() * 0.08 + 0.01).toFixed(3)
+          : +(Math.random() * 0.005).toFixed(3);
+      setCurrentValue(spend);
+      setData((d) => {
+        const next = [...d, { time: nowSec, value: spend }];
+        return next.filter((p) => p.time >= nowSec - 30);
+      });
+    }, 500);
+    return () => clearInterval(interval);
+  }, [active]);
+
   return (
-    <div className="w-full max-w-[180px]">
+    <div className="w-full max-w-[200px]">
       <div className="rounded-lg border border-foreground/[0.06] bg-background/50 overflow-hidden">
         <div className="px-3 py-2 border-b border-foreground/[0.04] flex items-center gap-1.5">
           <MeterIcon active={false} size={10} />
@@ -499,22 +536,27 @@ function BoxTrackUsage({ active }: { active: boolean }) {
               {counters.messages}
             </span>
           </div>
-          {/* Mini sparkline */}
-          <div className="pt-1">
-            <svg viewBox="0 0 120 24" className="w-full h-5">
-              <polyline
-                points={Array.from({ length: 12 }, (_, i) => {
-                  const y = active
-                    ? 20 - Math.sin((i + counters.messages * 0.1) * 0.7) * 8 - Math.random() * 4
-                    : 12;
-                  return `${i * 11},${y}`;
-                }).join(" ")}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="text-foreground/20"
+          {/* Real Liveline chart */}
+          <div className="h-[28px]">
+            {data.length > 0 && (
+              <Liveline
+                data={data}
+                value={currentValue}
+                window={30}
+                theme="dark"
+                color="#f59e0b"
+                fill
+                pulse
+                exaggerate
+                momentum={false}
+                scrub={false}
+                grid={false}
+                badge={false}
+                padding={{ top: 0, right: 4, bottom: 0, left: 4 }}
+                className="!bg-transparent !border-none"
+                style={{ border: "none" }}
               />
-            </svg>
+            )}
           </div>
         </div>
       </div>
@@ -722,14 +764,14 @@ export function FeatureBoxGrid() {
             </div>
           </div>
 
-          {/* Row 2: Privacy | Caps & Limits | Track Usage */}
+          {/* Row 2: Strategy Sync | Caps & Limits | Track Usage */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <div className="border-b border-foreground/[0.06] md:border-r">
               <FeatureBox
-                title="Private by Default"
-                description="Passkey-only auth. No email, no password, no tracking."
+                title="Strategy Sync"
+                description="Cross-check your decisions for contradictions, gaps, and stale reasoning."
               >
-                {(h) => <BoxPrivacy active={h} />}
+                {(h) => <BoxStrategySync active={h} />}
               </FeatureBox>
             </div>
             <div className="border-b border-foreground/[0.06] lg:border-r">
@@ -750,15 +792,15 @@ export function FeatureBoxGrid() {
             </div>
           </div>
 
-          {/* Row 3: Strategy Sync (2 cols) | MCP Connect (2 cols) */}
+          {/* Row 3: Private by Default (2 cols) | MCP Connect (2 cols) */}
           <div className="grid grid-cols-1 md:grid-cols-2">
             <div className="border-b md:border-b-0 md:border-r border-foreground/[0.06]">
               <FeatureBox
-                title="Strategy Sync"
-                description="Cross-check your decisions for contradictions, gaps, and stale reasoning."
+                title="Private by Default"
+                description="Passkey-only auth. No email, no password, no tracking. Your identity is a random ID — we never see your name."
                 colSpan={2}
               >
-                {(h) => <BoxStrategySync active={h} />}
+                {(h) => <BoxPrivacy active={h} />}
               </FeatureBox>
             </div>
             <div>
