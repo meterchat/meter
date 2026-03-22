@@ -283,10 +283,15 @@ export function HeaderMeter() {
           </>
         )}
         <MeterIcon active={isStreaming} size={14} />
-        <span className="tabular-nums text-[12px] text-foreground">{costStr}</span>
+        <span className="tabular-nums text-[12px] font-medium text-foreground">{costStr}</span>
         {!isMobile && (
-          <span className="text-[11px] text-muted-foreground/50 uppercase tracking-wider">
+          <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
             TODAY
+          </span>
+        )}
+        {usage.totalMessages > 0 && (
+          <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+            {usage.totalMessages} msgs
           </span>
         )}
         <svg
@@ -301,7 +306,33 @@ export function HeaderMeter() {
       {open && (
         <div className={`absolute top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl ${isMobile ? "fixed left-2 right-2 w-auto" : "right-0 w-[360px]"}`}>
 
-          {/* Pending Balance — top */}
+          {/* Live Counter — prominent cost display at top */}
+          <div className="px-4 pt-4 pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="font-mono text-[24px] font-semibold tabular-nums text-foreground leading-tight">
+                  {costStr}
+                </span>
+                <span className="font-mono text-[10px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
+                  Today&apos;s spend
+                </span>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/70" />
+                  <span className="font-mono text-[11px] text-muted-foreground/60">{usage.settledCount} settled</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400/70" />
+                  <span className="font-mono text-[11px] text-muted-foreground/60">{usage.pendingCount} pending</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          {/* Pending Balance */}
           <PendingBalanceSection
             getPendingBalance={getWorkspacePendingBalance}
             settleAll={settleAll}
@@ -427,11 +458,11 @@ export function HeaderMeter() {
             <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
               Activity
             </div>
-            <StatRow label="Messages" value={usage.totalMessages.toString()} />
-            <StatRow label="Tokens In" value={usage.totalTokensIn.toLocaleString()} />
-            <StatRow label="Tokens Out" value={usage.totalTokensOut.toLocaleString()} />
-            <StatRow label="Settled" value={usage.settledCount.toString()} />
-            <StatRow label="Pending" value={usage.pendingCount.toString()} />
+            <StatRow label="Messages" value={usage.totalMessages > 0 ? usage.totalMessages.toLocaleString() : "0"} />
+            <StatRow label="Tokens In" value={usage.totalTokensIn > 0 ? usage.totalTokensIn.toLocaleString() : "0"} />
+            <StatRow label="Tokens Out" value={usage.totalTokensOut > 0 ? usage.totalTokensOut.toLocaleString() : "0"} />
+            <StatRow label="Settled" value={usage.settledCount.toLocaleString()} />
+            <StatRow label="Pending" value={usage.pendingCount.toLocaleString()} />
           </div>
 
           {Object.keys(usage.byModel).length > 0 && (
