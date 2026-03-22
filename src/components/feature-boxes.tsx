@@ -632,10 +632,10 @@ function BoxStrategySync({ active }: { active: boolean }) {
 function BoxMCPConnect({ active }: { active: boolean }) {
   const [connected, setConnected] = useState<number[]>([]);
   const tools = [
-    { name: "Claude Code", x: 15, y: 20 },
-    { name: "Cursor", x: 85, y: 20 },
-    { name: "Windsurf", x: 15, y: 80 },
-    { name: "VS Code", x: 85, y: 80 },
+    { name: "Claude Code", x: 15, y: 20, edgeY: 28 },
+    { name: "Cursor", x: 85, y: 20, edgeY: 28 },
+    { name: "Windsurf", x: 15, y: 80, edgeY: 72 },
+    { name: "VS Code", x: 85, y: 80, edgeY: 72 },
   ];
 
   useEffect(() => {
@@ -660,12 +660,10 @@ function BoxMCPConnect({ active }: { active: boolean }) {
         {/* Connection lines + tool nodes */}
         <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           {tools.map((tool, i) => (
-            <line
+            <path
               key={i}
-              x1="50"
-              y1="50"
-              x2={tool.x}
-              y2={tool.y}
+              d={`M 50 50 L ${tool.x} 50 L ${tool.x} ${tool.edgeY}`}
+              fill="none"
               stroke="currentColor"
               strokeWidth="0.5"
               className={`transition-all duration-500 ${
