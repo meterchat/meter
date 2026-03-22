@@ -235,6 +235,33 @@
   animation: sync-glow 2s ease-in-out infinite;
 }
 
+/* ── Animated grid tracer lines ─────────────────────────────── */
+@keyframes grid-tracer-h {
+  0% { transform: translateX(-120px); opacity: 0; }
+  5% { opacity: 1; }
+  95% { opacity: 1; }
+  100% { transform: translateX(calc(100vw + 120px)); opacity: 0; }
+}
+@keyframes grid-tracer-v {
+  0% { transform: translateY(-120px); opacity: 0; }
+  5% { opacity: 1; }
+  95% { opacity: 1; }
+  100% { transform: translateY(calc(100vh + 120px)); opacity: 0; }
+}
+@keyframes grid-dot {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(2); }
+}
+.animate-grid-tracer-h {
+  animation: grid-tracer-h 8s linear infinite;
+}
+.animate-grid-tracer-v {
+  animation: grid-tracer-v 9s linear infinite;
+}
+.animate-grid-dot {
+  animation: grid-dot 6s ease-in-out infinite;
+}
+
 /* Hide Next.js error overlay portal */
 nextjs-portal {
   display: none !important;
