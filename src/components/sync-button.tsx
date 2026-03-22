@@ -84,6 +84,7 @@ export function SyncButton() {
   const reconcileError = useSyncStore((s) => s.reconcileError);
 
   const clearReport = useSyncStore((s) => s.clearReport);
+  const cancelOperation = useSyncStore((s) => s.cancelOperation);
   const addMessage = useMeterStore((s) => s.addMessage);
 
   // Close on outside click
@@ -115,6 +116,10 @@ export function SyncButton() {
 
   const handleReconcileAll = () => {
     runReconcile();
+  };
+
+  const handleStop = () => {
+    cancelOperation();
   };
 
   const handleDismiss = () => {
@@ -335,10 +340,23 @@ export function SyncButton() {
           {/* Action — context-aware buttons */}
           <div className="px-4 py-3 space-y-2">
             {isBusy ? (
-              /* Busy state — just show status text */
-              <p className="font-mono text-[10px] text-muted-foreground/30 text-center">
-                {isSyncing ? "Syncing..." : "Reconciling..."} Runs in background.
-              </p>
+              /* Busy state — Stop + Dismiss */
+              <>
+                <button
+                  onClick={handleStop}
+                  className="w-full rounded-lg border border-red-500/30 bg-red-500/10 py-2 font-mono text-[11px] text-red-400 transition-colors hover:border-red-500/40 hover:bg-red-500/15"
+                >
+                  Stop
+                </button>
+                <div className="flex items-center justify-center">
+                  <button
+                    onClick={handleDismiss}
+                    className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </>
             ) : hasFindings ? (
               /* Has active findings — Reconcile primary, Re-sync + Dismiss secondary */
               <>

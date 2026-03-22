@@ -357,8 +357,12 @@ export async function runSync(): Promise<string> {
     const activeSessionId = meterState.activeSessionId;
     const markupMultiplier = meterState.markupMultiplier;
     const incrementCurrentMessageCost = useMeterStore.getState().incrementCurrentMessageCost;
+    const signal = useSyncStore.getState().abortController?.signal;
 
     for (let pass = 1; pass <= totalPasses; pass++) {
+      // Check if cancelled before each pass
+      if (signal?.aborted) break;
+
       useSyncStore.getState().updateProgress(reportId, { currentPass: pass });
 
       const prompt = buildAnalysisPrompt(ctx, pass, totalPasses);
@@ -374,6 +378,7 @@ export async function runSync(): Promise<string> {
           model: SYNC_MODEL,
           sessionId: activeSessionId,
         }),
+        signal,
       });
 
       if (!response.ok) {
@@ -428,6 +433,11 @@ export async function runSync(): Promise<string> {
 
     useSyncStore.getState().completeSync(reportId);
   } catch (err) {
+    // Don't report abort as an error — it's intentional cancellation
+    if (err instanceof DOMException && err.name === "AbortError") {
+      useSyncStore.getState().completeSync(reportId);
+      return reportId;
+    }
     const msg = err instanceof Error ? err.message : "Unknown error";
     useSyncStore.getState().completeSync(reportId, msg);
   }

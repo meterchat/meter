@@ -45,6 +45,8 @@ interface SyncState {
   reconcileCost: number;
   /** Error during reconciliation */
   reconcileError: string | null;
+  /** AbortController for cancelling in-flight sync/reconcile */
+  abortController: AbortController | null;
 
   /** Set when sync starts */
   startSync: () => string;
@@ -62,6 +64,8 @@ interface SyncState {
   setFixSummary: (findingId: string, summary: string) => void;
   /** Clear the last report */
   clearReport: () => void;
+  /** Cancel any running sync or reconcile */
+  cancelOperation: () => void;
 
   /** Start reconciliation */
   startReconcile: (total: number) => void;
@@ -79,8 +83,12 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   reconcileTotal: 0,
   reconcileCost: 0,
   reconcileError: null,
+  abortController: null,
 
   startSync: () => {
+    // Abort any previous operation
+    get().abortController?.abort();
+    const controller = new AbortController();
     const id = Math.random().toString(36).slice(2, 10);
     const report: SyncReport = {
       id,
@@ -91,7 +99,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       currentPass: 1,
       cost: 0,
     };
-    set({ lastReport: report, isSyncing: true });
+    set({ lastReport: report, isSyncing: true, abortController: controller });
     return id;
   },
 
@@ -162,13 +170,36 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
   clearReport: () => set({ lastReport: null }),
 
-  startReconcile: (total) => set({
-    isReconciling: true,
-    reconciledCount: 0,
-    reconcileTotal: total,
-    reconcileCost: 0,
-    reconcileError: null,
-  }),
+  cancelOperation: () => {
+    const { abortController, isSyncing, isReconciling, lastReport } = get();
+    abortController?.abort();
+    if (isSyncing && lastReport) {
+      set({
+        isSyncing: false,
+        abortController: null,
+        lastReport: { ...lastReport, status: "complete" },
+      });
+    }
+    if (isReconciling) {
+      set({
+        isReconciling: false,
+        abortController: null,
+      });
+    }
+  },
+
+  startReconcile: (total) => {
+    get().abortController?.abort();
+    const controller = new AbortController();
+    set({
+      isReconciling: true,
+      reconciledCount: 0,
+      reconcileTotal: total,
+      reconcileCost: 0,
+      reconcileError: null,
+      abortController: controller,
+    });
+  },
 
   updateReconcileProgress: (count, cost) => set({
     reconciledCount: count,
