@@ -59,7 +59,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       id,
       timestamp: Date.now(),
       findings: [],
-      totalPasses: 5,
+      totalPasses: 1,
       status: "running",
       currentPass: 1,
       cost: 0,

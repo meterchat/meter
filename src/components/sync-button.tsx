@@ -269,7 +269,7 @@ export function SyncButton() {
               {isSyncing ? "Syncing..." : "Sync now"}
             </button>
             <p className="font-mono text-[9px] text-muted-foreground/25 leading-relaxed text-center">
-              Uses Opus 4.6 to analyze your full strategy.
+              Uses Sonnet 4.6 to analyze your full strategy.
               {!isSyncing && " Runs in background — you can keep chatting."}
             </p>
           </div>
