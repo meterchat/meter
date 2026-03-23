@@ -126,7 +126,7 @@ function HeroLiveline({ activeModelIdx }: { activeModelIdx: number }) {
 }
 
 // Mini MeterPill-style cost ticker for landing page
-function LiveMeterPill() {
+export function LiveMeterPill() {
   const [cost, setCost] = useState(0);
   const [phase, setPhase] = useState<"idle" | "streaming" | "settled">("idle");
   const ref = useRef(null);
@@ -214,7 +214,7 @@ function LiveMeterPill() {
 }
 
 // Mini debate trace matching actual app UI
-function LiveDebateTrace() {
+export function LiveDebateTrace() {
   const [visibleTurns, setVisibleTurns] = useState(0);
   const [showSynthesis, setShowSynthesis] = useState(false);
   const ref = useRef(null);
@@ -348,7 +348,7 @@ function LiveDebateTrace() {
 }
 
 // Decision record card matching app inspector UI
-function LiveDecisionCard() {
+export function LiveDecisionCard() {
   const [phase, setPhase] = useState<"draft" | "filling" | "locking" | "locked">("draft");
   const ref = useRef(null);
   const isInView = useInView(ref, { once: false, margin: "-100px" });
@@ -433,7 +433,7 @@ function LiveDecisionCard() {
 }
 
 // Model grid matching actual model picker UI
-function LiveModelGrid() {
+export function LiveModelGrid() {
   const [activeIdx, setActiveIdx] = useState(0);
   const ref = useRef(null);
   const isInView = useInView(ref, { once: false, margin: "-100px" });

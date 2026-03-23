@@ -321,7 +321,7 @@ function BoxSlashCommands({ active }: { active: boolean }) {
 }
 
 // 4. Privacy & Passkey (compact)
-function BoxPrivacy({ active }: { active: boolean }) {
+export function BoxPrivacy({ active }: { active: boolean }) {
   const [phase, setPhase] = useState<"idle" | "verifying" | "verified">("idle");
 
   useEffect(() => {
