@@ -531,7 +531,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
   return (
     <div className="rounded-md transition-colors">
       <div
-        className="group flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
+        className="group relative flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
         onClick={() => setExpanded(!expanded)}
       >
         <svg
@@ -554,7 +554,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
             <span className="ml-1 text-muted-foreground/70 text-xs">(v{version})</span>
           )}
         </span>
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+        <div className="absolute right-1 flex items-center gap-1 rounded bg-background/90 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
           <button
             onClick={handleCopy}
             className="rounded px-1.5 py-0.5 font-sans text-xs text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
@@ -1296,7 +1296,7 @@ function ArtifactRow({ artifact, onOpen }: {
   return (
     <div className="rounded-md transition-colors">
       <div
-        className="group flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
+        className="group relative flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
         onClick={() => setExpanded(!expanded)}
       >
         <svg
@@ -1319,7 +1319,7 @@ function ArtifactRow({ artifact, onOpen }: {
         <span className="flex-1 truncate font-sans text-xs text-foreground/80">
           {artifact.filePath}
         </span>
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+        <div className="absolute right-1 flex items-center gap-1 rounded bg-background/90 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
           <button
             onClick={handleCopy}
             className="rounded px-1.5 py-0.5 font-sans text-xs text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
@@ -1388,6 +1388,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
   const [portalSlug, setPortalSlug] = useState<string | null>(null);
   const [portalHandle, setPortalHandle] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [copiedAll, setCopiedAll] = useState(false);
 
   useEffect(() => {
     if (activeSessionId) {
@@ -1476,24 +1477,24 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
           {artifacts.length > 0 && (
             <>
               <button
-                onClick={openPortal}
-                disabled={portalLoading}
-                className="flex items-center gap-1 rounded px-2 py-0.5 font-sans text-xs text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50"
-                title="Open docs portal"
+                onClick={async () => {
+                  if (artifacts.length === 0) return;
+                  const parts = artifacts.map((a) => `--- ${a.filePath} ---\n${a.content}\n`);
+                  await navigator.clipboard.writeText(parts.join("\n"));
+                  setCopiedAll(true);
+                  setTimeout(() => setCopiedAll(false), 1500);
+                }}
+                className="rounded px-2 py-0.5 font-sans text-xs text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                title="Copy all documents"
               >
-                Open
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
+                {copiedAll ? "Copied" : "Copy all"}
               </button>
               <button
                 onClick={handleDownloadZip}
                 className="rounded px-2 py-0.5 font-sans text-xs text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
                 title="Download all"
               >
-                Download
+                Download all
               </button>
             </>
           )}
