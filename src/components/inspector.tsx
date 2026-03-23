@@ -711,7 +711,7 @@ const MCP_CONNECTORS: McpConnector[] = [
   {
     id: "claude-code",
     name: "Claude Code",
-    icon: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM10 8.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm4.5 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM9.5 14a2.5 2.5 0 0 0 5 0",
+    icon: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM7 15l3-3-3-3M14 15h4",
     instructions: (apiKey) => [
       {
         label: "Run in your terminal",
@@ -722,7 +722,7 @@ const MCP_CONNECTORS: McpConnector[] = [
   {
     id: "cursor",
     name: "Cursor",
-    icon: "M5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5v-13A2.5 2.5 0 0 1 5.5 3ZM8 7v10l8-5-8-5Z",
+    icon: "M5 3l12.5 8.5-5 1-3 5L5 3ZM14.5 17.5l3 4.5",
     instructions: (apiKey) => [
       {
         label: "Add to Settings → MCP Servers",
@@ -766,7 +766,7 @@ const MCP_CONNECTORS: McpConnector[] = [
   {
     id: "replit",
     name: "Replit",
-    icon: "M6 3a3 3 0 0 0-3 3v3a3 3 0 0 0 3 3h12V3H6Zm12 9H6a3 3 0 0 0-3 3v3a3 3 0 0 0 3 3h12V12ZM18 3h3v18h-3V3Z",
+    icon: "M5 3h10v8H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM5 13h10v8H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2ZM19 3v18",
     instructions: (apiKey) => [
       {
         label: "Add to your MCP configuration",
@@ -788,7 +788,7 @@ const MCP_CONNECTORS: McpConnector[] = [
   {
     id: "antigravity",
     name: "Antigravity",
-    icon: "M12 2L2 19.5h20L12 2Zm0 4l6.93 12H5.07L12 6Z",
+    icon: "M12 3l-10 18h20Z",
     instructions: (apiKey) => [
       {
         label: "Add to your MCP configuration",
