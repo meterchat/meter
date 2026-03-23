@@ -703,7 +703,7 @@ function SubscriptionLogos() {
 
 export function LandingPage() {
   const { setAuth, setCardOnFile, fetchCards } = useMeterStore();
-  const [step, setStep] = useState<AuthStep>("passkey");
+  const [step, setStep] = useState<AuthStep>("no-account");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
