@@ -1375,6 +1375,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
   const [portalSlug, setPortalSlug] = useState<string | null>(null);
   const [portalHandle, setPortalHandle] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [copiedAll, setCopiedAll] = useState(false);
 
   useEffect(() => {
     if (activeSessionId) {
@@ -1463,17 +1464,17 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
           {artifacts.length > 0 && (
             <>
               <button
-                onClick={openPortal}
-                disabled={portalLoading}
-                className="flex items-center gap-1 rounded px-2 py-0.5 font-sans text-xs text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50"
-                title="Open docs portal"
+                onClick={async () => {
+                  if (artifacts.length === 0) return;
+                  const parts = artifacts.map((a) => `--- ${a.filePath} ---\n${a.content}\n`);
+                  await navigator.clipboard.writeText(parts.join("\n"));
+                  setCopiedAll(true);
+                  setTimeout(() => setCopiedAll(false), 1500);
+                }}
+                className="rounded px-2 py-0.5 font-sans text-xs text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                title="Copy all documents"
               >
-                Open
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
+                {copiedAll ? "Copied" : "Copy all"}
               </button>
               <button
                 onClick={handleDownloadZip}
