@@ -51,16 +51,23 @@ export default function SlidesPage() {
   const slide = SLIDES[current];
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background relative overflow-hidden">
+    <div className="h-screen w-full flex flex-col bg-background relative overflow-hidden">
       <div
-        className="flex flex-col items-center justify-center gap-16 transition-opacity duration-400"
+        className="flex-1 flex flex-col items-center transition-opacity duration-400"
         style={{ opacity: fading ? 0 : 1 }}
       >
-        <h1 className="text-5xl sm:text-7xl font-semibold tracking-tight text-foreground text-center">
-          {slide.tagline}
-        </h1>
-        <div className="transform scale-150 origin-center">
-          {slide.render()}
+        {/* Fixed-position heading area */}
+        <div className="pt-[15vh] pb-8 flex items-end justify-center">
+          <h1 className="text-5xl sm:text-7xl font-semibold tracking-tight text-foreground text-center">
+            {slide.tagline}
+          </h1>
+        </div>
+
+        {/* Fixed-height content area, centered */}
+        <div className="flex-1 flex items-start justify-center pt-8">
+          <div className="transform scale-[1.35] origin-top">
+            {slide.render()}
+          </div>
         </div>
       </div>
 
