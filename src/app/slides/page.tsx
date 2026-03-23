@@ -19,34 +19,34 @@ function LoopingBoxPrivacy() {
 
 const SLIDES = [
   {
-    tagline: "Pay per thought",
-    subtitle: "Real-time cost tracking for every AI call",
+    line1: "Pay per",
+    line2: "thought",
     render: () => <LiveMeterPill />,
-    scale: 1.8,
+    scale: 1.4,
   },
   {
-    tagline: "Every frontier model",
-    subtitle: "One API, all the best models",
+    line1: "Every frontier",
+    line2: "model",
     render: () => <LiveModelGrid />,
-    scale: 1.6,
+    scale: 1.2,
   },
   {
-    tagline: "AI debates itself",
-    subtitle: "Multi-model debates surface better answers",
+    line1: "AI debates",
+    line2: "itself",
     render: () => <LiveDebateTrace />,
-    scale: 1.5,
+    scale: 1.15,
   },
   {
-    tagline: "Log your decisions",
-    subtitle: "Structured records, not chat transcripts",
+    line1: "Log your",
+    line2: "decisions",
     render: () => <LiveDecisionCard />,
-    scale: 1.5,
+    scale: 1.15,
   },
   {
-    tagline: "Private by default",
-    subtitle: "Passkey auth, no passwords stored",
+    line1: "Private by",
+    line2: "default",
     render: () => <LoopingBoxPrivacy />,
-    scale: 2.0,
+    scale: 1.6,
   },
 ];
 
@@ -84,13 +84,10 @@ export default function SlidesPage() {
         {/* Left half — text */}
         <div className="w-1/2 flex flex-col justify-center pl-[8vw] pr-8">
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground leading-[1.1]">
-            {slide.tagline}
+            {slide.line1}
+            <br />
+            {slide.line2}
           </h1>
-          {slide.subtitle && (
-            <p className="mt-4 text-lg sm:text-xl text-muted-foreground/60 max-w-md leading-relaxed">
-              {slide.subtitle}
-            </p>
-          )}
         </div>
 
         {/* Right half — animation */}
