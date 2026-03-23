@@ -41,7 +41,7 @@ function CardFormInner({
       return;
     }
 
-    // Confirm card details server-side (handles pre-auth hold + saves card)
+    // Confirm card details server-side (saves card)
     const paymentMethodId =
       typeof setupIntent?.payment_method === "string"
         ? setupIntent.payment_method
@@ -58,10 +58,6 @@ function CardFormInner({
         if (data.success) {
           trackCardAdded({ brand: data.cardBrand ?? "card", last4: data.cardLast4 ?? "****", source: "inline_form" });
           setCardOnFile(true, data.cardLast4, data.cardBrand);
-        } else if (data.preauthFailed) {
-          setError("Card declined: unable to authorize a $10 hold. Please try a different card.");
-          setSubmitting(false);
-          return;
         } else {
           setCardOnFile(true);
         }
@@ -156,7 +152,7 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
       </StripeProvider>
 
       <p className="mt-2 font-mono text-[10px] text-muted-foreground/50 leading-relaxed">
-        A $10 hold verifies your card. Usage settles at $10 or when you choose.
+        Your card will be charged based on usage. Settles at $10 or when you choose.
       </p>
     </div>
   );
