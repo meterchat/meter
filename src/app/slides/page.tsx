@@ -82,8 +82,8 @@ export default function SlidesPage() {
         style={{ opacity: fading ? 0 : 1 }}
       >
         {/* Left — text */}
-        <div className="w-[40%] flex flex-col justify-center pl-[8vw]">
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground leading-[1.1]">
+        <div className="w-[35%] flex flex-col justify-center pl-[8vw]">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground leading-[1.1] whitespace-nowrap">
             {slide.line1}
             <br />
             {slide.line2}
@@ -91,7 +91,7 @@ export default function SlidesPage() {
         </div>
 
         {/* Right — animation */}
-        <div className="w-[60%] flex items-center justify-center pr-[4vw]">
+        <div className="w-[65%] flex items-center justify-start pl-[2vw]">
           <div
             className="origin-center"
             style={{ transform: `scale(${slide.scale})` }}

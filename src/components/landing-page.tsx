@@ -449,7 +449,7 @@ export function LiveModelGrid() {
   }, [isInView, displayModels.length]);
 
   return (
-    <div ref={ref} className="w-full max-w-[380px]">
+    <div ref={ref} className="w-[380px]">
       <div className="rounded-xl border border-foreground/[0.06] bg-background overflow-hidden">
         <div className="p-1.5 space-y-0.5">
           {displayModels.map((m, i) => (
@@ -464,16 +464,13 @@ export function LiveModelGrid() {
                 <div className="text-[11px] font-medium text-foreground/80 truncate">{m.name}</div>
                 <div className="text-[9px] text-muted-foreground/40 font-mono">{m.provider}</div>
               </div>
-              {i === activeIdx && (
-                <motion.div
-                  className="flex items-center gap-1"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <span className="font-mono text-[9px] text-muted-foreground/40">routing</span>
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/50 animate-pulse" />
-                </motion.div>
-              )}
+              <div
+                className="flex items-center gap-1 transition-opacity"
+                style={{ opacity: i === activeIdx ? 1 : 0 }}
+              >
+                <span className="font-mono text-[9px] text-muted-foreground/40">routing</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/50 animate-pulse" />
+              </div>
             </div>
           ))}
           {/* Auto row */}
