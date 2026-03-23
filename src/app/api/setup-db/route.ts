@@ -543,6 +543,53 @@ const STATEMENTS: string[] = [
   `do $$ begin alter table settlement_history rename column whop_payment_id to stripe_payment_intent_id; exception when undefined_column then null; end $$`,
   `alter table settlement_history add column if not exists stripe_payment_intent_id text`,
 
+  // ── Pre-auth hold: track uncaptured $10 PaymentIntent per user ──
+  `alter table meter_users add column if not exists preauth_payment_intent_id text`,
+
+  // ── Credit balance: manually-amendable credit (deducted atomically at settlement) ──
+  `alter table meter_users add column if not exists credit_balance numeric not null default 0`,
+
+  // Track credit applied per settlement
+  `alter table settlement_history add column if not exists credit_applied numeric not null default 0`,
+
+  // Atomic credit deduction RPC — uses FOR UPDATE row lock to prevent race conditions
+  `create or replace function deduct_credit(p_user_id text, p_amount numeric)
+   returns numeric as $$
+   declare
+     available numeric;
+     deduction numeric;
+   begin
+     select credit_balance into available
+     from meter_users
+     where id = p_user_id
+     for update;
+
+     if available is null or available <= 0 then
+       return 0;
+     end if;
+
+     deduction := least(available, p_amount);
+
+     update meter_users
+     set credit_balance = credit_balance - deduction,
+         updated_at = now()
+     where id = p_user_id;
+
+     return deduction;
+   end;
+   $$ language plpgsql`,
+
+  // Restore credit RPC — used when settlement is skipped (e.g. Stripe minimum not met)
+  `create or replace function restore_credit(p_user_id text, p_amount numeric)
+   returns void as $$
+   begin
+     update meter_users
+     set credit_balance = credit_balance + p_amount,
+         updated_at = now()
+     where id = p_user_id;
+   end;
+   $$ language plpgsql`,
+
   // ── Remove legacy crypto/blockchain columns ──
   `alter table chat_messages drop column if exists signature`,
   `alter table chat_messages drop column if exists tx_hash`,
