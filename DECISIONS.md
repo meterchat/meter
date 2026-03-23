@@ -97,13 +97,15 @@ Consequences: Less negative framing; clearer value proposition.
 
 ---
 
-## ADR-0009: Agent modes are Planner / Coder / Banker
+## ADR-0009: Agent modes are Planner / Coder / Banker (deprecated)
 
 Context: “Tracks” mapped to departments rather than intent. Needed clear permission boundaries for connectors and crisp user mental models.
 
 Decision: Use three modes: Planner, Coder, Banker. Each mode gates connectors and produces concrete artifacts.
 
 Consequences: Clear UX, safer connector permissioning, and easier onboarding.
+
+**Update (2026-03):** Connectors are being removed. Modes were defined as connector permission boundaries and are deprecated along with them.
 
 ---
 
@@ -117,17 +119,13 @@ Consequences: Network effects without privacy violations; adds strong differenti
 
 ---
 
-## ADR-0011: Implemented connector mapping for modes
+## ADR-0011: Deprecate connectors
 
-Context: Original mode definitions included connectors that were never built (Linear, Calendar, Puzzle, Gusto). The actual implemented connectors evolved differently based on available APIs and user needs.
+Context: Nine connectors were implemented (GitHub, Stripe, Mercury, PostHog, Gmail, Vercel, Porkbun, Ramp, Supabase) with only four exposed in the UI. Connectors added complexity without justifying their maintenance cost relative to the core product loop (Debate → Decision → Artifact → GitHub).
 
-Decision: The actual connector mapping is:
-- **Planner:** Gmail, PostHog
-- **Coder:** GitHub, Vercel, Porkbun
-- **Banker:** Stripe, Mercury, Ramp
-- **Cross-mode:** Supabase
+Decision: Remove connectors from the product. The core value proposition is multi-model routing, structured debate, decision logging, and Agent Spec Kit generation — not third-party integrations.
 
-Consequences: Nine working connectors with real tool implementations. Linear, Calendar, Puzzle, and Gusto may be added later if demand warrants.
+Consequences: Simpler product surface, less maintenance burden, clearer positioning. Connector code remains in codebase during deprecation period.
 
 ---
 

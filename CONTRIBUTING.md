@@ -4,11 +4,10 @@ Thanks for your interest in contributing to Meter. This document provides guidel
 
 ## Getting Started
 
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/meter.git`
-3. Install dependencies: `bun install`
-4. Copy environment variables: `cp .env.example .env.local`
-5. Start the dev server: `bun dev`
+1. Clone the repository: `git clone https://github.com/meterchat/meter.git`
+2. Install dependencies: `bun install`
+3. Copy environment variables: `cp .env.example .env.local`
+4. Start the dev server: `bun dev`
 
 ## Development
 
@@ -23,7 +22,7 @@ bun run lint   # Run ESLint
 - `src/app/` — Next.js App Router pages and API routes
 - `src/components/` — React components
 - `src/hooks/` — Custom React hooks
-- `src/lib/` — Shared utilities, state management, model definitions, connector integrations
+- `src/lib/` — Shared utilities, state management, model definitions
 
 ## Pull Requests
 
@@ -44,7 +43,7 @@ bun run lint   # Run ESLint
 
 ## Reporting Issues
 
-Open a [GitHub Issue](https://github.com/meterxyz/meter/issues) with:
+Open a [GitHub Issue](https://github.com/meterchat/meter/issues) with:
 
 - A clear title and description
 - Steps to reproduce (if applicable)

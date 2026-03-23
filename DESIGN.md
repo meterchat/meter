@@ -36,12 +36,7 @@ Single-model chats drift into compliance and confirmation bias.
 
 Meter is designed to force productive disagreement. The highest leverage output is not a single answer — it’s an explicit map of trade-offs.
 
-### 4) Ground Strategy in Reality
-Strategy without grounding becomes roleplay.
-
-Meter’s connectors exist to anchor thinking to operational truth. When a user debates runway, it should pull real Mercury balances. When they debate pipeline, it should summarize real Gmail threads. When they debate growth, it should read real Stripe revenue.
-
-### 5) The Handoff Is the Product
+### 4) The Handoff Is the Product
 The work is not complete when consensus is reached.
 
 Meter’s job is to convert thinking into execution-ready artifacts and commit them to GitHub. The agent should not start cold. The agent should start with perfect context.
@@ -63,15 +58,6 @@ The UI should always answer:
 - What artifacts are generated from those decisions?
 
 The "Decisions" tab is intentionally named. "Strategy" is too vague.
-
-### Three Modes, Clear Permission Boundaries
-Planner / Coder / Banker exist to make connector permissions obvious.
-
-Each mode has a closed loop:
-
-- Planner creates decisions.
-- Coder executes decisions.
-- Banker grounds decisions.
 
 ---
 

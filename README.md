@@ -4,8 +4,6 @@
 
 Meter gives you every top model — Claude Opus 4.6, Claude Sonnet 4.6, GPT-5.4, Gemini 3.1 Pro, Grok 4.1 Fast, and DeepSeek V3 — on a single postpaid tab. No subscriptions. No rate limits. Multi-tier routing across providers means you always get the fastest, smartest response available. Structured debates pit models against each other when the stakes are high, and a persistent decision log means your context and reasoning never get lost.
 
-Connect Stripe, Mercury, Gmail, GitHub, Vercel, and more. Open source and auditable.
-
 --
 
 ## What Meter Does
@@ -22,18 +20,6 @@ Meter sits between human judgment and machine execution. It is the operating lay
 
 ---
 
-## Three Agent Modes
-
-| Mode | Connectors | Output |
-|------|-----------|--------|
-| **Planner** | Gmail, PostHog | Strategy docs, decision logs, debates, follow-ups |
-| **Coder** | GitHub, Vercel, Porkbun | Commits, deploys, live URLs, domain registration |
-| **Banker** | Stripe, Mercury, Ramp | Revenue, burn, transaction reviews, spending summaries |
-
-Additional connectors: Supabase (database queries).
-
----
-
 ## Current Phase
 
 Core product is live. Chat, multi-model routing with fallback, debate mode, dissection mode, decision logging, artifact generation, GitHub push, billing with auto-settlement, workspace branching (fork/merge paths), MCP server, developer console with API keys, and public activity log are all working.
@@ -44,13 +30,13 @@ Core product is live. Chat, multi-model routing with fallback, debate mode, diss
 
 ```bash
 # Install dependencies
-npm install
+bun install
 
 # Set up environment variables
 cp .env.example .env.local
 
 # Run development server
-npm run dev
+bun dev
 ```
 
 ---
@@ -64,4 +50,3 @@ npm run dev
 ## Links
 
 - Production: [meter.chat](https://meter.chat)
-- Repo: [github.com/meterchat/meter](https://github.com/meterchat/meter)

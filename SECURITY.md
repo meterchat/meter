@@ -23,8 +23,6 @@ The following are in scope:
 - WebAuthn authentication flow
 - Server-side API routes (`/api/chat`, `/api/v1/*`)
 - Stripe billing integration
-- OAuth token handling (GitHub, Google, Vercel, Stripe)
-- API key connectors (Mercury, PostHog, Ramp, Porkbun, Supabase)
 - Settlement and payment processing
 
 ## Architecture Security Notes
