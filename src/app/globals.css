@@ -196,16 +196,10 @@
     overscroll-behavior-y: none;
   }
 
-  /* Make tap targets at least 44px on mobile */
-  button, a, [role="button"] {
+  /* Opt-in 44px tap targets — apply .mobile-touch-target to primary buttons */
+  .mobile-touch-target {
     min-height: 44px;
     min-width: 44px;
-  }
-
-  /* Exceptions: inline icon buttons / pills that are intentionally small */
-  .mobile-sm-ok {
-    min-height: unset;
-    min-width: unset;
   }
 }
 

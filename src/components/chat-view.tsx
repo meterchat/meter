@@ -56,6 +56,7 @@ import { Brainwave, type BrainwaveHandle } from "@/components/brainwave";
 import { ClarifyingCard } from "@/components/clarifying-card";
 import { DissectorTrace } from "@/components/dissector-trace";
 import { Spinner } from "@/components/ui/spinner";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -2457,7 +2458,7 @@ export function ChatView() {
   const hasPdfAttachment = lastUserMsg?.attachments?.some(a => a.mimeType === "application/pdf") ?? false;
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-dvh overflow-hidden bg-background">
       <ProfileSettings open={profileOpen} onClose={() => setProfileOpen(false)} />
       {switchingSessionName && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 backdrop-blur-sm">
@@ -2501,7 +2502,7 @@ export function ChatView() {
                 <polyline points="7 14 12 19 17 14" />
               </svg>
             </button>
-            {logoMenuOpen && (
+            {logoMenuOpen && !isMobile && (
               <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-xl border border-border bg-card shadow-xl py-1">
                 <button
                   onClick={() => { setLogoMenuOpen(false); setProfileOpen(true); }}
@@ -2532,9 +2533,45 @@ export function ChatView() {
                 </button>
               </div>
             )}
+            <Drawer open={logoMenuOpen && isMobile} onOpenChange={(v) => { if (!v) setLogoMenuOpen(false); }}>
+              <DrawerContent className="bg-card">
+                <DrawerHeader>
+                  <DrawerTitle className="font-mono text-xs uppercase tracking-wider text-muted-foreground/60">Menu</DrawerTitle>
+                </DrawerHeader>
+                <div className="px-4 pb-6 space-y-1">
+                  <button
+                    onClick={() => { setLogoMenuOpen(false); setProfileOpen(true); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 font-mono text-sm text-foreground transition-colors hover:bg-foreground/5"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    Profile Settings
+                  </button>
+                  <div className="mx-3 h-px bg-border" />
+                  <button
+                    onClick={() => { resetUser(); logout(); }}
+                    disabled={loggingOut}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 font-mono text-sm text-foreground transition-colors hover:bg-foreground/5 disabled:opacity-50"
+                  >
+                    {loggingOut ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="animate-spin">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
+                    )}
+                    {loggingOut ? "Signing Out…" : "Sign Out"}
+                  </button>
+                </div>
+              </DrawerContent>
+            </Drawer>
           </div>
           <div className="relative flex items-center gap-2">
-            <SyncButton />
+            {!isMobile && <SyncButton />}
             <HeaderMeter />
             <button
               onClick={toggleInspector}

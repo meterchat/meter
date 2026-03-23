@@ -163,7 +163,7 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-56 rounded-md border border-border bg-popover p-2 shadow-md z-50">
+        <div className="absolute bottom-full left-0 mb-2 w-56 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover p-2 shadow-md z-50">
           <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider px-2 py-1">
             Workspaces
           </div>
