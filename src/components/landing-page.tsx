@@ -656,7 +656,7 @@ function AuthButtons({
         disabled={loading}
         className="w-full h-10 rounded-xl border border-foreground/[0.08] text-foreground text-sm font-medium transition-colors hover:bg-foreground/[0.03] active:bg-foreground/[0.05] disabled:opacity-50"
       >
-        Create new passkey
+        Create new account
       </button>
     </div>
   );
