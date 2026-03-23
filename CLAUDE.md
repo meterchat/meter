@@ -36,15 +36,6 @@ When a user initiates a debate:
 - Require a final synthesis that lists trade-offs and a recommended decision.
 - Create a Decision Record draft that can be “locked.”
 
-## Connectors + Modes
-
-- Planner mode: Gmail/PostHog → decisions, follow-ups, strategy artifacts
-- Coder mode: GitHub/Vercel/Porkbun → commits, deploys, domains
-- Banker mode: Stripe/Mercury/Ramp → revenue/burn/transaction summaries
-- Additional: Supabase connector (database queries, available in any mode)
-
-Keep connector scopes minimal; request read-only where possible.
-
 ## Coding Style
 
 - Prefer small, composable modules.
@@ -55,6 +46,5 @@ Keep connector scopes minimal; request read-only where possible.
 
 If requirements are ambiguous, ask:
 
-- Which mode (Planner/Coder/Banker)?
 - Should this output a Decision Record and/or GitHub Artifact?
 - Which repo should artifacts be committed to?

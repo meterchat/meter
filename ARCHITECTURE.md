@@ -52,20 +52,6 @@ Meter is a postpaid, multi-model AI workspace for builders. It sits in the pre-e
 - **Token type:** Short-lived installation access tokens (1 hour expiry)
 - **Commit behavior:** Meter commits Agent Spec Kit files directly to user-selected repos
 
-### Connectors (9 implemented)
-
-| Connector | Type | Capabilities |
-|-----------|------|-------------|
-| **Gmail** | OAuth | Search emails, read email content |
-| **GitHub** | OAuth | List repos, create repos/issues, read/write files |
-| **Stripe** | OAuth | List payments, get balance, list subscriptions |
-| **Mercury** | API Key | Get accounts, list transactions |
-| **Vercel** | OAuth | List deployments, trigger deployment |
-| **Porkbun** | API Key | Check domain availability, register domains, get pricing |
-| **Ramp** | API Key | List transactions, get spending summary |
-| **PostHog** | API Key | Query events, get insights |
-| **Supabase** | API Key | Run SQL queries, list tables |
-
 ---
 
 ## Core Data Models
@@ -169,25 +155,6 @@ When a user triggers the handoff, Meter generates and commits the following file
 | `DECISIONS.md` | All locked decisions as ADRs |
 | `CLAUDE.md` | Agent instructions optimized for Claude Code |
 | `.cursorrules` | Agent instructions optimized for Cursor |
-
----
-
-## Three Agent Modes
-
-### Planner Mode
-- **Connectors:** Gmail, PostHog
-- **Capabilities:** Strategy debates, decision logging, follow-up tracking, artifact generation
-- **Output:** Decision records, debate transcripts, Agent Spec Kit
-
-### Coder Mode
-- **Connectors:** GitHub, Vercel, Porkbun
-- **Capabilities:** Repo management, branch creation, deploy triggers, domain registration
-- **Output:** GitHub commits, live deploy URLs, registered domains
-
-### Banker Mode
-- **Connectors:** Stripe, Mercury, Ramp
-- **Capabilities:** Revenue analysis, burn rate, transaction review, spending summary
-- **Output:** Financial summaries grounded in real data, not hallucinated projections
 
 ---
 
