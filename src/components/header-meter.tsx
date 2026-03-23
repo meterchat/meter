@@ -289,11 +289,6 @@ export function HeaderMeter() {
             TODAY
           </span>
         )}
-        {usage.totalMessages > 0 && (
-          <span className="text-[10px] text-muted-foreground/40 tabular-nums">
-            {usage.totalMessages} msgs
-          </span>
-        )}
         <svg
           width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
