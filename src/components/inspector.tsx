@@ -662,7 +662,7 @@ const MCP_CONNECTORS: McpConnector[] = [
     instructions: (apiKey) => [
       {
         label: "Run in your terminal",
-        snippet: `claude mcp add meter -e METER_API_KEY=${apiKey} -- npx -y @meter/mcp-server`,
+        snippet: `claude mcp add meter --transport http https://meter.chat/api/mcp -H "Authorization: Bearer ${apiKey}"`,
       },
     ],
   },
@@ -677,9 +677,8 @@ const MCP_CONNECTORS: McpConnector[] = [
           {
             mcpServers: {
               meter: {
-                command: "npx",
-                args: ["-y", "@meter/mcp-server"],
-                env: { METER_API_KEY: apiKey },
+                url: "https://meter.chat/api/mcp",
+                headers: { Authorization: `Bearer ${apiKey}` },
               },
             },
           },
@@ -700,9 +699,8 @@ const MCP_CONNECTORS: McpConnector[] = [
           {
             mcpServers: {
               meter: {
-                command: "npx",
-                args: ["-y", "@meter/mcp-server"],
-                env: { METER_API_KEY: apiKey },
+                url: "https://meter.chat/api/mcp",
+                headers: { Authorization: `Bearer ${apiKey}` },
               },
             },
           },
@@ -723,9 +721,8 @@ const MCP_CONNECTORS: McpConnector[] = [
           {
             mcpServers: {
               meter: {
-                command: "npx",
-                args: ["-y", "@meter/mcp-server"],
-                env: { METER_API_KEY: apiKey },
+                url: "https://meter.chat/api/mcp",
+                headers: { Authorization: `Bearer ${apiKey}` },
               },
             },
           },
@@ -746,9 +743,8 @@ const MCP_CONNECTORS: McpConnector[] = [
           {
             mcpServers: {
               meter: {
-                command: "npx",
-                args: ["-y", "@meter/mcp-server"],
-                env: { METER_API_KEY: apiKey },
+                url: "https://meter.chat/api/mcp",
+                headers: { Authorization: `Bearer ${apiKey}` },
               },
             },
           },
@@ -769,9 +765,8 @@ const MCP_CONNECTORS: McpConnector[] = [
           {
             mcpServers: {
               meter: {
-                command: "npx",
-                args: ["-y", "@meter/mcp-server"],
-                env: { METER_API_KEY: apiKey },
+                url: "https://meter.chat/api/mcp",
+                headers: { Authorization: `Bearer ${apiKey}` },
               },
             },
           },
