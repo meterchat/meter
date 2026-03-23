@@ -143,6 +143,7 @@ export async function POST(req: NextRequest) {
           gmailConnected: user?.gmail_connected ?? false,
           accountType: user?.account_type ?? "standard",
           markupMultiplier: Number(user?.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER),
+          creditBalance: Number(user?.credit_balance ?? 0),
           hasWorkspaces: (sessionCount ?? 0) > 0,
         },
       });
@@ -170,9 +171,37 @@ export async function POST(req: NextRequest) {
 
       // Create user with handle and auto-generated internal email
       const internalEmail = `${handle}@meter.chat`;
+
+      // Check if this user qualifies for bonus credit (first N signups)
+      let initialCredit = 0;
+      try {
+        const { data: config } = await supabase
+          .from("app_config")
+          .select("bonus_credit_limit, bonus_credit_amount")
+          .eq("id", "global")
+          .single();
+        if (config) {
+          const limit = Number(config.bonus_credit_limit) || 0;
+          const amount = Number(config.bonus_credit_amount) || 0;
+          if (limit > 0 && amount > 0) {
+            const { count } = await supabase
+              .from("meter_users")
+              .select("id", { count: "exact", head: true });
+            if ((count ?? 0) < limit) {
+              initialCredit = amount;
+            }
+          }
+        }
+      } catch { /* non-fatal — skip credit grant */ }
+
       const { error: insertErr } = await supabase
         .from("meter_users")
-        .insert({ id: userId, handle, email: internalEmail });
+        .insert({
+          id: userId,
+          handle,
+          email: internalEmail,
+          ...(initialCredit > 0 ? { credit_balance: initialCredit } : {}),
+        });
       if (insertErr) throw insertErr;
 
       const options = await generateRegistrationOptions({
@@ -270,6 +299,7 @@ export async function POST(req: NextRequest) {
           gmailConnected: user?.gmail_connected ?? false,
           accountType: user?.account_type ?? "standard",
           markupMultiplier: Number(user?.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER),
+          creditBalance: Number(user?.credit_balance ?? 0),
         },
       });
       setSessionCookie(response, sessionToken);

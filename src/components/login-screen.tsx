@@ -30,6 +30,7 @@ interface PendingUser {
   gmailConnected: boolean;
   accountType?: string;
   markupMultiplier?: number;
+  creditBalance?: number;
   hasWorkspaces?: boolean;
 }
 
@@ -487,6 +488,10 @@ export function LoginScreen() {
     // If user already has a card, set it so workspace is immediately ready
     if (user.cardOnFile) {
       setCardOnFile(true, user.cardLast4 ?? undefined, user.cardBrand);
+    }
+    // Set credit balance from server (for bonus credits on signup)
+    if (user.creditBalance != null) {
+      useMeterStore.setState({ creditBalance: Number(user.creditBalance) || 0 });
     }
     // Eagerly fetch cards from Stripe — covers cases where the webhook
     // didn't save card details to the DB but the card exists in Stripe.
