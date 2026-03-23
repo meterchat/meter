@@ -919,7 +919,7 @@ export function LandingPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.8 }}
           >
-            Think freely, with the top frontier models, while keeping your thoughts private, and paying only for what you use.
+            Think freely, getting the top frontier models to debate each other, while keeping your thoughts private, and paying only for what you use.
           </motion.p>
 
           <motion.div
