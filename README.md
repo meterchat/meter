@@ -1,4 +1,4 @@
-# Meter — Pay Per Thought
+# Meter — Pay Per Thought AI
 
 > The metered AI for everything you think, decide, and build.
 
