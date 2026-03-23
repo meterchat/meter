@@ -18,7 +18,7 @@ const DOCS_MODELS = MODELS.filter((m) => m.id !== "auto");
 const SECTION_IDS = [
   "introduction", "how-it-works",
   "pay-per-use", "pricing", "billing", "models",
-  "api-reference", "mcp",
+  "mcp",
 ];
 
 export default function DocsPage() {
@@ -54,7 +54,7 @@ export default function DocsPage() {
     <nav className="flex flex-col gap-4">
       <Section label="GET STARTED" items={["Introduction", "How It Works"]} activeId={activeId} onNavigate={() => setSidebarOpen(false)} />
       <Section label="CONCEPTS" items={["Pay Per Use", "Pricing", "Billing", "Models"]} activeId={activeId} onNavigate={() => setSidebarOpen(false)} />
-      <Section label="DEVELOPERS" items={["API Reference", "MCP"]} activeId={activeId} onNavigate={() => setSidebarOpen(false)} />
+      <Section label="DEVELOPERS" items={["MCP"]} activeId={activeId} onNavigate={() => setSidebarOpen(false)} />
     </nav>
   );
 
@@ -220,29 +220,6 @@ export default function DocsPage() {
               Meter 1.0 runs your question through Opus, GPT-5.4, and Grok simultaneously, then synthesizes
               the best answer. Higher quality, competitive pricing.
             </p>
-          </section>
-
-          <section className="mb-10">
-            <h2 className="text-lg font-medium text-foreground mb-2" id="api-reference">API Reference</h2>
-            <h3 className="text-sm font-medium text-foreground mb-2">POST /api/v1/chat</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-              Streaming chat endpoint. Returns SSE events.
-            </p>
-            <pre className="rounded-lg bg-[#141414] border border-white/[0.06] p-4 font-mono text-xs text-foreground overflow-x-auto leading-relaxed">
-{`POST /api/v1/chat
-Authorization: Bearer mk_your_api_key
-Content-Type: application/json
-
-{
-  "messages": [{"role": "user", "content": "Hello"}],
-  "model": "anthropic/claude-sonnet-4.6"
-}
-
-// Response: SSE stream
-data: {"type":"delta","content":"Hi","tokensOut":1}
-data: {"type":"usage","tokensIn":5,"tokensOut":50}
-data: {"type":"done"}`}
-            </pre>
           </section>
 
           <McpSection />
