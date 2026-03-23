@@ -114,3 +114,47 @@ Context: A public decision repository like GitHub would leak sensitive strategy.
 Decision: Build a future opt-in anonymized decision template layer that aggregates outcomes and reasons without revealing sensitive details. Working name: Altimeter.
 
 Consequences: Network effects without privacy violations; adds strong differentiation and retention.
+
+---
+
+## ADR-0011: Implemented connector mapping for modes
+
+Context: Original mode definitions included connectors that were never built (Linear, Calendar, Puzzle, Gusto). The actual implemented connectors evolved differently based on available APIs and user needs.
+
+Decision: The actual connector mapping is:
+- **Planner:** Gmail, PostHog
+- **Coder:** GitHub, Vercel, Porkbun
+- **Banker:** Stripe, Mercury, Ramp
+- **Cross-mode:** Supabase
+
+Consequences: Nine working connectors with real tool implementations. Linear, Calendar, Puzzle, and Gusto may be added later if demand warrants.
+
+---
+
+## ADR-0012: WebAuthn passkeys as sole authentication method
+
+Context: Needed an auth system that is secure, passwordless, and friction-free. Evaluated NextAuth.js, email magic links, and WebAuthn passkeys.
+
+Decision: Use WebAuthn passkeys via SimpleWebAuthn as the only authentication method. No passwords. No OAuth-based login. Server-side session tokens stored in `auth_sessions` table.
+
+Consequences: No password management, no credential stuffing risk, phishing-resistant. Tradeoff: requires device with passkey support (all modern browsers/OS).
+
+---
+
+## ADR-0013: Supabase direct over Prisma ORM
+
+Context: Early docs specified Prisma as the ORM. In practice, all database access uses the Supabase JS SDK with service role key for server routes.
+
+Decision: Use Supabase client directly (no ORM). Row-Level Security on all user tables. Raw SQL via Supabase's `.from()` query builder.
+
+Consequences: Simpler stack, no migration tooling beyond Supabase migrations, RLS enforcement at database level rather than application level.
+
+---
+
+## ADR-0014: Consumer 2.0x markup model (not SDK 10% take rate)
+
+Context: Early pricing docs described a developer SDK model with a 10% take rate on wholesale. The actual implementation is a consumer product with a configurable markup multiplier.
+
+Decision: Use a 2.0x default markup multiplier on wholesale model costs for the consumer product. Auto-settlement at $10 threshold via daily cron. Exposure caps scale with successful payment history ($20 → $100 → $250).
+
+Consequences: Simpler billing model, higher margin, direct-to-consumer. The SDK/developer pricing model may be introduced later as a separate tier.

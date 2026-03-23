@@ -2,9 +2,9 @@
 
 > The metered AI for everything you think, decide, and build.
 
-Meter gives you every top model — Claude, GPT, Gemini, and open-source — on a single postpaid tab. No subscriptions. No rate limits. Auto-routing across models means you always get the fastest, smartest response available. Structured debates pit models against each other when the stakes are high, and a persistent decision log means your context and reasoning never get lost.
+Meter gives you every top model — Claude Opus 4.6, Claude Sonnet 4.6, GPT-5.4, Gemini 3.1 Pro, Grok 4.1 Fast, and DeepSeek V3 — on a single postpaid tab. No subscriptions. No rate limits. Multi-tier routing across providers means you always get the fastest, smartest response available. Structured debates pit models against each other when the stakes are high, and a persistent decision log means your context and reasoning never get lost.
 
-Connect Stripe, Mercury, Gmail, and more. Open source and end-to-end encrypted — auditable, self-hostable, fully yours.
+Connect Stripe, Mercury, Gmail, GitHub, Vercel, and more. Open source and auditable.
 
 --
 
@@ -14,11 +14,11 @@ Meter sits between human judgment and machine execution. It is the operating lay
 
 **Three core primitives:**
 
-1. **Pay-per-thought routing** — Every frontier model on one postpaid tab. You pay for what you use, never for idle seats. Hard wallet caps protect your budget. Meter routes around rate limits automatically.
+1. **Pay-per-thought routing** — Every frontier model on one postpaid tab. You pay for what you use, never for idle seats. Configurable spend limits protect your budget. Meter routes around rate limits automatically via multi-tier fallback (direct API → OpenRouter → Bedrock).
 
-2. **Structured debate** — When a decision matters, Meter pits models against each other. Claude argues for Postgres, GPT argues for Supabase, Gemini stress-tests both. Every argument is logged. Every dissent is preserved. The result is a decision record: timestamped, searchable, citable.
+2. **Structured debate** — When a decision matters, Meter pits models against each other in a 4-phase adversarial framework: Opening → Challenge → Vote → Synthesis. Three models from three independent labs (Anthropic, OpenAI, xAI) attack each other's logic. Every argument is logged. The result is a decision record: timestamped, searchable, citable.
 
-3. **Agent Spec Kit** — When it's time to build, Meter synthesizes decisions and debates into the artifacts your coding agent needs: `ARCHITECTURE.md`, `DECISIONS.md`, `.cursorrules`, and product requirements. These commit directly to your GitHub repo so Cursor, Claude Code, and Codex start with perfect context.
+3. **Agent Spec Kit** — When it's time to build, Meter synthesizes decisions and debates into the artifacts your coding agent needs: `ARCHITECTURE.md`, `DECISIONS.md`, `.cursorrules`, `CLAUDE.md`, and more. These commit directly to your GitHub repo so Cursor, Claude Code, and Codex start with perfect context.
 
 ---
 
@@ -26,15 +26,17 @@ Meter sits between human judgment and machine execution. It is the operating lay
 
 | Mode | Connectors | Output |
 |------|-----------|--------|
-| **Planner** | Gmail, Linear, Calendar | Strategy docs, decision logs, debates, follow-ups |
-| **Coder** | GitHub, Vercel, Porkbun | Branches, PRs, deploys, live URLs |
-| **Banker** | Stripe, Mercury, Puzzle, Gusto | Runway, burn, revenue, spend reviews |
+| **Planner** | Gmail, PostHog | Strategy docs, decision logs, debates, follow-ups |
+| **Coder** | GitHub, Vercel, Porkbun | Commits, deploys, live URLs, domain registration |
+| **Banker** | Stripe, Mercury, Ramp | Revenue, burn, transaction reviews, spending summaries |
+
+Additional connectors: Supabase (database queries).
 
 ---
 
 ## Current Phase
 
-Early-stage product development. Core chat and routing layer in progress. Debate mode and decision logging are the primary differentiators under active development.
+Core product is live. Chat, multi-model routing with fallback, debate mode, dissection mode, decision logging, artifact generation, GitHub push, billing with auto-settlement, workspace branching (fork/merge paths), MCP server, developer console with API keys, and public activity log are all working.
 
 ---
 
@@ -62,4 +64,4 @@ npm run dev
 ## Links
 
 - Production: [meter.chat](https://meter.chat)
-- Repo: [github.com/meterxyz/meter](https://github.com/meterxyz/meter)
+- Repo: [github.com/meterchat/meter](https://github.com/meterchat/meter)
