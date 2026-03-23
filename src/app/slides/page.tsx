@@ -19,32 +19,27 @@ function LoopingBoxPrivacy() {
 
 const SLIDES = [
   {
-    line1: "Pay per",
-    line2: "thought",
+    lines: ["Pay per", "thought"],
     render: () => <LiveMeterPill />,
     scale: 1.4,
   },
   {
-    line1: "Every frontier",
-    line2: "model",
+    lines: ["Every", "frontier", "model"],
     render: () => <LiveModelGrid />,
     scale: 1.2,
   },
   {
-    line1: "AI debates",
-    line2: "itself",
+    lines: ["AI", "debates", "itself"],
     render: () => <LiveDebateTrace />,
     scale: 1.15,
   },
   {
-    line1: "Log your",
-    line2: "decisions",
+    lines: ["Log your", "decisions"],
     render: () => <LiveDecisionCard />,
     scale: 1.15,
   },
   {
-    line1: "Private by",
-    line2: "default",
+    lines: ["Private by", "default"],
     render: () => <LoopingBoxPrivacy />,
     scale: 1.6,
   },
@@ -84,14 +79,17 @@ export default function SlidesPage() {
         {/* Left — text (fixed left edge) */}
         <div className="absolute left-[10vw] top-1/2 -translate-y-1/2">
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground leading-[1.1] whitespace-nowrap">
-            {slide.line1}
-            <br />
-            {slide.line2}
+            {slide.lines.map((line, i) => (
+              <span key={i}>
+                {i > 0 && <br />}
+                {line}
+              </span>
+            ))}
           </h1>
         </div>
 
         {/* Right — animation */}
-        <div className="w-full flex items-center justify-center pl-[35vw]">
+        <div className="w-full flex items-center justify-center pl-[30vw]">
           <div
             className="origin-center"
             style={{ transform: `scale(${slide.scale})` }}
