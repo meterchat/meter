@@ -735,7 +735,7 @@ export function FeatureBoxGrid() {
         {/* Section header */}
         <div className="text-center mb-10">
           <span className="inline-flex items-center px-3 py-1 rounded-full border border-foreground/[0.08] bg-foreground/[0.03] font-mono text-[11px] tracking-[0.15em] text-muted-foreground/60 uppercase">
-            Built for serious work
+            Built for serious thought
           </span>
         </div>
 
