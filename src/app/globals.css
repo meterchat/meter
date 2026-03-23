@@ -201,6 +201,19 @@
     min-height: 44px;
     min-width: 44px;
   }
+
+  /* Prose overflow safety — keep code/tables/images within bounds */
+  .prose pre {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .prose :where(code):not(:where(pre *)) {
+    word-break: break-all;
+  }
+  .prose img,
+  .prose table {
+    max-width: 100%;
+  }
 }
 
 /* Sync button — gold fill that progressively draws the infinity symbol,
