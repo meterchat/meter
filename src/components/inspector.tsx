@@ -517,7 +517,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
   return (
     <div className="rounded-md transition-colors">
       <div
-        className="group flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
+        className="group relative flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
         onClick={() => setExpanded(!expanded)}
       >
         <svg
@@ -540,7 +540,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
             <span className="ml-1 text-muted-foreground/70 text-xs">(v{version})</span>
           )}
         </span>
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+        <div className="absolute right-1 flex items-center gap-1 rounded bg-background/90 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
           <button
             onClick={handleCopy}
             className="rounded px-1.5 py-0.5 font-sans text-xs text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
@@ -1283,7 +1283,7 @@ function ArtifactRow({ artifact, onOpen }: {
   return (
     <div className="rounded-md transition-colors">
       <div
-        className="group flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
+        className="group relative flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02]"
         onClick={() => setExpanded(!expanded)}
       >
         <svg
@@ -1306,7 +1306,7 @@ function ArtifactRow({ artifact, onOpen }: {
         <span className="flex-1 truncate font-sans text-xs text-foreground/80">
           {artifact.filePath}
         </span>
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+        <div className="absolute right-1 flex items-center gap-1 rounded bg-background/90 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
           <button
             onClick={handleCopy}
             className="rounded px-1.5 py-0.5 font-sans text-xs text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
