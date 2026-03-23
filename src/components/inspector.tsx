@@ -474,6 +474,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
   const { archiveDecision, reopenDecision } = useDecisionsStore();
   const setPendingInput = useMeterStore((s) => s.setPendingInput);
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
   const isDecided = decision.status === "decided";
   const isContested = isDecided && (decision.revisitCount ?? 0) >= 2;
   const version = decision.version ?? 1;
@@ -489,6 +490,17 @@ function DecisionRow({ decision }: { decision: Decision }) {
     : isContested
       ? `revisited ${decision.revisitCount}x`
       : null;
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const parts = [`# ${decision.title}`];
+    if (decision.choice) parts.push(`**Choice:** ${decision.choice}`);
+    if (decision.reasoning) parts.push(`**Reasoning:** ${decision.reasoning}`);
+    if (decision.status) parts.push(`**Status:** ${decision.status}`);
+    await navigator.clipboard.writeText(parts.join("\n\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const handleRevisit = () => {
     trackDecisionRevisited({ decisionId: decision.id, status: decision.status });
@@ -528,7 +540,13 @@ function DecisionRow({ decision }: { decision: Decision }) {
             <span className="ml-1 text-muted-foreground/70 text-xs">(v{version})</span>
           )}
         </span>
-        <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+          <button
+            onClick={handleCopy}
+            className="rounded px-1.5 py-0.5 font-sans text-xs text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
+          >
+            {copied ? "copied" : "copy"}
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); handleRevisit(); }}
             className="rounded px-1.5 py-0.5 font-sans text-xs text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
@@ -544,7 +562,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
         </div>
         {statusLabel ? (
           <span
-            className={`group-hover:hidden shrink-0 rounded-full px-1.5 py-0.5 font-sans text-xs tracking-wider ${
+            className={`shrink-0 rounded-full px-1.5 py-0.5 font-sans text-xs tracking-wider group-hover:opacity-0 transition-opacity ${
               !isDecided
                 ? "bg-amber-500/10 text-amber-500"
                 : "bg-amber-400/10 text-amber-400"
@@ -552,9 +570,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
           >
             {statusLabel}
           </span>
-        ) : (
-          <span className="group-hover:hidden w-0" />
-        )}
+        ) : null}
       </div>
 
       {expanded && (
@@ -1253,6 +1269,15 @@ function ArtifactRow({ artifact, onOpen }: {
   onOpen: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!artifact.content) return;
+    await navigator.clipboard.writeText(artifact.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   return (
     <div className="rounded-md transition-colors">
@@ -1280,17 +1305,12 @@ function ArtifactRow({ artifact, onOpen }: {
         <span className="flex-1 truncate font-sans text-xs text-foreground/80">
           {artifact.filePath}
         </span>
-        <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
           <button
-            onClick={(e) => { e.stopPropagation(); onOpen(); }}
-            className="rounded px-1.5 py-0.5 font-sans text-xs text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors flex items-center gap-0.5"
-            title="Open in portal"
+            onClick={handleCopy}
+            className="rounded px-1.5 py-0.5 font-sans text-xs text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
           >
-            open
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
+            {copied ? "copied" : "copy"}
           </button>
           <button
             onClick={(e) => {
