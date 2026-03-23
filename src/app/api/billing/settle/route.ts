@@ -22,6 +22,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (!result.success) {
+    // Settlement deferred (e.g. below Stripe minimum after credit) is not an error — inform client
+    if (result.error?.includes("Settlement deferred")) {
+      return NextResponse.json({ success: false, deferred: true, error: result.error }, { status: 200 });
+    }
     const isPaymentError = result.error?.includes("authentication_required")
       || result.error?.includes("card_declined")
       || result.error?.includes("Payment not succeeded");
@@ -34,5 +38,6 @@ export async function POST(req: NextRequest) {
     success: true,
     paymentId: result.paymentId,
     amountCharged: result.amountCharged,
+    creditApplied: result.creditApplied ?? 0,
   });
 }

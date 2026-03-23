@@ -82,11 +82,44 @@ export async function POST(request: NextRequest) {
         const paymentMethodId = typeof si.payment_method === "string" ? si.payment_method : si.payment_method?.id;
 
         if (userId && customerId && paymentMethodId) {
-          // Fetch card details from Stripe
           const stripe = getStripe();
           const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
           const card = pm.card;
 
+          // Place a $10 pre-auth hold (uncaptured PaymentIntent) to validate the card
+          let preauthId: string | null = null;
+          try {
+            const holdIntent = await stripe.paymentIntents.create({
+              amount: 1000, // $10 in cents
+              currency: "usd",
+              customer: customerId,
+              payment_method: paymentMethodId,
+              capture_method: "manual",
+              off_session: true,
+              confirm: true,
+              metadata: { meter_user_id: userId, type: "preauth_hold" },
+            });
+            preauthId = holdIntent.id;
+          } catch (holdErr) {
+            // Pre-auth failed — card is invalid or has insufficient funds.
+            // Reject the card: detach payment method and don't save it.
+            console.error("Pre-auth hold failed, rejecting card:", holdErr);
+            try {
+              await stripe.paymentMethods.detach(paymentMethodId);
+            } catch (detachErr) {
+              console.error("Failed to detach rejected payment method:", detachErr);
+            }
+
+            await supabase.from("log_entries").insert({
+              id: generateId(),
+              type: "preauth_failed",
+              actor: resolveActor(userId),
+              preview: `Card rejected: pre-auth hold failed (${holdErr instanceof Error ? holdErr.message.slice(0, 60) : "unknown"})`,
+            }).then(() => {}, () => {});
+            break;
+          }
+
+          // Pre-auth succeeded — save card details and hold ID
           await supabase
             .from("meter_users")
             .update({
@@ -94,6 +127,7 @@ export async function POST(request: NextRequest) {
               stripe_payment_method_id: paymentMethodId,
               card_last4: card?.last4 ?? null,
               card_brand: card?.brand ?? null,
+              preauth_payment_intent_id: preauthId,
               updated_at: new Date().toISOString(),
             })
             .eq("id", userId);
@@ -103,7 +137,7 @@ export async function POST(request: NextRequest) {
           id: generateId(),
           type: "auth_hold_created",
           actor: resolveActor(userId),
-          preview: "Card authorized and saved",
+          preview: "Card authorized and saved with $10 hold",
         }).then(() => {}, (e: unknown) => console.error("Failed to log setup_intent.succeeded:", e));
         break;
       }

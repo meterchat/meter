@@ -11,11 +11,15 @@ export function scopedSessionId(userId: string, localId: string): string {
   return `${userId}:${localId}`;
 }
 
+/** Minimum Stripe charge in USD (Stripe won't process below $0.50) */
+const STRIPE_MINIMUM_CHARGE = 0.5;
+
 export interface SettleResult {
   success: boolean;
   error?: string;
   paymentId?: string | null;
   amountCharged?: number;
+  creditApplied?: number;
 }
 
 /**
@@ -56,31 +60,77 @@ export async function settleWorkspace(opts: {
   const markupMultiplier = Number(configRow?.markup_multiplier) || DEFAULT_MARKUP_MULTIPLIER;
 
   try {
-    // Resolve Stripe customer + payment method
-    const { customerId, paymentMethodId } = await ensureStripeCustomer(userId);
+    // ── Step 1: Atomically deduct available credit ──
+    const { data: creditDeducted } = await supabase.rpc("deduct_credit", {
+      p_user_id: userId,
+      p_amount: amount,
+    });
+    const creditUsed = Number(creditDeducted) || 0;
+    const stripeAmount = Math.round((amount - creditUsed) * 100) / 100; // round to cents
 
-    if (!paymentMethodId) {
-      throw new Error("No payment method on file");
+    // If credit doesn't cover everything and the Stripe remainder is below minimum,
+    // roll back the credit deduction and skip settlement (wait for more usage).
+    if (stripeAmount > 0 && stripeAmount < STRIPE_MINIMUM_CHARGE) {
+      if (creditUsed > 0) {
+        await supabase.rpc("restore_credit", { p_user_id: userId, p_amount: creditUsed });
+      }
+      return { success: false, error: `Pending amount $${stripeAmount.toFixed(2)} below Stripe minimum ($${STRIPE_MINIMUM_CHARGE.toFixed(2)}). Settlement deferred.` };
     }
 
-    // Create off-session payment via Stripe
-    const stripe = getStripe();
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Stripe uses cents
-      currency: "usd",
-      customer: customerId,
-      payment_method: paymentMethodId,
-      off_session: true,
-      confirm: true,
-      metadata: {
-        meter_user_id: userId,
-        workspace_id: workspaceId,
-        message_count: String(messageIds.length),
-        charge_count: String(chargeIds.length),
-      },
-    });
+    // ── Step 2: Charge Stripe for the remainder (if any) ──
+    let paymentIntentId: string | null = null;
 
-    // Mark messages as settled
+    if (stripeAmount > 0) {
+      const { customerId, paymentMethodId } = await ensureStripeCustomer(userId);
+
+      if (!paymentMethodId) {
+        // Restore credit since we can't charge
+        if (creditUsed > 0) {
+          await supabase.rpc("restore_credit", { p_user_id: userId, p_amount: creditUsed });
+        }
+        throw new Error("No payment method on file");
+      }
+
+      const stripe = getStripe();
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(stripeAmount * 100), // Stripe uses cents
+        currency: "usd",
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true,
+        confirm: true,
+        metadata: {
+          meter_user_id: userId,
+          workspace_id: workspaceId,
+          message_count: String(messageIds.length),
+          charge_count: String(chargeIds.length),
+          credit_applied: String(creditUsed),
+        },
+      });
+      paymentIntentId = paymentIntent.id;
+
+      // ── Step 3: Cancel pre-auth hold on first settlement ──
+      const { data: userRow } = await supabase
+        .from("meter_users")
+        .select("preauth_payment_intent_id")
+        .eq("id", userId)
+        .single();
+
+      if (userRow?.preauth_payment_intent_id) {
+        try {
+          await stripe.paymentIntents.cancel(userRow.preauth_payment_intent_id);
+        } catch (cancelErr) {
+          // Non-fatal — hold may have already expired or been cancelled
+          console.warn("Failed to cancel pre-auth hold:", cancelErr);
+        }
+        await supabase
+          .from("meter_users")
+          .update({ preauth_payment_intent_id: null, updated_at: new Date().toISOString() })
+          .eq("id", userId);
+      }
+    }
+
+    // ── Step 4: Mark messages as settled ──
     if (messageIds.length > 0) {
       if (!skipOwnershipCheck && !(await verifyMessageOwnership(supabase, userId, messageIds))) {
         return { success: false, error: "Forbidden: message ownership mismatch" };
@@ -98,20 +148,21 @@ export async function settleWorkspace(opts: {
       .eq("id", userId)
       .single();
 
-    // Record settlement history
+    // ── Step 5: Record settlement history ──
     const historyId = `stl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     await supabase.from("settlement_history").insert({
       id: historyId,
       user_id: userId,
       workspace_id: workspaceId,
       amount,
-      stripe_payment_intent_id: paymentIntent.id,
+      stripe_payment_intent_id: paymentIntentId,
       message_count: messageIds.length,
       charge_count: chargeIds.length,
       card_last4: cardUser?.card_last4 ?? null,
       card_brand: cardUser?.card_brand ?? null,
-      status: "succeeded",
+      status: stripeAmount > 0 ? "succeeded" : "credit",
       markup_multiplier: markupMultiplier,
+      credit_applied: creditUsed,
     }).then(() => {}, (e: unknown) => console.error("Failed to write settlement history:", e));
 
     // Clear settlement_failed flag
@@ -126,12 +177,12 @@ export async function settleWorkspace(opts: {
       workspaceId,
       messageCount: messageIds.length,
       chargeCount: chargeIds.length,
-      stripePaymentIntentId: paymentIntent.id,
+      stripePaymentIntentId: paymentIntentId ?? undefined,
       cardLast4: cardUser?.card_last4 ?? undefined,
       cardBrand: cardUser?.card_brand ?? undefined,
     });
 
-    return { success: true, paymentId: paymentIntent.id, amountCharged: amount };
+    return { success: true, paymentId: paymentIntentId, amountCharged: stripeAmount, creditApplied: creditUsed };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Settlement error:", message);

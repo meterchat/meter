@@ -677,6 +677,7 @@ export function useSessionSync() {
             cardLast4: data.cardLast4,
             cardBrand: data.cardBrand,
             stripeCustomerId: data.stripeCustomerId,
+            creditBalance: Number(data.creditBalance ?? 0),
           });
         }
         // Apply global admin config (markup, enabled models/commands, free credit)

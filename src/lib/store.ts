@@ -159,6 +159,7 @@ interface MeterState {
   cardLast4: string | null;
   cardBrand: string | null;
   stripeCustomerId: string | null;
+  creditBalance: number;
   connectionsLoading: boolean;
 
   selectedModelId: string;
@@ -440,6 +441,7 @@ export const useMeterStore = create<MeterState>()(
       cardLast4: null,
       cardBrand: null,
       stripeCustomerId: null,
+      creditBalance: 0,
       connectionsLoading: false,
 
       selectedModelId: DEFAULT_MODEL.id,
@@ -671,6 +673,7 @@ export const useMeterStore = create<MeterState>()(
           cardLast4: null,
           cardBrand: null,
           stripeCustomerId: null,
+          creditBalance: 0,
           sessions: initialSessions,
           activeSessionId: "default",
           inspectorOpen: false,
@@ -946,7 +949,8 @@ export const useMeterStore = create<MeterState>()(
         const cardCost = s.pendingCharges
           .filter((c) => c.workspaceId === active.id)
           .reduce((sum, c) => sum + c.cost, 0);
-        return msgCost + cardCost;
+        // Subtract credit balance — can go negative, meaning user is "in credit"
+        return msgCost + cardCost - s.creditBalance;
       },
 
       getUnsettledMessages: () => {
@@ -981,7 +985,16 @@ export const useMeterStore = create<MeterState>()(
         const chargeIds = s.pendingCharges
           .filter((c) => c.workspaceId === active.id)
           .map((c) => c.id);
-        const amount = s.getPendingBalance();
+        // Send the raw pending balance (before credit deduction) to the server.
+        // The server handles credit deduction atomically to avoid race conditions.
+        const loadedMsgCost = active.messages
+          .filter((m) => m.role === "assistant" && m.cost !== undefined && !m.settled)
+          .reduce((sum, m) => sum + (m.cost ?? 0), 0);
+        const rawMsgCost = Math.max(active.serverPendingBalance ?? 0, loadedMsgCost);
+        const rawCardCost = s.pendingCharges
+          .filter((c) => c.workspaceId === active.id)
+          .reduce((sum, c) => sum + c.cost, 0);
+        const amount = rawMsgCost + rawCardCost;
 
         if (amount <= 0) {
           set({ isSettling: false });
@@ -1021,6 +1034,14 @@ export const useMeterStore = create<MeterState>()(
 
           const data = await res.json();
 
+          // If settlement was deferred (e.g. below Stripe minimum after credit), just clear settling flag
+          if (data.deferred) {
+            set({ isSettling: false });
+            return { success: false, error: data.error };
+          }
+
+          const creditApplied = Number(data.creditApplied ?? 0);
+
           set((prev) => {
             const current = prev.sessions.find((p) => p.id === active.id);
             if (!current) return { isSettling: false };
@@ -1047,6 +1068,8 @@ export const useMeterStore = create<MeterState>()(
               sessions: prev.sessions.map((p) => p.id === active.id ? updatedSession : p),
               pendingCharges: remainingCharges,
               isSettling: false,
+              // Update credit balance after server-side deduction
+              creditBalance: Math.max(0, prev.creditBalance - creditApplied),
             };
           });
           return { success: true };
@@ -1686,6 +1709,7 @@ export const useMeterStore = create<MeterState>()(
         cardLast4: s.cardLast4,
         cardBrand: s.cardBrand,
         stripeCustomerId: s.stripeCustomerId,
+        creditBalance: s.creditBalance,
         selectedModelId: s.selectedModelId,
         debateMode: s.debateMode,
         debateRoster: s.debateRoster,
