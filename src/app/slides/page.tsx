@@ -82,7 +82,7 @@ export default function SlidesPage() {
         style={{ opacity: fading ? 0 : 1 }}
       >
         {/* Centered row: text + animation */}
-        <div className="w-full flex items-center justify-center gap-[4vw]">
+        <div className="w-full flex items-center justify-center gap-[8vw]">
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground leading-[1.1] whitespace-nowrap">
             {slide.line1}
             <br />
