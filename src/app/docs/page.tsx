@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { MODELS, DEBATE_MODEL, DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
+import { MODELS, DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 import { useMeterStore } from "@/lib/store";
 
 function fmtPrice(v: number): string {
@@ -12,24 +12,20 @@ function fmtPrice(v: number): string {
   return `$${v.toPrecision(1)}`;
 }
 
-function fmtPerMsg(m: { inputPrice: number; outputPrice: number }, markup: number): string {
-  const cost = (2000 * m.inputPrice + 1000 * m.outputPrice) * markup;
-  return `~${fmtPrice(cost)}`;
-}
-
 /** Models shown in docs pricing table (skip "Auto" since it routes to other models) */
 const DOCS_MODELS = MODELS.filter((m) => m.id !== "auto");
 
 const SECTION_IDS = [
-  "introduction", "how-it-works", "quickstart",
+  "introduction", "how-it-works",
   "pay-per-use", "pricing", "billing", "models",
-  "api-reference", "sdk", "mcp",
+  "api-reference", "mcp",
 ];
 
 export default function DocsPage() {
   const markup = useMeterStore((s) => s.markupMultiplier) || DEFAULT_MARKUP_MULTIPLIER;
   const mainRef = useRef<HTMLElement>(null);
   const [activeId, setActiveId] = useState<string>("introduction");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const root = mainRef.current;
@@ -54,23 +50,48 @@ export default function DocsPage() {
     return () => observer.disconnect();
   }, []);
 
+  const sidebarNav = (
+    <nav className="flex flex-col gap-4">
+      <Section label="GET STARTED" items={["Introduction", "How It Works"]} activeId={activeId} onNavigate={() => setSidebarOpen(false)} />
+      <Section label="CONCEPTS" items={["Pay Per Use", "Pricing", "Billing", "Models"]} activeId={activeId} onNavigate={() => setSidebarOpen(false)} />
+      <Section label="DEVELOPERS" items={["API Reference", "MCP"]} activeId={activeId} onNavigate={() => setSidebarOpen(false)} />
+    </nav>
+  );
+
   return (
     <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="w-56 pl-10 pr-6 pt-6 pb-6 flex flex-col gap-6 shrink-0">
+      {/* Mobile header */}
+      <div className="fixed top-0 left-0 right-0 z-30 flex items-center gap-3 px-4 py-3 bg-background border-b border-border md:hidden">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-muted-foreground hover:text-foreground transition-colors">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {sidebarOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></>}
+          </svg>
+        </button>
         <Link href="/">
           <Image src="/logo-dark-copy.webp" alt="Meter" width={64} height={18} />
         </Link>
+      </div>
 
-        <nav className="flex flex-col gap-4">
-          <Section label="GET STARTED" items={["Introduction", "How It Works", "Quickstart"]} activeId={activeId} />
-          <Section label="CONCEPTS" items={["Pay Per Use", "Pricing", "Billing", "Models"]} activeId={activeId} />
-          <Section label="DEVELOPERS" items={["API Reference", "SDK", "MCP"]} activeId={activeId} />
-        </nav>
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-20 md:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <aside className="absolute top-12 left-0 bottom-0 w-56 bg-background pl-6 pr-6 pt-4 pb-6 flex flex-col gap-6 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {sidebarNav}
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-56 pl-10 pr-6 pt-6 pb-6 flex-col gap-6 shrink-0">
+        <Link href="/">
+          <Image src="/logo-dark-copy.webp" alt="Meter" width={64} height={18} />
+        </Link>
+        {sidebarNav}
       </aside>
 
       {/* Main content */}
-      <main ref={mainRef} className="flex-1 overflow-y-auto pl-12 pr-8 pt-8 pb-8">
+      <main ref={mainRef} className="flex-1 overflow-y-auto px-4 pt-16 pb-8 md:pl-20 md:pr-8 md:pt-8">
         <div className="max-w-xl">
           <h1 className="text-2xl font-medium text-foreground mb-4">Meter Documentation</h1>
 
@@ -78,7 +99,7 @@ export default function DocsPage() {
             <h2 className="text-lg font-medium text-foreground mb-2" id="introduction">Introduction</h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
               Meter is the first consumer AI product with postpaid billing. No subscription. No credits.
-              Use first, pay after. The meter runs up in dollars like a taxi.
+              Use any model, pay only for what you use.
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Every model available — Claude, GPT, Gemini, Grok, DeepSeek. One bill. No complexity.
@@ -88,11 +109,11 @@ export default function DocsPage() {
           <section className="mb-10">
             <h2 className="text-lg font-medium text-foreground mb-2" id="how-it-works">How It Works</h2>
             <ol className="text-sm text-muted-foreground leading-relaxed space-y-2 list-decimal list-inside">
-              <li>Sign up with your email</li>
+              <li>Create an account with a passkey</li>
               <li>Add a card — no charge, just a verification hold</li>
               <li>Start chatting — every model is available</li>
               <li>Each response shows: <code className="bg-card px-1 rounded text-xs">Model · $Cost · Confidence%</code></li>
-              <li>Your card is charged at $10 or monthly, whichever comes first</li>
+              <li>Your card is charged when your balance reaches the threshold, or monthly — whichever comes first</li>
             </ol>
           </section>
 
@@ -102,7 +123,7 @@ export default function DocsPage() {
               Every message has a cost based on the model used and tokens consumed. Below each response you see:
             </p>
             <div className="rounded-lg border border-border bg-card p-4 font-mono text-sm text-muted-foreground mb-3">
-              <span className="text-[#D97757]">Sonnet 4</span>
+              <span className="text-[#D97757]">Sonnet 4.6</span>
               <span className="text-muted-foreground/30 mx-2">&middot;</span>
               <span>$0.03</span>
               <span className="text-muted-foreground/30 mx-2">&middot;</span>
@@ -131,33 +152,28 @@ export default function DocsPage() {
                 </thead>
                 <tbody className="text-muted-foreground">
                   {DOCS_MODELS.map((m, i) => (
-                    <tr key={m.id} className={i < DOCS_MODELS.length - 1 ? "border-b border-border/50" : "border-b border-border/50"}>
+                    <tr key={m.id} className="border-b border-border/50">
                       <td className="py-1.5 pr-4">{m.name}</td>
                       <td className="py-1.5 pr-4">{fmtPrice(m.inputPrice * 1_000_000 * markup)}</td>
                       <td className="py-1.5 pr-4">{fmtPrice(m.outputPrice * 1_000_000 * markup)}</td>
                     </tr>
                   ))}
-                  <tr>
-                    <td className="py-1.5 pr-4">{DEBATE_MODEL.name} (Debate)</td>
-                    <td className="py-1.5 pr-4">{fmtPrice(DEBATE_MODEL.inputPrice * 1_000_000 * markup)}</td>
-                    <td className="py-1.5 pr-4">{fmtPrice(DEBATE_MODEL.outputPrice * 1_000_000 * markup)}</td>
-                  </tr>
                 </tbody>
               </table>
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed mb-2">
               The daily meter in the header shows your running total. Set a daily spending cap in settings.
+            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Debate mode cost is the sum of the individual models used (Opus + GPT-5.4 + Grok + synthesis).
             </p>
           </section>
 
           <section className="mb-10">
             <h2 className="text-lg font-medium text-foreground mb-2" id="billing">Billing</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-              Your card is charged when your balance reaches $10, or at the end of each month — whichever comes first.
-              Stripe handles all payments securely.
-            </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Most founders spend $20-40/month — less than a single AI subscription, with every model included.
+              Your card is charged when your balance reaches the threshold, or at the end of each month — whichever comes first.
+              Stripe handles all payments securely.
             </p>
           </section>
 
@@ -179,16 +195,16 @@ export default function DocsPage() {
                 </thead>
                 <tbody className="text-muted-foreground">
                   {DOCS_MODELS.map((m, i) => (
-                    <tr key={m.id} className={i < DOCS_MODELS.length ? "border-b border-border/50" : ""}>
+                    <tr key={m.id} className="border-b border-border/50">
                       <td className="py-1.5 pr-4">{m.name}</td>
                       <td className="py-1.5 pr-4">{m.provider}</td>
-                      <td className="py-1.5 pr-4">{m.quality != null ? `${m.quality}%` : "—"}</td>
-                      <td className="py-1.5">{m.speed != null ? `${m.speed} tok/s` : "—"}</td>
+                      <td className="py-1.5 pr-4">{m.quality != null ? `${m.quality}%` : "\u2014"}</td>
+                      <td className="py-1.5">{m.speed != null ? `${m.speed} tok/s` : "\u2014"}</td>
                     </tr>
                   ))}
                   <tr>
-                    <td className="py-1.5 pr-4">{DEBATE_MODEL.name} (Debate)</td>
-                    <td className="py-1.5 pr-4">{DEBATE_MODEL.provider}</td>
+                    <td className="py-1.5 pr-4">Meter 1.0 (Debate)</td>
+                    <td className="py-1.5 pr-4">Meter</td>
                     <td className="py-1.5 pr-4">93%</td>
                     <td className="py-1.5">30 tok/s</td>
                   </tr>
@@ -219,7 +235,7 @@ Content-Type: application/json
 
 // Response: SSE stream
 data: {"type":"delta","content":"Hi","tokensOut":1}
-data: {"type":"usage","tokensIn":5,"tokensOut":50,"confidence":85}
+data: {"type":"usage","tokensIn":5,"tokensOut":50}
 data: {"type":"done"}`}
             </pre>
           </section>
@@ -285,7 +301,6 @@ const MCP_TOOLS = [
   { name: "get_blueprint", desc: "Fetch full content of a blueprint" },
   { name: "get_debates", desc: "List debate summaries with synthesis" },
   { name: "search", desc: "Full-text search across all artifact types" },
-  { name: "create_decision", desc: "Record a new decision from your IDE" },
 ];
 
 function McpSection() {
@@ -371,7 +386,7 @@ function McpSection() {
   );
 }
 
-function Section({ label, items, activeId }: { label: string; items: string[]; activeId: string }) {
+function Section({ label, items, activeId, onNavigate }: { label: string; items: string[]; activeId: string; onNavigate?: () => void }) {
   return (
     <div>
       <p className="font-mono text-[10px] text-muted-foreground/50 uppercase tracking-widest mb-2">{label}</p>
@@ -383,6 +398,7 @@ function Section({ label, items, activeId }: { label: string; items: string[]; a
             <a
               key={item}
               href={`#${slug}`}
+              onClick={onNavigate}
               className={`text-sm transition-colors py-0.5 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
               {item}

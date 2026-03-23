@@ -1023,7 +1023,6 @@ function ConnectTab() {
             ["get_blueprints", "Fetch your blueprints"],
             ["get_debates", "Browse debate summaries"],
             ["search", "Full-text search across everything"],
-            ["create_decision", "Record decisions from your IDE"],
           ].map(([name, desc]) => (
             <div key={name} className="flex items-start gap-2">
               <code className="font-mono text-xs text-blue-400 bg-blue-400/10 rounded px-1 py-0.5 shrink-0">
