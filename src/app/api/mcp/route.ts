@@ -142,7 +142,7 @@ function createMcpServer(userId: string) {
     async ({ limit }) => {
       const { data, error } = await supabase
         .from("chat_sessions")
-        .select("id, title, model, created_at, updated_at")
+        .select("id, workspace_name, project_name, created_at, updated_at")
         .eq("user_id", userId)
         .is("deleted_at", null)
         .order("updated_at", { ascending: false })
@@ -181,10 +181,10 @@ function createMcpServer(userId: string) {
           .limit(20),
         supabase
           .from("chat_sessions")
-          .select("id, title")
+          .select("id, workspace_name, project_name")
           .eq("user_id", userId)
           .is("deleted_at", null)
-          .ilike("title", pattern)
+          .or(`workspace_name.ilike.${pattern},project_name.ilike.${pattern}`)
           .limit(20),
       ]);
 
@@ -195,44 +195,6 @@ function createMcpServer(userId: string) {
       };
 
       return { content: [{ type: "text" as const, text: JSON.stringify(results, null, 2) }] };
-    },
-  );
-
-  // ── create_decision ────────────────────────────────────────
-  server.registerTool(
-    "create_decision",
-    {
-      description: "Record a new decision from your IDE",
-      inputSchema: {
-        title: z.string().describe("Decision title"),
-        choice: z.string().optional().describe("The chosen option"),
-        alternatives: z.string().optional().describe("Alternatives considered (comma-separated)"),
-        reasoning: z.string().optional().describe("Why this choice was made"),
-        category: z.string().optional().describe("Category (e.g. architecture, tooling, design)"),
-        session_id: z.string().optional().describe("Workspace/session ID to scope the decision"),
-      },
-    },
-    async ({ title, choice, alternatives, reasoning, category, session_id }) => {
-      const { data, error } = await supabase
-        .from("decisions")
-        .insert({
-          user_id: userId,
-          title,
-          status: choice ? "decided" : "undecided",
-          choice: choice ?? null,
-          alternatives: alternatives ?? null,
-          reasoning: reasoning ?? null,
-          category: category ?? null,
-          session_id: session_id ?? null,
-          archived: false,
-          version: 1,
-          revisit_count: 0,
-        })
-        .select("id, title, status")
-        .single();
-
-      if (error) return { content: [{ type: "text" as const, text: `Error: ${error.message}` }] };
-      return { content: [{ type: "text" as const, text: `Decision created: ${JSON.stringify(data)}` }] };
     },
   );
 
