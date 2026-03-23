@@ -108,28 +108,68 @@ export async function POST(req: NextRequest) {
             // (some providers can't fetch arbitrary URLs server-side)
             try {
               const imgRes = await fetch(att.url);
-              const imgBuf = Buffer.from(await imgRes.arrayBuffer());
-              const imgB64 = imgBuf.toString("base64");
-              contentParts.push({
-                type: "image_url",
-                image_url: { url: `data:${att.mimeType};base64,${imgB64}` },
-              });
+              if (!imgRes.ok) {
+                // Public URL may be blocked — try Supabase storage download
+                const supabaseDl = getSupabaseServer();
+                const pathMatch = att.url.match(/\/attachments\/(.+)$/);
+                if (pathMatch) {
+                  const { data: dlData, error: dlErr } = await supabaseDl.storage
+                    .from("attachments")
+                    .download(pathMatch[1]);
+                  if (dlErr || !dlData) throw new Error(dlErr?.message ?? "Download failed");
+                  const imgBuf = Buffer.from(await dlData.arrayBuffer());
+                  const imgB64 = imgBuf.toString("base64");
+                  contentParts.push({
+                    type: "image_url",
+                    image_url: { url: `data:${att.mimeType};base64,${imgB64}` },
+                  });
+                } else {
+                  contentParts.push({ type: "image_url", image_url: { url: att.url } });
+                }
+              } else {
+                const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+                const imgB64 = imgBuf.toString("base64");
+                contentParts.push({
+                  type: "image_url",
+                  image_url: { url: `data:${att.mimeType};base64,${imgB64}` },
+                });
+              }
             } catch {
               // Fall back to direct URL if fetch fails
               contentParts.push({ type: "image_url", image_url: { url: att.url } });
             }
           } else if (att.mimeType === "application/pdf") {
             // For PDF: fetch and encode as base64 data URL for providers that support it.
-            // Include a text fallback description for providers that don't.
             try {
               const pdfRes = await fetch(att.url);
-              const pdfBuf = Buffer.from(await pdfRes.arrayBuffer());
-              const pdfB64 = pdfBuf.toString("base64");
-              contentParts.push({
-                type: "image_url",
-                image_url: { url: `data:application/pdf;base64,${pdfB64}` },
-              });
-            } catch {
+              if (!pdfRes.ok) {
+                // Public URL may be blocked — try downloading via Supabase storage client
+                const supabaseDl = getSupabaseServer();
+                const pathMatch = att.url.match(/\/attachments\/(.+)$/);
+                if (pathMatch) {
+                  const { data: dlData, error: dlErr } = await supabaseDl.storage
+                    .from("attachments")
+                    .download(pathMatch[1]);
+                  if (dlErr || !dlData) throw new Error(dlErr?.message ?? "Download failed");
+                  const pdfBuf = Buffer.from(await dlData.arrayBuffer());
+                  const pdfB64 = pdfBuf.toString("base64");
+                  contentParts.push({
+                    type: "image_url",
+                    image_url: { url: `data:application/pdf;base64,${pdfB64}` },
+                  });
+                } else {
+                  throw new Error(`Public URL returned ${pdfRes.status}`);
+                }
+              } else {
+                const pdfBuf = Buffer.from(await pdfRes.arrayBuffer());
+                const pdfB64 = pdfBuf.toString("base64");
+                contentParts.push({
+                  type: "image_url",
+                  image_url: { url: `data:application/pdf;base64,${pdfB64}` },
+                });
+              }
+            } catch (pdfErr) {
+              console.error("[chat] Failed to load PDF attachment:", att.name, pdfErr);
               contentParts.push({ type: "text", text: `[Attached PDF: ${att.name} — could not load]` });
             }
           }
@@ -163,6 +203,7 @@ export async function POST(req: NextRequest) {
       documents?: unknown;
       thinking?: string;
       receiptStatus?: string;
+      attachments?: { url: string; mimeType: string; name: string; size?: number }[];
     }) => {
       try {
         const supabase = getSupabaseServer();
@@ -209,6 +250,7 @@ export async function POST(req: NextRequest) {
           dissector_trace: msg.dissectorTrace ?? null,
           documents: msg.documents ?? null,
           thinking: msg.thinking ?? null,
+          attachments: msg.attachments ?? null,
           timestamp: msg.timestamp,
         }, { onConflict: "id" });
         if (upsertErr) console.warn("[chat] Failed to save message to DB:", upsertErr);
@@ -227,6 +269,7 @@ export async function POST(req: NextRequest) {
         role: "user",
         content: typeof userContent === "string" ? userContent : JSON.stringify(userContent),
         timestamp: Date.now(),
+        attachments: parsedAttachments.length > 0 ? parsedAttachments : undefined,
       });
     }
 

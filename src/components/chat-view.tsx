@@ -2780,18 +2780,15 @@ export function ChatView() {
                                 onClick={() => window.open(att.url, "_blank")}
                               />
                             ) : att.mimeType === "application/pdf" ? (
-                              <div key={att.url} className="w-full max-w-[400px] rounded-lg border border-border overflow-hidden">
-                                <div className="flex items-center gap-2 bg-foreground/5 px-3 py-1.5 border-b border-border">
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                                  </svg>
-                                  <span className="font-mono text-[11px] text-foreground/70 truncate">{att.name}</span>
-                                  <a href={att.url} target="_blank" rel="noopener noreferrer" className="ml-auto shrink-0 font-mono text-[9px] text-muted-foreground/50 hover:text-foreground transition-colors">
-                                    open
-                                  </a>
+                              <a key={att.url} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 max-w-[320px] rounded-lg border border-border bg-foreground/5 px-3 py-2.5 hover:bg-foreground/10 transition-colors">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                <div className="min-w-0">
+                                  <span className="block font-mono text-[11px] text-foreground/70 truncate">{att.name}</span>
+                                  <span className="block font-mono text-[9px] text-muted-foreground/50">PDF · click to open</span>
                                 </div>
-                                <iframe src={att.url} className="w-full h-[300px] bg-white" title={att.name} />
-                              </div>
+                              </a>
                             ) : null
                           )}
                         </div>
