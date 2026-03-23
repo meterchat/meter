@@ -2483,7 +2483,7 @@ export function ChatView() {
       />
 
       <div
-        className={`relative flex flex-1 flex-col transition-all duration-300 ${inspectorOpen && !isMobile ? "mr-[420px]" : ""}`}
+        className={`relative flex flex-1 flex-col min-w-0 transition-all duration-300 ${inspectorOpen && !isMobile ? "mr-[420px]" : ""}`}
       >
         <header className="flex h-12 items-center justify-between border-b border-border px-4" style={{ paddingTop: isMobile ? "env(safe-area-inset-top, 0px)" : undefined, height: isMobile ? "calc(3rem + env(safe-area-inset-top, 0px))" : undefined }}>
           <div className="relative flex items-center gap-2" ref={logoMenuRef}>
@@ -2587,12 +2587,12 @@ export function ChatView() {
         </header>
 
         {/* Messages */}
-        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto min-h-0">
+        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0">
           {/* Skeleton while sessions load from server */}
           {!sessionsLoaded && messages.length === 0 ? (
             <ChatSkeleton />
           ) : (
-          <div className="mx-auto max-w-2xl px-4 py-6 max-md:px-3">
+          <div className="mx-auto max-w-2xl px-4 py-6 max-md:px-3 overflow-hidden">
             {/* ── First-workspace onboarding: welcome with ID → name → card → explainer ── */}
             {messages.length === 0 && !workspaceCardReady && !cardOnFile && onboardingStep === "name" && (
               <div className="mb-4">
@@ -2734,8 +2734,8 @@ export function ChatView() {
 
               return (
                 <div key={msg.id} id={`msg-${msg.id}`} className="group/msg relative mb-4 transition-all duration-300">
-                  <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`relative rounded-xl px-4 py-3 text-sm leading-relaxed max-w-[85%] md:max-w-[85%] max-md:max-w-[92%] ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"} ${msg.pinned ? "border-l-2 border-amber-500/40" : ""}`}>
+                  <div className={`flex gap-3 min-w-0 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`relative rounded-xl px-4 py-3 text-sm leading-relaxed overflow-hidden max-w-[85%] md:max-w-[85%] max-md:max-w-[92%] ${msg.role === "user" ? "bg-foreground/[0.04] dark:bg-foreground/10 text-foreground" : "text-foreground"} ${msg.pinned ? "border-l-2 border-amber-500/40" : ""}`}>
                       {displayContent && !displayContent.startsWith("__error__") && (
                         <>
                           <CopyButton text={msg.role === "user" ? msg.content : displayContent} />
@@ -2800,7 +2800,7 @@ export function ChatView() {
                       {msg.role === "assistant" && displayContent.startsWith("__error__") ? (
                         <ErrorCard payload={displayContent.slice("__error__".length)} />
                       ) : msg.role === "assistant" ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-a:text-blue-400 dark:prose-a:text-blue-400 prose-a:text-blue-600">
+                        <div className="prose prose-sm dark:prose-invert max-w-none overflow-x-auto prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-a:text-blue-400 dark:prose-a:text-blue-400 prose-a:text-blue-600">
                           <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={mdComponents}>{displayContent}</ReactMarkdown>
                         </div>
                       ) : (

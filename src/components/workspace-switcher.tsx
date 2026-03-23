@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useWorkspaceStore, Workspace } from "@/lib/workspace-store";
 import { useMeterStore, selectWorkspaceCardReady } from "@/lib/store";
 import { trackWorkspaceCreated, trackWorkspaceSwitched } from "@/lib/analytics";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 
 interface WorkspaceSwitcherProps {
   activeWorkspace: Workspace | null;
@@ -24,6 +26,8 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
   const chatSessions = useMeterStore((s) => s.sessions);
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
   const workspaceCardReady = useMeterStore(selectWorkspaceCardReady);
+
+  const isMobile = useIsMobile();
 
   // Drag state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -126,6 +130,51 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
     setDragOverIndex(null);
   }, [dragIndex, dragOverIndex, reorderWorkspaces]);
 
+  const switcherContent = (
+    <>
+      <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider px-2 py-1">Workspaces</div>
+      {workspaces.length === 0 && !creating && (
+        <div className="px-2 py-3 text-center font-mono text-[11px] text-muted-foreground/50">No workspaces yet</div>
+      )}
+      {workspaces.map((w, i) => (
+        <button
+          key={w.id}
+          draggable={!isMobile}
+          onDragStart={(e) => handleDragStart(e, i)}
+          onDragOver={(e) => handleDragOver(e, i)}
+          onDragEnd={handleDragEnd}
+          onClick={() => handleSelect(w.id)}
+          className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${
+            w.id === activeWorkspace?.id ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+          } ${dragIndex === i ? "opacity-40" : ""} ${dragOverIndex === i && dragIndex !== i ? "border-t border-foreground/30" : ""}`}
+        >
+          {!isMobile && (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-muted-foreground/30 cursor-grab active:cursor-grabbing">
+              <circle cx="9" cy="5" r="1.5" /><circle cx="15" cy="5" r="1.5" /><circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="19" r="1.5" /><circle cx="15" cy="19" r="1.5" />
+            </svg>
+          )}
+          <span className={`h-1.5 w-1.5 rounded-full ${w.id === activeWorkspace?.id ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+          <span className="truncate">{w.name}</span>
+        </button>
+      ))}
+      {creating ? (
+        <div className="mt-1 flex items-center gap-1 px-1">
+          <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setCreating(false); setNewName(""); } }}
+            placeholder="Workspace name..." className="flex-1 rounded-md border border-border bg-transparent px-2 py-1 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
+          <button onClick={handleCreate} className="rounded-md bg-foreground px-2 py-1 font-mono text-[10px] text-background hover:bg-foreground/90">Add</button>
+        </div>
+      ) : (
+        <button onClick={() => { if (workspaceCardReady) setCreating(true); }} disabled={!workspaceCardReady}
+          title={!workspaceCardReady ? "Complete onboarding first" : undefined}
+          className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:bg-foreground/5 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground/60">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          New workspace
+        </button>
+      )}
+    </>
+  );
+
   return (
     <>
     {switchingName && (
@@ -162,76 +211,16 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
         </svg>
       </button>
 
-      {open && (
+      {open && !isMobile && (
         <div className="absolute bottom-full left-0 mb-2 w-56 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover p-2 shadow-md z-50">
-          <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider px-2 py-1">
-            Workspaces
-          </div>
-          {workspaces.length === 0 && !creating && (
-            <div className="px-2 py-3 text-center font-mono text-[11px] text-muted-foreground/50">
-              No workspaces yet
-            </div>
-          )}
-          {workspaces.map((w, i) => (
-            <button
-              key={w.id}
-              draggable
-              onDragStart={(e) => handleDragStart(e, i)}
-              onDragOver={(e) => handleDragOver(e, i)}
-              onDragEnd={handleDragEnd}
-              onClick={() => handleSelect(w.id)}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${
-                w.id === activeWorkspace?.id
-                  ? "bg-foreground/10 text-foreground"
-                  : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
-              } ${dragIndex === i ? "opacity-40" : ""} ${dragOverIndex === i && dragIndex !== i ? "border-t border-foreground/30" : ""}`}
-            >
-              {/* Drag handle */}
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-muted-foreground/30 cursor-grab active:cursor-grabbing">
-                <circle cx="9" cy="5" r="1.5" />
-                <circle cx="15" cy="5" r="1.5" />
-                <circle cx="9" cy="12" r="1.5" />
-                <circle cx="15" cy="12" r="1.5" />
-                <circle cx="9" cy="19" r="1.5" />
-                <circle cx="15" cy="19" r="1.5" />
-              </svg>
-              <span className={`h-1.5 w-1.5 rounded-full ${w.id === activeWorkspace?.id ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-              <span className="truncate">{w.name}</span>
-            </button>
-          ))}
-          {creating ? (
-            <div className="mt-1 flex items-center gap-1 px-1">
-              <input
-                autoFocus
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreate();
-                  if (e.key === "Escape") { setCreating(false); setNewName(""); }
-                }}
-                placeholder="Workspace name..."
-                className="flex-1 rounded-md border border-border bg-transparent px-2 py-1 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-              />
-              <button onClick={handleCreate} className="rounded-md bg-foreground px-2 py-1 font-mono text-[10px] text-background hover:bg-foreground/90">
-                Add
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => { if (workspaceCardReady) setCreating(true); }}
-              disabled={!workspaceCardReady}
-              title={!workspaceCardReady ? "Complete onboarding first" : undefined}
-              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:bg-foreground/5 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground/60"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              New workspace
-            </button>
-          )}
+          {switcherContent}
         </div>
       )}
+      <Drawer open={open && isMobile} onOpenChange={(v) => { if (!v) { setOpen(false); setCreating(false); } }}>
+        <DrawerContent className="bg-card">
+          <div className="p-2">{switcherContent}</div>
+        </DrawerContent>
+      </Drawer>
     </div>
     </>
   );
