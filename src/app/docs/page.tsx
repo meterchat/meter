@@ -158,6 +158,11 @@ export default function DocsPage() {
                       <td className="py-1.5 pr-4">{fmtPrice(m.outputPrice * 1_000_000 * markup)}</td>
                     </tr>
                   ))}
+                  <tr>
+                    <td className="py-1.5 pr-4">Meter 1.0 (Debate)</td>
+                    <td className="py-1.5 pr-4">{fmtPrice(3.0 * markup)}</td>
+                    <td className="py-1.5 pr-4">{fmtPrice(15.0 * markup)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -165,7 +170,7 @@ export default function DocsPage() {
               The daily meter in the header shows your running total. Set a daily spending cap in settings.
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Debate mode cost is the sum of the individual models used (Opus + GPT-5.4 + Grok + synthesis).
+              Debate mode runs your question through three models simultaneously, then synthesizes the best answer. Standard per-token pricing applies.
             </p>
           </section>
 
@@ -212,8 +217,8 @@ export default function DocsPage() {
               </table>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Meter 1.0 runs Opus + GPT-5.4 + Grok in a multi-model debate, then synthesizes
-              the best answer. Slower but highest quality.
+              Meter 1.0 runs your question through Opus, GPT-5.4, and Grok simultaneously, then synthesizes
+              the best answer. Higher quality, competitive pricing.
             </p>
           </section>
 
