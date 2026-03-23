@@ -1090,7 +1090,7 @@ export function LandingPage() {
               className="block dark:hidden opacity-60"
             />
             <span className="font-mono text-[12px] text-muted-foreground/40">
-              pay per thought
+              Pay Per Thought
             </span>
           </div>
 
