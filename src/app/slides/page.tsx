@@ -18,11 +18,36 @@ function LoopingBoxPrivacy() {
 }
 
 const SLIDES = [
-  { tagline: "Pay per thought", render: () => <LiveMeterPill /> },
-  { tagline: "Every frontier model", render: () => <LiveModelGrid /> },
-  { tagline: "AI debates itself", render: () => <LiveDebateTrace /> },
-  { tagline: "Log your decisions", render: () => <LiveDecisionCard /> },
-  { tagline: "Private by default", render: () => <LoopingBoxPrivacy /> },
+  {
+    tagline: "Pay per thought",
+    subtitle: "Real-time cost tracking for every AI call",
+    render: () => <LiveMeterPill />,
+    scale: 1.8,
+  },
+  {
+    tagline: "Every frontier model",
+    subtitle: "One API, all the best models",
+    render: () => <LiveModelGrid />,
+    scale: 1.6,
+  },
+  {
+    tagline: "AI debates itself",
+    subtitle: "Multi-model debates surface better answers",
+    render: () => <LiveDebateTrace />,
+    scale: 1.5,
+  },
+  {
+    tagline: "Log your decisions",
+    subtitle: "Structured records, not chat transcripts",
+    render: () => <LiveDecisionCard />,
+    scale: 1.5,
+  },
+  {
+    tagline: "Private by default",
+    subtitle: "Passkey auth, no passwords stored",
+    render: () => <LoopingBoxPrivacy />,
+    scale: 2.0,
+  },
 ];
 
 export default function SlidesPage() {
@@ -51,21 +76,29 @@ export default function SlidesPage() {
   const slide = SLIDES[current];
 
   return (
-    <div className="h-screen w-full flex flex-col bg-background relative overflow-hidden">
+    <div className="h-screen w-full flex bg-background relative overflow-hidden">
       <div
-        className="flex-1 flex flex-col items-center transition-opacity duration-400"
+        className="flex-1 flex transition-opacity duration-400"
         style={{ opacity: fading ? 0 : 1 }}
       >
-        {/* Fixed-position heading area */}
-        <div className="pt-[15vh] pb-8 flex items-end justify-center">
-          <h1 className="text-5xl sm:text-7xl font-semibold tracking-tight text-foreground text-center">
+        {/* Left half — text */}
+        <div className="w-1/2 flex flex-col justify-center pl-[8vw] pr-8">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground leading-[1.1]">
             {slide.tagline}
           </h1>
+          {slide.subtitle && (
+            <p className="mt-4 text-lg sm:text-xl text-muted-foreground/60 max-w-md leading-relaxed">
+              {slide.subtitle}
+            </p>
+          )}
         </div>
 
-        {/* Fixed-height content area, centered */}
-        <div className="flex-1 flex items-start justify-center pt-8">
-          <div className="transform scale-[1.35] origin-top">
+        {/* Right half — animation */}
+        <div className="w-1/2 flex items-center justify-center">
+          <div
+            className="origin-center"
+            style={{ transform: `scale(${slide.scale})` }}
+          >
             {slide.render()}
           </div>
         </div>
