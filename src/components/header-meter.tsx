@@ -267,30 +267,6 @@ export function HeaderMeter() {
 
   const panelContent = (
     <>
-      {/* Live Counter */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="font-mono text-[24px] font-semibold tabular-nums text-foreground leading-tight">
-              {costStr}
-            </span>
-            <span className="font-mono text-[10px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
-              Today&apos;s spend
-            </span>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/70" />
-              <span className="font-mono text-[11px] text-muted-foreground/60">{usage.settledCount} settled</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400/70" />
-              <span className="font-mono text-[11px] text-muted-foreground/60">{usage.pendingCount} pending</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="h-px bg-border" />
       {!workspaceCardReady ? (
         <div className="px-4 py-6 text-center">
           <p className="font-mono text-[11px] text-muted-foreground/50">Complete onboarding to access billing and settings.</p>
