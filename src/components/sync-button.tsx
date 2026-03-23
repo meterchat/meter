@@ -5,6 +5,8 @@ import { useSyncStore } from "@/lib/sync-store";
 import { runSync, formatSyncReport } from "@/lib/sync-engine";
 import { runReconcile } from "@/lib/reconcile-engine";
 import { useMeterStore } from "@/lib/store";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
@@ -74,6 +76,7 @@ function InfinityIcon({ className, size = 16, active = false }: { className?: st
 export function SyncButton() {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const lastReport = useSyncStore((s) => s.lastReport);
   const isSyncing = useSyncStore((s) => s.isSyncing);
@@ -133,6 +136,138 @@ export function SyncButton() {
   const fixedFindings = lastReport ? lastReport.findings.filter((f) => f.fixed) : [];
   const isBusy = isSyncing || isReconciling;
 
+  const syncContent = (
+    <>
+      <div className="px-4 py-3">
+        <div className="flex items-center gap-2 mb-1">
+          <InfinityIcon size={12} active={isBusy} className={isBusy ? "text-amber-400" : "text-muted-foreground/60"} />
+          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Strategy Sync</span>
+        </div>
+        <p className="font-mono text-[10px] text-muted-foreground/40 leading-relaxed">Reviews all decisions, documents, and conversation history for contradictions, gaps, and conflicts.</p>
+      </div>
+      <div className="h-px bg-border" />
+      <div className="px-4 py-3">
+        {isReconciling ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[11px] text-foreground thinking-shimmer">Reconciling</span>
+              <span className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">{reconciledCount} of {reconcileTotal}</span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-foreground/5 overflow-hidden">
+              <div className="h-full rounded-full bg-amber-500/60 transition-all duration-500" style={{ width: `${reconcileTotal > 0 ? (reconciledCount / reconcileTotal) * 100 : 0}%` }} />
+            </div>
+            {reconcileCost > 0 && <p className="font-mono text-[10px] text-muted-foreground/40">${reconcileCost.toFixed(2)} so far</p>}
+            {fixedFindings.length > 0 && (
+              <div className="max-h-[160px] overflow-y-auto space-y-1.5 pt-1 border-t border-border/50 mt-2">
+                {fixedFindings.map((f) => (
+                  <div key={f.id} className="flex gap-1.5 items-start">
+                    <span className="text-emerald-500 text-[10px] mt-px shrink-0">&#10003;</span>
+                    <div className="min-w-0">
+                      <p className="font-mono text-[10px] text-emerald-400/80 truncate">{f.title}</p>
+                      {f.fixSummary && <p className="font-mono text-[9px] text-muted-foreground/40 line-clamp-2 leading-relaxed">{f.fixSummary}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : isSyncing && lastReport ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[11px] text-foreground thinking-shimmer">Sync in progress</span>
+              <span className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">Pass {lastReport.currentPass} of {lastReport.totalPasses}</span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-foreground/5 overflow-hidden">
+              <div className="h-full rounded-full bg-amber-500/60 transition-all duration-500" style={{ width: `${(lastReport.currentPass / lastReport.totalPasses) * 100}%` }} />
+            </div>
+            {lastReport.findings.length > 0 && <p className="font-mono text-[10px] text-amber-400/70">{lastReport.findings.length} issue{lastReport.findings.length !== 1 ? "s" : ""} found so far</p>}
+          </div>
+        ) : lastReport?.status === "complete" && counts ? (
+          <div className="space-y-2">
+            {counts.total === 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <span className="font-mono text-[11px] text-emerald-400">{fixedCount > 0 ? `All clear. ${fixedCount} issue${fixedCount !== 1 ? "s" : ""} reconciled.` : "All clear. Strategy is consistent."}</span>
+                </div>
+                {fixedFindings.length > 0 && (
+                  <div className="max-h-[160px] overflow-y-auto space-y-1.5 pt-1 border-t border-border/50">
+                    {fixedFindings.map((f) => (
+                      <div key={f.id} className="flex gap-1.5 items-start">
+                        <span className="text-emerald-500 text-[10px] mt-px shrink-0">&#10003;</span>
+                        <div className="min-w-0">
+                          <p className="font-mono text-[10px] text-emerald-400/80 truncate">{f.title}</p>
+                          {f.fixSummary && <p className="font-mono text-[9px] text-muted-foreground/40 line-clamp-2 leading-relaxed">{f.fixSummary}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {counts.contradictions > 0 && <span className="font-mono text-[11px] text-foreground">{counts.contradictions} contradiction{counts.contradictions !== 1 ? "s" : ""}</span>}
+                  {counts.gaps > 0 && <span className="font-mono text-[11px] text-foreground">{counts.gaps} gap{counts.gaps !== 1 ? "s" : ""}</span>}
+                  {counts.stale > 0 && <span className="font-mono text-[11px] text-foreground">{counts.stale} stale</span>}
+                  {counts.conflicts > 0 && <span className="font-mono text-[11px] text-foreground">{counts.conflicts} conflict{counts.conflicts !== 1 ? "s" : ""}</span>}
+                </div>
+                {fixedCount > 0 && <p className="font-mono text-[10px] text-emerald-400/70">{fixedCount} issue{fixedCount !== 1 ? "s" : ""} reconciled</p>}
+                <button onClick={handleViewReport} className="w-full rounded-lg border border-foreground/20 bg-transparent py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-foreground/5 hover:text-foreground">View full report</button>
+              </>
+            )}
+            <p className="font-mono text-[10px] text-muted-foreground/30">Last synced {timeAgo(lastReport.timestamp)}{lastReport.cost > 0 && ` · $${lastReport.cost.toFixed(2)}`}{reconcileCost > 0 && ` · reconcile $${reconcileCost.toFixed(2)}`}</p>
+            {reconcileError && <p className="font-mono text-[10px] text-red-400/70">Reconcile error: {reconcileError}</p>}
+          </div>
+        ) : lastReport?.status === "error" ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              <span className="font-mono text-[11px] text-red-400">Sync failed</span>
+            </div>
+            <p className="font-mono text-[10px] text-muted-foreground/40">{lastReport.error ?? "Unknown error"}</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <span className="font-mono text-[11px] text-muted-foreground/50">No sync run yet.</span>
+          </div>
+        )}
+      </div>
+      <div className="h-px bg-border" />
+      <div className="px-4 py-3 space-y-2">
+        {isBusy ? (
+          <>
+            <button onClick={handleStop} className="w-full rounded-lg border border-red-500/30 bg-red-500/10 py-2 font-mono text-[11px] text-red-400 transition-colors hover:border-red-500/40 hover:bg-red-500/15">Stop</button>
+            <div className="flex items-center justify-center">
+              <button onClick={handleDismiss} className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors">Dismiss</button>
+            </div>
+          </>
+        ) : hasFindings ? (
+          <>
+            <button onClick={handleReconcileAll} className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 py-2 font-mono text-[11px] text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15">Reconcile all</button>
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={handleStartSync} className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors">Re-sync</button>
+              <span className="text-muted-foreground/20">·</span>
+              <button onClick={handleDismiss} className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors">Dismiss</button>
+            </div>
+          </>
+        ) : lastReport?.status === "complete" ? (
+          <>
+            <button onClick={handleStartSync} className="w-full rounded-lg py-2 font-mono text-[11px] bg-foreground/10 text-foreground hover:bg-foreground/15 transition-colors">Re-sync</button>
+            <div className="flex items-center justify-center">
+              <button onClick={handleDismiss} className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors">Dismiss</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <button onClick={handleStartSync} className="w-full rounded-lg py-2 font-mono text-[11px] bg-foreground/10 text-foreground hover:bg-foreground/15 transition-colors">Sync now</button>
+            <p className="font-mono text-[9px] text-muted-foreground/25 leading-relaxed text-center">Uses Sonnet 4.6 to analyze your full strategy. Runs in background.</p>
+          </>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Trigger button */}
@@ -154,269 +289,17 @@ export function SyncButton() {
       </button>
 
       {/* Dropdown */}
-      {open && (
+      {open && !isMobile && (
         <div className="absolute right-0 top-full z-50 mt-2 w-[300px] rounded-xl border border-border bg-card shadow-xl">
-          {/* Header */}
-          <div className="px-4 py-3">
-            <div className="flex items-center gap-2 mb-1">
-              <InfinityIcon size={12} active={isBusy} className={isBusy ? "text-amber-400" : "text-muted-foreground/60"} />
-              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
-                Strategy Sync
-              </span>
-            </div>
-            <p className="font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
-              Reviews all decisions, documents, and conversation history for contradictions, gaps, and conflicts.
-            </p>
-          </div>
-
-          <div className="h-px bg-border" />
-
-          {/* Status / Results */}
-          <div className="px-4 py-3">
-            {isReconciling ? (
-              /* Reconciling state */
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[11px] text-foreground thinking-shimmer">
-                    Reconciling
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">
-                    {reconciledCount} of {reconcileTotal}
-                  </span>
-                </div>
-                <div className="h-1 w-full rounded-full bg-foreground/5 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-amber-500/60 transition-all duration-500"
-                    style={{ width: `${reconcileTotal > 0 ? (reconciledCount / reconcileTotal) * 100 : 0}%` }}
-                  />
-                </div>
-                {reconcileCost > 0 && (
-                  <p className="font-mono text-[10px] text-muted-foreground/40">
-                    ${reconcileCost.toFixed(2)} so far
-                  </p>
-                )}
-                {/* Real-time fix log during reconciliation */}
-                {fixedFindings.length > 0 && (
-                  <div className="max-h-[160px] overflow-y-auto space-y-1.5 pt-1 border-t border-border/50 mt-2">
-                    {fixedFindings.map((f) => (
-                      <div key={f.id} className="flex gap-1.5 items-start">
-                        <span className="text-emerald-500 text-[10px] mt-px shrink-0">&#10003;</span>
-                        <div className="min-w-0">
-                          <p className="font-mono text-[10px] text-emerald-400/80 truncate">{f.title}</p>
-                          {f.fixSummary && (
-                            <p className="font-mono text-[9px] text-muted-foreground/40 line-clamp-2 leading-relaxed">{f.fixSummary}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : isSyncing && lastReport ? (
-              /* Syncing state */
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[11px] text-foreground thinking-shimmer">
-                    Sync in progress
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">
-                    Pass {lastReport.currentPass} of {lastReport.totalPasses}
-                  </span>
-                </div>
-                <div className="h-1 w-full rounded-full bg-foreground/5 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-amber-500/60 transition-all duration-500"
-                    style={{ width: `${(lastReport.currentPass / lastReport.totalPasses) * 100}%` }}
-                  />
-                </div>
-                {lastReport.findings.length > 0 && (
-                  <p className="font-mono text-[10px] text-amber-400/70">
-                    {lastReport.findings.length} issue{lastReport.findings.length !== 1 ? "s" : ""} found so far
-                  </p>
-                )}
-              </div>
-            ) : lastReport?.status === "complete" && counts ? (
-              /* Complete state */
-              <div className="space-y-2">
-                {counts.total === 0 ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      <span className="font-mono text-[11px] text-emerald-400">
-                        {fixedCount > 0
-                          ? `All clear. ${fixedCount} issue${fixedCount !== 1 ? "s" : ""} reconciled.`
-                          : "All clear. Strategy is consistent."
-                        }
-                      </span>
-                    </div>
-                    {/* Fix log for reconciled findings */}
-                    {fixedFindings.length > 0 && (
-                      <div className="max-h-[160px] overflow-y-auto space-y-1.5 pt-1 border-t border-border/50">
-                        {fixedFindings.map((f) => (
-                          <div key={f.id} className="flex gap-1.5 items-start">
-                            <span className="text-emerald-500 text-[10px] mt-px shrink-0">&#10003;</span>
-                            <div className="min-w-0">
-                              <p className="font-mono text-[10px] text-emerald-400/80 truncate">{f.title}</p>
-                              {f.fixSummary && (
-                                <p className="font-mono text-[9px] text-muted-foreground/40 line-clamp-2 leading-relaxed">{f.fixSummary}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      {counts.contradictions > 0 && (
-                        <span className="font-mono text-[11px] text-foreground">
-                          {counts.contradictions} contradiction{counts.contradictions !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                      {counts.gaps > 0 && (
-                        <span className="font-mono text-[11px] text-foreground">
-                          {counts.gaps} gap{counts.gaps !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                      {counts.stale > 0 && (
-                        <span className="font-mono text-[11px] text-foreground">
-                          {counts.stale} stale
-                        </span>
-                      )}
-                      {counts.conflicts > 0 && (
-                        <span className="font-mono text-[11px] text-foreground">
-                          {counts.conflicts} conflict{counts.conflicts !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </div>
-                    {fixedCount > 0 && (
-                      <p className="font-mono text-[10px] text-emerald-400/70">
-                        {fixedCount} issue{fixedCount !== 1 ? "s" : ""} reconciled
-                      </p>
-                    )}
-                    <button
-                      onClick={handleViewReport}
-                      className="w-full rounded-lg border border-foreground/20 bg-transparent py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-foreground/5 hover:text-foreground"
-                    >
-                      View full report
-                    </button>
-                  </>
-                )}
-                <p className="font-mono text-[10px] text-muted-foreground/30">
-                  Last synced {timeAgo(lastReport.timestamp)}
-                  {lastReport.cost > 0 && ` · $${lastReport.cost.toFixed(2)}`}
-                  {reconcileCost > 0 && ` · reconcile $${reconcileCost.toFixed(2)}`}
-                </p>
-                {reconcileError && (
-                  <p className="font-mono text-[10px] text-red-400/70">
-                    Reconcile error: {reconcileError}
-                  </p>
-                )}
-              </div>
-            ) : lastReport?.status === "error" ? (
-              /* Error state */
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                  <span className="font-mono text-[11px] text-red-400">Sync failed</span>
-                </div>
-                <p className="font-mono text-[10px] text-muted-foreground/40">
-                  {lastReport.error ?? "Unknown error"}
-                </p>
-              </div>
-            ) : (
-              /* Idle / never synced */
-              <div className="space-y-1">
-                <span className="font-mono text-[11px] text-muted-foreground/50">
-                  No sync run yet.
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="h-px bg-border" />
-
-          {/* Action — context-aware buttons */}
-          <div className="px-4 py-3 space-y-2">
-            {isBusy ? (
-              /* Busy state — Stop + Dismiss */
-              <>
-                <button
-                  onClick={handleStop}
-                  className="w-full rounded-lg border border-red-500/30 bg-red-500/10 py-2 font-mono text-[11px] text-red-400 transition-colors hover:border-red-500/40 hover:bg-red-500/15"
-                >
-                  Stop
-                </button>
-                <div className="flex items-center justify-center">
-                  <button
-                    onClick={handleDismiss}
-                    className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </>
-            ) : hasFindings ? (
-              /* Has active findings — Reconcile primary, Re-sync + Dismiss secondary */
-              <>
-                <button
-                  onClick={handleReconcileAll}
-                  className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 py-2 font-mono text-[11px] text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15"
-                >
-                  Reconcile all
-                </button>
-                <div className="flex items-center justify-center gap-3">
-                  <button
-                    onClick={handleStartSync}
-                    className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
-                  >
-                    Re-sync
-                  </button>
-                  <span className="text-muted-foreground/20">·</span>
-                  <button
-                    onClick={handleDismiss}
-                    className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </>
-            ) : lastReport?.status === "complete" ? (
-              /* All clear / post-reconcile — Re-sync primary, Dismiss secondary */
-              <>
-                <button
-                  onClick={handleStartSync}
-                  className="w-full rounded-lg py-2 font-mono text-[11px] bg-foreground/10 text-foreground hover:bg-foreground/15 transition-colors"
-                >
-                  Re-sync
-                </button>
-                <div className="flex items-center justify-center">
-                  <button
-                    onClick={handleDismiss}
-                    className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </>
-            ) : (
-              /* Idle / never synced / error — Sync now */
-              <>
-                <button
-                  onClick={handleStartSync}
-                  className="w-full rounded-lg py-2 font-mono text-[11px] bg-foreground/10 text-foreground hover:bg-foreground/15 transition-colors"
-                >
-                  Sync now
-                </button>
-                <p className="font-mono text-[9px] text-muted-foreground/25 leading-relaxed text-center">
-                  Uses Sonnet 4.6 to analyze your full strategy. Runs in background.
-                </p>
-              </>
-            )}
-          </div>
+          {syncContent}
         </div>
       )}
+      <Drawer open={open && isMobile} onOpenChange={(v) => { if (!v) setOpen(false); }}>
+        <DrawerContent className="bg-card">
+          {syncContent}
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
+

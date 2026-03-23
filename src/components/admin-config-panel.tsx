@@ -5,6 +5,8 @@ import { MODELS } from "@/lib/models";
 import { SLASH_COMMANDS } from "@/lib/connectors";
 import { authFetch } from "@/lib/auth-fetch";
 import { useMeterStore } from "@/lib/store";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 
 // ── Types ──
 
@@ -85,55 +87,54 @@ export function AdminConfigPanel({ open, onClose }: { open: boolean; onClose: ()
     }
   }, []);
 
-  if (!open) return null;
+  const isMobile = useIsMobile();
 
-  return (
-    <div
-      ref={ref}
-      className="absolute top-full right-0 z-50 mt-2 w-[380px] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl"
-    >
-      {/* Tab bar */}
+  const panelInner = (
+    <>
       <div className="flex border-b border-border">
         {(["pricing", "models", "commands"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-1 py-2.5 font-mono text-[11px] uppercase tracking-wider transition-colors ${
-              tab === t
-                ? "text-foreground border-b-2 border-foreground"
-                : "text-muted-foreground/60 hover:text-muted-foreground"
+              tab === t ? "text-foreground border-b-2 border-foreground" : "text-muted-foreground/60 hover:text-muted-foreground"
             }`}
           >
             {t}
           </button>
         ))}
       </div>
-
       {loading || (!config && !error) ? (
-        <div className="px-4 py-8 text-center font-mono text-[11px] text-muted-foreground/40">
-          loading...
-        </div>
+        <div className="px-4 py-8 text-center font-mono text-[11px] text-muted-foreground/40">loading...</div>
       ) : error ? (
-        <div className="px-4 py-8 text-center font-mono text-[11px] text-red-400">
-          {error}
-        </div>
+        <div className="px-4 py-8 text-center font-mono text-[11px] text-red-400">{error}</div>
       ) : config ? (
         <>
-          {saveError && (
-            <div className="px-4 pt-3 font-mono text-[10px] text-red-400">
-              {saveError}
-            </div>
-          )}
-          {saved && (
-            <div className="px-4 pt-3 font-mono text-[10px] text-emerald-400">
-              Saved
-            </div>
-          )}
+          {saveError && <div className="px-4 pt-3 font-mono text-[10px] text-red-400">{saveError}</div>}
+          {saved && <div className="px-4 pt-3 font-mono text-[10px] text-emerald-400">Saved</div>}
           {tab === "pricing" && <PricingTab config={config} onSave={save} />}
           {tab === "models" && <ModelsTab config={config} onSave={save} />}
           {tab === "commands" && <CommandsTab config={config} onSave={save} />}
         </>
       ) : null}
+    </>
+  );
+
+  if (!open) return null;
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+        <DrawerContent className="bg-card max-h-[85vh]">
+          <div className="overflow-y-auto">{panelInner}</div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <div ref={ref} className="absolute top-full right-0 z-50 mt-2 w-[380px] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
+      {panelInner}
     </div>
   );
 }

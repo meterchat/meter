@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useMeterStore } from "@/lib/store";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import {
   trackSettlementInitiated,
   trackSettlementCompleted,
@@ -12,6 +14,7 @@ export function SettlePill() {
   const [open, setOpen] = useState(false);
   const [settled, setSettled] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const sessions = useMeterStore((s) => s.sessions);
   const activeSessionId = useMeterStore((s) => s.activeSessionId);
@@ -118,6 +121,72 @@ export function SettlePill() {
 
   const hasError = !!settlementError;
 
+  const settleContent = (
+    <>
+      <div className="border-b border-border px-4 py-3">
+        <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">Pending Charges</div>
+      </div>
+      <div className="max-h-[280px] overflow-y-auto">
+        {lineItems.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <span className="font-mono text-[11px] text-muted-foreground/40">No pending charges</span>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/50">
+            {lineItems.map((item) => (
+              <div key={item.id} className="px-4 py-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <span className="block truncate font-mono text-[11px] text-foreground/80">{item.title}</span>
+                    <span className="font-mono text-[9px] text-muted-foreground/40">{item.subtitle}</span>
+                  </div>
+                  <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground">${item.cost.toFixed(item.cost < 0.01 ? 4 : 2)}</span>
+                </div>
+                {item.type === "card" && (
+                  <div className="mt-1 font-mono text-[9px] text-muted-foreground/50">
+                    Paid{item.paidAt ? ` on ${new Date(item.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""} with Virtual Card{cardLast4 ? ` ${cardLast4}` : ""}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="border-t border-border px-4 py-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[11px] text-muted-foreground">{pendingBalance < 0 ? "Credit" : "Total"}</span>
+          <span className={`font-mono text-sm font-medium tabular-nums ${pendingBalance < 0 ? "text-emerald-400" : "text-foreground"}`}>
+            {pendingBalance < 0 ? `-$${Math.abs(pendingBalance).toFixed(2)}` : `$${pendingBalance.toFixed(2)}`}
+          </span>
+        </div>
+        {creditBalance > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10px] text-emerald-400/60">Credit remaining</span>
+            <span className="font-mono text-[10px] tabular-nums text-emerald-400/60">${creditBalance.toFixed(2)}</span>
+          </div>
+        )}
+        {settlementError && (
+          <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+            <span className="font-mono text-[10px] text-red-400">{settlementError}</span>
+            <p className="mt-1 font-mono text-[9px] text-red-400/60">Please update your card or try again.</p>
+          </div>
+        )}
+        <button
+          onClick={handleSettle}
+          disabled={isSettling || pendingBalance < 0.50}
+          className={`w-full rounded-lg py-2 font-mono text-[11px] transition-colors ${
+            settled ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40"
+          }`}
+        >
+          {settled ? "Settled" : isSettling ? "Processing..." : pendingBalance < 0.50 ? "Below $0.50 minimum" : `Pay & Settle $${pendingBalance.toFixed(2)}`}
+        </button>
+        {cardLast4 && (
+          <div className="text-center font-mono text-[9px] text-muted-foreground/40">Charged to {brandLabel} {cardLast4}</div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -141,103 +210,16 @@ export function SettlePill() {
         </span>
       </button>
 
-      {open && (
+      {open && !isMobile && (
         <div className="absolute right-0 top-full z-50 mt-2 w-[340px] rounded-xl border border-border bg-card shadow-xl">
-          <div className="border-b border-border px-4 py-3">
-            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">
-              Pending Charges
-            </div>
-          </div>
-
-          <div className="max-h-[280px] overflow-y-auto">
-            {lineItems.length === 0 ? (
-              <div className="flex items-center justify-center py-8">
-                <span className="font-mono text-[11px] text-muted-foreground/40">
-                  No pending charges
-                </span>
-              </div>
-            ) : (
-              <div className="divide-y divide-border/50">
-                {lineItems.map((item) => (
-                  <div key={item.id} className="px-4 py-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="min-w-0">
-                        <span className="block truncate font-mono text-[11px] text-foreground/80">
-                          {item.title}
-                        </span>
-                        <span className="font-mono text-[9px] text-muted-foreground/40">
-                          {item.subtitle}
-                        </span>
-                      </div>
-                      <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground">
-                        ${item.cost.toFixed(item.cost < 0.01 ? 4 : 2)}
-                      </span>
-                    </div>
-                    {item.type === "card" && (
-                      <div className="mt-1 font-mono text-[9px] text-muted-foreground/50">
-                        Paid{item.paidAt ? ` on ${new Date(item.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""} with Virtual Card{cardLast4 ? ` ${cardLast4}` : ""}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-border px-4 py-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[11px] text-muted-foreground">
-                {pendingBalance < 0 ? "Credit" : "Total"}
-              </span>
-              <span className={`font-mono text-sm font-medium tabular-nums ${pendingBalance < 0 ? "text-emerald-400" : "text-foreground"}`}>
-                {pendingBalance < 0 ? `-$${Math.abs(pendingBalance).toFixed(2)}` : `$${pendingBalance.toFixed(2)}`}
-              </span>
-            </div>
-
-            {creditBalance > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] text-emerald-400/60">Credit remaining</span>
-                <span className="font-mono text-[10px] tabular-nums text-emerald-400/60">
-                  ${creditBalance.toFixed(2)}
-                </span>
-              </div>
-            )}
-
-            {settlementError && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
-                <span className="font-mono text-[10px] text-red-400">{settlementError}</span>
-                <p className="mt-1 font-mono text-[9px] text-red-400/60">
-                  Please update your card or try again.
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={handleSettle}
-              disabled={isSettling || pendingBalance < 0.50}
-              className={`w-full rounded-lg py-2 font-mono text-[11px] transition-colors ${
-                settled
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40"
-              }`}
-            >
-              {settled
-                ? "Settled"
-                : isSettling
-                  ? "Processing..."
-                  : pendingBalance < 0.50
-                    ? "Below $0.50 minimum"
-                    : `Pay & Settle $${pendingBalance.toFixed(2)}`}
-            </button>
-
-            {cardLast4 && (
-              <div className="text-center font-mono text-[9px] text-muted-foreground/40">
-                Charged to {brandLabel} {cardLast4}
-              </div>
-            )}
-          </div>
+          {settleContent}
         </div>
       )}
+      <Drawer open={open && isMobile} onOpenChange={(v) => { if (!v) setOpen(false); }}>
+        <DrawerContent className="bg-card">
+          {settleContent}
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useWorkspaceStore } from "@/lib/workspace-store";
 import { MeterIcon } from "./meter-icon";
 import { AddCardModal } from "./add-card-modal";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import {
   trackCardRemoved,
   trackCardDefaultChanged,
@@ -264,6 +265,128 @@ export function HeaderMeter() {
     }
   };
 
+  const panelContent = (
+    <>
+      {/* Live Counter */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="font-mono text-[24px] font-semibold tabular-nums text-foreground leading-tight">
+              {costStr}
+            </span>
+            <span className="font-mono text-[10px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
+              Today&apos;s spend
+            </span>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/70" />
+              <span className="font-mono text-[11px] text-muted-foreground/60">{usage.settledCount} settled</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400/70" />
+              <span className="font-mono text-[11px] text-muted-foreground/60">{usage.pendingCount} pending</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="h-px bg-border" />
+      {!workspaceCardReady ? (
+        <div className="px-4 py-6 text-center">
+          <p className="font-mono text-[11px] text-muted-foreground/50">Complete onboarding to access billing and settings.</p>
+        </div>
+      ) : (
+      <>
+        <PendingBalanceSection getPendingBalance={getWorkspacePendingBalance} settleAll={settleAll} isSettling={isSettling} />
+        <div className="h-px bg-border" />
+        <div className="px-4 py-3">
+          <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">Payment Cards</div>
+          {cardsLoading && cards.length === 0 ? (
+            <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">Loading cards...</div>
+          ) : sortedCards.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-6 gap-2 rounded-lg border border-dashed border-border">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
+              <span className="font-mono text-[11px] text-muted-foreground/40">No cards yet</span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {sortedCards.map((card) => {
+                const brandLabel = card.brand.charAt(0).toUpperCase() + card.brand.slice(1);
+                return (
+                  <div key={card.id} className={`flex items-center justify-between rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${card.isDefault ? "bg-foreground/5 border border-foreground/10" : "border border-transparent"} ${switchingCardId === card.id ? "ring-1 ring-emerald-400/40" : ""}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`h-1.5 w-1.5 rounded-full ${card.isDefault ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                      <span className="text-foreground">{brandLabel} •••• {card.last4}</span>
+                      <span className="text-[10px] text-muted-foreground/50">{String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {!card.isDefault && <button onClick={() => handleSetDefault(card.id)} className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors">Default</button>}
+                      {cards.length > 1 && <button onClick={() => handleRemoveCard(card.id)} className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-red-400 transition-colors">Remove</button>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {removeError && <p className="mt-1 font-mono text-[10px] text-red-400">{removeError}</p>}
+          <button onClick={() => setAddCardOpen(true)} className="mt-2 w-full rounded-lg border border-border py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5">+ Add Card</button>
+        </div>
+        <div className="h-px bg-border" />
+        <div className="px-4 py-3">
+          <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">Spend</div>
+          <div className="space-y-1.5">
+            <SpendRow label="Today" amount={usage.today} />
+            <SpendRow label="This week" amount={usage.week} subLabel={`Avg/day $${usage.weekAvg.toFixed(2)}`} />
+            <SpendRow label="This month" amount={usage.month} subLabel={`Avg/day $${usage.monthAvg.toFixed(2)}`} />
+            <SpendRow label="Lifetime" amount={usage.lifetime} />
+          </div>
+          <div className="mt-2">
+            <p className="font-mono text-[10px] text-muted-foreground/30">Daily spend resets at midnight local time.</p>
+            <p className="font-mono text-[11px] tabular-nums text-muted-foreground/60">{formatCountdown(remaining)}</p>
+          </div>
+        </div>
+        <div className="h-px bg-border" />
+        {activeSessionId && (
+          <>
+            <div className="px-4 py-3">
+              <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">Spend Limits</div>
+              <div className="space-y-2">
+                <LimitRow label="Daily Limit" value={dailyInput} onChange={setDailyInput} onBlur={() => saveLimitOnBlur("dailyLimit", dailyInput)} />
+                <LimitRow label="Monthly Limit" value={monthlyInput} onChange={setMonthlyInput} onBlur={() => saveLimitOnBlur("monthlyLimit", monthlyInput)} />
+                <LimitRow label="Per-Txn Max" value={perTxnInput} onChange={setPerTxnInput} onBlur={() => saveLimitOnBlur("perTxnLimit", perTxnInput)} />
+              </div>
+              <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">Leave blank for no limit. Limits are enforced server-side.</p>
+            </div>
+            <div className="h-px bg-border" />
+          </>
+        )}
+        <div className="px-4 py-3">
+          <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">Activity</div>
+          <StatRow label="Messages" value={usage.totalMessages > 0 ? usage.totalMessages.toLocaleString() : "0"} />
+          <StatRow label="Tokens In" value={usage.totalTokensIn > 0 ? usage.totalTokensIn.toLocaleString() : "0"} />
+          <StatRow label="Tokens Out" value={usage.totalTokensOut > 0 ? usage.totalTokensOut.toLocaleString() : "0"} />
+          <StatRow label="Settled" value={usage.settledCount.toLocaleString()} />
+          <StatRow label="Pending" value={usage.pendingCount.toLocaleString()} />
+        </div>
+        {Object.keys(usage.byModel).length > 0 && (
+          <>
+            <div className="h-px bg-border" />
+            <div className="px-4 py-3">
+              <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">By Model</div>
+              {Object.entries(usage.byModel).map(([model, data]) => (
+                <div key={model} className="flex items-center justify-between py-1.5">
+                  <span className="text-[12px] text-muted-foreground">{model}</span>
+                  <span className="text-[12px] text-foreground font-mono">${data.cost.toFixed(2)} &middot; {data.count} msgs</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </>
+      )}
+    </>
+  );
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -301,198 +424,16 @@ export function HeaderMeter() {
         </svg>
       </button>
 
-      {open && (
-        <div className={`absolute top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl ${isMobile ? "fixed left-2 right-2 w-auto" : "right-0 w-[360px]"}`}>
-
-          {/* Live Counter — prominent cost display at top */}
-          <div className="px-4 pt-4 pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="font-mono text-[24px] font-semibold tabular-nums text-foreground leading-tight">
-                  {costStr}
-                </span>
-                <span className="font-mono text-[10px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
-                  Today&apos;s spend
-                </span>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/70" />
-                  <span className="font-mono text-[11px] text-muted-foreground/60">{usage.settledCount} settled</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400/70" />
-                  <span className="font-mono text-[11px] text-muted-foreground/60">{usage.pendingCount} pending</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="h-px bg-border" />
-
-          {!workspaceCardReady ? (
-            <div className="px-4 py-6 text-center">
-              <p className="font-mono text-[11px] text-muted-foreground/50">Complete onboarding to access billing and settings.</p>
-            </div>
-          ) : (
-          <>
-
-          {/* Pending Balance */}
-          <PendingBalanceSection
-            getPendingBalance={getWorkspacePendingBalance}
-            settleAll={settleAll}
-            isSettling={isSettling}
-          />
-
-          <div className="h-px bg-border" />
-
-          {/* Payment Cards */}
-          <div className="px-4 py-3">
-            <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
-              Payment Cards
-            </div>
-            {cardsLoading && cards.length === 0 ? (
-              <div className="py-4 text-center font-mono text-[12px] text-muted-foreground/40">Loading cards...</div>
-            ) : sortedCards.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 gap-2 rounded-lg border border-dashed border-border">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30">
-                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-                  <line x1="1" y1="10" x2="23" y2="10" />
-                </svg>
-                <span className="font-mono text-[11px] text-muted-foreground/40">No cards yet</span>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {sortedCards.map((card) => {
-                  const brandLabel = card.brand.charAt(0).toUpperCase() + card.brand.slice(1);
-                  return (
-                    <div
-                      key={card.id}
-                      className={`flex items-center justify-between rounded-md px-2 py-1.5 font-mono text-[11px] transition-colors ${
-                        card.isDefault ? "bg-foreground/5 border border-foreground/10" : "border border-transparent"
-                      } ${switchingCardId === card.id ? "ring-1 ring-emerald-400/40" : ""}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className={`h-1.5 w-1.5 rounded-full ${card.isDefault ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-                        <span className="text-foreground">{brandLabel} •••• {card.last4}</span>
-                        <span className="text-[10px] text-muted-foreground/50">
-                          {String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {!card.isDefault && (
-                          <button
-                            onClick={() => handleSetDefault(card.id)}
-                            className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
-                          >
-                            Default
-                          </button>
-                        )}
-                        {cards.length > 1 && (
-                          <button
-                            onClick={() => handleRemoveCard(card.id)}
-                            className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground/50 hover:text-red-400 transition-colors"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {removeError && (
-              <p className="mt-1 font-mono text-[10px] text-red-400">{removeError}</p>
-            )}
-            <button
-              onClick={() => setAddCardOpen(true)}
-              className="mt-2 w-full rounded-lg border border-border py-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5"
-            >
-              + Add Card
-            </button>
-          </div>
-
-          <div className="h-px bg-border" />
-
-          {/* Spend */}
-          <div className="px-4 py-3">
-            <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
-              Spend
-            </div>
-            <div className="space-y-1.5">
-              <SpendRow label="Today" amount={usage.today} />
-              <SpendRow label="This week" amount={usage.week} subLabel={`Avg/day $${usage.weekAvg.toFixed(2)}`} />
-              <SpendRow label="This month" amount={usage.month} subLabel={`Avg/day $${usage.monthAvg.toFixed(2)}`} />
-              <SpendRow label="Lifetime" amount={usage.lifetime} />
-            </div>
-            <div className="mt-2">
-              <p className="font-mono text-[10px] text-muted-foreground/30">
-                Daily spend resets at midnight local time.
-              </p>
-              <p className="font-mono text-[11px] tabular-nums text-muted-foreground/60">
-                {formatCountdown(remaining)}
-              </p>
-            </div>
-          </div>
-
-          <div className="h-px bg-border" />
-
-          {/* Spend Limits */}
-          {activeSessionId && (
-            <>
-              <div className="px-4 py-3">
-                <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
-                  Spend Limits
-                </div>
-                <div className="space-y-2">
-                  <LimitRow label="Daily Limit" value={dailyInput} onChange={setDailyInput} onBlur={() => saveLimitOnBlur("dailyLimit", dailyInput)} />
-                  <LimitRow label="Monthly Limit" value={monthlyInput} onChange={setMonthlyInput} onBlur={() => saveLimitOnBlur("monthlyLimit", monthlyInput)} />
-                  <LimitRow label="Per-Txn Max" value={perTxnInput} onChange={setPerTxnInput} onBlur={() => saveLimitOnBlur("perTxnLimit", perTxnInput)} />
-                </div>
-                <p className="mt-2 font-mono text-[10px] text-muted-foreground/30">
-                  Leave blank for no limit. Limits are enforced server-side.
-                </p>
-              </div>
-              <div className="h-px bg-border" />
-            </>
-          )}
-
-          {/* Activity */}
-          <div className="px-4 py-3">
-            <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
-              Activity
-            </div>
-            <StatRow label="Messages" value={usage.totalMessages > 0 ? usage.totalMessages.toLocaleString() : "0"} />
-            <StatRow label="Tokens In" value={usage.totalTokensIn > 0 ? usage.totalTokensIn.toLocaleString() : "0"} />
-            <StatRow label="Tokens Out" value={usage.totalTokensOut > 0 ? usage.totalTokensOut.toLocaleString() : "0"} />
-            <StatRow label="Settled" value={usage.settledCount.toLocaleString()} />
-            <StatRow label="Pending" value={usage.pendingCount.toLocaleString()} />
-          </div>
-
-          {Object.keys(usage.byModel).length > 0 && (
-            <>
-              <div className="h-px bg-border" />
-              <div className="px-4 py-3">
-                <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2">
-                  By Model
-                </div>
-                {Object.entries(usage.byModel).map(([model, data]) => (
-                  <div key={model} className="flex items-center justify-between py-1.5">
-                    <span className="text-[12px] text-muted-foreground">{model}</span>
-                    <span className="text-[12px] text-foreground font-mono">
-                      ${data.cost.toFixed(2)} &middot; {data.count} msgs
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          </>
-          )}
+      {open && !isMobile && (
+        <div className="absolute top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-xl right-0 w-[360px]">
+          {panelContent}
         </div>
       )}
+      <Drawer open={open && isMobile} onOpenChange={(v) => { if (!v) setOpen(false); }}>
+        <DrawerContent className="bg-card max-h-[85vh]">
+          <div className="overflow-y-auto">{panelContent}</div>
+        </DrawerContent>
+      </Drawer>
       <AddCardModal open={addCardOpen} onClose={() => setAddCardOpen(false)} />
     </div>
   );

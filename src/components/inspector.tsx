@@ -282,8 +282,8 @@ export function Inspector() {
             </button>
           )}
 
-          {/* Feedback dropup */}
-          {feedbackOpen && (
+          {/* Feedback dropup — desktop */}
+          {feedbackOpen && !isMobile && (
             <div
               ref={feedbackRef}
               className="absolute bottom-full right-4 mb-2 w-96 rounded-lg border border-border bg-card shadow-xl z-50"
@@ -318,6 +318,29 @@ export function Inspector() {
               </div>
             </div>
           )}
+          {/* Feedback — mobile drawer */}
+          <Drawer open={feedbackOpen && isMobile} onOpenChange={(v) => { if (!v) setFeedbackOpen(false); }}>
+            <DrawerContent className="bg-card">
+              <div className="p-4 flex flex-col gap-3">
+                <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground/60">Feedback</div>
+                <textarea
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  placeholder="Share feedback, ideas, or bugs..."
+                  rows={5}
+                  className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-sans text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-foreground/20 transition-colors"
+                  autoFocus
+                />
+                <button
+                  onClick={handleFeedbackSubmit}
+                  disabled={!feedbackText.trim() || feedbackSubmitting}
+                  className="w-full rounded-lg py-2.5 font-sans text-sm bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
+                >
+                  {feedbackSubmitting ? "Sending..." : "Send Feedback"}
+                </button>
+              </div>
+            </DrawerContent>
+          </Drawer>
         </div>
       )}
     </>
