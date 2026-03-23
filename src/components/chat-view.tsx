@@ -1212,6 +1212,7 @@ export function ChatView() {
     activeSession?.name ?? "My Workspace"
   );
   const [onboardingStep, setOnboardingStep] = useState<"name" | "card">("name");
+  const [onboardingIdCopied, setOnboardingIdCopied] = useState(false);
   const [showExplainer, setShowExplainer] = useState(false);
   const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
   const renameSession = useMeterStore((s) => s.renameSession);
@@ -2567,10 +2568,10 @@ export function ChatView() {
                       <div className="my-3 flex items-center gap-2 rounded-lg border border-border bg-card/60 px-4 py-3">
                         <code className="flex-1 font-mono text-[15px] tracking-wider text-foreground">{userHandle}</code>
                         <button
-                          onClick={() => { navigator.clipboard.writeText(userHandle); }}
-                          className="shrink-0 rounded-md border border-border/50 bg-card/50 px-2 py-1 font-mono text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                          onClick={() => { navigator.clipboard.writeText(userHandle); setOnboardingIdCopied(true); setTimeout(() => setOnboardingIdCopied(false), 2000); }}
+                          className={`shrink-0 rounded-md border border-border/50 bg-card/50 px-2 py-1 font-mono text-[10px] transition-colors ${onboardingIdCopied ? "text-emerald-500" : "text-muted-foreground/60 hover:text-foreground hover:bg-foreground/5"}`}
                         >
-                          Copy
+                          {onboardingIdCopied ? "Copied" : "Copy"}
                         </button>
                       </div>
                     )}

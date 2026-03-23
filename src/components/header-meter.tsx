@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useMeterStore } from "@/lib/store";
+import { useMeterStore, selectWorkspaceCardReady } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { MeterIcon } from "./meter-icon";
 import { AddCardModal } from "./add-card-modal";
@@ -111,9 +111,10 @@ export function HeaderMeter() {
   // Settlement — compute pending balance from the resolved workspace project,
   // not the raw activeSessionId (which may be a subtrack with $0).
   const pendingCharges = useMeterStore((s) => s.pendingCharges);
+  const creditBalance = useMeterStore((s) => s.creditBalance);
   const getWorkspacePendingBalance = useMemo(() => {
     return () => {
-      if (!activeProject) return 0;
+      if (!activeProject) return -creditBalance;
       const loadedMsgCost = (activeProject.messages ?? [])
         .filter((m) => m.role === "assistant" && m.cost !== undefined && !m.settled)
         .reduce((sum, m) => sum + (m.cost ?? 0), 0);
@@ -121,13 +122,15 @@ export function HeaderMeter() {
       const cardCost = pendingCharges
         .filter((c) => c.workspaceId === activeProject.id)
         .reduce((sum, c) => sum + c.cost, 0);
-      return msgCost + cardCost;
+      // Subtract credit balance — can go negative (user is "in credit")
+      return msgCost + cardCost - creditBalance;
     };
-  }, [activeProject, pendingCharges]);
+  }, [activeProject, pendingCharges, creditBalance]);
   const settleAll = useMeterStore((s) => s.settleAll);
   const isSettling = useMeterStore((s) => s.isSettling);
   const cardLast4 = useMeterStore((s) => s.cardLast4);
   const cardBrand = useMeterStore((s) => s.cardBrand);
+  const workspaceCardReady = useMeterStore(selectWorkspaceCardReady);
 
   // Spend limits
   const spendLimits = useMeterStore((s) => s.spendLimits);
@@ -327,6 +330,13 @@ export function HeaderMeter() {
 
           <div className="h-px bg-border" />
 
+          {!workspaceCardReady ? (
+            <div className="px-4 py-6 text-center">
+              <p className="font-mono text-[11px] text-muted-foreground/50">Complete onboarding to access billing and settings.</p>
+            </div>
+          ) : (
+          <>
+
           {/* Pending Balance */}
           <PendingBalanceSection
             getPendingBalance={getWorkspacePendingBalance}
@@ -478,6 +488,9 @@ export function HeaderMeter() {
               </div>
             </>
           )}
+
+          </>
+          )}
         </div>
       )}
       <AddCardModal open={addCardOpen} onClose={() => setAddCardOpen(false)} />
@@ -534,10 +547,14 @@ function PendingBalanceSection({ getPendingBalance, settleAll, isSettling }: {
       </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[14px] font-medium tabular-nums text-foreground">
-            ${pending.toFixed(2)}
+          <span className={`font-mono text-[14px] font-medium tabular-nums ${pending < 0 ? "text-emerald-500" : "text-foreground"}`}>
+            {pending < 0 ? `-$${Math.abs(pending).toFixed(2)}` : `$${pending.toFixed(2)}`}
           </span>
-          <span className="font-mono text-[10px] text-muted-foreground/30">Auto-settles at $10</span>
+          {pending < 0 ? (
+            <span className="font-mono text-[10px] text-emerald-500/50">Free credit</span>
+          ) : (
+            <span className="font-mono text-[10px] text-muted-foreground/30">Auto-settles at $10</span>
+          )}
         </div>
         {pending > 0 && (
           <button

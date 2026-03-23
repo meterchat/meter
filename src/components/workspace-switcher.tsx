@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useWorkspaceStore, Workspace } from "@/lib/workspace-store";
-import { useMeterStore } from "@/lib/store";
+import { useMeterStore, selectWorkspaceCardReady } from "@/lib/store";
 import { trackWorkspaceCreated, trackWorkspaceSwitched } from "@/lib/analytics";
 
 interface WorkspaceSwitcherProps {
@@ -23,6 +23,7 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
   const setActiveSession = useMeterStore((s) => s.setActiveSession);
   const chatSessions = useMeterStore((s) => s.sessions);
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
+  const workspaceCardReady = useMeterStore(selectWorkspaceCardReady);
 
   // Drag state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -217,8 +218,10 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
             </div>
           ) : (
             <button
-              onClick={() => setCreating(true)}
-              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:bg-foreground/5 hover:text-foreground transition-colors"
+              onClick={() => { if (workspaceCardReady) setCreating(true); }}
+              disabled={!workspaceCardReady}
+              title={!workspaceCardReady ? "Complete onboarding first" : undefined}
+              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:bg-foreground/5 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground/60"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19" />

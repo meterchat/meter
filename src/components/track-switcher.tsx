@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useWorkspaceStore, Track } from "@/lib/workspace-store";
-import { useMeterStore } from "@/lib/store";
+import { useMeterStore, selectWorkspaceCardReady } from "@/lib/store";
 
 /** Path colors — teal, indigo, amber, rose for up to 4 paths */
 const PATH_DOT_COLORS = ["bg-teal-500", "bg-indigo-500", "bg-amber-500", "bg-rose-500"];
@@ -20,6 +20,7 @@ export function TrackSwitcher({ activeTrack, workspaceId }: TrackSwitcherProps) 
   const allTracks = useWorkspaceStore((s) => s.tracks);
   const setActiveTrack = useWorkspaceStore((s) => s.setActiveTrack);
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
+  const workspaceCardReady = useMeterStore(selectWorkspaceCardReady);
 
   // Active subtracks sorted by creation (for consistent color assignment)
   const activeSubtracks = useMemo(
@@ -197,7 +198,9 @@ export function TrackSwitcher({ activeTrack, workspaceId }: TrackSwitcherProps) 
               <div className="h-px bg-border/30 my-1.5" />
               <button
                 onClick={handleExplorePaths}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:bg-foreground/5 hover:text-foreground transition-colors"
+                disabled={!workspaceCardReady}
+                title={!workspaceCardReady ? "Complete onboarding first" : undefined}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:bg-foreground/5 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground/60"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="6" y1="3" x2="6" y2="15" />
