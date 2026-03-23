@@ -235,42 +235,42 @@ const MCP_CONNECTORS = [
   {
     id: "claude-code",
     name: "Claude Code",
-    icon: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM7 15l3-3-3-3M14 15h4",
+    icon: "M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z",
     label: "Run in your terminal",
     snippet: `claude mcp add meter --transport http https://meter.chat/api/mcp -H "Authorization: Bearer your-api-key"`,
   },
   {
     id: "cursor",
     name: "Cursor",
-    icon: "M5 3l12.5 8.5-5 1-3 5L5 3ZM14.5 17.5l3 4.5",
+    icon: "M22.106 5.68L12.5.135a.998.998 0 00-.998 0L1.893 5.68a.84.84 0 00-.419.726v11.186c0 .3.16.577.42.727l9.607 5.547a.999.999 0 00.998 0l9.608-5.547a.84.84 0 00.42-.727V6.407a.84.84 0 00-.42-.726zm-.603 1.176L12.228 22.92c-.063.108-.228.064-.228-.061V12.34a.59.59 0 00-.295-.51l-9.11-5.26c-.107-.062-.063-.228.062-.228h18.55c.264 0 .428.286.296.514z",
     label: "Add to Settings → MCP Servers",
     snippet: JSON.stringify({ mcpServers: { meter: { url: "https://meter.chat/api/mcp", headers: { Authorization: "Bearer your-api-key" } } } }, null, 2),
   },
   {
     id: "lovable",
     name: "Lovable",
-    icon: "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z",
+    icon: "M7.082 0c3.91 0 7.081 3.179 7.081 7.1v2.7h2.357c3.91 0 7.082 3.178 7.082 7.1 0 3.923-3.17 7.1-7.082 7.1H0V7.1C0 3.18 3.17 0 7.082 0z",
     label: "Add to your MCP configuration",
     snippet: JSON.stringify({ mcpServers: { meter: { url: "https://meter.chat/api/mcp", headers: { Authorization: "Bearer your-api-key" } } } }, null, 2),
   },
   {
     id: "replit",
     name: "Replit",
-    icon: "M5 3h10v8H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM5 13h10v8H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2ZM19 3v18",
+    icon: "M11.878 7.761H3.482A1.469 1.469 0 012 6.304V1.457C2 .644 2.67 0 3.482 0h6.913c.827 0 1.483.658 1.483 1.457v6.304zM20.882 16.215h-8.995V7.75h8.995c.87 0 1.588.717 1.588 1.586v5.294c0 .885-.717 1.586-1.588 1.586zM10.395 24H3.482C2.67 24 2 23.343 2 22.546v-4.853c0-.797.67-1.454 1.482-1.454h8.396v6.307c0 .797-.67 1.454-1.483 1.454z",
     label: "Add to your MCP configuration",
     snippet: JSON.stringify({ mcpServers: { meter: { url: "https://meter.chat/api/mcp", headers: { Authorization: "Bearer your-api-key" } } } }, null, 2),
   },
   {
     id: "antigravity",
     name: "Antigravity",
-    icon: "M12 3l-10 18h20Z",
+    icon: "M21.751 22.607c1.34 1.005 3.35.335 1.508-1.508C17.73 15.74 18.904 1 12.037 1 5.17 1 6.342 15.74.815 21.1c-2.01 2.009.167 2.511 1.507 1.506 5.192-3.517 4.857-9.714 9.715-9.714 4.857 0 4.522 6.197 9.714 9.715z",
     label: "Add to your MCP configuration",
     snippet: JSON.stringify({ mcpServers: { meter: { url: "https://meter.chat/api/mcp", headers: { Authorization: "Bearer your-api-key" } } } }, null, 2),
   },
   {
     id: "codex",
     name: "Codex",
-    icon: "M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12",
+    icon: "M8.086.457a6.105 6.105 0 013.046-.415c1.333.153 2.521.72 3.564 1.7a.117.117 0 00.107.029c1.408-.346 2.762-.224 4.061.366l.063.03.154.076c1.357.703 2.33 1.77 2.918 3.198.278.679.418 1.388.421 2.126a5.655 5.655 0 01-.18 1.631.167.167 0 00.04.155 5.982 5.982 0 011.578 2.891c.385 1.901-.01 3.615-1.183 5.14l-.182.22a6.063 6.063 0 01-2.934 1.851.162.162 0 00-.108.102c-.255.736-.511 1.364-.987 1.992-1.199 1.582-2.962 2.462-4.948 2.451-1.583-.008-2.986-.587-4.21-1.736a.145.145 0 00-.14-.032c-.518.167-1.04.191-1.604.185a5.924 5.924 0 01-2.595-.622 6.058 6.058 0 01-2.146-1.781c-.203-.269-.404-.522-.551-.821a7.74 7.74 0 01-.495-1.283 6.11 6.11 0 01-.017-3.064.166.166 0 00.008-.074.115.115 0 00-.037-.064 5.958 5.958 0 01-1.38-2.202 5.196 5.196 0 01-.333-1.589 6.915 6.915 0 01.188-2.132c.45-1.484 1.309-2.648 2.577-3.493.282-.188.55-.334.802-.438.286-.12.573-.22.861-.304a.129.129 0 00.087-.087A6.016 6.016 0 015.635 2.31C6.315 1.464 7.132.846 8.086.457zm-.804 7.85a.848.848 0 00-1.473.842l1.694 2.965-1.688 2.848a.849.849 0 001.46.864l1.94-3.272a.849.849 0 00.007-.854l-1.94-3.393zm5.446 6.24a.849.849 0 000 1.695h4.848a.849.849 0 000-1.696h-4.848z",
     label: "Add to your MCP configuration",
     snippet: JSON.stringify({ mcpServers: { meter: { url: "https://meter.chat/api/mcp", headers: { Authorization: "Bearer your-api-key" } } } }, null, 2),
   },
@@ -332,7 +332,7 @@ function McpSection() {
                 onClick={() => setExpandedId(isExpanded ? null : connector.id)}
                 className="w-full flex items-center gap-2 py-2 px-3 rounded-lg text-left font-mono text-xs text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-50">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd" clipRule="evenodd" className="shrink-0 opacity-50">
                   <path d={connector.icon} />
                 </svg>
                 <span className="flex-1">{connector.name}</span>
