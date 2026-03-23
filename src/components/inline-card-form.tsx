@@ -6,51 +6,31 @@ import { trackCardAdded } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";
 import { StripeProvider } from "@/components/stripe-provider";
 import {
-  CardNumberElement,
-  CardExpiryElement,
-  CardCvcElement,
-  ExpressCheckoutElement,
+  PaymentElement,
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { PaymentIcons } from "@/components/payment-icons";
-
-const cardStyle = {
-  base: {
-    color: "#e5e5e5",
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-    fontSize: "12px",
-    "::placeholder": { color: "#525252" },
-  },
-  invalid: { color: "#ef4444" },
-};
 
 function CardFormInner({
-  clientSecret,
   onComplete,
 }: {
-  clientSecret: string;
   onComplete?: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const setCardOnFile = useMeterStore((s) => s.setCardOnFile);
+  const fetchCards = useMeterStore((s) => s.fetchCards);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expressReady, setExpressReady] = useState(false);
 
-  function handleSuccess() {
-    trackCardAdded({ brand: "card", last4: "****", source: "inline_form" });
-    setCardOnFile(true);
-    onComplete?.();
-  }
-
-  async function handleExpressConfirm() {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     if (!stripe || !elements) return;
+
     setSubmitting(true);
     setError(null);
 
-    const { error: stripeError } = await stripe.confirmSetup({
+    const { error: stripeError, setupIntent } = await stripe.confirmSetup({
       elements,
       redirect: "if_required",
     });
@@ -58,95 +38,65 @@ function CardFormInner({
     if (stripeError) {
       setError(stripeError.message ?? "Payment setup failed");
       setSubmitting(false);
-    } else {
-      handleSuccess();
+      return;
     }
-  }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!stripe || !elements) return;
+    // Confirm card details server-side (handles pre-auth hold + saves card)
+    const paymentMethodId =
+      typeof setupIntent?.payment_method === "string"
+        ? setupIntent.payment_method
+        : setupIntent?.payment_method?.id;
 
-    const cardNumber = elements.getElement(CardNumberElement);
-    if (!cardNumber) return;
-
-    setSubmitting(true);
-    setError(null);
-
-    const { error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
-      payment_method: { card: cardNumber },
-    });
-
-    if (stripeError) {
-      setError(stripeError.message ?? "Payment setup failed");
-      setSubmitting(false);
+    if (paymentMethodId) {
+      try {
+        const res = await authFetch("/api/billing/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentMethodId }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          trackCardAdded({ brand: data.cardBrand ?? "card", last4: data.cardLast4 ?? "****", source: "inline_form" });
+          setCardOnFile(true, data.cardLast4, data.cardBrand);
+        } else if (data.preauthFailed) {
+          setError("Card declined: unable to authorize a $10 hold. Please try a different card.");
+          setSubmitting(false);
+          return;
+        } else {
+          setCardOnFile(true);
+        }
+      } catch {
+        // Fallback: card likely saved via webhook
+        setCardOnFile(true);
+      }
     } else {
-      handleSuccess();
+      setCardOnFile(true);
     }
+
+    await fetchCards();
+    onComplete?.();
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <ExpressCheckoutElement
-        onConfirm={handleExpressConfirm}
-        onReady={({ availablePaymentMethods }) => {
-          if (availablePaymentMethods) setExpressReady(true);
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <PaymentElement
+        options={{
+          layout: "tabs",
+          wallets: { applePay: "auto", googlePay: "auto" },
         }}
       />
 
-      {expressReady && (
-        <div className="flex items-center gap-3">
-          <div className="flex-1 border-t border-border" />
-          <span className="font-mono text-[9px] text-muted-foreground/40 uppercase tracking-wider">
-            or pay with card
-          </span>
-          <div className="flex-1 border-t border-border" />
-        </div>
+      {error && (
+        <p className="font-mono text-[10px] text-red-400">{error}</p>
       )}
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <div>
-          <label className="font-mono text-[10px] text-muted-foreground mb-1 block">
-            Card number
-          </label>
-          <div className="rounded-lg border border-border bg-background px-3 py-2.5">
-            <CardNumberElement options={{ style: cardStyle }} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="font-mono text-[10px] text-muted-foreground mb-1 block">
-              Expiration
-            </label>
-            <div className="rounded-lg border border-border bg-background px-3 py-2.5">
-              <CardExpiryElement options={{ style: cardStyle }} />
-            </div>
-          </div>
-          <div>
-            <label className="font-mono text-[10px] text-muted-foreground mb-1 block">
-              CVC
-            </label>
-            <div className="rounded-lg border border-border bg-background px-3 py-2.5">
-              <CardCvcElement options={{ style: cardStyle }} />
-            </div>
-          </div>
-        </div>
-
-        <PaymentIcons />
-
-        {error && (
-          <p className="font-mono text-[10px] text-red-400">{error}</p>
-        )}
-        <button
-          type="submit"
-          disabled={!stripe || submitting}
-          className="w-full rounded-lg bg-emerald-600 px-3 py-1.5 font-mono text-[10px] text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
-        >
-          {submitting ? "Saving..." : "Save Card"}
-        </button>
-      </form>
-    </div>
+      <button
+        type="submit"
+        disabled={!stripe || submitting}
+        className="w-full rounded-lg bg-emerald-600 px-3 py-1.5 font-mono text-[10px] text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+      >
+        {submitting ? "Saving..." : "Save Card"}
+      </button>
+    </form>
   );
 }
 
@@ -202,11 +152,11 @@ export function InlineCardForm({ onComplete }: { onComplete?: () => void } = {})
   return (
     <div className="mt-3 max-w-sm">
       <StripeProvider clientSecret={clientSecret}>
-        <CardFormInner clientSecret={clientSecret} onComplete={onComplete} />
+        <CardFormInner onComplete={onComplete} />
       </StripeProvider>
 
       <p className="mt-2 font-mono text-[10px] text-muted-foreground/50 leading-relaxed">
-        A small hold verifies your card. Usage settles at $10 or when you choose.
+        A $10 hold verifies your card. Usage settles at $10 or when you choose.
       </p>
     </div>
   );

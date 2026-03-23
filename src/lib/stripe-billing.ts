@@ -16,6 +16,7 @@ export function getStripe(): Stripe {
 /**
  * Ensure the user has a Stripe customer ID stored.
  * If missing, creates a new Stripe customer and saves the ID.
+ * Uses conditional UPDATE to prevent duplicate customer creation from concurrent calls.
  */
 export async function ensureStripeCustomer(userId: string): Promise<{ customerId: string; paymentMethodId: string | null }> {
   const supabase = getSupabaseServer();
@@ -44,10 +45,28 @@ export async function ensureStripeCustomer(userId: string): Promise<{ customerId
     });
     customerId = customer.id;
 
-    await supabase
+    // Conditional update: only set if still null (prevents race condition duplicates)
+    const { data: updated } = await supabase
       .from("meter_users")
       .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
-      .eq("id", userId);
+      .eq("id", userId)
+      .is("stripe_customer_id", null)
+      .select("stripe_customer_id")
+      .single();
+
+    // If another request already set a customer ID, use that one and delete ours
+    if (!updated) {
+      const { data: existing } = await supabase
+        .from("meter_users")
+        .select("stripe_customer_id")
+        .eq("id", userId)
+        .single();
+      if (existing?.stripe_customer_id && existing.stripe_customer_id !== customerId) {
+        // Delete the duplicate we just created
+        try { await stripe.customers.del(customerId); } catch { /* best effort */ }
+        customerId = existing.stripe_customer_id;
+      }
+    }
   }
 
   return {

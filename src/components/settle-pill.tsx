@@ -25,6 +25,8 @@ export function SettlePill() {
   const activeProject = sessions.find((p) => p.id === activeSessionId) ?? null;
   const settlementError = activeProject?.settlementError ?? null;
 
+  const creditBalance = useMeterStore((s) => s.creditBalance);
+
   const pendingBalance = useMemo(() => {
     if (!activeProject) return 0;
     const msgCost = activeProject.messages
@@ -33,8 +35,9 @@ export function SettlePill() {
     const cardCost = pendingCharges
       .filter((c) => c.workspaceId === activeProject.id)
       .reduce((sum, c) => sum + c.cost, 0);
-    return msgCost + cardCost;
-  }, [activeProject, pendingCharges]);
+    // Subtract credit balance — can go negative (user is "in credit")
+    return msgCost + cardCost - creditBalance;
+  }, [activeProject, pendingCharges, creditBalance]);
 
   const lineItems = useMemo(() => {
     const unsettledMsgs = activeProject
@@ -129,8 +132,8 @@ export function SettlePill() {
                 : "border-border text-muted-foreground"
         }`}
       >
-        <span className="px-2.5 tabular-nums text-foreground">
-          ${pendingBalance.toFixed(2)}
+        <span className={`px-2.5 tabular-nums ${pendingBalance < 0 ? "text-emerald-400" : "text-foreground"}`}>
+          {pendingBalance < 0 ? `-$${Math.abs(pendingBalance).toFixed(2)}` : `$${pendingBalance.toFixed(2)}`}
         </span>
         <span className="h-4 w-px bg-border" />
         <span className="px-2.5 text-muted-foreground hover:text-foreground transition-colors">
@@ -183,11 +186,22 @@ export function SettlePill() {
 
           <div className="border-t border-border px-4 py-3 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[11px] text-muted-foreground">Total</span>
-              <span className="font-mono text-sm font-medium tabular-nums text-foreground">
-                ${pendingBalance.toFixed(2)}
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {pendingBalance < 0 ? "Credit" : "Total"}
+              </span>
+              <span className={`font-mono text-sm font-medium tabular-nums ${pendingBalance < 0 ? "text-emerald-400" : "text-foreground"}`}>
+                {pendingBalance < 0 ? `-$${Math.abs(pendingBalance).toFixed(2)}` : `$${pendingBalance.toFixed(2)}`}
               </span>
             </div>
+
+            {creditBalance > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] text-emerald-400/60">Credit remaining</span>
+                <span className="font-mono text-[10px] tabular-nums text-emerald-400/60">
+                  ${creditBalance.toFixed(2)}
+                </span>
+              </div>
+            )}
 
             {settlementError && (
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
@@ -200,7 +214,7 @@ export function SettlePill() {
 
             <button
               onClick={handleSettle}
-              disabled={isSettling || pendingBalance <= 0}
+              disabled={isSettling || pendingBalance < 0.50}
               className={`w-full rounded-lg py-2 font-mono text-[11px] transition-colors ${
                 settled
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
@@ -211,7 +225,9 @@ export function SettlePill() {
                 ? "Settled"
                 : isSettling
                   ? "Processing..."
-                  : `Pay & Settle $${pendingBalance.toFixed(2)}`}
+                  : pendingBalance < 0.50
+                    ? "Below $0.50 minimum"
+                    : `Pay & Settle $${pendingBalance.toFixed(2)}`}
             </button>
 
             {cardLast4 && (
