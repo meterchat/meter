@@ -38,9 +38,10 @@ When a user initiates a debate:
 
 ## Connectors + Modes
 
-- Planner mode: Gmail/Linear/Calendar → decisions, follow-ups, strategy artifacts
-- Coder mode: GitHub/Vercel/Porkbun → commits, PRs, deploys
-- Banker mode: Stripe/Mercury/Puzzle/Gusto → runway/burn/revenue summaries
+- Planner mode: Gmail/PostHog → decisions, follow-ups, strategy artifacts
+- Coder mode: GitHub/Vercel/Porkbun → commits, deploys, domains
+- Banker mode: Stripe/Mercury/Ramp → revenue/burn/transaction summaries
+- Additional: Supabase connector (database queries, available in any mode)
 
 Keep connector scopes minimal; request read-only where possible.
 

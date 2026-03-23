@@ -1,4 +1,6 @@
-# Meter — Thesis
+# Meter — SDK Thesis (Future Vision)
+
+> **Note:** This document describes a future developer SDK product vision. The current Meter product is a direct-to-consumer AI workspace with 2.0x markup billing. See `PRICING.md` for current billing details.
 
 ## The Billing Layer for AI
 

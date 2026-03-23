@@ -23,7 +23,7 @@ bun run lint   # Run ESLint
 - `src/app/` — Next.js App Router pages and API routes
 - `src/components/` — React components
 - `src/hooks/` — Custom React hooks
-- `src/lib/` — Shared utilities, state management, chain config
+- `src/lib/` — Shared utilities, state management, model definitions, connector integrations
 
 ## Pull Requests
 
@@ -49,7 +49,7 @@ Open a [GitHub Issue](https://github.com/meterxyz/meter/issues) with:
 - A clear title and description
 - Steps to reproduce (if applicable)
 - Expected vs actual behavior
-- Browser/OS/wallet information
+- Browser/OS information
 
 ## License
 

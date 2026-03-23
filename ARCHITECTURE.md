@@ -2,7 +2,7 @@
 
 ## Overview
 
-Meter is a postpaid, multi-model AI workspace for builders. It sits in the pre-execution layer — between human strategic thinking and AI coding agents. Its primary technical job is to route intelligence, structure adversarial debates between models, log decisions as persistent records, and commit agent-ready artifacts to GitHub.
+Meter is a postpaid, multi-model AI workspace for builders. It sits in the pre-execution layer — between human strategic thinking and AI coding agents. Its primary technical job is to route intelligence across frontier models, structure adversarial debates, log decisions as persistent records, and commit agent-ready artifacts to GitHub.
 
 ---
 
@@ -11,30 +11,40 @@ Meter is a postpaid, multi-model AI workspace for builders. It sits in the pre-e
 1. **Intelligence is a utility.** Route it like compute, meter it like bandwidth, log it like code.
 2. **Decisions are first-class objects.** Not chat transcripts. Timestamped, searchable, versioned records.
 3. **The handoff is sacred.** Every artifact Meter generates must be immediately consumable by a coding agent without further interpretation.
-4. **Private by default.** End-to-end encrypted. Open source core. Self-hostable.
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-- **Framework:** Next.js (App Router)
-- **Styling:** Tailwind CSS
-- **Auth:** NextAuth.js / Auth.js
-- **State:** React Query + Zustand
+- **Framework:** Next.js 15 (App Router, Turbopack)
+- **Language:** TypeScript (strict mode)
+- **Styling:** Tailwind CSS + Radix UI primitives
+- **State:** Zustand (with localStorage persistence)
+- **Animations:** Framer Motion
+- **Auth UI:** SimpleWebAuthn (passkey-based, no passwords)
+- **Payments UI:** Stripe Elements (Payment Element, Express Checkout)
+- **Mobile:** Capacitor (iOS/Android shell)
 
 ### Backend
-- **Runtime:** Node.js / Next.js API routes
-- **Database:** PostgreSQL (primary store for decisions, debates, artifacts)
-- **ORM:** Prisma
-- **Queue:** Redis + BullMQ (for async debate orchestration)
-- **Storage:** S3-compatible (for artifact file storage)
+- **Runtime:** Node.js / Next.js API routes (serverless on Vercel)
+- **Database:** Supabase (PostgreSQL) with Row-Level Security on all user data tables
+- **Database Client:** Supabase JS SDK (service role key for server routes, anon key for client)
+- **Auth:** WebAuthn passkeys via SimpleWebAuthn — no passwords, no OAuth login
+- **Sessions:** Server-side session tokens stored in `auth_sessions` table
 
 ### AI Layer
-- **Model Routing:** Custom router that selects optimal model based on task type, cost, and rate limit state
-- **Models:** OpenAI (GPT-4o, o1), Anthropic (Claude 3.5 Sonnet, Claude 3 Opus), Google (Gemini 1.5 Pro), Grok, DeepSeek, Llama (via Groq/Together)
-- **Debate Orchestration:** Custom adversarial prompt framework — models are assigned positions and forced to attack each other's logic, not just respond to the user
-- **Billing:** Token counting per request, aggregated to postpaid invoice via Stripe
+- **Model Routing:** Multi-tier fallback system
+  - Tier 1: Direct provider API keys (Anthropic, OpenAI, Google, xAI, DeepSeek)
+  - Tier 2: OpenRouter (same model, fallback router)
+  - Tier 3: AWS Bedrock (Claude models only)
+  - Tier 4: Auto-route to alternate model if all tiers fail
+- **Models:** Claude Opus 4.6, Claude Sonnet 4.6, GPT-5.4, Gemini 3.1 Pro, Grok 4.1 Fast, DeepSeek V3
+- **Virtual Models:** Auto (Meter routing), Debate (multi-model), Dissect (multi-persona analysis)
+- **Debate Orchestration:** 4-phase adversarial framework (Opening → Challenge → Vote → Synthesis) across 3 models from 3 independent labs
+- **Dissection Engine:** 4-persona analytical framework (First Principles → Inversion → Pre-mortem → Verdict) using Claude Opus 4.6
+- **Caching:** Prompt caching on system prompt + context (Anthropic/Gemini/DeepSeek = 0.1x read rate, OpenAI = 0.5x)
+- **Billing:** Token counting per request with configurable markup multiplier (default 2.0x), aggregated to auto-settlement via Stripe
 
 ### GitHub Integration
 - **Type:** GitHub App (NOT OAuth App)
@@ -42,61 +52,106 @@ Meter is a postpaid, multi-model AI workspace for builders. It sits in the pre-e
 - **Token type:** Short-lived installation access tokens (1 hour expiry)
 - **Commit behavior:** Meter commits Agent Spec Kit files directly to user-selected repos
 
-### Connectors
-- **Gmail:** Google OAuth (read scope only) — grounds strategy debates in real email context
-- **Mercury:** Mercury API — surfaces real burn rate and runway in Banker mode
-- **Stripe:** Stripe API — surfaces real revenue in Banker mode
-- **Linear:** Linear API — syncs decisions to issues in Planner mode
+### Connectors (9 implemented)
+
+| Connector | Type | Capabilities |
+|-----------|------|-------------|
+| **Gmail** | OAuth | Search emails, read email content |
+| **GitHub** | OAuth | List repos, create repos/issues, read/write files |
+| **Stripe** | OAuth | List payments, get balance, list subscriptions |
+| **Mercury** | API Key | Get accounts, list transactions |
+| **Vercel** | OAuth | List deployments, trigger deployment |
+| **Porkbun** | API Key | Check domain availability, register domains, get pricing |
+| **Ramp** | API Key | List transactions, get spending summary |
+| **PostHog** | API Key | Query events, get insights |
+| **Supabase** | API Key | Run SQL queries, list tables |
 
 ---
 
 ## Core Data Models
 
-### Decision
+### Decision (decisions table)
 ```
-Decision {
+decisions {
   id: uuid
-  title: string
-  context: string
-  choice: string
-  reasoning: string
-  alternatives: string[]
-  createdAt: timestamp
-  updatedAt: timestamp
-  userId: uuid
-  projectId: uuid
-  debateId: uuid? (optional, if born from a debate)
-  isAnonymized: boolean (for future Altimeter/community layer)
+  user_id: text
+  title: text
+  status: text           -- 'undecided' | 'decided'
+  archived: boolean
+  choice: text           -- the final decision
+  alternatives: jsonb    -- array of options considered
+  reasoning: text
+  session_id: text       -- workspace scope
+  chat_message_id: text  -- linked message (if born from conversation)
+  category: text
+  parent_decision_id: uuid  -- for versioning (superseded decision)
+  version: integer       -- increments on reopen
+  revisit_count: integer
+  created_at: timestamptz
+  updated_at: timestamptz
 }
 ```
 
-### Debate
+### Chat Message (chat_messages table)
 ```
-Debate {
-  id: uuid
-  question: string
-  models: string[] (e.g. ['claude', 'gpt4o', 'gemini'])
-  rounds: DebateRound[]
-  consensus: string
-  tradeoffs: string[]
-  winnerId: string (model that argued the winning position)
-  decisionId: uuid? (linked Decision if user locked it in)
-  createdAt: timestamp
-  userId: uuid
+chat_messages {
+  id: text
+  session_id: text
+  role: text             -- 'user' | 'assistant' | 'system'
+  content: text
+  model: text            -- model ID used
+  tokens_in: integer
+  tokens_out: integer
+  cache_creation_tokens: integer
+  cache_read_tokens: integer
+  cache_read_rate: real  -- provider-specific discount
+  cost: real             -- USD cost to user (after markup)
+  confidence: real
+  debate_trace: jsonb    -- full debate phases (if debate mode)
+  dissector_trace: jsonb -- full dissection output (if dissect mode)
+  documents: jsonb       -- artifact snapshots
+  thinking: text         -- model reasoning trace
+  settled: boolean
+  pinned: boolean
+  created_at: timestamptz
 }
 ```
 
-### Artifact
+### Artifact (artifacts table)
 ```
-Artifact {
+artifacts {
   id: uuid
-  type: enum (ARCHITECTURE | DECISIONS | CURSORRULES | CLAUDE | README | DESIGN)
-  content: string (markdown)
-  commitSha: string? (if pushed to GitHub)
-  repo: string? (owner/name format)
-  createdAt: timestamp
-  userId: uuid
-  projectId: uuid
+  user_id: text
+  session_id: text       -- workspace scope
+  file_path: text        -- e.g. 'README.md', 'ARCHITECTURE.md'
+  content: text          -- markdown content
+  status: text           -- 'draft' | 'synced'
+  category: text         -- readme | architecture | design | decisions | claude | cursorrules
+  github_repo: text      -- owner/name format
+  github_sha: text       -- last committed SHA
+  last_pushed_at: timestamptz
+  created_at: timestamptz
+  updated_at: timestamptz
+}
+```
+
+### Workspace (chat_sessions table, is_subtrack = false)
+```
+chat_sessions {
+  id: text
+  user_id: text
+  workspace_name: text
+  is_subtrack: boolean   -- false = workspace, true = track/fork
+  parent_session_id: text
+  total_cost: real
+  daily_limit: real
+  monthly_limit: real
+  per_txn_limit: real
+  today_cost / week_cost / month_cost: real
+  settlement_failed: boolean
+  portal_slug: text      -- for public docs portal
+  committed: boolean
+  created_at: timestamptz
 }
 ```
 
@@ -120,18 +175,18 @@ When a user triggers the handoff, Meter generates and commits the following file
 ## Three Agent Modes
 
 ### Planner Mode
-- **Connectors:** Gmail, Linear, Calendar
+- **Connectors:** Gmail, PostHog
 - **Capabilities:** Strategy debates, decision logging, follow-up tracking, artifact generation
 - **Output:** Decision records, debate transcripts, Agent Spec Kit
 
 ### Coder Mode
 - **Connectors:** GitHub, Vercel, Porkbun
 - **Capabilities:** Repo management, branch creation, deploy triggers, domain registration
-- **Output:** GitHub commits, PRs, live deploy URLs
+- **Output:** GitHub commits, live deploy URLs, registered domains
 
 ### Banker Mode
-- **Connectors:** Stripe, Mercury, Puzzle, Gusto
-- **Capabilities:** Runway calculation, burn analysis, revenue trend, spend review
+- **Connectors:** Stripe, Mercury, Ramp
+- **Capabilities:** Revenue analysis, burn rate, transaction review, spending summary
 - **Output:** Financial summaries grounded in real data, not hallucinated projections
 
 ---
@@ -139,20 +194,33 @@ When a user triggers the handoff, Meter generates and commits the following file
 ## Billing Architecture
 
 - **Model:** Postpaid, pay-per-thought (token-based)
+- **Markup:** Configurable multiplier on wholesale model costs (default 2.0x)
 - **No flat fees.** No subscriptions. No idle seat charges.
-- **Hard wallet caps** configurable per user — guaranteed never to overspend
-- **Receipt:** Full, transparent itemized log of every token consumed, by model, by conversation
-- **Invoicing:** Monthly via Stripe
+- **Spend limits:** Configurable daily, monthly, and per-transaction caps per workspace
+- **Auto-settlement:** Daily cron job settles workspaces with ≥$10 pending balance via Stripe
+- **Exposure caps:** $20 (new user) → $100 (after 2 successful settlements) → $250 (after 3+)
+- **Minimum charge:** $0.50 (Stripe minimum)
+- **Receipt:** Per-message cost breakdown with model, tokens, cache stats, and settlement status
+
+### Cost Calculation
+```
+uncachedInput = tokensIn - cacheCreationTokens - cacheReadTokens
+inputCost = (uncachedInput × inputPrice) +
+            (cacheCreationTokens × inputPrice × 1.25) +
+            (cacheReadTokens × inputPrice × cacheReadRate)
+totalCost = (inputCost + tokensOut × outputPrice) × markupMultiplier
+```
 
 ---
 
 ## Security
 
-- End-to-end encryption for all decision records and debate transcripts
-- GitHub App tokens expire after 1 hour (installation access tokens)
-- No model provider sees user data beyond the current request
-- Open source core — auditable by anyone
-- Self-hostable for enterprise users
+- **Authentication:** WebAuthn passkeys (no passwords stored)
+- **OAuth tokens:** Encrypted at rest with AES-256-GCM (12-byte IV, 16-byte auth tag)
+- **Database:** Row-Level Security (RLS) enabled on all user data tables
+- **GitHub App tokens:** Expire after 1 hour (installation access tokens)
+- **No model provider sees user data** beyond the current request
+- **Server-side secrets:** API keys and service role keys never exposed to client
 
 ---
 
