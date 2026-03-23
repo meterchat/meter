@@ -38,8 +38,8 @@ export function SettlePill() {
     const cardCost = pendingCharges
       .filter((c) => c.workspaceId === activeProject.id)
       .reduce((sum, c) => sum + c.cost, 0);
-    // Subtract credit balance — can go negative (user is "in credit")
-    return msgCost + cardCost - creditBalance;
+    // DISABLED: Credits feature disabled for launch
+    return msgCost + cardCost;
   }, [activeProject, pendingCharges, creditBalance]);
 
   const lineItems = useMemo(() => {
@@ -159,12 +159,13 @@ export function SettlePill() {
             {pendingBalance < 0 ? `-$${Math.abs(pendingBalance).toFixed(2)}` : `$${pendingBalance.toFixed(2)}`}
           </span>
         </div>
+        {/* DISABLED: Credits feature disabled for launch. Uncomment to reactivate.
         {creditBalance > 0 && (
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] text-emerald-400/60">Credit remaining</span>
             <span className="font-mono text-[10px] tabular-nums text-emerald-400/60">${creditBalance.toFixed(2)}</span>
           </div>
-        )}
+        )} */}
         {settlementError && (
           <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
             <span className="font-mono text-[10px] text-red-400">{settlementError}</span>

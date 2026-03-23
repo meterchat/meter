@@ -60,20 +60,18 @@ export async function settleWorkspace(opts: {
   const markupMultiplier = Number(configRow?.markup_multiplier) || DEFAULT_MARKUP_MULTIPLIER;
 
   try {
-    // ── Step 1: Atomically deduct available credit ──
-    const { data: creditDeducted } = await supabase.rpc("deduct_credit", {
-      p_user_id: userId,
-      p_amount: amount,
-    });
-    const creditUsed = Number(creditDeducted) || 0;
+    // DISABLED: Credits feature disabled for launch. Uncomment to reactivate.
+    // // ── Step 1: Atomically deduct available credit ──
+    // const { data: creditDeducted } = await supabase.rpc("deduct_credit", {
+    //   p_user_id: userId,
+    //   p_amount: amount,
+    // });
+    // const creditUsed = Number(creditDeducted) || 0;
+    const creditUsed = 0;
     const stripeAmount = Math.round((amount - creditUsed) * 100) / 100; // round to cents
 
-    // If credit doesn't cover everything and the Stripe remainder is below minimum,
-    // roll back the credit deduction and skip settlement (wait for more usage).
+    // If the Stripe amount is below minimum, defer settlement.
     if (stripeAmount > 0 && stripeAmount < STRIPE_MINIMUM_CHARGE) {
-      if (creditUsed > 0) {
-        await supabase.rpc("restore_credit", { p_user_id: userId, p_amount: creditUsed });
-      }
       return { success: false, error: `Pending amount $${stripeAmount.toFixed(2)} below Stripe minimum ($${STRIPE_MINIMUM_CHARGE.toFixed(2)}). Settlement deferred.` };
     }
 
@@ -84,10 +82,6 @@ export async function settleWorkspace(opts: {
       const { customerId, paymentMethodId } = await ensureStripeCustomer(userId);
 
       if (!paymentMethodId) {
-        // Restore credit since we can't charge
-        if (creditUsed > 0) {
-          await supabase.rpc("restore_credit", { p_user_id: userId, p_amount: creditUsed });
-        }
         throw new Error("No payment method on file");
       }
 

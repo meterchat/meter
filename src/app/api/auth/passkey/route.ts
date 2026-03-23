@@ -168,27 +168,27 @@ export async function POST(req: NextRequest) {
       // Create user with handle and auto-generated internal email
       const internalEmail = `${handle}@meter.chat`;
 
-      // Check if this user qualifies for bonus credit (first N signups)
-      let initialCredit = 0;
-      try {
-        const { data: config } = await supabase
-          .from("app_config")
-          .select("bonus_credit_limit, bonus_credit_amount")
-          .eq("id", "global")
-          .single();
-        if (config) {
-          const limit = Number(config.bonus_credit_limit) || 0;
-          const amount = Number(config.bonus_credit_amount) || 0;
-          if (limit > 0 && amount > 0) {
-            const { count } = await supabase
-              .from("meter_users")
-              .select("id", { count: "exact", head: true });
-            if ((count ?? 0) < limit) {
-              initialCredit = amount;
-            }
-          }
-        }
-      } catch { /* non-fatal — skip credit grant */ }
+      // DISABLED: Credits feature disabled for launch. Uncomment to reactivate.
+      const initialCredit = 0;
+      // try {
+      //   const { data: config } = await supabase
+      //     .from("app_config")
+      //     .select("bonus_credit_limit, bonus_credit_amount")
+      //     .eq("id", "global")
+      //     .single();
+      //   if (config) {
+      //     const limit = Number(config.bonus_credit_limit) || 0;
+      //     const amount = Number(config.bonus_credit_amount) || 0;
+      //     if (limit > 0 && amount > 0) {
+      //       const { count } = await supabase
+      //         .from("meter_users")
+      //         .select("id", { count: "exact", head: true });
+      //       if ((count ?? 0) < limit) {
+      //         initialCredit = amount;
+      //       }
+      //     }
+      //   }
+      // } catch { /* non-fatal — skip credit grant */ }
 
       const { error: insertErr } = await supabase
         .from("meter_users")
