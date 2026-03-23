@@ -661,12 +661,6 @@ function AuthButtons({
       >
         Create new passkey
       </button>
-      <button
-        onClick={onBack}
-        className="font-mono text-[10px] text-muted-foreground/30 hover:text-muted-foreground transition-colors"
-      >
-        Back
-      </button>
     </div>
   );
 }
