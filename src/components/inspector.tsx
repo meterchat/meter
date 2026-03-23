@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useMeterStore } from "@/lib/store";
+import { useMeterStore, selectWorkspaceCardReady } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
 import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
@@ -782,6 +782,7 @@ const MCP_CONNECTORS: McpConnector[] = [
 
 function ConnectTab() {
   const { userId } = useMeterStore();
+  const workspaceCardReady = useMeterStore(selectWorkspaceCardReady);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -897,8 +898,9 @@ function ConnectTab() {
         ) : (
           <button
             onClick={generateKey}
-            disabled={loading}
-            className="rounded-md border border-border px-3 py-2 font-sans text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50"
+            disabled={loading || !workspaceCardReady}
+            title={!workspaceCardReady ? "Complete onboarding first" : undefined}
+            className="rounded-md border border-border px-3 py-2 font-sans text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Generating..." : "Generate API Key"}
           </button>
