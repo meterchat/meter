@@ -81,13 +81,17 @@ export default function SlidesPage() {
         className="flex-1 flex transition-opacity duration-400"
         style={{ opacity: fading ? 0 : 1 }}
       >
-        {/* Centered row: text + animation */}
-        <div className="w-full flex items-center justify-center gap-[8vw]">
+        {/* Left — text (fixed position) */}
+        <div className="w-1/2 flex items-center justify-end pr-[4vw]">
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground leading-[1.1] whitespace-nowrap">
             {slide.line1}
             <br />
             {slide.line2}
           </h1>
+        </div>
+
+        {/* Right — animation */}
+        <div className="w-1/2 flex items-center justify-start pl-[4vw]">
           <div
             className="origin-center"
             style={{ transform: `scale(${slide.scale})` }}
