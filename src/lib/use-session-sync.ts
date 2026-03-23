@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useMeterStore, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn, type DissectorTurn, type DocumentPreview } from "@/lib/store";
+import { useMeterStore, createSession, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn, type DissectorTurn, type DocumentPreview } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { authFetch } from "@/lib/auth-fetch";
 import { useDecisionsStore } from "@/lib/decisions-store";
@@ -470,6 +470,16 @@ export function useSessionSync() {
         if (cancelled) return;
 
         if (!data.sessions?.length) {
+          // If local sessions are also empty, recreate a default session
+          // so the user isn't stuck in an unrecoverable state
+          const currentStore = useMeterStore.getState();
+          if (currentStore.sessions.length === 0) {
+            const fresh = createSession("default", "My Workspace");
+            useMeterStore.setState({
+              sessions: [fresh],
+              activeSessionId: "default",
+            });
+          }
           useMeterStore.getState().setSessionsLoaded(true);
           return;
         }

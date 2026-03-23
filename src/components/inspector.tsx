@@ -29,6 +29,7 @@ function DeleteDangerZone({
   deleting,
   settlingBeforeDelete,
   deleteSettleError,
+  isLastWorkspace,
 }: {
   workspaceName: string;
   deleteConfirmText: string;
@@ -37,6 +38,7 @@ function DeleteDangerZone({
   deleting: boolean;
   settlingBeforeDelete: boolean;
   deleteSettleError: string | null;
+  isLastWorkspace?: boolean;
 }) {
   const pendingBalance = useMeterStore.getState().getPendingBalance();
   const hasPending = pendingBalance > 0.01;
@@ -47,6 +49,12 @@ function DeleteDangerZone({
       <div className="font-sans text-xs text-red-400/70 uppercase tracking-wider">
         Danger Zone
       </div>
+      {isLastWorkspace ? (
+        <p className="font-sans text-xs text-muted-foreground/60 leading-relaxed">
+          Create another workspace before deleting this one.
+        </p>
+      ) : (
+      <>
       <p className="font-sans text-xs text-muted-foreground/60 leading-relaxed">
         Type <span className="text-foreground/80">{workspaceName}</span> to confirm deletion. This removes all messages and data for this workspace.
       </p>
@@ -77,6 +85,8 @@ function DeleteDangerZone({
       <p className="font-sans text-xs text-muted-foreground/70 leading-relaxed">
         Deleted workspaces are retained for 7 days. To recover, email support@meter.chat within 7 days of deletion.
       </p>
+      </>
+      )}
     </div>
   );
 }
@@ -121,8 +131,11 @@ export function Inspector() {
     }
   }, [inspectorTab, setInspectorTab]);
 
+  const isLastWorkspace = workspaces.length <= 1;
+
   const handleDeleteWorkspace = async () => {
     if (!activeWorkspace) return;
+    if (isLastWorkspace) return;
 
     // Settle any pending balance before deletion
     const store = useMeterStore.getState();
@@ -400,6 +413,7 @@ export function Inspector() {
             deleting={deleting}
             settlingBeforeDelete={settlingBeforeDelete}
             deleteSettleError={deleteSettleError}
+            isLastWorkspace={isLastWorkspace}
           />
         </div>
       </div>
