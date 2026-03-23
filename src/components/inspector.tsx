@@ -1481,7 +1481,7 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
                 className="rounded px-2 py-0.5 font-sans text-xs text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
                 title="Download all"
               >
-                Download
+                Download all
               </button>
             </>
           )}
