@@ -315,7 +315,7 @@ function mondayStr() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function createSession(id: string, name: string): Session {
+export function createSession(id: string, name: string): Session {
   return {
     id,
     name,
@@ -383,7 +383,7 @@ function ensureDaily(session: Session): Session {
 }
 
 function getActiveSession(state: MeterState): Session {
-  return state.sessions.find((p) => p.id === state.activeSessionId) ?? state.sessions[0];
+  return state.sessions.find((p) => p.id === state.activeSessionId) ?? state.sessions[0] ?? createSession("default", "My Workspace");
 }
 
 /** Get the workspace-level session, resolving subtracks to their parent workspace. */
@@ -749,9 +749,14 @@ export const useMeterStore = create<MeterState>()(
       removeSession: (id) =>
         set((s) => {
           const remaining = s.sessions.filter((p) => p.id !== id);
+          if (remaining.length === 0) {
+            // Never leave sessions empty — recreate a fresh default session
+            const fresh = createSession("default", "My Workspace");
+            return { sessions: [fresh], activeSessionId: "default" };
+          }
           const nextActiveId =
             s.activeSessionId === id
-              ? remaining[0]?.id ?? "default"
+              ? remaining[0].id
               : s.activeSessionId;
           return { sessions: remaining, activeSessionId: nextActiveId };
         }),
