@@ -13,10 +13,8 @@ import {
 
 function CardForm({
   onComplete,
-  onError,
 }: {
   onComplete: () => void;
-  onError: (msg: string) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -41,7 +39,7 @@ function CardForm({
       return;
     }
 
-    // Confirm card details server-side (handles pre-auth hold + saves card)
+    // Confirm card details server-side (saves card)
     const paymentMethodId =
       typeof setupIntent?.payment_method === "string"
         ? setupIntent.payment_method
@@ -49,18 +47,11 @@ function CardForm({
 
     if (paymentMethodId) {
       try {
-        const res = await authFetch("/api/billing/confirm", {
+        await authFetch("/api/billing/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ paymentMethodId }),
         });
-        const data = await res.json();
-        if (data.preauthFailed) {
-          setError("Card declined: unable to authorize a $10 hold. Please try a different card.");
-          onError(data.error ?? "Pre-auth failed");
-          setSubmitting(false);
-          return;
-        }
       } catch {
         // Fallback: card likely saved via webhook
       }
@@ -174,13 +165,12 @@ export function AddCardModal({ open, onClose }: { open: boolean; onClose: () => 
                     fetchCards();
                     onClose();
                   }}
-                  onError={(msg) => setError(msg)}
-                />
+/>
               </StripeProvider>
 
               <div className="rounded-lg border border-border/50 bg-card/50 px-4 py-3">
                 <p className="font-mono text-[11px] text-muted-foreground/60 leading-relaxed">
-                  A $10 hold verifies your card. Usage settles automatically
+                  Your card will be charged based on usage. Settles automatically
                   when your balance reaches $10, or you can settle anytime.
                 </p>
               </div>

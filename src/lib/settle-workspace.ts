@@ -102,26 +102,6 @@ export async function settleWorkspace(opts: {
         },
       });
       paymentIntentId = paymentIntent.id;
-
-      // ── Step 3: Cancel pre-auth hold on first settlement ──
-      const { data: userRow } = await supabase
-        .from("meter_users")
-        .select("preauth_payment_intent_id")
-        .eq("id", userId)
-        .single();
-
-      if (userRow?.preauth_payment_intent_id) {
-        try {
-          await stripe.paymentIntents.cancel(userRow.preauth_payment_intent_id);
-        } catch (cancelErr) {
-          // Non-fatal — hold may have already expired or been cancelled
-          console.warn("Failed to cancel pre-auth hold:", cancelErr);
-        }
-        await supabase
-          .from("meter_users")
-          .update({ preauth_payment_intent_id: null, updated_at: new Date().toISOString() })
-          .eq("id", userId);
-      }
     }
 
     // ── Step 4: Mark messages as settled ──
