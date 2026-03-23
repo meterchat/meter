@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { deleteAllUserSessions } from "@/lib/session";
 import { serverTrackAccountDeleted } from "@/lib/analytics-server";
+import { getStripe } from "@/lib/stripe-billing";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
@@ -48,8 +49,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Note: Stripe customer cleanup can be done via stripe.customers.del() if needed.
-    // For now we just soft-delete the user record.
+    // Delete Stripe customer (payment methods, subscriptions cleaned up by Stripe)
+    if (user.stripe_customer_id) {
+      const stripe = getStripe();
+      try {
+        await stripe.customers.del(user.stripe_customer_id);
+      } catch (err) {
+        console.error("Stripe customer deletion failed:", err);
+      }
+    }
 
     // Delete related data without cascade
     const { data: userSessions } = await supabase
