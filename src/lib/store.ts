@@ -1068,8 +1068,8 @@ export const useMeterStore = create<MeterState>()(
               sessions: prev.sessions.map((p) => p.id === active.id ? updatedSession : p),
               pendingCharges: remainingCharges,
               isSettling: false,
-              // Update credit balance after server-side deduction
-              creditBalance: Math.max(0, prev.creditBalance - creditApplied),
+              // DISABLED: Credits feature disabled for launch
+              creditBalance: 0,
             };
           });
           return { success: true };
