@@ -635,9 +635,6 @@ function AuthButtons({
 
   return (
     <div className="flex flex-col items-center gap-3 w-full max-w-xs mx-auto">
-      <p className="text-sm text-muted-foreground">
-        No account found on this device
-      </p>
       {error && (
         <p className="font-mono text-[11px] text-red-400">{error}</p>
       )}
@@ -645,7 +642,7 @@ function AuthButtons({
         <p className="font-mono text-[11px] text-muted-foreground/60">{status}</p>
       )}
       <button
-        onClick={onCreateAccount}
+        onClick={onCrossDevice}
         disabled={loading}
         className="w-full h-12 rounded-xl bg-foreground text-background text-sm font-medium transition-all hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-50 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-foreground/5"
       >
@@ -655,14 +652,14 @@ function AuthButtons({
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
         )}
-        {loading ? "Setting up..." : "Create new account"}
+        {loading ? "Authenticating..." : "Sign in to start thinking"}
       </button>
       <button
-        onClick={onCrossDevice}
+        onClick={onCreateAccount}
         disabled={loading}
         className="w-full h-10 rounded-xl border border-foreground/[0.08] text-foreground text-sm font-medium transition-colors hover:bg-foreground/[0.03] active:bg-foreground/[0.05] disabled:opacity-50"
       >
-        Sign in from another device
+        Create new passkey
       </button>
       <button
         onClick={onBack}
@@ -825,7 +822,7 @@ export function LandingPage() {
   const handleCrossDevice = async () => {
     setLoading(true);
     setError(null);
-    setStatus("Waiting for cross-device authentication...");
+    setStatus("Authenticating...");
     trackCrossDeviceAuthStarted();
     try {
       const optRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "auth-options" }) });
