@@ -14,6 +14,7 @@ import {
   serverTrackExposureCapHit,
   serverTrackDecisionSaved,
 } from "@/lib/analytics-server";
+import { serverEmitLogEvent } from "@/lib/log-event-server";
 import type OpenAI from "openai";
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
@@ -567,6 +568,9 @@ export async function POST(req: NextRequest) {
                     title: args.title as string,
                     status: "decided",
                     projectId,
+                  });
+                  serverEmitLogEvent("decision_created", userId, {
+                    preview: (args.title as string).slice(0, 120),
                   });
                 }
               }

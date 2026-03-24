@@ -61,6 +61,7 @@ const EVENT_LABELS: Record<string, string> = {
   message_sent: "sent message",
   decision_locked: "locked decision",
   debate_started: "started debate",
+  debate_completed: "debate completed",
   path_forked: "forked path",
   path_merged: "merged path",
   workspace_created: "created workspace",
@@ -70,12 +71,20 @@ const EVENT_LABELS: Record<string, string> = {
   payment_failed: "payment failed",
   auth_hold_created: "card authorized",
   refund_issued: "refund",
+  account_created: "signed up",
+  user_logged_in: "logged in",
+  account_deleted: "account deleted",
+  artifacts_pushed: "pushed artifacts",
+  decision_created: "created decision",
+  connector_connected: "connected app",
+  card_saved: "card saved",
 };
 
 const EVENT_DOTS: Record<string, string> = {
   message_sent: "bg-violet-400",
   decision_locked: "bg-emerald-500",
   debate_started: "bg-amber-500",
+  debate_completed: "bg-amber-300",
   path_forked: "bg-indigo-500",
   path_merged: "bg-teal-500",
   workspace_created: "bg-cyan-500",
@@ -85,6 +94,13 @@ const EVENT_DOTS: Record<string, string> = {
   payment_failed: "bg-red-500",
   auth_hold_created: "bg-yellow-500",
   refund_issued: "bg-rose-500",
+  account_created: "bg-lime-500",
+  user_logged_in: "bg-sky-400",
+  account_deleted: "bg-red-400",
+  artifacts_pushed: "bg-blue-400",
+  decision_created: "bg-emerald-400",
+  connector_connected: "bg-orange-500",
+  card_saved: "bg-green-400",
 };
 
 function relativeTime(dateStr: string): string {

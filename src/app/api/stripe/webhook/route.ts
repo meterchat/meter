@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
           id: generateId(),
           type: "payment_succeeded",
           actor: resolveActor(metadata.meter_user_id),
-          preview: `$${(amount / 100).toFixed(2)} charge succeeded`,
+          feedback_text: `$${(amount / 100).toFixed(2)} charge succeeded`,
         }).then(() => {}, (e: unknown) => console.error("Failed to log payment_intent.succeeded:", e));
         break;
       }
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
           id: generateId(),
           type: "payment_failed",
           actor: resolveActor(metadata.meter_user_id),
-          preview: `$${(amount / 100).toFixed(2)} charge failed: ${failureMsg.slice(0, 80)}`,
+          feedback_text: `$${(amount / 100).toFixed(2)} charge failed: ${failureMsg.slice(0, 80)}`,
         }).then(() => {}, (e: unknown) => console.error("Failed to log payment_intent.payment_failed:", e));
         break;
       }
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
           id: generateId(),
           type: "card_saved",
           actor: resolveActor(userId),
-          preview: "Card saved successfully",
+          feedback_text: "Card saved successfully",
         }).then(() => {}, (e: unknown) => console.error("Failed to log setup_intent.succeeded:", e));
         break;
       }

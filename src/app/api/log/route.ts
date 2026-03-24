@@ -10,6 +10,7 @@ const VALID_TYPES = [
   "message_sent",
   "decision_locked",
   "debate_started",
+  "debate_completed",
   "path_forked",
   "path_merged",
   "workspace_created",
@@ -19,6 +20,13 @@ const VALID_TYPES = [
   "payment_failed",
   "auth_hold_created",
   "refund_issued",
+  "account_created",
+  "user_logged_in",
+  "account_deleted",
+  "artifacts_pushed",
+  "decision_created",
+  "connector_connected",
+  "card_saved",
 ] as const;
 
 // POST /api/log — create a log entry (no auth required)
@@ -34,11 +42,10 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseServer();
     const previewStr = preview ? String(preview).slice(0, 120) : null;
 
-    // Always store preview in feedback_text (guaranteed column in schema).
-    // For feedback_logged, use feedbackText; for message_sent, use preview.
+    // Store preview in feedback_text (guaranteed column in schema).
+    // For feedback_logged, use feedbackText; for all others, use preview.
     const feedbackValue =
-      type === "feedback_logged" ? feedbackText :
-      type === "message_sent" ? previewStr : null;
+      type === "feedback_logged" ? feedbackText : previewStr;
 
     const { error } = await supabase.from("log_entries").insert({
       id: generateId(),

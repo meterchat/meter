@@ -8,6 +8,7 @@ export type LogEventType =
   | "message_sent"
   | "decision_locked"
   | "debate_started"
+  | "debate_completed"
   | "path_forked"
   | "path_merged"
   | "workspace_created"
@@ -16,7 +17,14 @@ export type LogEventType =
   | "payment_succeeded"
   | "payment_failed"
   | "auth_hold_created"
-  | "refund_issued";
+  | "refund_issued"
+  | "account_created"
+  | "user_logged_in"
+  | "account_deleted"
+  | "artifacts_pushed"
+  | "decision_created"
+  | "connector_connected"
+  | "card_saved";
 
 /** Hash a user ID to a short anonymous identifier (first 6 hex chars) */
 async function hashUserId(userId: string): Promise<string> {

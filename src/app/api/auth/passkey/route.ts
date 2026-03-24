@@ -10,6 +10,7 @@ import crypto from "crypto";
 import { createSession, setSessionCookie } from "@/lib/session";
 import { generateHandle } from "@/lib/handle";
 import { DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
+import { serverEmitLogEvent } from "@/lib/log-event-server";
 
 const RP_NAME = "Meter";
 const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID || "meter.chat";
@@ -131,6 +132,9 @@ export async function POST(req: NextRequest) {
 
       // Create session + cookie
       const sessionToken = await createSession(userId);
+
+      serverEmitLogEvent("user_logged_in", userId);
+
       const response = NextResponse.json({
         verified: true,
         user: {
@@ -283,6 +287,9 @@ export async function POST(req: NextRequest) {
 
       // Create session + cookie
       const sessionToken = await createSession(uid);
+
+      serverEmitLogEvent("account_created", uid, { preview: "passkey signup" });
+
       const response = NextResponse.json({
         verified: true,
         user: {
