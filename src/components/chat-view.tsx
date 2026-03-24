@@ -2340,7 +2340,7 @@ export function ChatView() {
       const consumed = slashRef.current.handleKey(e.key);
       if (consumed) { e.preventDefault(); return; }
     }
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !isMobile) {
       e.preventDefault();
       handleSend();
     }
