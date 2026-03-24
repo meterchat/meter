@@ -7,6 +7,17 @@ import { useDecisionsStore } from "@/lib/decisions-store";
 import { useStagingStore } from "@/lib/staging-store";
 import { authFetch } from "@/lib/auth-fetch";
 
+/** Fire-and-forget PATCH to persist a message field change to the server. */
+function patchMessageField(messageId: string, fields: Record<string, unknown>) {
+  authFetch("/api/messages", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messageId, fields }),
+  }).catch(() => {
+    // Silent — periodic sync will eventually catch up
+  });
+}
+
 export type ReceiptStatus = "metering" | "metered" | "settled";
 
 export function normalizeReceiptStatus(s: string | undefined | null): ReceiptStatus | undefined {
@@ -734,19 +745,29 @@ export const useMeterStore = create<MeterState>()(
           ),
         })),
 
-      togglePinMessage: (messageId) =>
+      togglePinMessage: (messageId) => {
+        // Find current pin state before toggling
+        const current = get().sessions
+          .find((p) => p.id === get().activeSessionId)
+          ?.messages.find((m) => m.id === messageId);
+        const newPinned = !current?.pinned;
+
         set((s) => ({
           sessions: s.sessions.map((p) =>
             p.id === s.activeSessionId
               ? {
                   ...p,
                   messages: p.messages.map((m) =>
-                    m.id === messageId ? { ...m, pinned: !m.pinned } : m
+                    m.id === messageId ? { ...m, pinned: newPinned } : m
                   ),
                 }
               : p
           ),
-        })),
+        }));
+
+        // Immediately persist to server
+        patchMessageField(messageId, { pinned: newPinned });
+      },
 
       removeSession: (id) =>
         set((s) => {
@@ -1308,7 +1329,7 @@ export const useMeterStore = create<MeterState>()(
           return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),
 
-      updateClarifyingAnswer: (messageId, questionId, answer) =>
+      updateClarifyingAnswer: (messageId, questionId, answer) => {
         set((s) => {
           const active = getActiveSession(s);
           if (!active) return s;
@@ -1322,7 +1343,16 @@ export const useMeterStore = create<MeterState>()(
             };
           });
           return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
-        }),
+        });
+
+        // Persist updated clarifying questions to server
+        const updated = get().sessions
+          .find((p) => p.id === get().activeSessionId)
+          ?.messages.find((m) => m.id === messageId);
+        if (updated?.clarifyingQuestions) {
+          patchMessageField(messageId, { clarifying_questions: updated.clarifyingQuestions });
+        }
+      },
 
       setDissectorTrace: (trace, forSessionId?) =>
         set((s) => {
