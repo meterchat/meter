@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     locale: "en_US",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Meter — Pay Per Thought",
     description: "Every AI model. One bill. No subscription. The meter runs in dollars.",
   },
