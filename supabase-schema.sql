@@ -120,6 +120,10 @@ create table if not exists chat_messages (
   thinking text,
   is_fork_point boolean default false,
   fork_resolution text,
+  pinned boolean default false,
+  decision_id text,
+  hidden boolean default false,
+  clarifying_questions jsonb,
   timestamp bigint not null,
   created_at timestamptz default now()
 );

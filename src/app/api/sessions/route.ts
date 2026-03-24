@@ -259,6 +259,9 @@ export async function POST(req: NextRequest) {
         model: m.model ?? null,
         tokens_in: m.tokensIn ?? null,
         tokens_out: m.tokensOut ?? null,
+        cache_creation_tokens: m.cacheCreationTokens ?? null,
+        cache_read_tokens: m.cacheReadTokens ?? null,
+        cache_read_rate: m.cacheReadRate ?? null,
         cost: m.cost ?? null,
         confidence: m.confidence ?? null,
         settled: m.settled ?? false,
@@ -267,10 +270,15 @@ export async function POST(req: NextRequest) {
         attachments: m.attachments ?? null,
         debate_trace: m.debateTrace ?? null,
         dissector_trace: m.dissectorTrace ?? null,
+        documents: m.documents ?? null,
         thinking: m.thinking ?? null,
         timestamp: m.timestamp,
         is_fork_point: m.isForkPoint ?? null,
         fork_resolution: m.forkResolution ?? null,
+        pinned: m.pinned ?? false,
+        decision_id: m.decisionId ?? null,
+        hidden: m.hidden ?? false,
+        clarifying_questions: m.clarifyingQuestions ?? null,
       }));
 
       // Guard: don't let a stale "metering" upsert overwrite a "metered" row.

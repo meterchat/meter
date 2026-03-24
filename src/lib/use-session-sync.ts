@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useMeterStore, createSession, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn, type DissectorTurn, type DocumentPreview } from "@/lib/store";
+import { useMeterStore, createSession, type ReceiptStatus, type ActionCard, type Attachment, type DebateTurn, type DissectorTurn, type DocumentPreview, type ClarifyingQuestion } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { authFetch } from "@/lib/auth-fetch";
 import { useDecisionsStore } from "@/lib/decisions-store";
@@ -85,6 +85,8 @@ export function useSessionSync() {
       model: m.model as string | undefined,
       tokensIn: m.tokens_in as number | undefined,
       tokensOut: m.tokens_out as number | undefined,
+      cacheCreationTokens: m.cache_creation_tokens as number | undefined,
+      cacheReadTokens: m.cache_read_tokens as number | undefined,
       cost,
       confidence: m.confidence as number | undefined,
       settled: m.settled as boolean | undefined,
@@ -98,6 +100,10 @@ export function useSessionSync() {
       timestamp: m.timestamp as number,
       isForkPoint: m.is_fork_point as boolean | undefined,
       forkResolution: m.fork_resolution as "merged" | "closed" | undefined,
+      pinned: m.pinned as boolean | undefined,
+      decisionId: m.decision_id as string | undefined,
+      hidden: m.hidden as boolean | undefined,
+      clarifyingQuestions: m.clarifying_questions as ClarifyingQuestion[] | undefined,
     };
   };
 
