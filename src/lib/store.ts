@@ -137,6 +137,8 @@ interface Session {
   currentMessageCost: number;
   connectedServices: Record<string, boolean>;
   cardAssigned?: boolean;
+  /** Timestamp (ms) when the last stream ended — used by sync to detect recently-ended streams */
+  lastStreamEndedAt?: number;
   // Pagination state
   hasOlderMessages: boolean;
   loadingOlderMessages: boolean;
@@ -1339,7 +1341,7 @@ export const useMeterStore = create<MeterState>()(
           const updated = {
             ...active,
             isStreaming: v,
-            ...(v ? { currentMessageCost: 0 } : {}),
+            ...(v ? { currentMessageCost: 0 } : { lastStreamEndedAt: Date.now() }),
           };
           return { sessions: replaceActiveSession(s, updated) };
         }),

@@ -10,6 +10,15 @@ import { getModel } from "@/lib/models";
 const SYNC_INTERVAL = 10_000; // sync every 10 seconds
 const SYNC_DEBOUNCE = 2_000; // debounce after message
 
+// Module-level callback so external code (e.g. chat-view after finalizeResponse)
+// can trigger an immediate sync without waiting for the 2s debounce.
+let _forceSyncCallback: (() => void) | null = null;
+
+/** Trigger an immediate server sync (bypasses the 2s debounce). */
+export function requestImmediateSync() {
+  _forceSyncCallback?.();
+}
+
 interface ServerSession {
   id: string;
   project_name?: string;
@@ -211,6 +220,15 @@ export function useSessionSync() {
         }
       }
 
+      // Safety net: if streaming just ended but the finalized "metered" message
+      // hasn't been synced yet, include it so it isn't lost on page refresh.
+      if (!session.isStreaming && messagesToSync.length === 0 && session.messages.length > 0) {
+        const lastMsg = session.messages[session.messages.length - 1];
+        if (lastMsg.role === "assistant" && lastMsg.receiptStatus === "metered") {
+          messagesToSync = [lastMsg];
+        }
+      }
+
       try {
         const res = await authFetch("/api/sessions", {
           method: "POST",
@@ -301,6 +319,12 @@ export function useSessionSync() {
     return () => clearInterval(interval);
   }, [authenticated]);
 
+  // Register syncToServer so external callers (requestImmediateSync) can fire it.
+  useEffect(() => {
+    _forceSyncCallback = syncToServer;
+    return () => { _forceSyncCallback = null; };
+  }, [syncToServer]);
+
   // Debounced sync on message changes
   useEffect(() => {
     if (!authenticated) return;
@@ -338,10 +362,14 @@ export function useSessionSync() {
     if (!authenticated) return;
 
     const handleBeforeUnload = () => {
-      // Flag if any session was streaming so the next page load can delay
-      // the session fetch to avoid racing with the beacon save.
+      // Flag if any session was streaming (or recently finished streaming)
+      // so the next page load can delay the session fetch to avoid racing
+      // with the beacon save or server-side stream completion.
       const anyStreaming = sessions.some((s) => s.isStreaming);
-      if (anyStreaming) {
+      const anyRecentlyStreaming = sessions.some(
+        (s) => !s.isStreaming && s.lastStreamEndedAt && (Date.now() - s.lastStreamEndedAt) < 3000
+      );
+      if (anyStreaming || anyRecentlyStreaming) {
         try { sessionStorage.setItem("meter:was-streaming", "1"); } catch { /* quota */ }
       }
 
@@ -380,6 +408,16 @@ export function useSessionSync() {
         if (session.isStreaming && deltaMessages.length === 0 && session.messages.length > 0) {
           const lastMsg = session.messages[session.messages.length - 1];
           if (lastMsg.role === "assistant") {
+            deltaMessages = [lastMsg];
+          }
+        }
+
+        // Safety net: if streaming just ended but the finalized message hasn't
+        // been synced yet (the 2s debounce hasn't fired), include it in the
+        // beacon so the "metered" version is persisted before page unload.
+        if (!session.isStreaming && deltaMessages.length === 0 && session.messages.length > 0) {
+          const lastMsg = session.messages[session.messages.length - 1];
+          if (lastMsg.role === "assistant" && lastMsg.receiptStatus === "metered") {
             deltaMessages = [lastMsg];
           }
         }
