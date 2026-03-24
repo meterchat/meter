@@ -46,7 +46,7 @@ import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-st
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS, DEBATE_MODEL } from "@/lib/models";
-import { useSessionSync } from "@/lib/use-session-sync";
+import { useSessionSync, requestImmediateSync } from "@/lib/use-session-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { authFetch } from "@/lib/auth-fetch";
 import { useArtifactsStore } from "@/lib/artifacts-store";
@@ -2133,6 +2133,9 @@ export function ChatView() {
           streamSessionId,
         );
       }
+      // Immediately sync the finalized message to the server so it
+      // survives a page refresh (don't wait for the 2s debounce).
+      requestImmediateSync();
     } catch {
       // Abort or network error — persist whatever we have so far.
       // Partial responses are still billed upstream (industry standard).
@@ -2155,6 +2158,8 @@ export function ChatView() {
           streamSessionId,
         );
       }
+      // Best-effort sync on error path too
+      requestImmediateSync();
     } finally {
       activeStreamsRef.current.delete(streamSessionId);
       abortControllersRef.current.delete(streamSessionId);

@@ -77,6 +77,10 @@ const STATEMENTS: string[] = [
     dissector_trace jsonb, documents jsonb, thinking text,
     is_fork_point boolean default false,
     fork_resolution text,
+    pinned boolean default false,
+    decision_id text,
+    hidden boolean default false,
+    clarifying_questions jsonb,
     timestamp bigint not null,
     created_at timestamptz default now()
   )`,
@@ -221,6 +225,12 @@ const STATEMENTS: string[] = [
   `alter table chat_messages add column if not exists cache_creation_tokens integer`,
   `alter table chat_messages add column if not exists cache_read_tokens integer`,
   `alter table chat_messages add column if not exists cache_read_rate numeric`,
+
+  // Pin, decision, hidden, clarifying questions persistence (survive page refresh)
+  `alter table chat_messages add column if not exists pinned boolean default false`,
+  `alter table chat_messages add column if not exists decision_id text`,
+  `alter table chat_messages add column if not exists hidden boolean default false`,
+  `alter table chat_messages add column if not exists clarifying_questions jsonb`,
 
   // Week/month cost tracking on sessions
   `alter table chat_sessions add column if not exists week_cost numeric default 0`,
