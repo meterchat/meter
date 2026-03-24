@@ -194,7 +194,7 @@ export async function streamOpenRouter(
     model,
     messages: cachedConversation,
     ...(tools.length > 0 ? { tools } : {}),
-    max_tokens: 16384,
+    ...((isOpenAIReasoning || isXAIReasoning) ? { max_completion_tokens: 16384 } : { max_tokens: 16384 }),
     stream: true,
     stream_options: { include_usage: true },
     // GPT-5.4 / Grok reasoning
@@ -704,7 +704,7 @@ async function streamOpenAIDirect(
     model: nativeModel,
     messages: conversation,
     ...(tools.length > 0 ? { tools } : {}),
-    max_tokens: 16384,
+    ...((isGPT || isGrok) ? { max_completion_tokens: 16384 } : { max_tokens: 16384 }),
     stream: true,
     stream_options: { include_usage: true },
     // GPT-5.4 / Grok reasoning
