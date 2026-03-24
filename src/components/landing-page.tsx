@@ -905,7 +905,7 @@ export function LandingPage() {
             transition={{ delay: 0.2, duration: 0.6 }}
           >
             <span className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground/60 uppercase">
-              Discuss · Debate · Decide
+              Discuss ✜ Debate ✜ Decide
             </span>
           </motion.div>
 
@@ -1090,7 +1090,7 @@ export function LandingPage() {
               className="block dark:hidden opacity-60"
             />
             <span className="font-mono text-[12px] text-muted-foreground/40">
-              Pay Per Thought
+              ✜  Pay Per Thought
             </span>
           </div>
 

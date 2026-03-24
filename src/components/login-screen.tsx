@@ -524,7 +524,7 @@ export function LoginScreen() {
             className="block dark:hidden"
           />
           <p className="font-mono text-xs text-muted-foreground tracking-wide uppercase">
-            pay per thought
+            ✜  pay per thought
           </p>
         </div>
 
