@@ -2,6 +2,14 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { emitLogEvent } from "@/lib/log-event";
 
+/** Lazy getter to avoid circular import with the main store. */
+function getCurrentUserId(): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("@/lib/store").useMeterStore.getState().userId;
+  } catch { return null; }
+}
+
 export interface Workspace {
   id: string;
   name: string;
@@ -64,7 +72,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       createWorkspace: (name: string, sessionId?: string) => {
         const id = generateId();
         const session = sessionId ?? `ws_${generateId()}`;
-        emitLogEvent("workspace_created");
+        emitLogEvent("workspace_created", getCurrentUserId());
         set((s) => ({
           workspaces: [...s.workspaces, { id, name, sessionId: session, createdAt: Date.now() }],
           activeWorkspaceId: id,
@@ -136,7 +144,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       // --- Branching actions ---
 
       forkTrack: (workspaceId: string, parentTrackId: string | null, forkMessageId: string, names: string[]) => {
-        emitLogEvent("path_forked");
+        emitLogEvent("path_forked", getCurrentUserId());
         const ids: string[] = [];
         const now = Date.now();
         const newTracks: Track[] = names.map((name) => {
@@ -162,7 +170,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       commitSubtrack: (subtrackId: string) => {
-        emitLogEvent("path_merged");
+        emitLogEvent("path_merged", getCurrentUserId());
         set((s) => {
           const subtrack = s.tracks.find((t) => t.id === subtrackId);
           if (!subtrack || !subtrack.isSubtrack) return s;

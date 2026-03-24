@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { deleteAllUserSessions } from "@/lib/session";
 import { serverTrackAccountDeleted } from "@/lib/analytics-server";
+import { serverEmitLogEvent } from "@/lib/log-event-server";
 import { getStripe } from "@/lib/stripe-billing";
 
 export async function POST(req: NextRequest) {
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
     await supabase.from("meter_users").delete().eq("id", userId);
 
     serverTrackAccountDeleted(userId);
+    serverEmitLogEvent("account_deleted", userId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

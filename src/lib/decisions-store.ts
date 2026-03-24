@@ -3,6 +3,14 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { authFetch } from "@/lib/auth-fetch";
 import { emitLogEvent } from "@/lib/log-event";
 
+/** Lazy getter to avoid circular import with the main store. */
+function getCurrentUserId(): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("@/lib/store").useMeterStore.getState().userId;
+  } catch { return null; }
+}
+
 export interface Decision {
   id: string;
   title: string;
@@ -86,7 +94,7 @@ export const useDecisionsStore = create<DecisionsState>()(
         })),
 
       resolveDecision: (id, choice, reasoning) => {
-        emitLogEvent("decision_locked");
+        emitLogEvent("decision_locked", getCurrentUserId());
         set((s) => ({
           decisions: s.decisions.map((d) =>
             d.id === id

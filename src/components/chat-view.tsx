@@ -2113,6 +2113,7 @@ export function ChatView() {
       if (isDebateMode && localTrace.length > 0) {
         useMeterStore.getState().setDebateTrace(localTrace, streamSessionId);
         trackDebateCompleted({ projectId: streamSessionId, turnCount: localTrace.length });
+        emitLogEvent("debate_completed", userId);
       }
       // Persist dissector trace to the message
       if (isDissectorMode && localDissTrace.length > 0) {

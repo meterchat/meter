@@ -6,6 +6,7 @@ import {
   storeToken,
 } from "@/lib/oauth";
 import { serverTrackOAuthCompleted } from "@/lib/analytics-server";
+import { serverEmitLogEvent } from "@/lib/log-event-server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -72,6 +73,7 @@ export async function GET(
       }
 
       serverTrackOAuthCompleted(userId, { provider: providerId, workspaceId });
+      serverEmitLogEvent("connector_connected", userId, { preview: providerId });
       return NextResponse.redirect(`${appUrl}/?oauth=success&provider=${providerId}`);
     } catch (err) {
       console.error(`OAuth callback error for ${providerId}:`, err);
