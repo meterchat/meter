@@ -1102,7 +1102,7 @@ export async function streamWithFallback(
     const candidateProvider = DIRECT_PROVIDERS[candidateModel];
     const candidateKey = candidateProvider ? process.env[candidateProvider.envKey] : undefined;
 
-    const providerName = candidateModel.split("/")[0];
+    const providerName = requestedModel.split("/")[0];
     const providerLabel = providerName.charAt(0).toUpperCase() + providerName.slice(1);
 
     // Try direct key first for this candidate
