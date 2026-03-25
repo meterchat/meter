@@ -260,6 +260,20 @@ export async function POST(req: NextRequest) {
       }
     };
 
+    // Ensure the session row exists before saving messages (FK constraint).
+    // For new sessions, the client's periodic sync may not have created it yet.
+    if (projectId) {
+      const dbSessId = projectId.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
+      const supabaseEnsure = getSupabaseServer();
+      await supabaseEnsure
+        .from("chat_sessions")
+        .upsert(
+          { id: dbSessId, user_id: userId, created_at: new Date().toISOString() },
+          { onConflict: "id" }
+        )
+        .catch(() => { /* best-effort — sync will create it */ });
+    }
+
     // Save user message to DB immediately (before streaming starts).
     // This ensures the user message survives even if the client disconnects.
     const userContent = messages[messages.length - 1]?.content ?? "";
@@ -322,6 +336,12 @@ export async function POST(req: NextRequest) {
     };
     req.signal.addEventListener("abort", abortHandler);
 
+    // Periodic partial save interval — saves accumulated content to DB every
+    // ~2 seconds so the /api/chat/resume endpoint can stream deltas to a
+    // reconnecting client after page refresh.
+    let lastPartialSaveTime = 0;
+    const PARTIAL_SAVE_INTERVAL = 2000;
+
     const stream = new ReadableStream({
       async start(controller) {
         const send: Send = (data) => {
@@ -329,6 +349,24 @@ export async function POST(req: NextRequest) {
           // This ensures content is captured even if the client is gone.
           if (data.type === "delta" && typeof data.content === "string") {
             fullAssistantContent += data.content;
+
+            // Periodic partial save so resume endpoint can stream content
+            const now = Date.now();
+            if (now - lastPartialSaveTime >= PARTIAL_SAVE_INTERVAL && assistantMessageId && projectId) {
+              lastPartialSaveTime = now;
+              saveMessageToDB({
+                id: assistantMessageId,
+                sessionId: projectId,
+                role: "assistant",
+                content: fullAssistantContent,
+                model: resolvedModel,
+                receiptStatus: "metering",
+                timestamp: Date.now(),
+                thinking: fullThinkingContent || undefined,
+                debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
+                dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+              }).catch(() => { /* best-effort periodic save */ });
+            }
           }
           if (data.type === "thinking_delta" && typeof data.content === "string") {
             fullThinkingContent += data.content;

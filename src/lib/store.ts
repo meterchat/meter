@@ -262,6 +262,12 @@ interface MeterState {
   updateClarifyingAnswer: (messageId: string, questionId: string, answer: string) => void;
   setDissectorTrace: (trace: DissectorTurn[], forSessionId?: string) => void;
 
+  // Stream reconnect actions (used after page refresh to resume in-flight responses)
+  updateReconnectMessageContent: (sessionId: string, messageId: string, content: string) => void;
+  updateReconnectMessageThinking: (sessionId: string, messageId: string, thinking: string) => void;
+  finalizeReconnectedMessage: (sessionId: string, messageId: string, usage: { tokensIn?: number; tokensOut?: number; cacheCreationTokens?: number; cacheReadTokens?: number; cost?: number }) => void;
+  removeLastMessage: (forSessionId?: string) => void;
+
   setPendingInput: (v: string | null) => void;
 
   toggleInspector: () => void;
@@ -1374,6 +1380,72 @@ export const useMeterStore = create<MeterState>()(
             ...(v ? { currentMessageCost: 0 } : { lastStreamEndedAt: Date.now() }),
           };
           return { sessions: replaceActiveSession(s, updated) };
+        }),
+
+      // ── Stream reconnect actions ──────────────────────────────────────
+      updateReconnectMessageContent: (sessionId, messageId, content) =>
+        set((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === sessionId
+              ? {
+                  ...sess,
+                  messages: sess.messages.map((m) =>
+                    m.id === messageId ? { ...m, content } : m
+                  ),
+                }
+              : sess
+          ),
+        })),
+
+      updateReconnectMessageThinking: (sessionId, messageId, thinking) =>
+        set((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === sessionId
+              ? {
+                  ...sess,
+                  messages: sess.messages.map((m) =>
+                    m.id === messageId ? { ...m, thinking } : m
+                  ),
+                }
+              : sess
+          ),
+        })),
+
+      finalizeReconnectedMessage: (sessionId, messageId, usage) =>
+        set((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === sessionId
+              ? {
+                  ...sess,
+                  isStreaming: false,
+                  messages: sess.messages.map((m) =>
+                    m.id === messageId
+                      ? {
+                          ...m,
+                          receiptStatus: "metered" as ReceiptStatus,
+                          tokensIn: usage.tokensIn,
+                          tokensOut: usage.tokensOut,
+                          cacheCreationTokens: usage.cacheCreationTokens,
+                          cacheReadTokens: usage.cacheReadTokens,
+                          cost: usage.cost,
+                        }
+                      : m
+                  ),
+                }
+              : sess
+          ),
+        })),
+
+      removeLastMessage: (forSessionId?) =>
+        set((s) => {
+          const active = getSessionByIdOrActive(s, forSessionId);
+          if (!active || active.messages.length === 0) return s;
+          return {
+            sessions: replaceActiveSession(s, {
+              ...active,
+              messages: active.messages.slice(0, -1),
+            }),
+          };
         }),
 
       clearSettlementError: () =>
