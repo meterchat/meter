@@ -156,12 +156,18 @@ export function useSessionSync() {
   const syncToServer = useCallback(async () => {
     if (!authenticated) return;
 
+    // Read sessions from getState() at call time — NOT from the closure.
+    // This is critical: requestImmediateSync() can fire synchronously after
+    // addMessage(), before React re-renders. The closure `sessions` would be
+    // stale (missing the new message), but getState() always has the latest.
+    const currentSessions = useMeterStore.getState().sessions;
+
     // Create a snapshot hash to avoid unnecessary syncs.
     // Include isStreaming and last message content length so that content
     // updates during streaming (which don't change message count) still
     // trigger a sync — preventing message loss on page refresh.
     const snapshot = JSON.stringify(
-      sessions.map((p) => {
+      currentSessions.map((p) => {
         const lastMsg = p.messages[p.messages.length - 1];
         return {
           id: p.id,
@@ -184,7 +190,7 @@ export function useSessionSync() {
     const wsTracks = useWorkspaceStore.getState().tracks;
     const wsWorkspaces = useWorkspaceStore.getState().workspaces;
 
-    for (const session of sessions) {
+    for (const session of currentSessions) {
       const syncedCount = syncedMessageCountRef.current.get(session.id) ?? 0;
 
       // Determine if this session is a subtrack by checking workspace store tracks
@@ -281,7 +287,7 @@ export function useSessionSync() {
       syncFailCountRef.current = 0;
       auth401CountRef.current = 0;
       // Track synced message counts for sendBeacon delta
-      for (const session of sessions) {
+      for (const session of currentSessions) {
         syncedMessageCountRef.current.set(session.id, session.messages.length);
       }
     } else {

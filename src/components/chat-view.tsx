@@ -2160,13 +2160,10 @@ export function ChatView() {
       // Abort or network error — persist whatever we have so far.
       // Partial responses are still billed upstream (industry standard).
       if (!receivedAnyContent && !finalUsage) {
-        // Stream aborted before any content arrived (e.g. during thinking
-        // phase or immediate refresh). Remove the empty ghost assistant
-        // message — the server-side abort handler and completion handler
-        // will save the real response to DB, and the stream reconnect
-        // mechanism will pick it up on the next page load.
-        useMeterStore.getState().removeLastMessage(streamSessionId);
-        // Don't sync the empty message — let server handle persistence
+        // Stream failed before any content arrived. Show an error in the
+        // assistant message rather than leaving it empty or deleting it.
+        const errorPayload = JSON.stringify({ code: "stream_failed", model: actualModelUsed ?? "unknown" });
+        updateLastAssistantMessage(`__error__${errorPayload}`, 0, streamSessionId);
       } else {
         // Partial or complete response — persist what we have
         if (isDebateMode && localTrace.length > 0) {
