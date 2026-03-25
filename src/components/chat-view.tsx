@@ -1575,9 +1575,15 @@ export function ChatView() {
     setActiveDissectorTurn(null);
     setActiveTool(null);
     // Snap to bottom on session switch
+    prevMessageCountRef.current = 0;
     requestAnimationFrame(() => {
       const el = scrollRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
+      if (!el) return;
+      isProgrammaticScrollRef.current = true;
+      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => {
+        isProgrammaticScrollRef.current = false;
+      });
     });
   }, [activeSessionId]);
 
@@ -1718,13 +1724,26 @@ export function ChatView() {
   // doesn't re-enter handleScroll and clear userScrolledAway.
   // Only auto-scroll during active streaming or on the very first render —
   // background syncs / edits shouldn't yank the viewport.
+  const prevMessageCountRef = useRef(0);
   useEffect(() => {
     if (userScrolledAwayRef.current) return;
     const el = scrollRef.current;
     if (!el) return;
-    if (!hasInitialScrolled.current) {
+
+    const prevCount = prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+
+    // When messages load from server after refresh (0 → N), or on first render,
+    // use rAF to ensure DOM has painted before scrolling to bottom.
+    if (!hasInitialScrolled.current || (prevCount === 0 && messages.length > 0)) {
       hasInitialScrolled.current = true;
-      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => {
+        isProgrammaticScrollRef.current = true;
+        el.scrollTop = el.scrollHeight;
+        requestAnimationFrame(() => {
+          isProgrammaticScrollRef.current = false;
+        });
+      });
       return;
     }
     if (!isStreaming) return;           // ← only chase the bottom while streaming
