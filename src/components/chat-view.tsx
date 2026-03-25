@@ -1926,16 +1926,6 @@ export function ChatView() {
         return false;
       };
 
-      // Abort the stream if the page becomes hidden (iOS tab switch).
-      // iOS suspends JS execution on tab switch, breaking the stream reader.
-      // Without this, the UI stays stuck in "thinking" when the user returns.
-      const handleVisibilityAbort = () => {
-        if (document.visibilityState === "hidden" && !abort.signal.aborted) {
-          abort.abort();
-        }
-      };
-      document.addEventListener("visibilitychange", handleVisibilityAbort);
-
       try {
       while (true) {
         const { done, value } = await reader.read();
@@ -2139,7 +2129,8 @@ export function ChatView() {
         }
       }
       } finally {
-        document.removeEventListener("visibilitychange", handleVisibilityAbort);
+        // (visibility abort removed — server continues generating and
+        // the resume endpoint recovers the response on page reload)
       }
 
       // Persist debate trace to the message
