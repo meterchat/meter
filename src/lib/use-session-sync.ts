@@ -473,9 +473,105 @@ export function useSessionSync() {
       }
     };
 
+    // iOS Safari does NOT fire "beforeunload" on tab switch or app switch.
+    // "pagehide" is the reliable cross-browser event for page lifecycle changes.
+    // Listen on both to cover all browsers.
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+    };
   }, [authenticated, sessions]);
+
+  // Re-fetch server state when page becomes visible again (e.g. iOS tab switch).
+  // On mobile, the stream likely broke while the page was suspended — the server
+  // may have completed the response and saved it to DB. Pulling fresh data
+  // recovers the completed messages the client missed.
+  useEffect(() => {
+    if (!authenticated) return;
+
+    let lastHidden = 0;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        lastHidden = Date.now();
+        // Trigger an immediate sync to persist current state before suspension
+        syncToServer();
+        return;
+      }
+
+      // Page became visible — if we were hidden for >2s, re-fetch from server
+      // to pick up any responses the server completed while we were suspended.
+      if (document.visibilityState === "visible" && Date.now() - lastHidden > 2000) {
+        // Small delay to let any in-flight server saves settle
+        setTimeout(async () => {
+          try {
+            const res = await authFetch("/api/sessions");
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.sessions?.length) return;
+
+            const store = useMeterStore.getState();
+            const serverSessions = data.sessions as ServerSession[];
+
+            // For each session, check if server has messages the client is missing
+            // or has completed ("metered") versions of messages that are still
+            // "metering" locally (e.g. stream broke during tab suspend).
+            for (const serverSess of serverSessions) {
+              const serverMessages = Array.isArray(serverSess.messages)
+                ? serverSess.messages.map((m: Record<string, unknown>) => mapServerMessage(m))
+                : [];
+              if (serverMessages.length === 0) continue;
+
+              const localSession = store.sessions.find((s) => s.id === serverSess.id);
+              if (!localSession) continue;
+
+              let updated = false;
+              const mergedMessages = [...localSession.messages];
+
+              for (const sm of serverMessages) {
+                const localIdx = mergedMessages.findIndex((m) => m.id === sm.id);
+                if (localIdx === -1) {
+                  // Server has a message we don't — add it
+                  mergedMessages.push(sm);
+                  updated = true;
+                } else {
+                  const local = mergedMessages[localIdx];
+                  // Server wins if it has a more advanced receipt status or more content
+                  const serverMoreAdvanced =
+                    (sm.receiptStatus === "metered" && local.receiptStatus === "metering") ||
+                    (sm.receiptStatus === "settled" && local.receiptStatus !== "settled") ||
+                    (sm.content && !local.content) ||
+                    (sm.content && local.content && sm.content.length > local.content.length && local.receiptStatus === "metering");
+                  if (serverMoreAdvanced) {
+                    mergedMessages[localIdx] = sm;
+                    updated = true;
+                  }
+                }
+              }
+
+              if (updated) {
+                mergedMessages.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+                useMeterStore.setState((s) => ({
+                  sessions: s.sessions.map((sess) =>
+                    sess.id === serverSess.id
+                      ? { ...sess, messages: mergedMessages, isStreaming: false }
+                      : sess
+                  ),
+                }));
+              }
+            }
+          } catch {
+            // Silent — periodic sync will catch up
+          }
+        }, 500);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [authenticated, syncToServer]);
 
   // Load sessions from server on mount
   useEffect(() => {
@@ -572,7 +668,9 @@ export function useSessionSync() {
             continue;
           }
 
-          // Union merge messages by ID, preferring server version (has settlement data)
+          // Union merge messages by ID, preferring server version when it has
+          // more complete data (settlement, receipt status upgrade, or content).
+          const receiptRank = (s?: string) => s === "settled" ? 3 : s === "metered" ? 2 : s === "metering" ? 1 : 0;
           const msgMap = new Map(
             localProject.messages.map((m) => [m.id, m]),
           );
@@ -581,10 +679,20 @@ export function useSessionSync() {
             if (!existing) {
               msgMap.set(sm.id, sm);
             } else {
-              // Server wins if it has settlement/receipt fields the local version lacks
+              // Server wins if it has:
+              // - A more advanced receipt status (metered > metering)
+              // - Settlement data the local version lacks
+              // - Content when local is empty (broken stream recovery)
+              const serverHasBetterStatus = receiptRank(sm.receiptStatus) > receiptRank(existing.receiptStatus);
+              const serverHasContent = !!sm.content && !existing.content;
+              const serverHasMoreContent = !!sm.content && !!existing.content &&
+                sm.content.length > existing.content.length &&
+                existing.receiptStatus === "metering";
               if (
-                (sm.settled && !existing.settled) ||
-                (sm.receiptStatus && !existing.receiptStatus)
+                serverHasBetterStatus ||
+                serverHasContent ||
+                serverHasMoreContent ||
+                (sm.settled && !existing.settled)
               ) {
                 msgMap.set(sm.id, sm);
               }
