@@ -34,74 +34,45 @@ export async function GET() {
 
     if (sessErr) throw sessErr;
 
-    // Load the most recent 200 messages per session for initial display.
-    // Older messages are loaded on demand via paginated endpoint.
-    const INITIAL_MESSAGE_LIMIT = 200;
+    // Load only the most recent 20 messages per session for instant display.
+    // Older messages are loaded progressively via paginated endpoint.
+    const INITIAL_MESSAGE_LIMIT = 20;
     const messagesBySession: Record<string, Record<string, unknown>[]> = {};
     const aggregatesBySession: Record<string, { totalTokensIn: number; totalTokensOut: number; totalMessageCount: number; pendingBalance: number; hasMore: boolean }> = {};
 
-    for (const session of sessions ?? []) {
+    // Fetch messages + aggregates in parallel per session for speed.
+    await Promise.all((sessions ?? []).map(async (session) => {
       // Fetch recent messages (limit+1 to check hasMore)
-      const { data: msgs, error: msgErr } = await supabase
-        .from("chat_messages")
-        .select("*")
-        .eq("session_id", session.id)
-        .order("timestamp", { ascending: false })
-        .limit(INITIAL_MESSAGE_LIMIT + 1);
-      if (msgErr) throw msgErr;
+      const [msgsResult, statsResult] = await Promise.all([
+        supabase
+          .from("chat_messages")
+          .select("*")
+          .eq("session_id", session.id)
+          .order("timestamp", { ascending: false })
+          .limit(INITIAL_MESSAGE_LIMIT + 1),
 
-      const rows = (msgs ?? []) as Record<string, unknown>[];
+        // Single SQL aggregate instead of paginating through all messages
+        supabase.rpc("get_session_message_stats", { p_session_id: session.id }).single(),
+      ]);
+
+      if (msgsResult.error) throw msgsResult.error;
+
+      const rows = (msgsResult.data ?? []) as Record<string, unknown>[];
       const hasMore = rows.length > INITIAL_MESSAGE_LIMIT;
       const pageRows = hasMore ? rows.slice(0, INITIAL_MESSAGE_LIMIT) : rows;
       pageRows.reverse();
       messagesBySession[session.id] = pageRows;
 
-      // Fetch aggregate token counts for full session using count + sum via RPC,
-      // or paginate to avoid Supabase's default 1000-row limit.
-      // Also compute pending balance (unsettled cost) server-side.
-      let totalTokensIn = 0;
-      let totalTokensOut = 0;
-      let totalMessageCount = 0;
-      let pendingBalance = 0;
-
-      // Use count query first to get total message count
-      const { count: msgCount, error: countErr } = await supabase
-        .from("chat_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("session_id", session.id);
-
-      if (!countErr && msgCount != null) {
-        totalMessageCount = msgCount;
-      }
-
-      // Paginate through all messages to sum tokens (Supabase caps at 1000 per query)
-      const PAGE_SIZE = 1000;
-      let offset = 0;
-      let hasMoreAgg = true;
-      while (hasMoreAgg) {
-        const { data: agg, error: aggErr } = await supabase
-          .from("chat_messages")
-          .select("tokens_in, tokens_out, cost, settled, role")
-          .eq("session_id", session.id)
-          .range(offset, offset + PAGE_SIZE - 1);
-
-        if (aggErr || !agg || agg.length === 0) break;
-
-        for (const row of agg) {
-          totalTokensIn += (row.tokens_in as number) ?? 0;
-          totalTokensOut += (row.tokens_out as number) ?? 0;
-          // Sum unsettled assistant message costs for pending balance
-          if (row.role === "assistant" && row.cost != null && !row.settled) {
-            pendingBalance += (row.cost as number) ?? 0;
-          }
-        }
-
-        hasMoreAgg = agg.length === PAGE_SIZE;
-        offset += PAGE_SIZE;
-      }
-
-      aggregatesBySession[session.id] = { totalTokensIn, totalTokensOut, totalMessageCount, pendingBalance, hasMore };
-    }
+      // Use RPC stats if available, fall back to zeros
+      const stats = statsResult.data as Record<string, unknown> | null;
+      aggregatesBySession[session.id] = {
+        totalTokensIn: Number(stats?.total_tokens_in ?? 0),
+        totalTokensOut: Number(stats?.total_tokens_out ?? 0),
+        totalMessageCount: Number(stats?.total_message_count ?? 0),
+        pendingBalance: Number(stats?.pending_balance ?? 0),
+        hasMore,
+      };
+    }));
 
     // Return sessions with unscoped IDs so the client sees its original local IDs
     const result = (sessions ?? []).map((s) => {

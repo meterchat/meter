@@ -797,7 +797,7 @@ export function useSessionSync() {
         useMeterStore.getState().fetchConnectionStatus();
 
         // Auto-fetch ALL remaining messages for sessions that have more than
-        // the initial 200 loaded. This runs in the background so the UI
+        // the initial 20 loaded. This runs in the background so the UI
         // is responsive immediately, and messages fill in as they arrive.
         // We loop fetchOlderMessages until hasOlderMessages becomes false.
         for (const session of serverSessions) {
