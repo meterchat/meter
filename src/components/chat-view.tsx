@@ -1621,6 +1621,8 @@ export function ChatView() {
   };
 
   // Detect user-initiated scroll-up via wheel / touch to pause auto-scroll.
+  // On mobile, require a minimum drag distance (10px) before considering it a
+  // deliberate scroll-away — prevents accidental taps from pausing auto-scroll.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -1631,11 +1633,13 @@ export function ChatView() {
       }
     };
     let touchStartY = 0;
+    const TOUCH_SCROLL_THRESHOLD = 10; // px – ignore tiny finger movements
     const onTouchStart = (e: TouchEvent) => {
       touchStartY = e.touches[0].clientY;
     };
     const onTouchMove = (e: TouchEvent) => {
-      if (e.touches[0].clientY > touchStartY) {
+      const deltaY = e.touches[0].clientY - touchStartY;
+      if (deltaY > TOUCH_SCROLL_THRESHOLD) {
         userScrolledAwayRef.current = true;
         scrollAwayAtRef.current = Date.now();
       }
@@ -1659,7 +1663,14 @@ export function ChatView() {
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     isNearBottomRef.current = nearBottom;
     setShowScrollBtn(!nearBottom);
-    if (nearBottom && Date.now() - scrollAwayAtRef.current > 500) {
+    // Re-engage auto-scroll only when the user has clearly returned to the
+    // bottom AND enough time has passed since they scrolled away (1.5 s on
+    // mobile, 500 ms on desktop).  The shorter desktop timeout is fine because
+    // wheel events are discrete; on mobile, touch-inertia can keep firing
+    // scroll events long after the user lifts their finger, so we need a
+    // longer debounce to avoid a premature resume that causes a visible jump.
+    const resumeDelay = "ontouchstart" in window ? 1500 : 500;
+    if (nearBottom && Date.now() - scrollAwayAtRef.current > resumeDelay) {
       userScrolledAwayRef.current = false;
     }
 
@@ -1692,6 +1703,8 @@ export function ChatView() {
   // Auto-scroll using instant scrollTop (no smooth animation that fights
   // with user scroll). Guarded by isProgrammaticScrollRef so our own scroll
   // doesn't re-enter handleScroll and clear userScrolledAway.
+  // Only auto-scroll during active streaming or on the very first render —
+  // background syncs / edits shouldn't yank the viewport.
   useEffect(() => {
     if (userScrolledAwayRef.current) return;
     const el = scrollRef.current;
@@ -1701,12 +1714,13 @@ export function ChatView() {
       el.scrollTop = el.scrollHeight;
       return;
     }
+    if (!isStreaming) return;           // ← only chase the bottom while streaming
     isProgrammaticScrollRef.current = true;
     el.scrollTop = el.scrollHeight;
     requestAnimationFrame(() => {
       isProgrammaticScrollRef.current = false;
     });
-  }, [messages]);
+  }, [messages, isStreaming]);
 
   // Scroll-to-message triggered from inspector pin clicks
   const scrollToMessageId = useMeterStore((s) => s.scrollToMessageId);
@@ -2621,7 +2635,7 @@ export function ChatView() {
         </header>
 
         {/* Messages */}
-        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0">
+        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0" style={{ overflowAnchor: "auto" }}>
           {/* Skeleton while sessions load from server */}
           {!sessionsLoaded && messages.length === 0 ? (
             <ChatSkeleton />
@@ -2951,7 +2965,7 @@ export function ChatView() {
               />
             )}
 
-            <div ref={bottomRef} data-scroll-anchor />
+            <div ref={bottomRef} data-scroll-anchor style={{ overflowAnchor: "auto" }} />
           </div>
           )}
         </div>
