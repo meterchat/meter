@@ -1454,6 +1454,19 @@ export function ChatView() {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [rerouting, setRerouting] = useState<{ provider: string; toModel: string } | null>(null);
   const [thinkingStartedAt, setThinkingStartedAt] = useState<number>(0);
+
+  // When streaming resumes after reconnect (e.g. page refresh during thinking),
+  // thinkingStartedAt is 0 because the original streamResponse didn't set it.
+  // Detect this case and seed the timestamp so the ThinkingIndicator renders.
+  useEffect(() => {
+    if (isStreaming && thinkingStartedAt === 0) {
+      setThinkingStartedAt(Date.now());
+    }
+    if (!isStreaming && thinkingStartedAt !== 0) {
+      setThinkingStartedAt(0);
+    }
+  }, [isStreaming, thinkingStartedAt]);
+
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
   const logoMenuRef = useRef<HTMLDivElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);

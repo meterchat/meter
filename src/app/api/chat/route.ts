@@ -371,6 +371,23 @@ export async function POST(req: NextRequest) {
           }
           if (data.type === "thinking_delta" && typeof data.content === "string") {
             fullThinkingContent += data.content;
+
+            // Periodic partial save during thinking phase too — so resume
+            // endpoint can show thinking state to reconnecting clients.
+            const now = Date.now();
+            if (now - lastPartialSaveTime >= PARTIAL_SAVE_INTERVAL && assistantMessageId && projectId) {
+              lastPartialSaveTime = now;
+              saveMessageToDB({
+                id: assistantMessageId,
+                sessionId: projectId,
+                role: "assistant",
+                content: fullAssistantContent,
+                model: resolvedModel,
+                receiptStatus: "metering",
+                timestamp: Date.now(),
+                thinking: fullThinkingContent || undefined,
+              }).catch(() => { /* best-effort periodic save */ });
+            }
           }
           // Capture usage events for DB persistence
           if (data.type === "usage") {
