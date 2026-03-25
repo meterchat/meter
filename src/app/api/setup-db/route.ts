@@ -628,6 +628,27 @@ const STATEMENTS: string[] = [
        limit p_limit;
    end;
    $$ language plpgsql security definer`,
+
+  // Aggregate message stats for a session in a single query (replaces
+  // the slow pagination loop that fetched all messages in chunks of 1000).
+  `create or replace function get_session_message_stats(p_session_id text)
+   returns table(
+     total_message_count bigint,
+     total_tokens_in bigint,
+     total_tokens_out bigint,
+     pending_balance numeric
+   ) as $$
+   begin
+     return query
+       select
+         count(*)::bigint as total_message_count,
+         coalesce(sum(tokens_in), 0)::bigint as total_tokens_in,
+         coalesce(sum(tokens_out), 0)::bigint as total_tokens_out,
+         coalesce(sum(case when role = 'assistant' and cost is not null and not coalesce(settled, false) then cost else 0 end), 0)::numeric as pending_balance
+       from chat_messages
+       where session_id = p_session_id;
+   end;
+   $$ language plpgsql security definer`,
 ];
 
 function getProjectRef(url: string): string | null {
