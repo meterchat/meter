@@ -1765,6 +1765,9 @@ export function ChatView() {
       ...(options?.hiddenUser ? { hidden: true } : {}),
     };
     addMessage(userMsg, streamSessionId);
+    // Immediately sync user message to server — don't wait for 2s debounce.
+    // This ensures the message survives a page refresh even if done instantly.
+    requestImmediateSync();
 
     const assistantMsg: ChatMessage = {
       id: Math.random().toString(36).slice(2, 10),
@@ -1804,6 +1807,8 @@ export function ChatView() {
     let currentDissTurn: { persona: string; content: string } | null = null;
     let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number; actualCost?: number } | null = null;
     let actualModelUsed: string | null = null;
+    // Track whether ANY content was received (accessible in catch for zombie cleanup)
+    let receivedAnyContent = false;
 
     const abort = new AbortController();
     abortControllersRef.current.set(streamSessionId, abort);
@@ -2014,6 +2019,7 @@ export function ChatView() {
               useMeterStore.getState().updateLastAssistantThinking(thinkingContent, streamSessionId);
             } else if (data.type === "delta") {
               fullContent += data.content;
+              receivedAnyContent = true;
               if (isActiveStream()) setRerouting(null);
               updateLastAssistantMessage(fullContent, data.tokensOut, streamSessionId);
               // Feed brainwave with estimated token count from this chunk
@@ -2153,27 +2159,38 @@ export function ChatView() {
     } catch {
       // Abort or network error — persist whatever we have so far.
       // Partial responses are still billed upstream (industry standard).
-      if (isDebateMode && localTrace.length > 0) {
-        useMeterStore.getState().setDebateTrace(localTrace, streamSessionId);
+      if (!receivedAnyContent && !finalUsage) {
+        // Stream aborted before any content arrived (e.g. during thinking
+        // phase or immediate refresh). Remove the empty ghost assistant
+        // message — the server-side abort handler and completion handler
+        // will save the real response to DB, and the stream reconnect
+        // mechanism will pick it up on the next page load.
+        useMeterStore.getState().removeLastMessage(streamSessionId);
+        // Don't sync the empty message — let server handle persistence
+      } else {
+        // Partial or complete response — persist what we have
+        if (isDebateMode && localTrace.length > 0) {
+          useMeterStore.getState().setDebateTrace(localTrace, streamSessionId);
+        }
+        if (isDissectorMode && localDissTrace.length > 0) {
+          useMeterStore.getState().setDissectorTrace(localDissTrace, streamSessionId);
+        }
+        if (finalUsage) {
+          finalizeResponse(
+            finalUsage.tokensIn,
+            finalUsage.tokensOut,
+            finalUsage.confidence,
+            actualModelUsed ?? undefined,
+            finalUsage.cacheCreationTokens,
+            finalUsage.cacheReadTokens,
+            finalUsage.cacheReadRate,
+            finalUsage.actualCost,
+            streamSessionId,
+          );
+        }
+        // Best-effort sync on error path too
+        requestImmediateSync();
       }
-      if (isDissectorMode && localDissTrace.length > 0) {
-        useMeterStore.getState().setDissectorTrace(localDissTrace, streamSessionId);
-      }
-      if (finalUsage) {
-        finalizeResponse(
-          finalUsage.tokensIn,
-          finalUsage.tokensOut,
-          finalUsage.confidence,
-          actualModelUsed ?? undefined,
-          finalUsage.cacheCreationTokens,
-          finalUsage.cacheReadTokens,
-          finalUsage.cacheReadRate,
-          finalUsage.actualCost,
-          streamSessionId,
-        );
-      }
-      // Best-effort sync on error path too
-      requestImmediateSync();
     } finally {
       activeStreamsRef.current.delete(streamSessionId);
       abortControllersRef.current.delete(streamSessionId);

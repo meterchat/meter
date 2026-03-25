@@ -527,6 +527,10 @@ export function useSessionSync() {
               const localSession = store.sessions.find((s) => s.id === serverSess.id);
               if (!localSession) continue;
 
+              // Don't touch sessions that are actively streaming (including
+              // reconnected streams) — merging would corrupt the in-flight state.
+              if (localSession.isStreaming) continue;
+
               let updated = false;
               const mergedMessages = [...localSession.messages];
 
@@ -556,7 +560,7 @@ export function useSessionSync() {
                 useMeterStore.setState((s) => ({
                   sessions: s.sessions.map((sess) =>
                     sess.id === serverSess.id
-                      ? { ...sess, messages: mergedMessages, isStreaming: false }
+                      ? { ...sess, messages: mergedMessages }
                       : sess
                   ),
                 }));
@@ -807,10 +811,125 @@ export function useSessionSync() {
             })();
           }
         }
+
+        // ── Stream reconnect ─────────────────────────────────────────────
+        // If any session has an assistant message still in "metering" status,
+        // the server-side stream is likely still running (or just finished).
+        // Reconnect to the resume SSE endpoint to stream content live.
+        for (const session of merged) {
+          const lastMsg = session.messages[session.messages.length - 1];
+          if (
+            lastMsg?.role === "assistant" &&
+            lastMsg.receiptStatus === "metering"
+          ) {
+            const reconnectSessionId = session.id;
+            const reconnectMessageId = lastMsg.id;
+
+            // Set streaming state so UI shows Brainwave animation
+            useMeterStore.setState((s) => ({
+              sessions: s.sessions.map((sess) =>
+                sess.id === reconnectSessionId
+                  ? { ...sess, isStreaming: true }
+                  : sess
+              ),
+            }));
+
+            // Connect to resume endpoint in the background
+            reconnectToStream(reconnectSessionId, reconnectMessageId);
+          }
+        }
       } catch (err) {
         console.error("[meter] Failed to load sessions from server:", err);
       } finally {
         useMeterStore.getState().setSessionsLoaded(true);
+      }
+    }
+
+    /** Connect to the resume SSE endpoint to continue streaming a response. */
+    async function reconnectToStream(sessionId: string, messageId: string) {
+      try {
+        const res = await authFetch(
+          `/api/chat/resume?messageId=${encodeURIComponent(messageId)}`
+        );
+        if (!res.ok || !res.body) {
+          useMeterStore.getState().setStreaming(false, sessionId);
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullContent = "";
+        let fullThinking = "";
+
+        // Seed with existing content from the DB snapshot (already in the store)
+        const existingMsg = useMeterStore
+          .getState()
+          .sessions.find((s) => s.id === sessionId)
+          ?.messages.find((m) => m.id === messageId);
+        if (existingMsg) {
+          fullContent = existingMsg.content || "";
+          fullThinking = existingMsg.thinking || "";
+        }
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === "delta") {
+                fullContent += data.content;
+                useMeterStore
+                  .getState()
+                  .updateReconnectMessageContent(
+                    sessionId,
+                    messageId,
+                    fullContent
+                  );
+              }
+              if (data.type === "thinking_delta") {
+                fullThinking += data.content;
+                useMeterStore
+                  .getState()
+                  .updateReconnectMessageThinking(
+                    sessionId,
+                    messageId,
+                    fullThinking
+                  );
+              }
+              if (data.type === "usage") {
+                useMeterStore
+                  .getState()
+                  .finalizeReconnectedMessage(sessionId, messageId, {
+                    tokensIn: data.tokensIn,
+                    tokensOut: data.tokensOut,
+                    cacheCreationTokens: data.cacheCreationTokens,
+                    cacheReadTokens: data.cacheReadTokens,
+                    cost: data.cost,
+                  });
+              }
+              if (data.type === "done") {
+                useMeterStore.getState().setStreaming(false, sessionId);
+              }
+            } catch {
+              // Malformed SSE line — skip
+            }
+          }
+        }
+
+        // Ensure streaming is stopped even if the loop exits without "done"
+        useMeterStore.getState().setStreaming(false, sessionId);
+      } catch {
+        // Resume failed — stop streaming indicator
+        useMeterStore.getState().setStreaming(false, sessionId);
       }
     }
 
