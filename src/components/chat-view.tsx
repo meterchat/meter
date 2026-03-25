@@ -1454,6 +1454,19 @@ export function ChatView() {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [rerouting, setRerouting] = useState<{ provider: string; toModel: string } | null>(null);
   const [thinkingStartedAt, setThinkingStartedAt] = useState<number>(0);
+
+  // When streaming resumes after reconnect (e.g. page refresh during thinking),
+  // thinkingStartedAt is 0 because the original streamResponse didn't set it.
+  // Detect this case and seed the timestamp so the ThinkingIndicator renders.
+  useEffect(() => {
+    if (isStreaming && thinkingStartedAt === 0) {
+      setThinkingStartedAt(Date.now());
+    }
+    if (!isStreaming && thinkingStartedAt !== 0) {
+      setThinkingStartedAt(0);
+    }
+  }, [isStreaming, thinkingStartedAt]);
+
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
   const logoMenuRef = useRef<HTMLDivElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -1927,16 +1940,6 @@ export function ChatView() {
         return false;
       };
 
-      // Abort the stream if the page becomes hidden (iOS tab switch).
-      // iOS suspends JS execution on tab switch, breaking the stream reader.
-      // Without this, the UI stays stuck in "thinking" when the user returns.
-      const handleVisibilityAbort = () => {
-        if (document.visibilityState === "hidden" && !abort.signal.aborted) {
-          abort.abort();
-        }
-      };
-      document.addEventListener("visibilitychange", handleVisibilityAbort);
-
       try {
       while (true) {
         const { done, value } = await reader.read();
@@ -2140,7 +2143,8 @@ export function ChatView() {
         }
       }
       } finally {
-        document.removeEventListener("visibilitychange", handleVisibilityAbort);
+        // (visibility abort removed — server continues generating and
+        // the resume endpoint recovers the response on page reload)
       }
 
       // Persist debate trace to the message
