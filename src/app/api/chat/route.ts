@@ -262,30 +262,31 @@ export async function POST(req: NextRequest) {
 
     // Ensure the session row exists before saving messages (FK constraint).
     // For new sessions, the client's periodic sync may not have created it yet.
-    if (projectId) {
+    // Fire-and-forget — don't block stream creation on this DB call.
+    if (projectId && userMessageId) {
       const dbSessId = projectId.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
       const supabaseEnsure = getSupabaseServer();
-      await supabaseEnsure
-        .from("chat_sessions")
-        .upsert(
-          { id: dbSessId, user_id: userId, created_at: new Date().toISOString() },
-          { onConflict: "id" }
-        )
-        .catch(() => { /* best-effort — sync will create it */ });
-    }
-
-    // Save user message to DB immediately (before streaming starts).
-    // This ensures the user message survives even if the client disconnects.
-    const userContent = messages[messages.length - 1]?.content ?? "";
-    if (userMessageId && projectId) {
-      await saveMessageToDB({
-        id: userMessageId,
-        sessionId: projectId,
-        role: "user",
-        content: typeof userContent === "string" ? userContent : JSON.stringify(userContent),
-        timestamp: Date.now(),
-        attachments: parsedAttachments.length > 0 ? parsedAttachments : undefined,
-      });
+      const userContent = messages[messages.length - 1]?.content ?? "";
+      // Wrap in async IIFE so we get a proper Promise chain
+      (async () => {
+        try {
+          await supabaseEnsure
+            .from("chat_sessions")
+            .upsert(
+              { id: dbSessId, user_id: userId, created_at: new Date().toISOString() },
+              { onConflict: "id" }
+            );
+          // Session row exists — now save user message
+          await saveMessageToDB({
+            id: userMessageId,
+            sessionId: projectId,
+            role: "user",
+            content: typeof userContent === "string" ? userContent : JSON.stringify(userContent),
+            timestamp: Date.now(),
+            attachments: parsedAttachments.length > 0 ? parsedAttachments : undefined,
+          });
+        } catch { /* best-effort — periodic sync will handle it */ }
+      })();
     }
 
     // Track the full assistant response for server-side save after completion
