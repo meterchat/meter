@@ -153,8 +153,6 @@ export function useSessionSync() {
 
   const syncFailCountRef = useRef(0);
   const auth401CountRef = useRef(0);
-  // Track sessions that have permanently failed (e.g. 413) to stop retrying
-  const skippedSessionsRef = useRef<Set<string>>(new Set());
   // Track per-session consecutive 500 errors for backoff
   const session500CountRef = useRef<Map<string, number>>(new Map());
 
@@ -196,9 +194,6 @@ export function useSessionSync() {
     const wsWorkspaces = useWorkspaceStore.getState().workspaces;
 
     for (const session of currentSessions) {
-      // Skip sessions that have permanently failed (e.g. repeated 413s)
-      if (skippedSessionsRef.current.has(session.id)) continue;
-
       // Skip sessions in 500-error backoff (exponential: skip 2^n sync cycles)
       const err500Count = session500CountRef.current.get(session.id) ?? 0;
       if (err500Count > 0 && Math.random() > 1 / Math.pow(2, Math.min(err500Count, 6))) continue;
@@ -270,45 +265,67 @@ export function useSessionSync() {
           ...(isSubtrack ? { isSubtrack: true, parentSessionId, archived: track?.status === "archived", committed: track?.committed ?? false, forkMessageId: track?.forkMessageId } : {}),
         };
 
-        let body = JSON.stringify({ session: sessionMeta, messages: messagesToSync });
+        // Split messages into chunks that fit within the payload size limit.
+        // This prevents 413 errors for large backlogs while ensuring every
+        // message is eventually synced (no data loss).
+        const metaJson = JSON.stringify({ session: sessionMeta, messages: [] });
+        const metaOverhead = metaJson.length;
+        const chunks: (typeof messagesToSync)[] = [];
 
-        // If payload exceeds the size limit, progressively reduce messages
-        if (body.length > MAX_SYNC_PAYLOAD_BYTES && messagesToSync.length > 1) {
-          // Try sending only the last 50 messages
-          const trimmed = messagesToSync.slice(-50);
-          body = JSON.stringify({ session: sessionMeta, messages: trimmed });
-        }
-        if (body.length > MAX_SYNC_PAYLOAD_BYTES && messagesToSync.length > 0) {
-          // Still too big — send metadata only, messages are already persisted from prior syncs
-          body = JSON.stringify({ session: sessionMeta, messages: [] });
-        }
-
-        const res = await authFetch("/api/sessions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body,
-        });
-        if (!res.ok) {
-          if (res.status === 401) {
-            auth401CountRef.current += 1;
-            // Only log out after 2 consecutive 401s to avoid transient DB errors
-            if (auth401CountRef.current >= 2) {
-              useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+        if (messagesToSync.length === 0) {
+          chunks.push([]);
+        } else {
+          let chunk: typeof messagesToSync = [];
+          let chunkSize = metaOverhead;
+          for (const msg of messagesToSync) {
+            const msgSize = JSON.stringify(msg).length + 1; // +1 for comma
+            if (chunk.length > 0 && chunkSize + msgSize > MAX_SYNC_PAYLOAD_BYTES) {
+              chunks.push(chunk);
+              chunk = [msg];
+              chunkSize = metaOverhead + msgSize;
+            } else {
+              chunk.push(msg);
+              chunkSize += msgSize;
             }
-            return;
           }
-          // On 413, mark messages as synced to avoid infinite retry with the same payload
-          if (res.status === 413) {
-            console.warn(`[meter] Session "${session.name}" payload too large (413), skipping message sync`);
-            syncedMessageCountRef.current.set(session.id, session.messages.length);
-            skippedSessionsRef.current.add(session.id);
-            continue;
+          if (chunk.length > 0) chunks.push(chunk);
+        }
+
+        let sessionOk = true;
+        let syncedSoFar = syncedCount;
+        for (const chunk of chunks) {
+          const body = JSON.stringify({ session: sessionMeta, messages: chunk });
+          const res = await authFetch("/api/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+          });
+          if (!res.ok) {
+            if (res.status === 401) {
+              auth401CountRef.current += 1;
+              if (auth401CountRef.current >= 2) {
+                useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+              }
+              return;
+            }
+            if (res.status === 413) {
+              // Even after chunking the server rejected it — skip remaining chunks
+              // but preserve what we've synced so far so next cycle starts from here
+              console.warn(`[meter] Session "${session.name}" chunk still too large (413)`);
+              break;
+            }
+            if (res.status === 500) {
+              session500CountRef.current.set(session.id, err500Count + 1);
+            }
+            console.warn(`[meter] Session sync failed for "${session.name}": ${res.status}`);
+            sessionOk = false;
+            break;
           }
-          // On 500, track per-session errors for exponential backoff
-          if (res.status === 500) {
-            session500CountRef.current.set(session.id, err500Count + 1);
-          }
-          console.warn(`[meter] Session sync failed for "${session.name}": ${res.status}`);
+          // Track progress so if a later chunk fails, we resume from here
+          syncedSoFar += chunk.length;
+          syncedMessageCountRef.current.set(session.id, syncedSoFar);
+        }
+        if (!sessionOk) {
           allOk = false;
         }
       } catch (err) {
