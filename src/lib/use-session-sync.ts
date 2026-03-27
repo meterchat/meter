@@ -9,6 +9,7 @@ import { getModel } from "@/lib/models";
 
 const SYNC_INTERVAL = 10_000; // sync every 10 seconds
 const SYNC_DEBOUNCE = 2_000; // debounce after message
+const MAX_SYNC_PAYLOAD_BYTES = 512_000; // 512KB safety limit for POST sync
 
 // Module-level callback so external code (e.g. chat-view after finalizeResponse)
 // can trigger an immediate sync without waiting for the 2s debounce.
@@ -152,6 +153,10 @@ export function useSessionSync() {
 
   const syncFailCountRef = useRef(0);
   const auth401CountRef = useRef(0);
+  // Track sessions that have permanently failed (e.g. 413) to stop retrying
+  const skippedSessionsRef = useRef<Set<string>>(new Set());
+  // Track per-session consecutive 500 errors for backoff
+  const session500CountRef = useRef<Map<string, number>>(new Map());
 
   const syncToServer = useCallback(async () => {
     if (!authenticated) return;
@@ -191,6 +196,13 @@ export function useSessionSync() {
     const wsWorkspaces = useWorkspaceStore.getState().workspaces;
 
     for (const session of currentSessions) {
+      // Skip sessions that have permanently failed (e.g. repeated 413s)
+      if (skippedSessionsRef.current.has(session.id)) continue;
+
+      // Skip sessions in 500-error backoff (exponential: skip 2^n sync cycles)
+      const err500Count = session500CountRef.current.get(session.id) ?? 0;
+      if (err500Count > 0 && Math.random() > 1 / Math.pow(2, Math.min(err500Count, 6))) continue;
+
       const syncedCount = syncedMessageCountRef.current.get(session.id) ?? 0;
 
       // Determine if this session is a subtrack by checking workspace store tracks
@@ -242,27 +254,39 @@ export function useSessionSync() {
       }
 
       try {
+        const sessionMeta = {
+          id: session.id,
+          name: session.name,
+          totalCost: session.totalCost,
+          todayCost: session.todayCost,
+          todayTokensIn: session.todayTokensIn,
+          todayTokensOut: session.todayTokensOut,
+          todayMessageCount: session.todayMessageCount,
+          todayDate: session.todayDate,
+          weekCost: session.weekCost ?? 0,
+          weekKey: session.weekKey,
+          monthCost: session.monthCost ?? 0,
+          monthKey: session.monthKey,
+          ...(isSubtrack ? { isSubtrack: true, parentSessionId, archived: track?.status === "archived", committed: track?.committed ?? false, forkMessageId: track?.forkMessageId } : {}),
+        };
+
+        let body = JSON.stringify({ session: sessionMeta, messages: messagesToSync });
+
+        // If payload exceeds the size limit, progressively reduce messages
+        if (body.length > MAX_SYNC_PAYLOAD_BYTES && messagesToSync.length > 1) {
+          // Try sending only the last 50 messages
+          const trimmed = messagesToSync.slice(-50);
+          body = JSON.stringify({ session: sessionMeta, messages: trimmed });
+        }
+        if (body.length > MAX_SYNC_PAYLOAD_BYTES && messagesToSync.length > 0) {
+          // Still too big — send metadata only, messages are already persisted from prior syncs
+          body = JSON.stringify({ session: sessionMeta, messages: [] });
+        }
+
         const res = await authFetch("/api/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            session: {
-              id: session.id,
-              name: session.name,
-              totalCost: session.totalCost,
-              todayCost: session.todayCost,
-              todayTokensIn: session.todayTokensIn,
-              todayTokensOut: session.todayTokensOut,
-              todayMessageCount: session.todayMessageCount,
-              todayDate: session.todayDate,
-              weekCost: session.weekCost ?? 0,
-              weekKey: session.weekKey,
-              monthCost: session.monthCost ?? 0,
-              monthKey: session.monthKey,
-              ...(isSubtrack ? { isSubtrack: true, parentSessionId, archived: track?.status === "archived", committed: track?.committed ?? false, forkMessageId: track?.forkMessageId } : {}),
-            },
-            messages: messagesToSync,
-          }),
+          body,
         });
         if (!res.ok) {
           if (res.status === 401) {
@@ -272,6 +296,17 @@ export function useSessionSync() {
               useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
             }
             return;
+          }
+          // On 413, mark messages as synced to avoid infinite retry with the same payload
+          if (res.status === 413) {
+            console.warn(`[meter] Session "${session.name}" payload too large (413), skipping message sync`);
+            syncedMessageCountRef.current.set(session.id, session.messages.length);
+            skippedSessionsRef.current.add(session.id);
+            continue;
+          }
+          // On 500, track per-session errors for exponential backoff
+          if (res.status === 500) {
+            session500CountRef.current.set(session.id, err500Count + 1);
           }
           console.warn(`[meter] Session sync failed for "${session.name}": ${res.status}`);
           allOk = false;
@@ -286,6 +321,8 @@ export function useSessionSync() {
       lastSyncRef.current = snapshot;
       syncFailCountRef.current = 0;
       auth401CountRef.current = 0;
+      // Clear per-session 500 counters on success
+      session500CountRef.current.clear();
       // Track synced message counts for sendBeacon delta
       for (const session of currentSessions) {
         syncedMessageCountRef.current.set(session.id, session.messages.length);
