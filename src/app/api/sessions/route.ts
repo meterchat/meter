@@ -241,6 +241,7 @@ export async function POST(req: NextRequest) {
         attachments: m.attachments ?? null,
         debate_trace: m.debateTrace ?? null,
         dissector_trace: m.dissectorTrace ?? null,
+        simplifier_trace: m.simplifierTrace ?? null,
         documents: m.documents ?? null,
         thinking: m.thinking ?? null,
         timestamp: m.timestamp,

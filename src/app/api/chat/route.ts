@@ -3,6 +3,7 @@ import { getToolsForConnectors, buildSystemPrompt, executeTool } from "@/lib/too
 import { streamWithFallback, type Send } from "@/lib/fallback";
 import { runDebate } from "@/lib/debate";
 import { runDissection } from "@/lib/dissect";
+import { runSimplification } from "@/lib/simplify";
 import { getSupabaseServer } from "@/lib/supabase";
 import { getModel, DEFAULT_MARKUP_MULTIPLIER } from "@/lib/models";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
@@ -201,6 +202,7 @@ export async function POST(req: NextRequest) {
       timestamp: number;
       debateTrace?: unknown;
       dissectorTrace?: unknown;
+      simplifierTrace?: unknown;
       documents?: unknown;
       thinking?: string;
       receiptStatus?: string;
@@ -249,6 +251,7 @@ export async function POST(req: NextRequest) {
           receipt_status: msg.receiptStatus ?? null,
           debate_trace: msg.debateTrace ?? null,
           dissector_trace: msg.dissectorTrace ?? null,
+          simplifier_trace: msg.simplifierTrace ?? null,
           documents: msg.documents ?? null,
           thinking: msg.thinking ?? null,
           attachments: msg.attachments ?? null,
@@ -297,6 +300,8 @@ export async function POST(req: NextRequest) {
     let currentDebateTurn: { model: string; phase: string; content: string } | null = null;
     const serverDissectorTrace: { persona: string; content: string }[] = [];
     let currentDissectorTurn: { persona: string; content: string } | null = null;
+    const serverSimplifierTrace: { persona: string; content: string }[] = [];
+    let currentSimplifierTurn: { persona: string; content: string } | null = null;
     const serverDocuments: { id: string; filePath: string; content: string; category: string }[] = [];
     // Capture the last usage event from any mode (debate/dissect/standard)
     // so we can persist cache token breakdown to DB for auditable pricing.
@@ -330,6 +335,7 @@ export async function POST(req: NextRequest) {
             thinking: fullThinkingContent || undefined,
             debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
             dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+            simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
             documents: serverDocuments.length > 0 ? serverDocuments : undefined,
           }).catch(() => { /* best-effort */ });
         }
@@ -366,6 +372,7 @@ export async function POST(req: NextRequest) {
                 thinking: fullThinkingContent || undefined,
                 debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
                 dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+            simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
               }).catch(() => { /* best-effort periodic save */ });
             }
           }
@@ -418,6 +425,15 @@ export async function POST(req: NextRequest) {
             serverDissectorTrace.push({ ...currentDissectorTurn });
             currentDissectorTurn = null;
           }
+          // Accumulate simplifier trace server-side
+          if (data.type === "simplifier_turn_start") {
+            currentSimplifierTurn = { persona: data.persona as string, content: "" };
+          } else if (data.type === "simplifier_turn_delta" && currentSimplifierTurn) {
+            currentSimplifierTurn.content += data.content as string;
+          } else if (data.type === "simplifier_turn_end" && currentSimplifierTurn) {
+            serverSimplifierTrace.push({ ...currentSimplifierTurn });
+            currentSimplifierTurn = null;
+          }
           // Try to send to client — if disconnected, just skip silently
           if (!clientDisconnected) {
             try {
@@ -438,6 +454,7 @@ export async function POST(req: NextRequest) {
                   thinking: fullThinkingContent || undefined,
                   debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
                   dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+            simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
                 }).catch(() => { /* best-effort */ });
               }
             }
@@ -505,6 +522,39 @@ export async function POST(req: NextRequest) {
               receiptStatus: "metered",
               timestamp: Date.now(),
               dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+            simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
+            });
+          }
+          if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
+          return;
+        }
+
+        // ── Simplify Mode ──────────────────────────────────────────
+        if (resolvedModel === "simplify") {
+          try {
+            await runSimplification(conversation, send);
+          } catch (err) {
+            console.error("[chat] simplification failed:", (err as Error).message);
+            send({ type: "error", code: "simplification_failed", model: "simplify" });
+            send({ type: "done", actualModel: "simplify" });
+          }
+          // Save simplify assistant message (with trace + cache breakdown)
+          if (assistantMessageId && projectId && fullAssistantContent) {
+            await saveMessageToDB({
+              id: assistantMessageId,
+              sessionId: projectId,
+              role: "assistant",
+              content: fullAssistantContent,
+              model: "simplify",
+              tokensIn: lastUsageEvent?.tokensIn || undefined,
+              tokensOut: lastUsageEvent?.tokensOut || undefined,
+              cacheCreationTokens: lastUsageEvent?.cacheCreationTokens || undefined,
+              cacheReadTokens: lastUsageEvent?.cacheReadTokens || undefined,
+              cacheReadRate: lastUsageEvent?.cacheReadRate || undefined,
+              cost: lastUsageEvent?.actualCost || undefined,
+              receiptStatus: "metered",
+              timestamp: Date.now(),
+              simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
             });
           }
           if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
@@ -794,6 +844,7 @@ export async function POST(req: NextRequest) {
             thinking: fullThinkingContent || undefined,
             debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
             dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
+            simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
             documents: serverDocuments.length > 0 ? serverDocuments : undefined,
           }).catch(() => { /* best-effort */ });
         }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type DissectorTurn, type Attachment, type DocumentPreview, type ClarifyingQuestion } from "@/lib/store";
+import { useMeterStore, selectConnectedServices, selectWorkspaceCardReady, ChatMessage, type DebateTurn, type DissectorTurn, type SimplifierTurn, type Attachment, type DocumentPreview, type ClarifyingQuestion } from "@/lib/store";
 import {
   trackMessageSent,
   trackMessageCopied,
@@ -55,6 +55,7 @@ import { DebateTrace, DebateModelDots } from "@/components/debate-trace";
 import { Brainwave, type BrainwaveHandle } from "@/components/brainwave";
 import { ClarifyingCard } from "@/components/clarifying-card";
 import { DissectorTrace } from "@/components/dissector-trace";
+import { SimplifierTrace } from "@/components/simplifier-trace";
 import { Spinner } from "@/components/ui/spinner";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import ReactMarkdown from "react-markdown";
@@ -1483,6 +1484,10 @@ export function ChatView() {
   const [dissectorTraceLocal, setDissectorTraceLocal] = useState<DissectorTurn[]>([]);
   const [activeDissectorTurn, setActiveDissectorTurn] = useState<{ persona: string; content: string } | null>(null);
   const [dissectorPhase, setDissectorPhase] = useState<"dissecting" | "synthesizing" | null>(null);
+  // Simplifier mode state
+  const [simplifierTraceLocal, setSimplifierTraceLocal] = useState<SimplifierTurn[]>([]);
+  const [activeSimplifierTurn, setActiveSimplifierTurn] = useState<{ persona: string; content: string } | null>(null);
+  const [simplifierPhase, setSimplifierPhase] = useState<"simplifying" | "synthesizing" | null>(null);
   const slashRef = useRef<SlashCommandHandle>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isNearBottomRef = useRef(true);
@@ -1573,6 +1578,14 @@ export function ChatView() {
       setDissectorPhase(null);
     }
     setActiveDissectorTurn(null);
+    if (hasActiveDebateStream && lastMsg?.simplifierTrace && lastMsg.simplifierTrace.length > 0) {
+      setSimplifierTraceLocal(lastMsg.simplifierTrace);
+      setSimplifierPhase("simplifying");
+    } else {
+      setSimplifierTraceLocal([]);
+      setSimplifierPhase(null);
+    }
+    setActiveSimplifierTurn(null);
     setActiveTool(null);
     // Snap to bottom on session switch
     prevMessageCountRef.current = 0;
@@ -1832,6 +1845,7 @@ export function ChatView() {
     const effectiveModel = modelOverride ?? (debateMode ? "debate" : selectedModelId);
     const isDebateMode = effectiveModel === "debate";
     const isDissectorMode = effectiveModel === "dissect";
+    const isSimplifierMode = effectiveModel === "simplify";
 
     // Reset debate state
     if (isDebateMode) {
@@ -1847,10 +1861,19 @@ export function ChatView() {
       setDissectorPhase("dissecting");
     }
 
+    // Reset simplifier state
+    if (isSimplifierMode) {
+      setSimplifierTraceLocal([]);
+      setActiveSimplifierTurn(null);
+      setSimplifierPhase("simplifying");
+    }
+
     // Track traces locally during streaming
     const localTrace: DebateTurn[] = [];
     const localDissTrace: DissectorTurn[] = [];
     let currentDissTurn: { persona: string; content: string } | null = null;
+    const localSimplifyTrace: SimplifierTurn[] = [];
+    let currentSimplifyTurn: { persona: string; content: string } | null = null;
     let finalUsage: { tokensIn: number; tokensOut: number; confidence: number; cacheCreationTokens: number; cacheReadTokens: number; cacheReadRate: number; actualCost?: number } | null = null;
     let actualModelUsed: string | null = null;
     // Track whether ANY content was received (accessible in catch for zombie cleanup)
@@ -2049,6 +2072,36 @@ export function ChatView() {
             } else if (data.type === "dissector_synthesis_start") {
               if (isActiveStream()) { setDissectorPhase("synthesizing"); setActiveDissectorTurn(null); }
 
+            // ── Simplifier events ─────────────────────────────
+            } else if (data.type === "simplifier_start") {
+              // Simplifier started — state already reset above
+            } else if (data.type === "simplifier_turn_start") {
+              currentSimplifyTurn = { persona: data.persona as string, content: "" };
+              if (isActiveStream()) setActiveSimplifierTurn(currentSimplifyTurn);
+            } else if (data.type === "simplifier_turn_delta") {
+              if (currentSimplifyTurn) {
+                currentSimplifyTurn = { persona: currentSimplifyTurn.persona, content: currentSimplifyTurn.content + (data.content as string) };
+                if (isActiveStream()) setActiveSimplifierTurn(currentSimplifyTurn);
+                const deltaText = data.content as string;
+                const estTokens = Math.ceil(deltaText.length / 4);
+                if (isActiveStream()) brainwaveRef.current?.push(estTokens);
+                const simpModel = getModel("anthropic/claude-opus-4.6");
+                incrementCurrentMessageCost(estTokens * simpModel.outputPrice, streamSessionId);
+                if (checkSpendLimits()) break;
+              }
+            } else if (data.type === "simplifier_turn_end") {
+              if (currentSimplifyTurn) {
+                localSimplifyTrace.push({
+                  persona: currentSimplifyTurn.persona as "assumptions" | "razor" | "output",
+                  content: currentSimplifyTurn.content,
+                });
+                useMeterStore.getState().setSimplifierTrace([...localSimplifyTrace], streamSessionId);
+                if (isActiveStream()) { setSimplifierTraceLocal([...localSimplifyTrace]); setActiveSimplifierTurn(null); }
+                currentSimplifyTurn = null;
+              }
+            } else if (data.type === "simplifier_synthesis_start") {
+              if (isActiveStream()) { setSimplifierPhase("synthesizing"); setActiveSimplifierTurn(null); }
+
             // ── Standard events ───────────────────────────────
             } else if (data.type === "thinking_delta") {
               thinkingContent += data.content;
@@ -2176,6 +2229,10 @@ export function ChatView() {
       if (isDissectorMode && localDissTrace.length > 0) {
         useMeterStore.getState().setDissectorTrace(localDissTrace, streamSessionId);
       }
+      // Persist simplifier trace to the message
+      if (isSimplifierMode && localSimplifyTrace.length > 0) {
+        useMeterStore.getState().setSimplifierTrace(localSimplifyTrace, streamSessionId);
+      }
 
       if (finalUsage) {
         finalizeResponse(
@@ -2209,6 +2266,9 @@ export function ChatView() {
         if (isDissectorMode && localDissTrace.length > 0) {
           useMeterStore.getState().setDissectorTrace(localDissTrace, streamSessionId);
         }
+        if (isSimplifierMode && localSimplifyTrace.length > 0) {
+          useMeterStore.getState().setSimplifierTrace(localSimplifyTrace, streamSessionId);
+        }
         if (finalUsage) {
           finalizeResponse(
             finalUsage.tokensIn,
@@ -2235,6 +2295,8 @@ export function ChatView() {
         setActiveDebateTurn(null);
         setDissectorPhase(null);
         setActiveDissectorTurn(null);
+        setSimplifierPhase(null);
+        setActiveSimplifierTurn(null);
       }
       // Delay setStreaming(false) so the meter pill slot animation has
       // time to roll to the final cost value before locking.
@@ -2465,6 +2527,22 @@ export function ChatView() {
       useMeterStore.getState().toggleDebateMode();
     } else if (!isDebateCommand && useMeterStore.getState().debateMode) {
       useMeterStore.getState().setDebateMode(false);
+    }
+
+    // /simplify — routes to the simplify engine (like dissect button)
+    if (chatPrompt === "Simplify this.") {
+      setSlashOpen(false);
+      setSlashQuery("");
+      streamResponse("Simplify this.", "simplify");
+      return;
+    }
+
+    // /dissect — routes to the dissect engine (like dissect button)
+    if (chatPrompt === "Dissect this.") {
+      setSlashOpen(false);
+      setSlashQuery("");
+      streamResponse("Dissect this.", "dissect");
+      return;
     }
 
     inputRef.current.value = chatPrompt;
@@ -2802,6 +2880,10 @@ export function ChatView() {
               const showLiveDissector = isLastAssistant && isStreaming && dissectorPhase;
               // Show persisted dissector trace on any message that has one
               const showPersistedDissector = msg.dissectorTrace && msg.dissectorTrace.length > 0 && !showLiveDissector;
+              // Show live simplifier trace on the last assistant message while streaming
+              const showLiveSimplifier = isLastAssistant && isStreaming && simplifierPhase;
+              // Show persisted simplifier trace on any message that has one
+              const showPersistedSimplifier = msg.simplifierTrace && msg.simplifierTrace.length > 0 && !showLiveSimplifier;
 
               return (
                 <div key={msg.id} id={`msg-${msg.id}`} className="group/msg relative mb-4 transition-all duration-300">
@@ -2836,6 +2918,18 @@ export function ChatView() {
                       )}
                       {showPersistedDissector && (
                         <DissectorTrace trace={msg.dissectorTrace!} />
+                      )}
+
+                      {/* Simplifier trace — live or persisted */}
+                      {showLiveSimplifier && (
+                        <SimplifierTrace
+                          trace={simplifierTraceLocal}
+                          activeTurn={activeSimplifierTurn}
+                          phase={simplifierPhase}
+                        />
+                      )}
+                      {showPersistedSimplifier && (
+                        <SimplifierTrace trace={msg.simplifierTrace!} />
                       )}
 
                       {/* Inline attachment viewers */}
@@ -2976,7 +3070,7 @@ export function ChatView() {
               );
             })}
 
-            {showThinking && !debatePhase && !dissectorPhase && (
+            {showThinking && !debatePhase && !dissectorPhase && !simplifierPhase && (
               <ThinkingIndicator
                 toolName={activeTool}
                 rerouting={rerouting}
