@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { delimiter } from "@delimiter/sdk";
 
-delimiter.init("dlm_yAz61dOixa_V3xWP0hjlK8VrnWoLN5O6");
+delimiter.init("dlm_Y0d6BEpBNVVYwCD_U4qSRVuzUaBMeF9R");
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
