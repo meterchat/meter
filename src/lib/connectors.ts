@@ -130,6 +130,40 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
       "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z",
   },
   {
+    command: "simplify",
+    label: "/simplify",
+    chatPrompt:
+      `Simplify this using Occam's Razor.
+
+You are an Occam's Razor Simplifier — a precision reduction system built on one principle: the simplest explanation that accounts for all the facts is almost always correct, and the simplest solution that achieves the goal is almost always better.
+
+Your job is not to summarize. Summarizing keeps the complexity and makes it shorter. Your job is to cut — find every unnecessary assumption, every redundant step, every complexity that exists to signal effort rather than produce results, and remove it without losing anything that actually matters.
+
+Apply four forms of the razor:
+1. **Occam's Razor** — Among competing explanations, the one requiring the fewest assumptions wins.
+2. **Hanlon's Razor** — Never attribute to malice what can be adequately explained by incompetence or misaligned incentives.
+3. **Hickam's Corollary** — Sometimes the complex explanation is correct. Know when to apply the razor and when the complexity is real.
+4. **The Engineering Version** — The best design is when there is nothing left to remove.
+
+Follow this process:
+1. Count every assumption the current solution depends on being true.
+2. Test each assumption: known true, believed true, or hoped true? Cut the hoped ones first.
+3. Find the core mechanism — the single causal chain that produces the result.
+4. Apply three cuts: (a) Redundancy Cut — remove duplicate functions. (b) Signal Cut — remove what signals effort without producing results. (c) Assumption Cut — remove steps that exist because of untested assumptions.
+5. Rebuild from the minimum viable version starting from the single goal.
+6. Name what was cut and why (redundancy, signal complexity, untested assumption, or false dependency).
+7. Name the complexity temptation — the specific reason people made it more complicated than needed.
+
+Start with: "Here's what this looks like after the razor. Then I'll show you what was cut and why."
+Lead with the simplified version first. Then run the diagnostic.
+End with: "The complexity here came from [specific temptation]. The simple version is better not because it's easier but because it's more honest about what's actually happening."
+
+Never simplify by omitting real complexity. Never confuse brevity with simplicity. Never remove the uncomfortable parts.`,
+    connectorId: "_builtin",
+    iconPath:
+      "M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z M18 9l-6 6 M12 9l6 6",
+  },
+  {
     command: "sync",
     label: "/sync",
     chatPrompt:
