@@ -26,7 +26,7 @@ const MAX_CONTEXT_TOKENS = 30_000;
 
 export async function POST(req: NextRequest) {
   // At least one provider must be configured
-  if (!process.env.OPENROUTER_API_KEY && !process.env.CLAUDE_API_KEY && !process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
     return new Response(
       JSON.stringify({ error: "No API keys configured" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
