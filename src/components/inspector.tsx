@@ -1499,6 +1499,39 @@ function BlueprintTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
         </div>
       </div>
 
+      {/* Publish / Portal actions */}
+      {artifacts.length > 0 && (
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              const hasConfig = artifacts.some((a) => a.filePath === "_docs_config.json");
+              if (hasConfig) {
+                openPortal();
+              } else {
+                setPendingInput("Publish a documentation site. Review my saved documents and our conversation history, then help me compile a polished documentation portal.\n\nBefore generating anything, ask me:\n1. What is this documentation for? (product docs, API reference, internal wiki, onboarding guide, etc.)\n2. Which of my saved documents should be included? (list them for me to pick from)\n3. What additional pages or sections should I create from scratch?\n4. Any specific ordering or grouping preferences?\n\nOnce I confirm, generate each page as a saved artifact with clean markdown structure, and then create a special artifact with file_path \"_docs_config.json\" and category \"other\" that defines the site navigation.");
+              }
+            }}
+            className="flex items-center gap-1.5 rounded px-2 py-1 font-sans text-xs text-muted-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors border border-border/50"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z" />
+            </svg>
+            {artifacts.some((a) => a.filePath === "_docs_config.json") ? "Open docs site" : "Publish docs site"}
+          </button>
+          {artifacts.some((a) => a.filePath === "_docs_config.json") && (
+            <button
+              onClick={() => {
+                setPendingInput("Update my documentation site. Review the current _docs_config.json and my saved documents, then ask me what I'd like to change — add pages, reorder sections, update content, etc.");
+              }}
+              className="rounded px-2 py-1 font-sans text-xs text-muted-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Document tree */}
       {loading ? (
         <div className="py-4 text-center font-sans text-xs text-muted-foreground/70">

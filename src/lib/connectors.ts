@@ -121,6 +121,15 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
       "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",
   },
   {
+    command: "publish",
+    label: "/publish",
+    chatPrompt:
+      "Publish a documentation site. Review my saved documents and our conversation history, then help me compile a polished documentation portal.\n\nBefore generating anything, ask me:\n1. What is this documentation for? (product docs, API reference, internal wiki, onboarding guide, etc.)\n2. Which of my saved documents should be included? (list them for me to pick from)\n3. What additional pages or sections should I create from scratch?\n4. Any specific ordering or grouping preferences?\n\nOnce I confirm, generate each page as a saved artifact with clean markdown structure, and then create a special artifact with file_path \"_docs_config.json\" and category \"other\" that defines the site navigation. The _docs_config.json should follow this format:\n{\n  \"title\": \"Site Title\",\n  \"description\": \"One-line description\",\n  \"navigation\": [\n    {\n      \"section\": \"Section Name\",\n      \"pages\": [\n        { \"path\": \"README.md\", \"label\": \"Introduction\" }\n      ]\n    }\n  ]\n}\n\nAfter generating everything, share the portal link so I can preview it.",
+    connectorId: "_builtin",
+    iconPath:
+      "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z",
+  },
+  {
     command: "sync",
     label: "/sync",
     chatPrompt:
