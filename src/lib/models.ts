@@ -129,6 +129,16 @@ export const DISSECT_MODEL: ModelConfig = {
   outputPrice: (25.0 / 1_000_000),
 };
 
+/** Virtual model entry for simplify receipts — not in the picker */
+export const SIMPLIFY_MODEL: ModelConfig = {
+  id: "simplify",
+  name: "Meter 1.0",
+  provider: "Meter",
+  color: "#E4E4E7",
+  inputPrice: (5.0 / 1_000_000),
+  outputPrice: (25.0 / 1_000_000),
+};
+
 export const DEFAULT_MODEL = MODELS[0];
 
 /** Models the user can check in the model picker (everything except "auto") */
@@ -140,6 +150,7 @@ export const DEBATE_MODELS = DEFAULT_DEBATE_MODELS;
 export function getModel(id: string): ModelConfig {
   if (id === "debate") return DEBATE_MODEL;
   if (id === "dissect") return DISSECT_MODEL;
+  if (id === "simplify") return SIMPLIFY_MODEL;
   return MODELS.find((m) => m.id === id) ?? DEFAULT_MODEL;
 }
 

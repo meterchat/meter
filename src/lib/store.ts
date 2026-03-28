@@ -70,6 +70,11 @@ export interface DissectorTurn {
   content: string;
 }
 
+export interface SimplifierTurn {
+  persona: "assumptions" | "razor" | "output";
+  content: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -94,6 +99,7 @@ export interface ChatMessage {
   hidden?: boolean;
   clarifyingQuestions?: ClarifyingQuestion[];
   dissectorTrace?: DissectorTurn[];
+  simplifierTrace?: SimplifierTurn[];
   isForkPoint?: boolean;
   forkResolution?: "merged" | "closed";
   isMergeEnd?: boolean;  // last message in a merged block (shows end-of-merge divider)
@@ -261,6 +267,7 @@ interface MeterState {
   addClarifyingQuestions: (questions: ClarifyingQuestion[], forSessionId?: string) => void;
   updateClarifyingAnswer: (messageId: string, questionId: string, answer: string) => void;
   setDissectorTrace: (trace: DissectorTurn[], forSessionId?: string) => void;
+  setSimplifierTrace: (trace: SimplifierTurn[], forSessionId?: string) => void;
 
   // Stream reconnect actions (used after page refresh to resume in-flight responses)
   updateReconnectMessageContent: (sessionId: string, messageId: string, content: string) => void;
@@ -1367,6 +1374,17 @@ export const useMeterStore = create<MeterState>()(
           const last = msgs[msgs.length - 1];
           if (last && last.role === "assistant") {
             msgs[msgs.length - 1] = { ...last, dissectorTrace: trace };
+          }
+          return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
+        }),
+
+      setSimplifierTrace: (trace, forSessionId?) =>
+        set((s) => {
+          const active = getSessionByIdOrActive(s, forSessionId);
+          const msgs = [...active.messages];
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === "assistant") {
+            msgs[msgs.length - 1] = { ...last, simplifierTrace: trace };
           }
           return { sessions: replaceActiveSession(s, { ...active, messages: msgs }) };
         }),

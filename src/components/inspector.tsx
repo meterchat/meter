@@ -1659,6 +1659,17 @@ function TimelineTab({ activeSessionId }: { activeSessionId: string | null }) {
         });
       }
 
+      if (m.simplifierTrace && m.simplifierTrace.length > 0) {
+        items.push({
+          id: `simplification-${m.id}`,
+          type: "simplification",
+          title: "Simplification",
+          subtitle: `${m.simplifierTrace.length} passes`,
+          timestamp: m.timestamp,
+          data: m,
+        });
+      }
+
       if (m.documents && m.documents.length > 0) {
         for (const doc of m.documents) {
           items.push({
@@ -1870,6 +1881,24 @@ function TimelineDetail({ event, onJump }: { event: TimelineEvent; onJump: (id: 
         {passes.length > 3 && (
           <span className="font-sans text-xs text-muted-foreground/60">+{passes.length - 3} more passes</span>
         )}
+        <button onClick={() => onJump(m.id)} className="font-sans text-xs text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
+          Jump to message
+        </button>
+      </div>
+    );
+  }
+
+  if (event.type === "simplification") {
+    const m = event.data as { id: string; simplifierTrace: { persona: string; content: string }[] };
+    const passes = m.simplifierTrace;
+    return (
+      <div className="ml-6 mb-2 mt-0.5 border-l border-border/40 pl-3 flex flex-col gap-2">
+        {passes.slice(0, 3).map((p, i) => (
+          <div key={i}>
+            <span className="font-sans text-xs text-muted-foreground/80">{p.persona}</span>
+            <p className="font-sans text-xs text-foreground/80 mt-0.5 line-clamp-3">{p.content}</p>
+          </div>
+        ))}
         <button onClick={() => onJump(m.id)} className="font-sans text-xs text-blue-400 hover:text-blue-300 text-left mt-1 transition-colors">
           Jump to message
         </button>
