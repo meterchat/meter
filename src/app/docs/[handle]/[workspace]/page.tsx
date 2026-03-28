@@ -20,6 +20,22 @@ interface PortalDocument {
   updatedAt: string | null;
 }
 
+interface DocsConfigPage {
+  path: string;
+  label: string;
+}
+
+interface DocsConfigSection {
+  section: string;
+  pages: DocsConfigPage[];
+}
+
+interface DocsConfig {
+  title: string;
+  description?: string;
+  navigation: DocsConfigSection[];
+}
+
 interface PortalData {
   workspace: { name: string; slug: string; handle: string; createdAt: string };
   documents: PortalDocument[];
@@ -59,6 +75,16 @@ function groupDocuments(docs: PortalDocument[]) {
   return CATEGORY_ORDER
     .filter((cat) => groups[cat]?.length)
     .map((cat) => ({ category: cat, items: groups[cat] }));
+}
+
+function parseDocsConfig(docs: PortalDocument[]): DocsConfig | null {
+  const configDoc = docs.find((d) => d.filePath === "_docs_config.json");
+  if (!configDoc) return null;
+  try {
+    const parsed = JSON.parse(configDoc.content);
+    if (parsed.title && Array.isArray(parsed.navigation)) return parsed as DocsConfig;
+  } catch { /* invalid JSON */ }
+  return null;
 }
 
 function formatDate(dateStr: string | null) {
@@ -162,6 +188,106 @@ function FileTree({
   );
 }
 
+function StructuredNav({
+  config,
+  documents,
+  activeDocId,
+  onSelect,
+}: {
+  config: DocsConfig;
+  documents: PortalDocument[];
+  activeDocId: string | null;
+  onSelect: (doc: PortalDocument) => void;
+}) {
+  const docByPath = useMemo(() => {
+    const map = new Map<string, PortalDocument>();
+    for (const d of documents) map.set(d.filePath, d);
+    return map;
+  }, [documents]);
+
+  return (
+    <nav className="flex flex-col gap-3">
+      {config.navigation.map((section) => (
+        <div key={section.section}>
+          <div className="font-mono text-[10px] text-white/30 uppercase tracking-wider px-2 mb-1.5">
+            {section.section}
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {section.pages.map((page) => {
+              const doc = docByPath.get(page.path);
+              if (!doc) return null;
+              return (
+                <button
+                  key={page.path}
+                  onClick={() => onSelect(doc)}
+                  className={`flex w-full items-center gap-2 py-1.5 px-2 rounded-md text-left transition-colors ${
+                    activeDocId === doc.id
+                      ? "bg-white/[0.08] text-white"
+                      : "text-white/60 hover:bg-white/[0.04] hover:text-white/80"
+                  }`}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="shrink-0 opacity-50"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  <span className="truncate text-[12px]">
+                    {page.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+function CoverPage({ config }: { config: DocsConfig }) {
+  const totalPages = config.navigation.reduce((sum, s) => sum + s.pages.length, 0);
+  return (
+    <div className="max-w-2xl mx-auto py-16">
+      <h1 className="text-3xl font-medium text-white mb-3">{config.title}</h1>
+      {config.description && (
+        <p className="text-white/50 text-base mb-10 leading-relaxed">{config.description}</p>
+      )}
+      <div className="grid gap-6">
+        {config.navigation.map((section) => (
+          <div key={section.section} className="border border-white/[0.06] rounded-lg p-5">
+            <h2 className="font-mono text-[11px] text-white/40 uppercase tracking-wider mb-3">
+              {section.section}
+            </h2>
+            <div className="flex flex-col gap-1.5">
+              {section.pages.map((page) => (
+                <div key={page.path} className="text-[13px] text-white/60 flex items-center gap-2">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  {page.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-8 font-mono text-[11px] text-white/20">
+        {totalPages} page{totalPages !== 1 ? "s" : ""} across {config.navigation.length} section{config.navigation.length !== 1 ? "s" : ""}
+      </div>
+    </div>
+  );
+}
+
 function DocumentViewer({ doc }: { doc: PortalDocument }) {
   const updated = formatDate(doc.updatedAt) || formatDate(doc.lastGeneratedAt);
 
@@ -226,24 +352,39 @@ export default function DocsPortalPage() {
       })
       .then((d: PortalData) => {
         setData(d);
-        // Auto-select first document (prefer README)
-        const readme = d.documents.find((doc) =>
-          doc.filePath.toLowerCase().includes("readme"),
-        );
-        setActiveDocId(readme?.id ?? d.documents[0]?.id ?? null);
+        // If there's a docs config, start on the cover page (no doc selected)
+        const hasConfig = d.documents.some((doc) => doc.filePath === "_docs_config.json");
+        if (!hasConfig) {
+          // Auto-select first document (prefer README)
+          const readme = d.documents.find((doc) =>
+            doc.filePath.toLowerCase().includes("readme"),
+          );
+          setActiveDocId(readme?.id ?? d.documents[0]?.id ?? null);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [handle, workspace]);
 
-  const groups = useMemo(
-    () => (data ? groupDocuments(data.documents) : []),
+  const docsConfig = useMemo(
+    () => (data ? parseDocsConfig(data.documents) : null),
     [data],
   );
 
+  // Filter out _docs_config.json from visible documents
+  const visibleDocs = useMemo(
+    () => (data?.documents.filter((d) => d.filePath !== "_docs_config.json") ?? []),
+    [data],
+  );
+
+  const groups = useMemo(
+    () => groupDocuments(visibleDocs),
+    [visibleDocs],
+  );
+
   const activeDoc = useMemo(
-    () => data?.documents.find((d) => d.id === activeDocId) ?? null,
-    [data, activeDocId],
+    () => visibleDocs.find((d) => d.id === activeDocId) ?? null,
+    [visibleDocs, activeDocId],
   );
 
   /* Loading / Error states */
@@ -296,23 +437,37 @@ export default function DocsPortalPage() {
           </Link>
         </div>
 
-        {/* Workspace name */}
+        {/* Workspace / site name */}
         <div className="px-4 py-3 border-b border-white/[0.06]">
           <div className="font-mono text-[10px] text-white/30 uppercase tracking-wider mb-1">
             {data.workspace.handle}
           </div>
           <div className="text-[13px] text-white/80 font-medium truncate">
-            {data.workspace.name}
+            {docsConfig?.title ?? data.workspace.name}
           </div>
+          {docsConfig?.description && (
+            <div className="text-[11px] text-white/30 mt-1 leading-relaxed line-clamp-2">
+              {docsConfig.description}
+            </div>
+          )}
         </div>
 
-        {/* File tree */}
+        {/* Navigation */}
         <div className="flex-1 overflow-y-auto p-3">
-          <FileTree
-            groups={groups}
-            activeDocId={activeDocId}
-            onSelect={(doc) => setActiveDocId(doc.id)}
-          />
+          {docsConfig ? (
+            <StructuredNav
+              config={docsConfig}
+              documents={visibleDocs}
+              activeDocId={activeDocId}
+              onSelect={(doc) => setActiveDocId(doc.id)}
+            />
+          ) : (
+            <FileTree
+              groups={groups}
+              activeDocId={activeDocId}
+              onSelect={(doc) => setActiveDocId(doc.id)}
+            />
+          )}
         </div>
 
         {/* Footer */}
@@ -359,6 +514,8 @@ export default function DocsPortalPage() {
         <div className="flex-1 overflow-y-auto p-8">
           {activeDoc ? (
             <DocumentViewer doc={activeDoc} />
+          ) : docsConfig ? (
+            <CoverPage config={docsConfig} />
           ) : (
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
