@@ -160,6 +160,12 @@ export function useSessionSync() {
   const syncToServer = useCallback(async () => {
     if (!authenticated) return;
 
+    // CRITICAL: Never sync before server data has been loaded. On page refresh,
+    // localStorage hydrates sessions with messages: [] (stripped by partialize).
+    // Syncing that empty state would poison the snapshot hash and could race
+    // with loadSessions(), leaving the user with blank messages.
+    if (!useMeterStore.getState().sessionsLoaded) return;
+
     // Read sessions from getState() at call time — NOT from the closure.
     // This is critical: requestImmediateSync() can fire synchronously after
     // addMessage(), before React re-renders. The closure `sessions` would be
@@ -429,6 +435,10 @@ export function useSessionSync() {
     if (!authenticated) return;
 
     const handleBeforeUnload = () => {
+      // Don't beacon empty state if sessions haven't loaded from server yet.
+      // This prevents overwriting server data with localStorage's stripped messages.
+      if (!useMeterStore.getState().sessionsLoaded) return;
+
       // Flag if any session was streaming (or recently finished streaming)
       // so the next page load can delay the session fetch to avoid racing
       // with the beacon save or server-side stream completion.
@@ -655,18 +665,33 @@ export function useSessionSync() {
           await new Promise((r) => setTimeout(r, 500));
           if (cancelled) return;
         }
-        let res = await authFetch("/api/sessions");
-        if (res.status === 401) {
-          // Retry once — transient DB errors can cause false 401s
-          await new Promise((r) => setTimeout(r, 1000));
+        // Fetch sessions with retry — transient failures (server restart,
+        // cold start, network blip) must not leave the user with empty messages.
+        let res: Response | null = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
           if (cancelled) return;
-          res = await authFetch("/api/sessions");
+          try {
+            res = await authFetch("/api/sessions");
+          } catch {
+            // Network error — retry after backoff
+            await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+            continue;
+          }
+          if (res.status === 401 && attempt === 0) {
+            // Retry once — transient DB errors can cause false 401s
+            await new Promise((r) => setTimeout(r, 1000));
+            continue;
+          }
+          if (res.ok) break;
+          // Non-401 server error — retry after backoff
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
         }
-        if (!res.ok) {
-          if (res.status === 401) {
+        if (!res || !res.ok) {
+          if (res?.status === 401) {
             useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
             return;
           }
+          console.error("[meter] Failed to load sessions after 3 attempts — status:", res?.status);
           useMeterStore.getState().setSessionsLoaded(true);
           return;
         }
