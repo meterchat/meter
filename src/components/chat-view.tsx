@@ -2959,6 +2959,20 @@ export function ChatView() {
                         </div>
                       )}
 
+                      {/* Show thinking toggle above content — hidden while ThinkingIndicator is active */}
+                      {msg.role === "assistant" && msg.thinking && !(isStreaming && msgIdx === visibleMessages.length - 1 && showThinking) && (
+                        <details
+                          className="mb-2 text-[11px] text-muted-foreground/60"
+                        >
+                          <summary className="cursor-pointer font-mono hover:text-muted-foreground transition-colors">
+                            Show thinking
+                          </summary>
+                          <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
+                            {msg.thinking}
+                          </pre>
+                        </details>
+                      )}
+
                       {msg.role === "assistant" && displayContent.startsWith("__error__") ? (
                         <ErrorCard payload={displayContent.slice("__error__".length)} />
                       ) : msg.role === "assistant" ? (
@@ -2967,20 +2981,6 @@ export function ChatView() {
                         </div>
                       ) : (
                         <div className="whitespace-pre-wrap">{msg.content}</div>
-                      )}
-
-                      {msg.role === "assistant" && msg.thinking && (
-                        <details
-                          open={isStreaming && msgIdx === visibleMessages.length - 1}
-                          className="mt-2 text-[11px] text-muted-foreground/60"
-                        >
-                          <summary className="cursor-pointer font-mono hover:text-muted-foreground transition-colors">
-                            {isStreaming && msgIdx === visibleMessages.length - 1 ? "Thinking" : "Show thinking"}
-                          </summary>
-                          <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] text-muted-foreground/40 leading-relaxed">
-                            {msg.thinking}
-                          </pre>
-                        </details>
                       )}
 
                       {msg.cards && msg.cards.length > 0 && (
