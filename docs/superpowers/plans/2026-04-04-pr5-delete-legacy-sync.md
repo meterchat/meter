@@ -243,35 +243,62 @@ Replace the current implementation (lines 1736-1777) with one that does NOT clon
       },
 ```
 
-- [ ] **Step 2: Update any component that renders subtrack messages**
+- [ ] **Step 2: Add `getComposedMessages` selector to store**
 
-Search for where subtrack messages are rendered. The render logic needs to compose parent+subtrack messages:
+This is a cross-cutting change. Once subtracks stop cloning parent messages, EVERY consumer of `session.messages` that expects the full history becomes suspect. Instead of fixing each consumer individually, add a single selector that composes the view.
 
-```bash
-grep -r "forkMessageId\|isForkPoint\|isSubtrack" src/components/ --include="*.tsx" -l
-```
-
-In the message list rendering component, add composition logic:
+In `src/lib/store.ts`, add a new exported selector:
 
 ```typescript
-// When rendering a subtrack session's messages:
-function getComposedMessages(session, allSessions, tracks) {
-  const track = tracks.find(t => t.id === session.id && t.isSubtrack);
+/**
+ * Get the composed message list for a session. For subtracks, this
+ * prepends the parent's messages up to the fork point. For regular
+ * sessions, returns session.messages as-is. ALL consumers of session
+ * messages should use this selector instead of reading session.messages
+ * directly — rendering, pagination, export, settlement, search, counters.
+ */
+export function getComposedMessages(
+  sessions: Session[],
+  sessionId: string,
+  tracks: { id: string; isSubtrack?: boolean; workspaceId?: string; forkMessageId?: string }[],
+  workspaces: { id: string; sessionId?: string }[],
+): ChatMessage[] {
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session) return [];
+
+  const track = tracks.find((t) => t.id === sessionId && t.isSubtrack);
   if (!track?.forkMessageId) return session.messages;
 
-  // Find parent session
-  const parentWs = workspaces.find(w => w.id === track.workspaceId);
-  const parent = allSessions.find(s => s.id === parentWs?.sessionId);
+  const parentWs = workspaces.find((w) => w.id === track.workspaceId);
+  if (!parentWs?.sessionId) return session.messages;
+
+  const parent = sessions.find((s) => s.id === parentWs.sessionId);
   if (!parent) return session.messages;
 
-  // Get parent messages up to fork point
-  const forkIdx = parent.messages.findIndex(m => m.id === track.forkMessageId);
+  const forkIdx = parent.messages.findIndex((m) => m.id === track.forkMessageId);
   if (forkIdx === -1) return session.messages;
 
   const preFork = parent.messages.slice(0, forkIdx + 1);
   return [...preFork, ...session.messages];
 }
 ```
+
+- [ ] **Step 3: Audit and update all `session.messages` consumers**
+
+Run:
+
+```bash
+grep -rn "\.messages" src/components/ src/lib/ --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v "\.messages\." | head -40
+```
+
+Key consumers to update (replace `session.messages` with `getComposedMessages(...)`:
+- **Message list rendering** — the chat view component that maps over messages
+- **`fetchOlderMessages`** — pagination: needs to know which messages belong to the subtrack vs parent
+- **`getUnsettledMessages`** — settlement: should only count the subtrack's own messages, not parent's
+- **`getPendingBalance`** — same as settlement
+- **Any export/search** — if messages are exported or searched, must include composed view
+
+For each consumer, determine whether it needs the **composed** view (rendering, export) or the **raw** view (sync, settlement for this session only). Document the decision in a comment.
 
 - [ ] **Step 3: Commit**
 
@@ -305,14 +332,12 @@ git commit -m "chore: remove remaining references to legacy sync infrastructure"
 
 ---
 
-## Verification Checklist
+## Verification Checklist — Invariants
 
-- [ ] `use-session-sync.ts` is deleted and no imports reference it
-- [ ] `/api/chat/resume` endpoint is deleted
-- [ ] `POST /api/sessions` is removed (GET and DELETE still work)
-- [ ] Logout is instant — no sync, no 3-second timeout, no sendBeacon
-- [ ] After logout + login: all messages are present (loaded from server)
-- [ ] Creating a subtrack does NOT clone parent messages into its session array
-- [ ] Subtrack UI shows parent messages + subtrack messages composed at render time
-- [ ] No references to `syncToServer`, `sendBeacon`, `requestImmediateSync`, or `meter:was-streaming` remain
-- [ ] The app works end-to-end: send messages, refresh, switch devices, logout/login
+- [ ] **No data loss on logout:** Logout. Login. Verify ALL messages from ALL sessions are present (loaded from server bootstrap). Count messages before logout vs after login — must match.
+- [ ] **No data loss on refresh:** Refresh the page. All messages present. No "loading" state longer than 1 second. Cost counters match pre-refresh values.
+- [ ] **Subtracks don't steal messages from main:** Create a subtrack, send messages in it. Switch back to main workspace. Verify main workspace's messages are intact. Check DB: subtrack's `chat_messages` rows have only post-fork messages (not duplicates of parent messages).
+- [ ] **Composed view is correct:** In a subtrack, verify the message list shows: parent messages up to fork point + subtrack's own messages. The fork point message appears once (not duplicated).
+- [ ] **Settlement only counts session's own messages:** In a subtrack, verify `getUnsettledMessages()` returns only the subtrack's messages, not the parent's.
+- [ ] **No dead code remains:** `grep -r "syncToServer\|sendBeacon\|syncedMessageCount\|requestImmediateSync\|meter:was-streaming\|use-session-sync\|chat/resume" src/ --include="*.ts" --include="*.tsx"` returns zero results.
+- [ ] **End-to-end flow:** Send message on phone → see on desktop → refresh desktop → message still there → logout on phone → login on phone → all messages present → create subtrack on desktop → see on phone via Realtime.

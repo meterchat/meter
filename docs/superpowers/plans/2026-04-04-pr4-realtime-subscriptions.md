@@ -109,7 +109,17 @@ function mapServerMessage(m: Record<string, unknown>): ChatMessage {
     pinned: m.pinned as boolean | undefined,
     hidden: m.hidden as boolean | undefined,
     thinking: m.thinking as string | undefined,
-    // Include other fields as needed (cards, attachments, etc.)
+    cards: m.cards as import("@/lib/store").ActionCard[] | undefined,
+    attachments: m.attachments as import("@/lib/store").Attachment[] | undefined,
+    debateTrace: m.debate_trace as import("@/lib/store").DebateTurn[] | undefined,
+    dissectorTrace: m.dissector_trace as import("@/lib/store").DissectorTurn[] | undefined,
+    simplifierTrace: m.simplifier_trace as import("@/lib/store").SimplifierTurn[] | undefined,
+    documents: m.documents as import("@/lib/store").DocumentPreview[] | undefined,
+    clarifyingQuestions: m.clarifying_questions as import("@/lib/store").ClarifyingQuestion[] | undefined,
+    decisionId: m.decision_id as string | undefined,
+    isForkPoint: m.is_fork_point as boolean | undefined,
+    forkResolution: m.fork_resolution as "merged" | "closed" | undefined,
+    isMergeEnd: m.is_merge_end as boolean | undefined,
   };
 }
 
@@ -198,8 +208,13 @@ export function useRealtimeSync() {
         // Sync workspace store
         useWorkspaceStore.getState().upsertWorkspacesFromSessions(serverSessions, nextActiveId);
 
-        // Check for active streaming runs
-        // (Realtime will handle updates — just set isStreaming flag)
+        // Check for active streaming runs via the RUNS table (not message receipt_status).
+        // Run status is the authority for "is generation alive?"
+        // Message receipt_status answers "is content final?" — a different question.
+        // Bootstrap fetch should include active runs; if not available yet,
+        // fall back to checking if last assistant message has receipt_status = "metering"
+        // as a temporary heuristic until runs data is bootstrapped.
+        // TODO: Update GET /api/sessions to include active runs per session.
         for (const session of sessions) {
           const lastMsg = session.messages[session.messages.length - 1];
           if (lastMsg?.role === "assistant" && lastMsg.receiptStatus === "metering") {
@@ -401,20 +416,42 @@ function handleMessageChange(
   }
 
   if (eventType === "UPDATE") {
-    // Content update (streaming) or finalization (metered + cost)
+    // Content update (streaming) or finalization (metered + cost).
+    //
+    // MONOTONIC MERGE RULE: The sending device receives updates via both
+    // direct SSE (fast) and Realtime (slightly delayed). Without a
+    // freshness check, a stale Realtime UPDATE could overwrite newer SSE
+    // state. Rules:
+    //   1. For content: only apply if incoming length >= current length
+    //      (content only grows during streaming)
+    //   2. For status fields: only apply if incoming is "more advanced"
+    //      (metering < metered < settled)
+    //   3. For cost/tokens: only apply if incoming is non-null and current is null,
+    //      or if receipt_status is advancing
+    const receiptRank = (s?: string) =>
+      s === "settled" ? 3 : s === "metered" ? 2 : s === "metering" ? 1 : 0;
+
     useMeterStore.setState((s) => ({
       sessions: s.sessions.map((sess) => {
         if (sess.id !== sessionId) return sess;
         const msgs = sess.messages.map((m) => {
           if (m.id !== msgId) return m;
-          // Merge: only update fields that the server has newer values for
+
+          const incomingContent = (newRow.content as string) ?? "";
+          const incomingStatus = newRow.receipt_status as ReceiptStatus | undefined;
+          const statusAdvancing = receiptRank(incomingStatus) > receiptRank(m.receiptStatus);
+
           return {
             ...m,
-            content: (newRow.content as string) ?? m.content,
-            receiptStatus: (newRow.receipt_status as ReceiptStatus) ?? m.receiptStatus,
-            cost: (newRow.cost as number) ?? m.cost,
-            tokensIn: (newRow.tokens_in as number) ?? m.tokensIn,
-            tokensOut: (newRow.tokens_out as number) ?? m.tokensOut,
+            // Content: only accept if longer (monotonic growth during streaming)
+            content: incomingContent.length >= (m.content?.length ?? 0)
+              ? incomingContent : m.content,
+            // Status: only advance, never regress
+            receiptStatus: statusAdvancing ? incomingStatus : m.receiptStatus,
+            // Cost/tokens: only accept on status advance or if currently missing
+            cost: (statusAdvancing || m.cost == null) ? ((newRow.cost as number) ?? m.cost) : m.cost,
+            tokensIn: (statusAdvancing || m.tokensIn == null) ? ((newRow.tokens_in as number) ?? m.tokensIn) : m.tokensIn,
+            tokensOut: (statusAdvancing || m.tokensOut == null) ? ((newRow.tokens_out as number) ?? m.tokensOut) : m.tokensOut,
             thinking: (newRow.thinking as string) ?? m.thinking,
           };
         });
@@ -541,13 +578,12 @@ git commit -m "feat: shrink partialize to UI prefs only — server is source of 
 
 ---
 
-## Verification Checklist
+## Verification Checklist — Invariants
 
-- [ ] Page load: bootstrap fetch loads sessions, Realtime subscriptions connect (check browser console for "SUBSCRIBED" status)
-- [ ] Send a message on device A: device B sees the message appear via Realtime within ~2 seconds
-- [ ] Mid-stream refresh: page loads with partial content, Realtime UPDATEs continue streaming content
-- [ ] Stream completes: `isStreaming` flag clears on all devices via Realtime run status change
-- [ ] Dead stream (cron reaps): UI shows "Response interrupted" after Realtime delivers `timed_out` status
-- [ ] Session switching: unsubscribes from old session channels, subscribes to new ones
-- [ ] Logout: Realtime client destroyed, localStorage only has UI prefs
-- [ ] localStorage no longer contains messages or session arrays
+- [ ] **Sender and second device convergence:** Send a message on device A. Device B sees the user message AND streaming assistant content appear within 2 seconds via Realtime. Final cost appears on both devices when stream completes.
+- [ ] **No data loss on refresh (stream active):** Send a message, refresh mid-stream. Page loads with partial content from bootstrap. Content continues growing via Realtime UPDATEs. Final message has full content + cost.
+- [ ] **No data loss on refresh (stream completed):** Send a message, wait for completion, refresh. Page loads with full content + cost from bootstrap. No streaming indicator.
+- [ ] **Correct timeout behavior:** Simulate a dead stream (send message, kill the server function manually or wait for cron). Verify: run status becomes `timed_out` via Realtime. UI shows "Response interrupted." Message `receipt_status` remains `metering` (NOT force-marked `metered`). Cost is unknown (NULL), not fake $0.
+- [ ] **Monotonic merge:** During streaming, the sending tab has content from SSE. A Realtime UPDATE arrives with shorter content (delayed). Verify: the shorter content does NOT overwrite the longer SSE content.
+- [ ] **No data loss on logout:** Logout. Login. All messages from all sessions are present (loaded from server bootstrap). localStorage contains only UI preferences.
+- [ ] **Session switching isolation:** Switch from workspace A to workspace B. Verify: Realtime events for workspace A no longer arrive. Events for workspace B start arriving.

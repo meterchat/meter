@@ -348,7 +348,12 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = getSupabaseServer();
 
-    // Mark stale runs as timed_out
+    // Mark stale runs as timed_out.
+    // IMPORTANT: Do NOT touch chat_messages.receipt_status here.
+    // Runs answer "is generation alive?" Messages answer "is content final?"
+    // A timed-out run means generation stopped, but the partial content is
+    // NOT "metered" — force-marking it as such is the same lie as fake-$0.
+    // The client checks run status (not receipt_status) for streaming UI.
     const { data: reaped, error: reapErr } = await supabase
       .from("chat_runs")
       .update({
@@ -358,27 +363,14 @@ export async function GET(req: NextRequest) {
       .eq("status", "streaming")
       .lt("last_chunk_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
       .is("finalized_at", null)
-      .select("id, assistant_message_id");
+      .select("id");
 
     if (reapErr) {
       console.error("[reap-stale-runs] Failed to reap:", reapErr);
       return NextResponse.json({ error: "Failed to reap" }, { status: 500 });
     }
 
-    // Mark assistant messages as metered so they don't retrigger reconnect
     if (reaped && reaped.length > 0) {
-      const assistantIds = reaped
-        .map((r) => r.assistant_message_id)
-        .filter(Boolean);
-
-      if (assistantIds.length > 0) {
-        await supabase
-          .from("chat_messages")
-          .update({ receipt_status: "metered", updated_at: new Date().toISOString() })
-          .in("id", assistantIds)
-          .eq("receipt_status", "metering");
-      }
-
       console.log(`[reap-stale-runs] Reaped ${reaped.length} stale runs`);
     }
 
@@ -410,14 +402,10 @@ git commit -m "feat: add cron watchdog to reap stale streaming runs"
 
 ---
 
-## Verification Checklist
+## Verification Checklist — Invariants
 
-- [ ] Sending a message creates a `chat_runs` row in the DB with status `streaming`
-- [ ] The SSE stream starts with a `data: {"type":"ids",...}` preamble event
-- [ ] The browser console shows temp IDs being swapped for canonical IDs
-- [ ] On stream completion, `chat_runs.status` is `complete` and `finalized_at` is set
-- [ ] `chat_sessions` cost counters are incremented exactly once
-- [ ] Refreshing the page mid-stream: the assistant message exists in DB with partial content
-- [ ] Retrying with the same `clientRequestId` returns the existing run (409 if complete)
-- [ ] The cron endpoint marks stale runs as `timed_out` after 5 minutes
-- [ ] Existing chat flow (without `clientRequestId`) still works (backwards compatible)
+- [ ] **One assistant row per user turn:** Send a message. Verify exactly one `chat_messages` row with `role='assistant'` and the run's `assistant_message_id`. Retry the same `clientRequestId` via curl — verify NO new rows are created, same IDs returned.
+- [ ] **Exactly-once finalization:** After stream completes, check `chat_runs.finalized_at` is set. Call `finalize_run` RPC again with the same `run_id` — verify it returns `false` and `chat_sessions` cost counters are NOT incremented a second time.
+- [ ] **Run liveness is separate from message completeness:** After the cron reaps a stale run, verify `chat_runs.status = 'timed_out'` but `chat_messages.receipt_status` is still `'metering'` (NOT force-marked as `'metered'`). The message has partial content — it is not "done."
+- [ ] **No data loss on refresh:** Send a message, refresh mid-stream. Verify the assistant message exists in DB with partial content and `receipt_status = 'metering'`. The run has `status = 'streaming'` and `last_chunk_at` is recent.
+- [ ] **Backwards compatible:** Send a message without `clientRequestId` (old flow). Verify the old `userMessageId`/`assistantMessageId` path still works, no run is created, and the message completes normally.

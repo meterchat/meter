@@ -49,7 +49,12 @@ function unscopedId(userId: string, dbId: string): string {
   return dbId.startsWith(prefix) ? dbId.slice(prefix.length) : dbId;
 }
 
-// POST /api/workspaces — create a new workspace (server-minted ID)
+// POST /api/workspaces — create or get a workspace (server-minted ID)
+//
+// Supports get-or-create semantics: if `idempotencyKey` is provided (e.g.
+// "default" for the initial workspace), the server returns the existing
+// workspace for that user+key instead of creating a duplicate. This ensures
+// two devices logging in for the first time converge on the same workspace.
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
@@ -63,10 +68,37 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getSupabaseServer();
+    const idempotencyKey = (body.idempotencyKey as string) ?? null;
+
+    // Get-or-create: if idempotencyKey is provided, check for existing workspace
+    if (idempotencyKey) {
+      const tag = `${userId}:idem:${idempotencyKey}`;
+      const { data: existing } = await supabase
+        .from("chat_sessions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("idempotency_key", tag)
+        .is("deleted_at", null)
+        .single();
+
+      if (existing) {
+        return NextResponse.json({
+          sessionId: unscopedId(userId, existing.id),
+          name,
+          created: false,
+        });
+      }
+    }
+
     const localId = crypto.randomBytes(8).toString("hex");
     const dbId = scopedId(userId, localId);
 
-    const { error } = await supabase.from("chat_sessions").insert({
+    // Support subtrack creation
+    const isSubtrack = body.isSubtrack === true;
+    const parentSessionId = body.parentSessionId as string | undefined;
+    const forkMessageId = body.forkMessageId as string | undefined;
+
+    const insertData: Record<string, unknown> = {
       id: dbId,
       user_id: userId,
       project_name: name,
@@ -78,11 +110,38 @@ export async function POST(req: NextRequest) {
       today_message_count: 0,
       today_date: new Date().toISOString().slice(0, 10),
       created_at: new Date().toISOString(),
-    });
+    };
 
+    if (idempotencyKey) {
+      insertData.idempotency_key = `${userId}:idem:${idempotencyKey}`;
+    }
+    if (isSubtrack) {
+      insertData.is_subtrack = true;
+      if (parentSessionId) insertData.parent_session_id = scopedId(userId, parentSessionId);
+      if (forkMessageId) insertData.fork_message_id = forkMessageId;
+    }
+
+    const { error } = await supabase.from("chat_sessions").insert(insertData);
     if (error) throw error;
 
-    return NextResponse.json({ sessionId: localId, name });
+    // Side effects (same as the old POST /api/sessions creation path):
+    // 1. Analytics
+    const { serverTrackSessionCreated } = await import("@/lib/analytics-server");
+    serverTrackSessionCreated(userId, { sessionId: localId, projectName: name });
+
+    // 2. Portal slug for non-subtracks
+    if (!isSubtrack) {
+      try {
+        const { generatePortalSlug } = await import("@/lib/portal-slug");
+        const slug = generatePortalSlug(name || "workspace");
+        await supabase
+          .from("chat_sessions")
+          .update({ portal_slug: slug })
+          .eq("id", dbId);
+      } catch { /* non-critical */ }
+    }
+
+    return NextResponse.json({ sessionId: localId, name, created: true });
   } catch (err) {
     console.error("Failed to create workspace:", err);
     return NextResponse.json({ error: "Failed to create workspace" }, { status: 500 });
@@ -312,60 +371,46 @@ git commit -m "feat: workspace creation calls server for canonical session IDs"
 
 ---
 
-## Task 4: Handle subtrack creation via server
+## Task 4: Add `idempotency_key` column to `chat_sessions`
 
 **Files:**
-- Modify: `src/app/api/workspaces/route.ts` (add subtrack support to POST)
+- Modify: `src/app/api/setup-db/route.ts` (append to STATEMENTS)
 
-- [ ] **Step 1: Add subtrack support to POST /api/workspaces**
+The get-or-create semantic in Task 1 requires an `idempotency_key` column with a unique index. This ensures two devices creating the "default" workspace converge on one row.
 
-In `src/app/api/workspaces/route.ts`, update the POST handler to accept subtrack params. Add these lines after the initial insert block, before the return:
+- [ ] **Step 1: Add the column and index**
 
 ```typescript
-    // Support subtrack creation
-    const isSubtrack = body.isSubtrack === true;
-    const parentSessionId = body.parentSessionId as string | undefined;
-    const forkMessageId = body.forkMessageId as string | undefined;
-
-    const insertData: Record<string, unknown> = {
-      id: dbId,
-      user_id: userId,
-      project_name: name,
-      workspace_name: name,
-      total_cost: 0,
-      today_cost: 0,
-      today_tokens_in: 0,
-      today_tokens_out: 0,
-      today_message_count: 0,
-      today_date: new Date().toISOString().slice(0, 10),
-      created_at: new Date().toISOString(),
-    };
-
-    if (isSubtrack) {
-      insertData.is_subtrack = true;
-      if (parentSessionId) insertData.parent_session_id = scopedId(userId, parentSessionId);
-      if (forkMessageId) insertData.fork_message_id = forkMessageId;
-    }
-
-    const { error } = await supabase.from("chat_sessions").insert(insertData);
+  // Idempotency key for get-or-create workspace semantics.
+  // Format: "{userId}:idem:{key}" — scoped per user.
+  `alter table chat_sessions add column if not exists idempotency_key text`,
+  `create unique index if not exists uq_chat_sessions_idem_key
+   on chat_sessions (idempotency_key)
+   where idempotency_key is not null`,
 ```
 
-Replace the existing insert block with this expanded version.
-
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Run setup-db to apply**
 
 ```bash
-git add src/app/api/workspaces/route.ts
-git commit -m "feat: support subtrack creation in POST /api/workspaces"
+curl -s http://localhost:3000/api/setup-db \
+  -H "Cookie: meter_session=<your-session-token>" | jq .
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/app/api/setup-db/route.ts
+git commit -m "schema: add idempotency_key column to chat_sessions for get-or-create"
 ```
 
 ---
 
-## Verification Checklist
+## Verification Checklist — Invariants
 
-- [ ] Creating a workspace from the UI calls `POST /api/workspaces` and gets a server-minted ID
-- [ ] The new workspace appears in the Supabase `chat_sessions` table with a hex ID (not `ws_*`)
-- [ ] Renaming a workspace calls `PATCH /api/workspaces/:id` and updates the DB
-- [ ] Deleting a workspace calls `DELETE /api/workspaces/:id` and soft-deletes
-- [ ] Existing `ws_*` workspaces continue to work (backwards compatible)
-- [ ] Creating the same workspace on two devices yields one canonical server record (verify by checking DB after creating on both)
+These verify the guarantees this PR must uphold, not just that endpoints exist.
+
+- [ ] **One workspace per intended identity:** Call `POST /api/workspaces` with `idempotencyKey: "default"` twice from two different sessions (simulating two devices). Verify: only one `chat_sessions` row exists. Second call returns `created: false` with the same `sessionId`.
+- [ ] **Server is the authority for IDs:** Create a workspace via UI. Check DB — `id` is a hex string (not `ws_*`). The workspace-store's `sessionId` matches the DB row.
+- [ ] **Side effects preserved:** On creation, verify analytics event was tracked (`serverTrackSessionCreated` called) and `portal_slug` is populated on the DB row.
+- [ ] **Mutations are server-authoritative:** Rename via `PATCH`, delete via `DELETE`. Verify DB state changes. Other devices will see these via Realtime in PR4 — for now, verify the DB is correct.
+- [ ] **Backwards compatible:** Existing `ws_*` workspaces continue to load and function. The UI can switch to them and send messages.
