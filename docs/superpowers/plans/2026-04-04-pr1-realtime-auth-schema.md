@@ -158,12 +158,15 @@ Append this statement to the STATEMENTS array (before the closing `];`):
 
 ```typescript
   // ── PR1: Server-authoritative state — chat_runs table ──────────
+  // NOTE: user_message_id and assistant_message_id are TEXT, not UUID,
+  // because chat_messages.id is TEXT (client-generated IDs like "a1b2c3d4").
+  // chat_runs.id is also TEXT for consistency with the rest of the schema.
   `create table if not exists chat_runs (
-    id uuid primary key default gen_random_uuid(),
+    id text primary key default gen_random_uuid()::text,
     session_id text not null references chat_sessions(id),
     client_request_id text,
-    user_message_id uuid,
-    assistant_message_id uuid,
+    user_message_id text,
+    assistant_message_id text,
     status text not null default 'created',
     model text,
     cost numeric,
@@ -214,7 +217,7 @@ git commit -m "schema: add chat_runs table with idempotency constraint"
 
 ```typescript
   // Link assistant messages to their run (nullable for legacy messages)
-  `alter table chat_messages add column if not exists run_id uuid references chat_runs(id)`,
+  `alter table chat_messages add column if not exists run_id text references chat_runs(id)`,
   // Row modification timestamp for Realtime change tracking.
   // Separate from "timestamp" which is stable for ordering.
   `alter table chat_messages add column if not exists updated_at timestamptz`,
@@ -242,7 +245,7 @@ git commit -m "schema: add run_id and updated_at columns to chat_messages"
 
 - [ ] **Step 1: Add the create_run RPC**
 
-This function atomically creates a run + both messages in one transaction. If `client_request_id` already exists (retry), it returns the existing run's data. If the existing run has NULL `user_message_id` (crashed mid-creation, defense-in-depth), it repairs it.
+This function atomically creates a run + both messages in one transaction. Concurrent retries are serialized by `SELECT ... FOR UPDATE` on the run row, so only one caller builds the messages. The fully-built check verifies BOTH `user_message_id` AND `assistant_message_id` are non-null.
 
 ```typescript
   `create or replace function create_run(
@@ -251,17 +254,16 @@ This function atomically creates a run + both messages in one transaction. If `c
     p_model text,
     p_user_content text
   ) returns table (
-    run_id uuid,
-    user_message_id uuid,
-    assistant_message_id uuid,
+    run_id text,
+    user_message_id text,
+    assistant_message_id text,
     run_status text
   ) as $$
   declare
-    v_run_id uuid;
-    v_user_msg_id uuid;
-    v_asst_msg_id uuid;
+    v_run_id text;
+    v_user_msg_id text;
+    v_asst_msg_id text;
     v_status text;
-    v_existing_user_msg uuid;
   begin
     -- Attempt insert; ON CONFLICT means this client_request_id already exists (retry).
     insert into chat_runs (session_id, client_request_id, status, model)
@@ -269,27 +271,39 @@ This function atomically creates a run + both messages in one transaction. If `c
       on conflict (client_request_id) where client_request_id is not null
       do nothing;
 
-    -- Fetch the run (ours or the existing one)
+    -- Lock the run row. This serializes concurrent retries: if two callers
+    -- hit this simultaneously, one blocks until the other commits.
+    -- Without FOR UPDATE, both could see NULL message IDs and both create messages.
     select cr.id, cr.user_message_id, cr.assistant_message_id, cr.status
-      into v_run_id, v_existing_user_msg, v_asst_msg_id, v_status
+      into v_run_id, v_user_msg_id, v_asst_msg_id, v_status
       from chat_runs cr
-      where cr.client_request_id = p_client_request_id;
+      where cr.client_request_id = p_client_request_id
+      for update;
 
-    -- If run is already fully built, return it as-is (retry path)
-    if v_existing_user_msg is not null then
+    -- Fully built = BOTH message IDs are set. Checking only one is a bug:
+    -- a crash after inserting the user message but before the assistant message
+    -- would leave a half-built run that looks "complete" if we only check one.
+    if v_user_msg_id is not null and v_asst_msg_id is not null then
       return query
-        select v_run_id, v_existing_user_msg, v_asst_msg_id, v_status;
+        select v_run_id, v_user_msg_id, v_asst_msg_id, v_status;
       return;
     end if;
 
-    -- Run exists but messages are missing — create them (first call or repair)
-    insert into chat_messages (id, session_id, role, content, timestamp)
-      values (gen_random_uuid(), p_session_id, 'user', p_user_content, extract(epoch from now()) * 1000)
-      returning id into v_user_msg_id;
+    -- Run exists but messages are missing — create them (first call or repair).
+    -- If only one message exists (partial crash), create the missing one.
+    if v_user_msg_id is null then
+      insert into chat_messages (id, session_id, role, content, timestamp)
+        values (gen_random_uuid()::text, p_session_id, 'user', p_user_content,
+                extract(epoch from now()) * 1000)
+        returning id into v_user_msg_id;
+    end if;
 
-    insert into chat_messages (id, session_id, role, content, receipt_status, run_id, timestamp)
-      values (gen_random_uuid(), p_session_id, 'assistant', '', 'metering', v_run_id, extract(epoch from now()) * 1000)
-      returning id into v_asst_msg_id;
+    if v_asst_msg_id is null then
+      insert into chat_messages (id, session_id, role, content, receipt_status, run_id, timestamp)
+        values (gen_random_uuid()::text, p_session_id, 'assistant', '',
+                'metering', v_run_id, extract(epoch from now()) * 1000)
+        returning id into v_asst_msg_id;
+    end if;
 
     update chat_runs
       set user_message_id = v_user_msg_id,
@@ -304,7 +318,12 @@ This function atomically creates a run + both messages in one transaction. If `c
   $$ language plpgsql security definer`,
 ```
 
-Note: `timestamp` uses `extract(epoch from now()) * 1000` to match the existing convention of millisecond timestamps in the `chat_messages` table.
+Key safety properties:
+- `FOR UPDATE` on the run row serializes concurrent callers — the second caller blocks until the first commits
+- Both `user_message_id` AND `assistant_message_id` must be non-null for the run to be considered fully built
+- Each message is created independently with `IF ... IS NULL` guards, so partial crashes are repaired
+- Message IDs are `text` (matching `chat_messages.id` type), generated as `gen_random_uuid()::text`
+- `timestamp` uses `extract(epoch from now()) * 1000` to match the existing millisecond convention
 
 - [ ] **Step 2: Commit**
 
@@ -326,7 +345,7 @@ This function atomically finalizes a run: updates the run, the assistant message
 
 ```typescript
   `create or replace function finalize_run(
-    p_run_id uuid,
+    p_run_id text,
     p_cost numeric,
     p_tokens_in integer,
     p_tokens_out integer,
@@ -335,7 +354,7 @@ This function atomically finalizes a run: updates the run, the assistant message
   ) returns boolean as $$
   declare
     v_updated int;
-    v_assistant_msg_id uuid;
+    v_assistant_msg_id text;
     v_session_id text;
   begin
     -- Exactly-once guard: only the first caller gets past this.
@@ -524,6 +543,10 @@ This module provides a singleton Supabase client configured for Realtime subscri
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { authFetch } from "@/lib/auth-fetch";
 
+// Cache the initialization PROMISE, not the client. This prevents a race
+// where two callers both see `client === null`, both start initializing,
+// and one returns the client before setAuth() completes.
+let initPromise: Promise<SupabaseClient> | null = null;
 let client: SupabaseClient | null = null;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -536,46 +559,52 @@ async function fetchRealtimeToken(): Promise<string> {
   return data.token;
 }
 
-/**
- * Get (or create) the browser-side Supabase client for Realtime subscriptions.
- * On first call, fetches a JWT from /api/realtime/token and starts a
- * 50-minute refresh timer. The client uses the anon key + setAuth() so
- * RLS policies filter events to this user's data.
- */
-export async function getRealtimeClient(): Promise<SupabaseClient> {
-  if (client) return client;
-
+async function initialize(): Promise<SupabaseClient> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) throw new Error("Missing Supabase env vars");
 
-  client = createClient(url, anonKey, {
+  const newClient = createClient(url, anonKey, {
     realtime: {
       params: { eventsPerSecond: 10 },
     },
   });
 
-  // Authenticate for Realtime
+  // Authenticate BEFORE exposing the client
   const token = await fetchRealtimeToken();
-  client.realtime.setAuth(token);
+  newClient.realtime.setAuth(token);
 
   // Refresh token before expiry
   refreshTimer = setInterval(async () => {
     try {
       const newToken = await fetchRealtimeToken();
-      client?.realtime.setAuth(newToken);
+      newClient.realtime.setAuth(newToken);
     } catch {
       // Token refresh failed — Realtime will disconnect on expiry.
       // The Supabase client's built-in reconnect will retry.
     }
   }, TOKEN_REFRESH_MS);
 
-  return client;
+  client = newClient;
+  return newClient;
+}
+
+/**
+ * Get (or create) the browser-side Supabase client for Realtime subscriptions.
+ * On first call, fetches a JWT from /api/realtime/token and starts a
+ * 50-minute refresh timer. Concurrent callers share the same initialization
+ * promise, so the client is never returned before authentication completes.
+ */
+export function getRealtimeClient(): Promise<SupabaseClient> {
+  if (!initPromise) {
+    initPromise = initialize();
+  }
+  return initPromise;
 }
 
 /**
  * Tear down the Realtime client. Removes all channels, stops the token
- * refresh timer, and nulls the singleton. Call on logout.
+ * refresh timer, and resets the singleton. Call on logout.
  */
 export function destroyRealtimeClient() {
   if (refreshTimer) {
@@ -586,6 +615,7 @@ export function destroyRealtimeClient() {
     client.removeAllChannels();
     client = null;
   }
+  initPromise = null;
 }
 ```
 
@@ -630,7 +660,7 @@ where table_name = 'chat_runs'
 order by ordinal_position;
 ```
 
-Expected: 15 columns (id, session_id, client_request_id, user_message_id, assistant_message_id, status, model, cost, tokens_in, tokens_out, cache_creation_tokens, cache_read_tokens, last_chunk_at, finalized_at, created_at).
+Expected: 15 columns, all TEXT for IDs (id, session_id, client_request_id, user_message_id, assistant_message_id) matching `chat_messages.id` type.
 
 - [ ] **Step 4: Verify chat_messages new columns**
 
