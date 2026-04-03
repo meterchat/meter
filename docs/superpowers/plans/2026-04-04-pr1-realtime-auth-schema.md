@@ -245,7 +245,7 @@ git commit -m "schema: add run_id and updated_at columns to chat_messages"
 
 - [ ] **Step 1: Add the create_run RPC**
 
-This function atomically creates a run + both messages in one transaction. Concurrent retries are serialized by `SELECT ... FOR UPDATE` on the run row, so only one caller builds the messages. The fully-built check verifies BOTH `user_message_id` AND `assistant_message_id` are non-null.
+This function atomically creates a run + both messages in one transaction. Concurrent retries are serialized by `SELECT ... FOR UPDATE` on the run row, so only one caller builds the messages. The fully-built check verifies BOTH `user_message_id` AND `assistant_message_id` are non-null. Returns `is_new = true` when this caller created the messages, `false` when they already existed (retry or concurrent duplicate). This lets `/api/chat` distinguish "I just claimed this run" from "another request is already streaming it."
 
 ```typescript
   `create or replace function create_run(
@@ -257,7 +257,8 @@ This function atomically creates a run + both messages in one transaction. Concu
     run_id text,
     user_message_id text,
     assistant_message_id text,
-    run_status text
+    run_status text,
+    is_new boolean
   ) as $$
   declare
     v_run_id text;
@@ -284,8 +285,9 @@ This function atomically creates a run + both messages in one transaction. Concu
     -- a crash after inserting the user message but before the assistant message
     -- would leave a half-built run that looks "complete" if we only check one.
     if v_user_msg_id is not null and v_asst_msg_id is not null then
+      -- Run already fully built (retry or concurrent duplicate) — return is_new=false
       return query
-        select v_run_id, v_user_msg_id, v_asst_msg_id, v_status;
+        select v_run_id, v_user_msg_id, v_asst_msg_id, v_status, false;
       return;
     end if;
 
@@ -312,8 +314,9 @@ This function atomically creates a run + both messages in one transaction. Concu
           last_chunk_at = now()
       where id = v_run_id;
 
+    -- This caller created the messages — return is_new=true
     return query
-      select v_run_id, v_user_msg_id, v_asst_msg_id, 'streaming'::text;
+      select v_run_id, v_user_msg_id, v_asst_msg_id, 'streaming'::text, true;
   end;
   $$ language plpgsql security definer`,
 ```
@@ -322,6 +325,7 @@ Key safety properties:
 - `FOR UPDATE` on the run row serializes concurrent callers — the second caller blocks until the first commits
 - Both `user_message_id` AND `assistant_message_id` must be non-null for the run to be considered fully built
 - Each message is created independently with `IF ... IS NULL` guards, so partial crashes are repaired
+- `is_new` boolean distinguishes "just claimed" (`true`) from "already existed" (`false`) — lets `/api/chat` reject duplicate model calls (see PR3 Task 2)
 - Message IDs are `text` (matching `chat_messages.id` type), generated as `gen_random_uuid()::text`
 - `timestamp` uses `extract(epoch from now()) * 1000` to match the existing millisecond convention
 

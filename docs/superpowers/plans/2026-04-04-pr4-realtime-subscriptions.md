@@ -21,6 +21,7 @@
 | `src/lib/use-realtime-sync.ts` | Create | Bootstrap + three Realtime channels + reconciliation + session switching + token refresh |
 | `src/lib/store.ts` | Modify | Shrink `partialize` to UI prefs only; add `setSessionsFromServer` bulk setter |
 | `src/components/app-shell.tsx` or equivalent | Modify | Replace `useSessionSync()` call with `useRealtimeSync()` |
+| `src/app/api/sessions/route.ts` | Modify | Add `active_runs` to GET response for authoritative stream liveness detection |
 
 ---
 
@@ -82,6 +83,23 @@ import { authFetch } from "@/lib/auth-fetch";
 import { getRealtimeClient, destroyRealtimeClient } from "@/lib/supabase-realtime";
 import { getModel } from "@/lib/models";
 
+// ── ID Scoping Boundary ──────────────────────────────────────────────
+// DB stores scoped IDs: "{userId}:{localId}". The client uses unscoped
+// (local) IDs everywhere. GET /api/sessions returns unscoped IDs.
+// Realtime delivers scoped IDs (raw DB rows). This boundary converts:
+//   - Client → Realtime filter: scopedId() to match DB column values
+//   - Realtime → Client state: unscopedId() to match store IDs
+function scopedId(userId: string, localId: string): string {
+  if (localId.startsWith(`${userId}:`)) return localId;
+  return `${userId}:${localId}`;
+}
+
+function unscopedId(userId: string | null, dbId: string): string {
+  if (!userId) return dbId;
+  const prefix = `${userId}:`;
+  return dbId.startsWith(prefix) ? dbId.slice(prefix.length) : dbId;
+}
+
 // Re-use the server session mapping from the old sync hook
 function mapServerMessage(m: Record<string, unknown>): ChatMessage {
   let cost = m.cost as number | undefined;
@@ -125,13 +143,15 @@ function mapServerMessage(m: Record<string, unknown>): ChatMessage {
 
 export function useRealtimeSync() {
   const authenticated = useMeterStore((s) => s.authenticated);
+  const userId = useMeterStore((s) => s.userId);
   const activeSessionId = useMeterStore((s) => s.activeSessionId);
   const channelsRef = useRef<{ sessions?: RealtimeChannel; messages?: RealtimeChannel; runs?: RealtimeChannel }>({});
   const prevSessionIdRef = useRef<string | null>(null);
 
   // ── Bootstrap: fetch sessions from server on mount ──
   useEffect(() => {
-    if (!authenticated) return;
+    if (!authenticated || !userId) return;
+    const uid = userId; // capture for closure
 
     let cancelled = false;
 
@@ -211,13 +231,12 @@ export function useRealtimeSync() {
         // Check for active streaming runs via the RUNS table (not message receipt_status).
         // Run status is the authority for "is generation alive?"
         // Message receipt_status answers "is content final?" — a different question.
-        // Bootstrap fetch should include active runs; if not available yet,
-        // fall back to checking if last assistant message has receipt_status = "metering"
-        // as a temporary heuristic until runs data is bootstrapped.
-        // TODO: Update GET /api/sessions to include active runs per session.
+        // GET /api/sessions now includes active_runs per session (see Task 5).
         for (const session of sessions) {
-          const lastMsg = session.messages[session.messages.length - 1];
-          if (lastMsg?.role === "assistant" && lastMsg.receiptStatus === "metering") {
+          const activeRuns = (serverSessions.find(
+            (ss: Record<string, unknown>) => unscopedId(uid, ss.id as string) === session.id
+          ) as Record<string, unknown> | undefined)?.active_runs as unknown[];
+          if (Array.isArray(activeRuns) && activeRuns.length > 0) {
             useMeterStore.setState((s) => ({
               sessions: s.sessions.map((sess: { id: string }) =>
                 sess.id === session.id ? { ...sess, isStreaming: true } : sess
@@ -229,6 +248,37 @@ export function useRealtimeSync() {
         // Subscribe to Realtime after bootstrap
         await subscribeToRealtime(nextActiveId);
 
+        // ── Reconciliation: close the bootstrap→subscribe gap ──
+        // Between bootstrap fetch and subscriptions becoming live, events could
+        // have been missed. Do a lightweight re-fetch of the active session's
+        // recent messages and merge any new ones.
+        try {
+          const reconRes = await authFetch("/api/sessions");
+          if (reconRes.ok) {
+            const reconData = await reconRes.json();
+            const reconSession = reconData.sessions?.find(
+              (s: Record<string, unknown>) => s.id === nextActiveId
+            );
+            if (reconSession?.messages?.length) {
+              const reconMsgs = (reconSession.messages as Record<string, unknown>[]).map(mapServerMessage);
+              useMeterStore.setState((s) => {
+                const localSession = s.sessions.find((sess) => sess.id === nextActiveId);
+                if (!localSession) return s;
+                const localIds = new Set(localSession.messages.map((m) => m.id));
+                const newMsgs = reconMsgs.filter((m) => !localIds.has(m.id));
+                if (newMsgs.length === 0) return s;
+                return {
+                  sessions: s.sessions.map((sess) =>
+                    sess.id === nextActiveId
+                      ? { ...sess, messages: [...sess.messages, ...newMsgs].sort((a, b) => a.timestamp - b.timestamp) }
+                      : sess
+                  ),
+                };
+              });
+            }
+          }
+        } catch { /* reconciliation is best-effort */ }
+
       } catch (err) {
         console.error("[realtime-sync] Bootstrap failed:", err);
         useMeterStore.setState({ sessionsLoaded: true });
@@ -239,14 +289,20 @@ export function useRealtimeSync() {
     useDecisionsStore.getState().fetchDecisions();
 
     return () => { cancelled = true; };
-  }, [authenticated]);
+  }, [authenticated, userId]);
 
   // ── Subscribe to Realtime channels ──
   const subscribeToRealtime = useCallback(async (sessionId: string) => {
+    const uid = useMeterStore.getState().userId;
+    if (!uid) return;
+
     try {
       const client = await getRealtimeClient();
 
-      // 1. Subscribe to chat_sessions (all user's sessions)
+      // DB stores scoped IDs — Realtime filters must match the DB column values
+      const dbSessionId = scopedId(uid, sessionId);
+
+      // 1. Subscribe to chat_sessions (all user's sessions — RLS filters by user)
       channelsRef.current.sessions = client
         .channel("sessions")
         .on("postgres_changes", {
@@ -254,31 +310,31 @@ export function useRealtimeSync() {
           schema: "public",
           table: "chat_sessions",
         }, (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          handleSessionChange(payload);
+          handleSessionChange(payload, uid);
         })
         .subscribe();
 
-      // 2. Subscribe to chat_messages for active session
+      // 2. Subscribe to chat_messages for active session (scoped filter)
       channelsRef.current.messages = client
         .channel(`messages-${sessionId}`)
         .on("postgres_changes", {
           event: "*",
           schema: "public",
           table: "chat_messages",
-          filter: `session_id=eq.${sessionId}`,
+          filter: `session_id=eq.${dbSessionId}`,
         }, (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          handleMessageChange(payload, sessionId);
+          handleMessageChange(payload, sessionId, uid);
         })
         .subscribe();
 
-      // 3. Subscribe to chat_runs for active session
+      // 3. Subscribe to chat_runs for active session (scoped filter)
       channelsRef.current.runs = client
         .channel(`runs-${sessionId}`)
         .on("postgres_changes", {
           event: "*",
           schema: "public",
           table: "chat_runs",
-          filter: `session_id=eq.${sessionId}`,
+          filter: `session_id=eq.${dbSessionId}`,
         }, (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
           handleRunChange(payload, sessionId);
         })
@@ -307,8 +363,12 @@ export function useRealtimeSync() {
 
     // Subscribe to new session (only messages + runs; sessions channel is global)
     (async () => {
+      const uid = useMeterStore.getState().userId;
+      if (!uid) return;
+
       try {
         const client = await getRealtimeClient();
+        const dbSessionId = scopedId(uid, activeSessionId);
 
         channelsRef.current.messages = client
           .channel(`messages-${activeSessionId}`)
@@ -316,9 +376,9 @@ export function useRealtimeSync() {
             event: "*",
             schema: "public",
             table: "chat_messages",
-            filter: `session_id=eq.${activeSessionId}`,
+            filter: `session_id=eq.${dbSessionId}`,
           }, (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-            handleMessageChange(payload, activeSessionId);
+            handleMessageChange(payload, activeSessionId, uid);
           })
           .subscribe();
 
@@ -328,7 +388,7 @@ export function useRealtimeSync() {
             event: "*",
             schema: "public",
             table: "chat_runs",
-            filter: `session_id=eq.${activeSessionId}`,
+            filter: `session_id=eq.${dbSessionId}`,
           }, (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
             handleRunChange(payload, activeSessionId);
           })
@@ -350,11 +410,15 @@ export function useRealtimeSync() {
 
 // ── Realtime event handlers ──
 
-function handleSessionChange(payload: RealtimePostgresChangesPayload<Record<string, unknown>>) {
+function handleSessionChange(
+  payload: RealtimePostgresChangesPayload<Record<string, unknown>>,
+  uid: string,
+) {
   const { eventType, new: newRow } = payload;
   if (!newRow || typeof newRow !== "object") return;
 
-  const sessionId = newRow.id as string;
+  // Realtime delivers raw DB rows with scoped IDs — unscope for client state
+  const sessionId = unscopedId(uid, newRow.id as string);
 
   if (eventType === "UPDATE") {
     // Update session metadata (cost counters, name, etc.)
@@ -392,10 +456,13 @@ function handleSessionChange(payload: RealtimePostgresChangesPayload<Record<stri
 function handleMessageChange(
   payload: RealtimePostgresChangesPayload<Record<string, unknown>>,
   sessionId: string,
+  uid: string,
 ) {
   const { eventType, new: newRow } = payload;
   if (!newRow || typeof newRow !== "object") return;
 
+  // Message IDs are UUIDs (not scoped), but session_id in the payload is scoped.
+  // The sessionId parameter is already unscoped (passed from the subscription setup).
   const msgId = newRow.id as string;
 
   if (eventType === "INSERT") {
@@ -578,6 +645,49 @@ git commit -m "feat: shrink partialize to UI prefs only — server is source of 
 
 ---
 
+## Task 5: Add active runs to GET /api/sessions bootstrap response
+
+**Files:**
+- Modify: `src/app/api/sessions/route.ts`
+
+The bootstrap needs to know which sessions have active streaming runs so the UI can show the streaming indicator immediately. Without this, the client falls back to a heuristic (`receipt_status === "metering"`) that conflates "is generation alive?" with "is content final?" — the exact coupling the spec aims to eliminate.
+
+- [ ] **Step 1: Fetch active runs per session in the bootstrap query**
+
+In `src/app/api/sessions/route.ts`, inside the `Promise.all` per-session block (after the messages and stats queries), add a third parallel query for active runs:
+
+```typescript
+        // Fetch active runs (streaming or created) for this session
+        supabase
+          .from("chat_runs")
+          .select("id, status, assistant_message_id, last_chunk_at")
+          .eq("session_id", session.id)
+          .in("status", ["created", "streaming"])
+          .is("finalized_at", null),
+```
+
+- [ ] **Step 2: Include active_runs in the response**
+
+In the result mapping, add the active runs to each session:
+
+```typescript
+        active_runs: (activeRunsBySession[s.id] ?? []).map((r) => ({
+          id: r.id,
+          status: r.status,
+          assistant_message_id: r.assistant_message_id,
+          last_chunk_at: r.last_chunk_at,
+        })),
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/app/api/sessions/route.ts
+git commit -m "feat: include active_runs in GET /api/sessions for authoritative stream liveness"
+```
+
+---
+
 ## Verification Checklist — Invariants
 
 - [ ] **Sender and second device convergence:** Send a message on device A. Device B sees the user message AND streaming assistant content appear within 2 seconds via Realtime. Final cost appears on both devices when stream completes.
@@ -587,3 +697,6 @@ git commit -m "feat: shrink partialize to UI prefs only — server is source of 
 - [ ] **Monotonic merge:** During streaming, the sending tab has content from SSE. A Realtime UPDATE arrives with shorter content (delayed). Verify: the shorter content does NOT overwrite the longer SSE content.
 - [ ] **No data loss on logout:** Logout. Login. All messages from all sessions are present (loaded from server bootstrap). localStorage contains only UI preferences.
 - [ ] **Session switching isolation:** Switch from workspace A to workspace B. Verify: Realtime events for workspace A no longer arrive. Events for workspace B start arriving.
+- [ ] **Scoped ID boundary is consistent:** Enable Realtime logging in the browser console. Subscribe to a session. Verify: Realtime filter uses scoped DB ID (`userId:sessionId`). Incoming events' `newRow.id` is unscoped before matching against store. No events are silently dropped due to ID mismatch.
+- [ ] **Bootstrap→subscribe gap is closed:** Send a message immediately before a page refresh (timing matters). After refresh, verify the message appears — either from bootstrap or from the reconciliation fetch. No messages are lost in the gap.
+- [ ] **Stream liveness from runs, not receipt_status:** Refresh while a stream is active. Verify: the streaming indicator appears because `active_runs` in the bootstrap response contains the running run — NOT because `receipt_status === "metering"`.

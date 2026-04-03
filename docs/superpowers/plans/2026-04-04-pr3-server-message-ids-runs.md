@@ -126,10 +126,26 @@ After the session row upsert block (around line 285, after the `(async () => { .
         userMessageId = run.user_message_id;
         assistantMessageId = run.assistant_message_id;
 
-        // If run is already complete (retry of finished request), return the result
+        // If run is already terminal (retry of finished request), return immediately
         if (run.run_status === "complete" || run.run_status === "failed" || run.run_status === "timed_out") {
           return new Response(
             JSON.stringify({ error: `Run already ${run.run_status}`, runId, userMessageId, assistantMessageId }),
+            { status: 409, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        // If run is already streaming from another request, don't start a duplicate
+        // model call. create_run returns is_new=false when the run was already fully
+        // built (messages existed). Without this guard, a retry with the same
+        // clientRequestId would reuse the same run but start a SECOND upstream model
+        // call — conflicting content writes and double billing.
+        // The client should pick up the streaming content via Realtime instead.
+        if (run.run_status === "streaming" && run.is_new === false) {
+          return new Response(
+            JSON.stringify({
+              error: "Run already streaming elsewhere",
+              runId, userMessageId, assistantMessageId,
+            }),
             { status: 409, headers: { "Content-Type": "application/json" } },
           );
         }
@@ -405,6 +421,7 @@ git commit -m "feat: add cron watchdog to reap stale streaming runs"
 ## Verification Checklist — Invariants
 
 - [ ] **One assistant row per user turn:** Send a message. Verify exactly one `chat_messages` row with `role='assistant'` and the run's `assistant_message_id`. Retry the same `clientRequestId` via curl — verify NO new rows are created, same IDs returned.
+- [ ] **No duplicate model execution:** While a message is still streaming, send a second request with the same `clientRequestId`. Verify: the second request returns 409 with `"Run already streaming elsewhere"`. Only one upstream model call exists. No conflicting content writes.
 - [ ] **Exactly-once finalization:** After stream completes, check `chat_runs.finalized_at` is set. Call `finalize_run` RPC again with the same `run_id` — verify it returns `false` and `chat_sessions` cost counters are NOT incremented a second time.
 - [ ] **Run liveness is separate from message completeness:** After the cron reaps a stale run, verify `chat_runs.status = 'timed_out'` but `chat_messages.receipt_status` is still `'metering'` (NOT force-marked as `'metered'`). The message has partial content — it is not "done."
 - [ ] **No data loss on refresh:** Send a message, refresh mid-stream. Verify the assistant message exists in DB with partial content and `receipt_status = 'metering'`. The run has `status = 'streaming'` and `last_chunk_at` is recent.
