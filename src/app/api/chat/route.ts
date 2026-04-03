@@ -20,6 +20,11 @@ import type OpenAI from "openai";
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
 
+// Allow up to 5 minutes for the function to complete after client disconnect.
+// Without this, Vercel's default timeout (30s Pro) can kill the function before
+// the upstream AI call finishes and the final save (with cost/tokens) runs.
+export const maxDuration = 300;
+
 const MAX_TOOL_ROUNDS = 5;
 /** Max tokens of conversation history to send (excluding system prompt).
  *  Keeps costs predictable — a 30k token context costs ~$0.15 for Opus input (at 1x / at-cost). */
@@ -474,7 +479,7 @@ export async function POST(req: NextRequest) {
             send({ type: "done", actualModel: "debate" });
           }
           // Save debate assistant message (with trace + cost + cache breakdown)
-          if (assistantMessageId && projectId && fullAssistantContent) {
+          if (assistantMessageId && projectId) {
             await saveMessageToDB({
               id: assistantMessageId,
               sessionId: projectId,
@@ -506,7 +511,7 @@ export async function POST(req: NextRequest) {
             send({ type: "done", actualModel: "dissect" });
           }
           // Save dissect assistant message (with trace + cache breakdown)
-          if (assistantMessageId && projectId && fullAssistantContent) {
+          if (assistantMessageId && projectId) {
             await saveMessageToDB({
               id: assistantMessageId,
               sessionId: projectId,
@@ -539,7 +544,7 @@ export async function POST(req: NextRequest) {
             send({ type: "done", actualModel: "simplify" });
           }
           // Save simplify assistant message (with trace + cache breakdown)
-          if (assistantMessageId && projectId && fullAssistantContent) {
+          if (assistantMessageId && projectId) {
             await saveMessageToDB({
               id: assistantMessageId,
               sessionId: projectId,
@@ -804,7 +809,10 @@ export async function POST(req: NextRequest) {
         // This ensures the response survives even if the client disconnects
         // mid-stream (e.g. page refresh). The upstream API call completes,
         // content is accumulated, and this save captures the full response.
-        if (assistantMessageId && projectId && fullAssistantContent) {
+        // Save even when content is empty (e.g. disconnect during thinking
+        // phase) so the message transitions to "metered" and doesn't retrigger
+        // the reconnect loop on every subsequent refresh.
+        if (assistantMessageId && projectId) {
           await saveMessageToDB({
             id: assistantMessageId,
             sessionId: projectId,
