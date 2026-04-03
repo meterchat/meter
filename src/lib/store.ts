@@ -1844,7 +1844,14 @@ export const useMeterStore = create<MeterState>()(
         spendingCap: s.spendingCap,
         autoSettleThreshold: s.autoSettleThreshold,
         lastAutoSettleDate: s.lastAutoSettleDate,
-        sessions: s.sessions.map((p) => ({ ...p, messages: [] })),
+        sessions: s.sessions.map((p) => ({
+          ...p,
+          // Keep the last N messages so localStorage acts as a local-first
+          // fallback across page refreshes.  Server is still the durable
+          // source of truth, but this closes the gap when beacons fail or
+          // the server fetch is slow/errored.
+          messages: p.messages.slice(-50),
+        })),
         activeSessionId: s.activeSessionId,
         spendLimits: s.spendLimits,
       }),
@@ -1865,8 +1872,6 @@ export const useMeterStore = create<MeterState>()(
           let proj = p.isStreaming ? { ...p, isStreaming: false } : p;
 
           // Seed monthKey/weekKey if missing (old-format migration).
-          // Messages are no longer in localStorage, so cost values come from
-          // persisted session fields — just stamp the period keys.
           if (proj.monthKey == null) {
             proj = { ...proj, monthCost: Math.max(proj.monthCost ?? 0, proj.todayCost ?? 0), monthKey: curMonth };
           }

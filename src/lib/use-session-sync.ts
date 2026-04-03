@@ -160,10 +160,10 @@ export function useSessionSync() {
   const syncToServer = useCallback(async () => {
     if (!authenticated) return;
 
-    // CRITICAL: Never sync before server data has been loaded. On page refresh,
-    // localStorage hydrates sessions with messages: [] (stripped by partialize).
-    // Syncing that empty state would poison the snapshot hash and could race
-    // with loadSessions(), leaving the user with blank messages.
+    // CRITICAL: Never sync before server data has been merged. On page refresh,
+    // localStorage hydrates sessions with only the last N messages (kept by
+    // partialize). Syncing before the server merge completes could poison the
+    // snapshot hash and race with loadSessions().
     if (!useMeterStore.getState().sessionsLoaded) return;
 
     // Read sessions from getState() at call time — NOT from the closure.
@@ -738,28 +738,10 @@ export function useSessionSync() {
             continue;
           }
 
-          if (localProject.messages.length === 0) {
-            // Local has no messages (stripped from localStorage) — use server messages
-            // but preserve the higher of local vs server cost/counter metadata
-            const lp = localProject as Record<string, unknown>;
-            merged.push({
-              ...serverProject,
-              todayCost: Math.max(serverProject.todayCost, (lp.todayCost as number) ?? 0),
-              todayTokensIn: Math.max(serverProject.todayTokensIn, (lp.todayTokensIn as number) ?? 0),
-              todayTokensOut: Math.max(serverProject.todayTokensOut, (lp.todayTokensOut as number) ?? 0),
-              todayMessageCount: Math.max(serverProject.todayMessageCount, (lp.todayMessageCount as number) ?? 0),
-              totalCost: Math.max(serverProject.totalCost, (lp.totalCost as number) ?? 0),
-              weekCost: Math.max(serverProject.weekCost ?? 0, (lp.weekCost as number) ?? 0),
-              weekKey: serverProject.weekKey ?? (lp.weekKey as string) ?? undefined,
-              monthCost: Math.max(serverProject.monthCost ?? 0, (lp.monthCost as number) ?? 0),
-              monthKey: serverProject.monthKey ?? (lp.monthKey as string) ?? undefined,
-              connectedServices: localProject.connectedServices ?? {},
-            });
-            continue;
-          }
-
           // Union merge messages by ID, preferring server version when it has
           // more complete data (settlement, receipt status upgrade, or content).
+          // localStorage now keeps the last N messages as a local-first
+          // fallback, so both sides may have messages — always merge.
           const receiptRank = (s?: string) => s === "settled" ? 3 : s === "metered" ? 2 : s === "metering" ? 1 : 0;
           const msgMap = new Map(
             localProject.messages.map((m) => [m.id, m]),
@@ -796,7 +778,15 @@ export function useSessionSync() {
           merged.push({
             ...serverProject,
             messages: mergedMessages,
-            totalCost: Math.max(serverProject.totalCost, localProject.totalCost),
+            todayCost: Math.max(serverProject.todayCost, localProject.todayCost ?? 0),
+            todayTokensIn: Math.max(serverProject.todayTokensIn, localProject.todayTokensIn ?? 0),
+            todayTokensOut: Math.max(serverProject.todayTokensOut, localProject.todayTokensOut ?? 0),
+            todayMessageCount: Math.max(serverProject.todayMessageCount, localProject.todayMessageCount ?? 0),
+            totalCost: Math.max(serverProject.totalCost, localProject.totalCost ?? 0),
+            weekCost: Math.max(serverProject.weekCost ?? 0, localProject.weekCost ?? 0),
+            weekKey: serverProject.weekKey ?? localProject.weekKey ?? undefined,
+            monthCost: Math.max(serverProject.monthCost ?? 0, localProject.monthCost ?? 0),
+            monthKey: serverProject.monthKey ?? localProject.monthKey ?? undefined,
             connectedServices: localProject.connectedServices ?? {},
           });
         }
@@ -808,23 +798,15 @@ export function useSessionSync() {
           }
         }
 
-        // Choose the best active project:
-        // If current active project is a bare default with no messages and the server
-        // returned sessions with actual content, switch to the most recently used one.
+        // Keep the user on whatever session they had active.  The previous
+        // logic tried to auto-switch away from "empty" sessions, but that
+        // mis-fires after a refresh because localStorage strips messages —
+        // making a perfectly valid session look empty.  Only fall back to
+        // the first merged session if the active ID no longer exists at all.
         const currentInMerged = merged.find((p) => p.id === store.activeSessionId);
-        const currentIsEmpty = currentInMerged && currentInMerged.messages.length === 0 && currentInMerged.totalCost === 0;
-        const serverHasContent = merged.some((p) => p.id !== store.activeSessionId && (p.messages.length > 0 || p.totalCost > 0));
-
-        let nextActiveSessionId: string;
-        if (currentInMerged && !currentIsEmpty) {
-          nextActiveSessionId = store.activeSessionId;
-        } else if (currentIsEmpty && serverHasContent) {
-          // Prefer a server session with content over an empty default
-          const best = merged.find((p) => p.id !== store.activeSessionId && (p.messages.length > 0 || p.totalCost > 0));
-          nextActiveSessionId = best?.id ?? store.activeSessionId;
-        } else {
-          nextActiveSessionId = merged[0]?.id ?? store.activeSessionId;
-        }
+        const nextActiveSessionId = currentInMerged
+          ? store.activeSessionId
+          : merged[0]?.id ?? store.activeSessionId;
 
         // Reconstruct subtrack sessions: prepend parent's pre-fork messages.
         // Server only stores post-fork messages for subtracks (to avoid ID conflicts
