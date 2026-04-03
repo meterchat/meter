@@ -8,6 +8,12 @@ import { requireAuth } from "@/lib/auth";
  * Reconnects a client to an in-progress server-side stream after page refresh.
  * Polls the DB for content updates (written by the chat route's periodic partial
  * saves) and sends deltas as SSE events until the message reaches "metered" status.
+ *
+ * On Cloudflare Workers the server-side stream is killed when the client
+ * disconnects, so the message will never reach "metered" on its own.  If
+ * content stops growing for several consecutive polls we treat the stream as
+ * dead, finalize the message in the DB ourselves, and send the usage event so
+ * the client can close cleanly.
  */
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -23,8 +29,13 @@ export async function GET(req: NextRequest) {
   let lastContentLength = 0;
   let lastThinkingLength = 0;
   let attempts = 0;
-  // 150 polls * 500ms = 75 seconds max wait for stream completion
-  const MAX_ATTEMPTS = 150;
+  // Reduced from 150 — on Cloudflare the stream is already dead, so waiting
+  // 75 seconds is pointless.  6 stale polls × 500ms = 3 seconds of grace.
+  const MAX_ATTEMPTS = 30;
+  // How many consecutive polls with no content change before we declare the
+  // stream dead and finalize.
+  const STALE_THRESHOLD = 6;
+  let stalePollCount = 0;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -59,6 +70,37 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      /** Send usage + traces + done for the given DB row and return true. */
+      const sendFinalEvents = (row: Record<string, unknown>) => {
+        send({
+          type: "usage",
+          tokensIn: row.tokens_in,
+          tokensOut: row.tokens_out,
+          cacheCreationTokens: row.cache_creation_tokens,
+          cacheReadTokens: row.cache_read_tokens,
+          cost: row.cost,
+        });
+
+        if (row.debate_trace) {
+          const trace = row.debate_trace as { model: string; phase: string; content: string }[];
+          for (const turn of trace) {
+            send({ type: "debate_turn_start", model: turn.model, phase: turn.phase });
+            send({ type: "debate_turn_delta", content: turn.content });
+            send({ type: "debate_turn_end" });
+          }
+        }
+        if (row.dissector_trace) {
+          const trace = row.dissector_trace as { persona: string; content: string }[];
+          for (const turn of trace) {
+            send({ type: "dissector_turn_start", persona: turn.persona });
+            send({ type: "dissector_turn_delta", content: turn.content });
+            send({ type: "dissector_turn_end" });
+          }
+        }
+
+        send({ type: "done", actualModel: row.model ?? "unknown" });
+      };
+
       const poll = async (): Promise<boolean> => {
         const { data: rawRow } = await supabase
           .from("chat_messages")
@@ -72,7 +114,6 @@ export async function GET(req: NextRequest) {
 
         if (!rawRow) return false; // Message not in DB yet — keep waiting
 
-        // Cast to record for property access (Supabase types are dynamic)
         const row = rawRow as Record<string, unknown>;
 
         // Send thinking deltas
@@ -92,40 +133,30 @@ export async function GET(req: NextRequest) {
             type: "delta",
             content: content.slice(lastContentLength),
           });
+          stalePollCount = 0; // content is still growing
           lastContentLength = content.length;
+        } else {
+          // No new content since last poll
+          stalePollCount++;
         }
 
-        // Check if the stream has completed
+        // Stream completed normally
         if (row.receipt_status === "metered") {
-          // Send final usage data so the client can finalize costs
-          send({
-            type: "usage",
-            tokensIn: row.tokens_in,
-            tokensOut: row.tokens_out,
-            cacheCreationTokens: row.cache_creation_tokens,
-            cacheReadTokens: row.cache_read_tokens,
-            cost: row.cost,
-          });
+          sendFinalEvents(row);
+          return true;
+        }
 
-          // Send debate/dissector traces if present
-          if (row.debate_trace) {
-            const trace = row.debate_trace as { model: string; phase: string; content: string }[];
-            for (const turn of trace) {
-              send({ type: "debate_turn_start", model: turn.model, phase: turn.phase });
-              send({ type: "debate_turn_delta", content: turn.content });
-              send({ type: "debate_turn_end" });
-            }
-          }
-          if (row.dissector_trace) {
-            const trace = row.dissector_trace as { persona: string; content: string }[];
-            for (const turn of trace) {
-              send({ type: "dissector_turn_start", persona: turn.persona });
-              send({ type: "dissector_turn_delta", content: turn.content });
-              send({ type: "dissector_turn_end" });
-            }
-          }
+        // Detect dead stream: content hasn't grown for STALE_THRESHOLD
+        // consecutive polls.  On Cloudflare Workers the server-side stream
+        // dies with the client, so "metered" will never arrive.  Finalize
+        // the message in the DB so future refreshes don't re-trigger.
+        if (stalePollCount >= STALE_THRESHOLD && row.receipt_status === "metering") {
+          await supabase
+            .from("chat_messages")
+            .update({ receipt_status: "metered" })
+            .eq("id", messageId);
 
-          send({ type: "done", actualModel: row.model });
+          sendFinalEvents(row);
           return true;
         }
 
@@ -145,9 +176,36 @@ export async function GET(req: NextRequest) {
         await new Promise((r) => setTimeout(r, 500));
       }
 
-      // Timeout — tell the client to stop waiting
+      // Timeout — finalize with whatever data exists in the DB
       if (attempts >= MAX_ATTEMPTS) {
-        send({ type: "done", actualModel: "unknown" });
+        // One last attempt to read and send usage data
+        try {
+          const { data: rawRow } = await supabase
+            .from("chat_messages")
+            .select(
+              "content, thinking, receipt_status, model, tokens_in, tokens_out, " +
+              "cache_creation_tokens, cache_read_tokens, cost, debate_trace, " +
+              "dissector_trace, documents"
+            )
+            .eq("id", messageId)
+            .single();
+
+          if (rawRow) {
+            const row = rawRow as Record<string, unknown>;
+            // Mark as metered so future refreshes don't re-trigger
+            if (row.receipt_status === "metering") {
+              await supabase
+                .from("chat_messages")
+                .update({ receipt_status: "metered" })
+                .eq("id", messageId);
+            }
+            sendFinalEvents(row);
+          } else {
+            send({ type: "done", actualModel: "unknown" });
+          }
+        } catch {
+          send({ type: "done", actualModel: "unknown" });
+        }
       }
 
       try {

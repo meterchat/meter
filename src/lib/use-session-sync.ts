@@ -929,6 +929,7 @@ export function useSessionSync() {
         let buffer = "";
         let fullContent = "";
         let fullThinking = "";
+        let receivedUsage = false;
 
         // Seed with existing content from the DB snapshot (already in the store)
         const existingMsg = useMeterStore
@@ -974,6 +975,7 @@ export function useSessionSync() {
                   );
               }
               if (data.type === "usage") {
+                receivedUsage = true;
                 useMeterStore
                   .getState()
                   .finalizeReconnectedMessage(sessionId, messageId, {
@@ -985,6 +987,19 @@ export function useSessionSync() {
                   });
               }
               if (data.type === "done") {
+                // If we never received a usage event (shouldn't happen now
+                // that the resume endpoint always sends one, but guard
+                // against it), force the message to "metered" so the
+                // reconnect loop doesn't retrigger on next refresh.
+                if (!receivedUsage) {
+                  useMeterStore
+                    .getState()
+                    .finalizeReconnectedMessage(sessionId, messageId, {
+                      tokensIn: existingMsg?.tokensIn,
+                      tokensOut: existingMsg?.tokensOut,
+                      cost: existingMsg?.cost,
+                    });
+                }
                 useMeterStore.getState().setStreaming(false, sessionId);
               }
             } catch {

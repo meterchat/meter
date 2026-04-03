@@ -1430,29 +1430,56 @@ export const useMeterStore = create<MeterState>()(
         })),
 
       finalizeReconnectedMessage: (sessionId, messageId, usage) =>
-        set((s) => ({
-          sessions: s.sessions.map((sess) =>
-            sess.id === sessionId
-              ? {
-                  ...sess,
-                  isStreaming: false,
-                  messages: sess.messages.map((m) =>
-                    m.id === messageId
-                      ? {
-                          ...m,
-                          receiptStatus: "metered" as ReceiptStatus,
-                          tokensIn: usage.tokensIn,
-                          tokensOut: usage.tokensOut,
-                          cacheCreationTokens: usage.cacheCreationTokens,
-                          cacheReadTokens: usage.cacheReadTokens,
-                          cost: usage.cost,
-                        }
-                      : m
-                  ),
-                }
-              : sess
-          ),
-        })),
+        set((s) => {
+          const sess = s.sessions.find((p) => p.id === sessionId);
+          if (!sess) return s;
+
+          const cost = usage.cost ?? 0;
+          // During reconnect there was no incremental cost accumulation,
+          // so the full cost is the adjustment (currentMessageCost was 0).
+          const prevCost = sess.currentMessageCost;
+          const costAdj = cost - prevCost;
+          const tokensIn = usage.tokensIn ?? 0;
+          const tokensOut = usage.tokensOut ?? 0;
+          const prevOut = sess.messages.find((m) => m.id === messageId)?.tokensOut ?? 0;
+          const outAdj = tokensOut - prevOut;
+
+          return {
+            sessions: s.sessions.map((p) =>
+              p.id === sessionId
+                ? {
+                    ...p,
+                    isStreaming: false,
+                    currentMessageCost: cost,
+                    todayCost: p.todayCost + costAdj,
+                    weekCost: (p.weekCost ?? 0) + costAdj,
+                    monthCost: (p.monthCost ?? 0) + costAdj,
+                    totalCost: p.totalCost + costAdj,
+                    todayTokensIn: p.todayTokensIn + tokensIn,
+                    todayTokensOut: Math.max(0, p.todayTokensOut + outAdj),
+                    todayMessageCount: p.todayMessageCount + 1,
+                    serverTokensIn: p.serverTokensIn + tokensIn,
+                    serverTokensOut: Math.max(0, p.serverTokensOut + outAdj),
+                    serverMessageCount: p.serverMessageCount + 1,
+                    serverPendingBalance: (p.serverPendingBalance ?? 0) + cost,
+                    messages: p.messages.map((m) =>
+                      m.id === messageId
+                        ? {
+                            ...m,
+                            receiptStatus: "metered" as ReceiptStatus,
+                            tokensIn: usage.tokensIn,
+                            tokensOut: usage.tokensOut,
+                            cacheCreationTokens: usage.cacheCreationTokens,
+                            cacheReadTokens: usage.cacheReadTokens,
+                            cost,
+                          }
+                        : m
+                    ),
+                  }
+                : p
+            ),
+          };
+        }),
 
       removeLastMessage: (forSessionId?) =>
         set((s) => {

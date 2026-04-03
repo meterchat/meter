@@ -2373,7 +2373,19 @@ export function ChatView() {
     if (controller) {
       controller.abort();
     } else {
-      // No active stream (e.g. stuck after refresh) — force reset
+      // No active AbortController — this is a reconnect or stuck state.
+      // Force the last assistant message to "metered" so the reconnect
+      // loop doesn't retrigger on next refresh.
+      const store = useMeterStore.getState();
+      const sess = store.sessions.find((s) => s.id === currentSessionId);
+      const lastMsg = sess?.messages[sess.messages.length - 1];
+      if (lastMsg?.role === "assistant" && lastMsg.receiptStatus === "metering") {
+        store.finalizeReconnectedMessage(currentSessionId, lastMsg.id, {
+          tokensIn: lastMsg.tokensIn,
+          tokensOut: lastMsg.tokensOut,
+          cost: lastMsg.cost,
+        });
+      }
       setStreaming(false, currentSessionId);
     }
   };
