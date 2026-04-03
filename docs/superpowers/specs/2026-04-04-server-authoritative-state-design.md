@@ -266,42 +266,67 @@ POST /api/chat
   }
 
   Server:
-    1. Create or resume run (DB-enforced idempotency):
-       INSERT INTO chat_runs (session_id, client_request_id, status, model)
-         VALUES ($sessionId, $clientRequestId, 'created', $model)
-         ON CONFLICT (client_request_id) DO NOTHING
-         RETURNING id, user_message_id, assistant_message_id, status;
+    1. Create run + both messages atomically (single RPC/transaction):
+       Call RPC create_run($sessionId, $clientRequestId, $model, $userContent):
 
-       If RETURNING is empty (conflict = retry):
-         -> SELECT existing run by client_request_id
-         -> If status = 'streaming': return existing message IDs (resume SSE)
-         -> If status = 'complete': return completed response (no re-stream)
-         -> If status = 'failed'/'timed_out': create fresh run (new client_request_id)
+         -- Attempt to insert the run. If client_request_id already exists,
+         -- this is a retry — skip to lookup.
+         INSERT INTO chat_runs (session_id, client_request_id, status, model)
+           VALUES ($sessionId, $clientRequestId, 'created', $model)
+           ON CONFLICT (client_request_id) DO NOTHING;
 
-    2. INSERT user message:
-       { id: gen_random_uuid(), session_id, role: "user",
-         content, timestamp: now }
-       UPDATE chat_runs SET user_message_id = $id
+         -- Check if we won the insert or hit a conflict
+         SELECT id, user_message_id, assistant_message_id, status
+           FROM chat_runs WHERE client_request_id = $clientRequestId;
 
-    3. INSERT assistant message:
-       { id: gen_random_uuid(), session_id, role: "assistant",
-         content: "", receipt_status: "metering", run_id: $runId,
-         timestamp: now }
-       UPDATE chat_runs SET assistant_message_id = $id,
-         status = 'streaming', last_chunk_at = now
+         -- If user_message_id is NOT NULL, the run is already fully built.
+         -- Return existing IDs (retry path).
 
-    4. SSE preamble (before first content chunk):
+         -- If user_message_id IS NULL, we just created the run (or a
+         -- previous attempt crashed before linking messages). Build it:
+         INSERT INTO chat_messages (id, session_id, role, content, timestamp)
+           VALUES (gen_random_uuid(), $sessionId, 'user', $userContent, now())
+           RETURNING id INTO $userMsgId;
+
+         INSERT INTO chat_messages (id, session_id, role, content,
+                                    receipt_status, run_id, timestamp)
+           VALUES (gen_random_uuid(), $sessionId, 'assistant', '',
+                   'metering', $runId, now())
+           RETURNING id INTO $assistantMsgId;
+
+         UPDATE chat_runs
+           SET user_message_id = $userMsgId,
+               assistant_message_id = $assistantMsgId,
+               status = 'streaming',
+               last_chunk_at = now()
+           WHERE id = $runId;
+
+         RETURN ($runId, $userMsgId, $assistantMsgId, 'streaming');
+
+       This entire block runs in one transaction. If the server dies
+       mid-transaction, Postgres rolls back — no orphaned run without
+       messages. If a retry finds an existing run with NULL message IDs
+       (should not happen due to transaction, but as defense-in-depth),
+       it repairs by creating the missing messages within the same RPC.
+
+       Retry behavior based on existing run status:
+         -> 'streaming': return existing message IDs (client resumes SSE)
+         -> 'complete': return completed response (no re-stream)
+         -> 'failed'/'timed_out': return error; client generates new
+            clientRequestId for a fresh attempt
+
+    2. SSE preamble (before first content chunk):
        data: { type: "ids", runId: "run_abc",
                userMessageId: "msg_abc", assistantMessageId: "msg_xyz" }
 
-    5. Stream content as today, with periodic partial saves:
+    3. Stream content as today, with periodic partial saves:
        UPDATE chat_messages SET content = ..., updated_at = now
          WHERE id = $assistantMessageId
        UPDATE chat_runs SET last_chunk_at = now
          WHERE id = $runId
        (timestamp on chat_messages stays stable for ordering)
 
-    6. Finalize (atomic, exactly-once):
+    4. Finalize (atomic, exactly-once):
        Call RPC finalize_run($runId, $cost, $tokensIn, $tokensOut, ...):
 
          UPDATE chat_runs
@@ -582,6 +607,7 @@ New behavior:
   - New `chat_runs` table (full schema above)
   - `chat_messages.run_id` (UUID, nullable FK to `chat_runs`)
   - `chat_messages.updated_at` (TIMESTAMPTZ, nullable)
+  - New `create_run` RPC function (atomic run + message creation in one transaction; idempotent retry via `ON CONFLICT` + repair)
   - New `finalize_run` RPC function (atomic finalization with `finalized_at IS NULL` guard)
   - Add `chat_sessions`, `chat_messages`, and `chat_runs` to `supabase_realtime` publication
   - JWT-based RLS SELECT policies for Realtime subscriptions on all three tables
@@ -605,7 +631,7 @@ New behavior:
 
 **Scope:** Message creation, run lifecycle, and exactly-once finalization move server-side.
 
-- `/api/chat` creates a `chat_runs` row (with `ON CONFLICT (client_request_id) DO NOTHING` for idempotency), then user + assistant message rows, before streaming starts
+- `/api/chat` calls `create_run` RPC which atomically creates the `chat_runs` row + both message rows in one transaction (no orphaned runs). Retries hit the `UNIQUE(client_request_id)` constraint and look up the existing run.
 - SSE preamble event: `{ type: "ids", runId, userMessageId, assistantMessageId }`
 - `chat-view.tsx` stops generating message IDs; uses temp IDs for optimistic display, swaps on preamble
 - `clientRequestId` generated client-side, enforced unique by DB constraint — retries reuse existing run
@@ -695,3 +721,4 @@ New behavior:
 | Retry creates duplicate run/messages | `UNIQUE(client_request_id)` on `chat_runs` + `ON CONFLICT DO NOTHING` ensures DB-enforced idempotency; retry looks up existing run |
 | Finalization double-applies cost counters | `finalize_run` RPC uses `finalized_at IS NULL` guard in same transaction as counter update; second call is a no-op |
 | `chat_runs` table adds query overhead to bootstrap | Bootstrap only fetches active runs (`status IN ('created', 'streaming')`) — typically 0-1 rows; negligible |
+| Server dies after run INSERT but before messages are linked | `create_run` RPC wraps all three INSERTs in one transaction; Postgres rolls back on crash. Defense-in-depth: retry detects NULL `user_message_id` and repairs within the same RPC |
