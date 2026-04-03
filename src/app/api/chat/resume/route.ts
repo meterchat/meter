@@ -6,14 +6,10 @@ import { requireAuth } from "@/lib/auth";
  * GET /api/chat/resume?messageId=xxx
  *
  * Reconnects a client to an in-progress server-side stream after page refresh.
- * Polls the DB for content updates (written by the chat route's periodic partial
- * saves) and sends deltas as SSE events until the message reaches "metered" status.
- *
- * On Cloudflare Workers the server-side stream is killed when the client
- * disconnects, so the message will never reach "metered" on its own.  If
- * content stops growing for several consecutive polls we treat the stream as
- * dead, finalize the message in the DB ourselves, and send the usage event so
- * the client can close cleanly.
+ * On Vercel the server-side function keeps running after client disconnect
+ * (up to maxDuration), so the message will eventually reach "metered" status.
+ * This endpoint polls the DB for content updates (written by the chat route's
+ * periodic partial saves) and sends deltas as SSE events until completion.
  */
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -29,13 +25,10 @@ export async function GET(req: NextRequest) {
   let lastContentLength = 0;
   let lastThinkingLength = 0;
   let attempts = 0;
-  // Reduced from 150 — on Cloudflare the stream is already dead, so waiting
-  // 75 seconds is pointless.  6 stale polls × 500ms = 3 seconds of grace.
-  const MAX_ATTEMPTS = 30;
-  // How many consecutive polls with no content change before we declare the
-  // stream dead and finalize.
-  const STALE_THRESHOLD = 6;
-  let stalePollCount = 0;
+  // 150 polls × 500ms = 75 seconds.  On Vercel the server-side stream
+  // continues after disconnect (up to 300s via maxDuration), so we need
+  // to be patient — the final "metered" save will arrive.
+  const MAX_ATTEMPTS = 150;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -70,7 +63,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      /** Send usage + traces + done for the given DB row and return true. */
+      /** Send usage + traces + done for the given DB row. */
       const sendFinalEvents = (row: Record<string, unknown>) => {
         send({
           type: "usage",
@@ -133,29 +126,11 @@ export async function GET(req: NextRequest) {
             type: "delta",
             content: content.slice(lastContentLength),
           });
-          stalePollCount = 0; // content is still growing
           lastContentLength = content.length;
-        } else {
-          // No new content since last poll
-          stalePollCount++;
         }
 
-        // Stream completed normally
+        // Stream completed — send final usage and close
         if (row.receipt_status === "metered") {
-          sendFinalEvents(row);
-          return true;
-        }
-
-        // Detect dead stream: content hasn't grown for STALE_THRESHOLD
-        // consecutive polls.  On Cloudflare Workers the server-side stream
-        // dies with the client, so "metered" will never arrive.  Finalize
-        // the message in the DB so future refreshes don't re-trigger.
-        if (stalePollCount >= STALE_THRESHOLD && row.receipt_status === "metering") {
-          await supabase
-            .from("chat_messages")
-            .update({ receipt_status: "metered" })
-            .eq("id", messageId);
-
           sendFinalEvents(row);
           return true;
         }
@@ -176,9 +151,8 @@ export async function GET(req: NextRequest) {
         await new Promise((r) => setTimeout(r, 500));
       }
 
-      // Timeout — finalize with whatever data exists in the DB
+      // Timeout — send whatever data exists so the client can finalize
       if (attempts >= MAX_ATTEMPTS) {
-        // One last attempt to read and send usage data
         try {
           const { data: rawRow } = await supabase
             .from("chat_messages")
@@ -192,7 +166,8 @@ export async function GET(req: NextRequest) {
 
           if (rawRow) {
             const row = rawRow as Record<string, unknown>;
-            // Mark as metered so future refreshes don't re-trigger
+            // If still "metering" after 75 seconds, the server function likely
+            // timed out.  Mark as metered so future refreshes don't retrigger.
             if (row.receipt_status === "metering") {
               await supabase
                 .from("chat_messages")
