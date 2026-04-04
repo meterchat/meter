@@ -16,9 +16,7 @@ const csp = `
   frame-src https://js.stripe.com https://hooks.stripe.com https://accounts.google.com;
   worker-src 'self' blob:;
   manifest-src 'self';
-`
-  .replace(/\n/g, " ")
-  .trim();
+`.replace(/\n/g, ' ').trim();
 
 const nextConfig: NextConfig = {
   // Static export for Capacitor mobile builds; normal SSR for web
@@ -53,8 +51,8 @@ const nextConfig: NextConfig = {
   ...(!isMobileBuild && {
     images: {
       remotePatterns: [
-        { protocol: "https", hostname: "**" },
-        { protocol: "http", hostname: "**" },
+        { protocol: 'https', hostname: '**' },
+        { protocol: 'http', hostname: '**' },
       ],
     },
   }),
@@ -64,7 +62,6 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  productionBrowserSourceMaps: true,
 } as NextConfig;
 
 export default withSentryConfig(nextConfig, {
