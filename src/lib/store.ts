@@ -639,69 +639,17 @@ export const useMeterStore = create<MeterState>()(
 
       logout: async () => {
         set({ loggingOut: true });
-        // Flush unsaved messages to server BEFORE clearing state.
-        // Fire all syncs in parallel (not sequential) to avoid N×latency.
-        const currentSessions = get().sessions;
 
-        // Skip subtrack threads — they are local-only forks
-        const wsSubtrackIds = new Set(
-          useWorkspaceStore.getState().tracks
-            .filter((p) => p.isSubtrack)
-            .map((p) => p.id)
-        );
-
-        const syncPromises = currentSessions
-          .filter((sess) => sess.messages.length > 0 && !wsSubtrackIds.has(sess.id))
-          .map((sess) => {
-            const sessionMeta = {
-              id: sess.id,
-              name: sess.name,
-              totalCost: sess.totalCost,
-              todayCost: sess.todayCost,
-              todayTokensIn: sess.todayTokensIn,
-              todayTokensOut: sess.todayTokensOut,
-              todayMessageCount: sess.todayMessageCount,
-              todayDate: sess.todayDate,
-              weekCost: sess.weekCost ?? 0,
-              weekKey: sess.weekKey,
-              monthCost: sess.monthCost ?? 0,
-              monthKey: sess.monthKey,
-            };
-
-            return authFetch("/api/sessions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                session: sessionMeta,
-                messages: sess.messages,
-              }),
-            }).catch(() => {
-              // Fetch failed — fall back to sendBeacon with size safety
-              if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-                const MAX_BEACON_BYTES = 60_000;
-                const recentMessages = sess.messages.slice(-50);
-                const payload = JSON.stringify({ session: sessionMeta, messages: recentMessages });
-                const blob = new Blob([payload], { type: "application/json" });
-                if (blob.size < MAX_BEACON_BYTES) {
-                  navigator.sendBeacon("/api/sessions", blob);
-                } else {
-                  const metaOnly = JSON.stringify({ session: sessionMeta, messages: [] });
-                  navigator.sendBeacon("/api/sessions", new Blob([metaOnly], { type: "application/json" }));
-                }
-              }
-            });
-          });
-
-        // Wait for all syncs in parallel — timeout after 3s so logout isn't blocked
-        await Promise.race([
-          Promise.allSettled(syncPromises),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
+        // Tear down Realtime subscriptions
+        try {
+          const { destroyRealtimeClient } = await import("@/lib/supabase-realtime");
+          destroyRealtimeClient();
+        } catch { /* module not loaded */ }
 
         // Fire-and-forget server-side session cleanup
         authFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
 
-        // Clear this store immediately — sendBeacon is queued and will complete
+        // Clear this store — everything is already in the DB
         set({
           userId: null,
           handle: null,
