@@ -46,6 +46,9 @@ import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-st
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS, DEBATE_MODEL } from "@/lib/models";
+// requestImmediateSync still used for legacy write-path (non-clientRequestId sends).
+// Will be removed in PR5 when use-session-sync.ts is deleted entirely.
+import { requestImmediateSync } from "@/lib/use-session-sync";
 import { useRealtimeSync } from "@/lib/use-realtime-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { authFetch } from "@/lib/auth-fetch";
@@ -1823,6 +1826,14 @@ export function ChatView() {
       ...(options?.hiddenUser ? { hidden: true } : {}),
     };
     addMessage(userMsg, streamSessionId);
+    // Skip immediate sync for the new flow — create_run writes messages to the
+    // DB server-side. Syncing now would persist the pending_* temp ID as a
+    // duplicate row before the canonical ID arrives from the SSE preamble.
+    // For the legacy flow (no clientRequestId), still sync immediately.
+    if (!clientRequestId) {
+      requestImmediateSync();
+    }
+
     const assistantMsg: ChatMessage = {
       id: `pending_${crypto.randomUUID()}`,
       role: "assistant",
@@ -2255,6 +2266,9 @@ export function ChatView() {
           streamSessionId,
         );
       }
+      // Immediately sync the finalized message to the server so it
+      // survives a page refresh (don't wait for the 2s debounce).
+      requestImmediateSync();
     } catch {
       // Abort or network error — persist whatever we have so far.
       // Partial responses are still billed upstream (industry standard).
@@ -2287,6 +2301,8 @@ export function ChatView() {
             streamSessionId,
           );
         }
+        // Best-effort sync on error path too
+        requestImmediateSync();
       }
     } finally {
       activeStreamsRef.current.delete(streamSessionId);

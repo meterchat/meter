@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
-import { serverTrackSessionDeleted } from "@/lib/analytics-server";
+import { serverTrackSessionCreated, serverTrackSessionDeleted } from "@/lib/analytics-server";
+import { generatePortalSlug } from "@/lib/portal-slug";
 
 // Namespace session IDs per user to prevent collisions
 function scopedId(userId: string, localId: string): string {
@@ -166,5 +167,152 @@ export async function DELETE(req: NextRequest) {
   } catch (err) {
     console.error("Failed to delete session:", err);
     return NextResponse.json({ error: "Failed to delete session" }, { status: 500 });
+  }
+}
+
+// POST /api/sessions — save/sync a session with its messages
+export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { userId } = auth;
+
+  try {
+    const body = await req.json();
+    const { session, messages } = body;
+
+    if (!session) {
+      return NextResponse.json({ error: "Missing session" }, { status: 400 });
+    }
+
+    const supabase = getSupabaseServer();
+    const dbSessionId = scopedId(userId, session.id);
+    const clientHasMessages = Array.isArray(messages) && messages.length > 0;
+
+    // Upsert the session with scoped ID
+    const upsertData: Record<string, unknown> = {
+      id: dbSessionId,
+      user_id: userId,
+      project_name: session.name,
+      workspace_name: session.name,
+      total_cost: session.totalCost ?? 0,
+      today_cost: session.todayCost ?? 0,
+      today_tokens_in: session.todayTokensIn ?? 0,
+      today_tokens_out: session.todayTokensOut ?? 0,
+      today_message_count: session.todayMessageCount ?? 0,
+      today_date: session.todayDate,
+      updated_at: new Date().toISOString(),
+    };
+    // Track vs workspace distinction
+    if (session.isSubtrack != null) upsertData.is_subtrack = session.isSubtrack;
+    if (session.parentSessionId != null) upsertData.parent_session_id = scopedId(userId, session.parentSessionId);
+    if (session.forkMessageId != null) upsertData.fork_message_id = session.forkMessageId;
+    // Persist week/month cost data if provided (columns may not exist yet)
+    if (session.weekCost != null) upsertData.week_cost = session.weekCost;
+    if (session.weekKey != null) upsertData.week_key = session.weekKey;
+    if (session.monthCost != null) upsertData.month_cost = session.monthCost;
+    if (session.monthKey != null) upsertData.month_key = session.monthKey;
+    // Track lifecycle state
+    if (session.archived != null) upsertData.archived = session.archived;
+    if (session.committed != null) upsertData.committed = session.committed;
+
+    const { error: sessErr } = await supabase.from("chat_sessions").upsert(
+      upsertData,
+      { onConflict: "id" }
+    );
+    if (sessErr) throw sessErr;
+
+    // Track session creation (first sync only — no messages means new session)
+    if (!clientHasMessages) {
+      serverTrackSessionCreated(userId, {
+        sessionId: session.id,
+        projectName: session.name,
+      });
+
+      // Auto-generate portal slug for new workspaces (not subtracks)
+      if (!session.isSubtrack) {
+        try {
+          const slug = generatePortalSlug(session.name || "workspace");
+          await supabase
+            .from("chat_sessions")
+            .update({ portal_slug: slug })
+            .eq("id", dbSessionId);
+        } catch {
+          // Non-critical — slug can be generated later via /api/portal
+        }
+      }
+    }
+
+    // Upsert messages in batches
+    if (clientHasMessages) {
+      const rows = messages.map((m: Record<string, unknown>) => ({
+        id: m.id,
+        session_id: dbSessionId,
+        role: m.role,
+        content: m.content ?? "",
+        model: m.model ?? null,
+        tokens_in: m.tokensIn ?? null,
+        tokens_out: m.tokensOut ?? null,
+        cache_creation_tokens: m.cacheCreationTokens ?? null,
+        cache_read_tokens: m.cacheReadTokens ?? null,
+        cache_read_rate: m.cacheReadRate ?? null,
+        cost: m.cost ?? null,
+        confidence: m.confidence ?? null,
+        settled: m.settled ?? false,
+        receipt_status: m.receiptStatus ?? null,
+        cards: m.cards ?? null,
+        attachments: m.attachments ?? null,
+        debate_trace: m.debateTrace ?? null,
+        dissector_trace: m.dissectorTrace ?? null,
+        simplifier_trace: m.simplifierTrace ?? null,
+        documents: m.documents ?? null,
+        thinking: m.thinking ?? null,
+        timestamp: m.timestamp,
+        is_fork_point: m.isForkPoint ?? null,
+        fork_resolution: m.forkResolution ?? null,
+        pinned: m.pinned ?? false,
+        decision_id: m.decisionId ?? null,
+        hidden: m.hidden ?? false,
+        clarifying_questions: m.clarifyingQuestions ?? null,
+      }));
+
+      // Guard: don't let a stale "metering" upsert overwrite a "metered" row.
+      // This prevents the race where sendBeacon or periodic sync arrives after
+      // the server-side chat route has already saved the completed response.
+      const meteringIds = rows
+        .filter((r: Record<string, unknown>) => r.receipt_status === "metering")
+        .map((r: Record<string, unknown>) => r.id as string);
+
+      let alreadyMeteredIds = new Set<string>();
+      if (meteringIds.length > 0) {
+        const { data: meteredRows } = await supabase
+          .from("chat_messages")
+          .select("id")
+          .in("id", meteringIds)
+          .in("receipt_status", ["metered"]);
+        if (meteredRows) {
+          alreadyMeteredIds = new Set(meteredRows.map((r: { id: string }) => r.id));
+        }
+      }
+
+      const filteredRows = alreadyMeteredIds.size > 0
+        ? rows.filter((r: Record<string, unknown>) =>
+            !(r.receipt_status === "metering" && alreadyMeteredIds.has(r.id as string))
+          )
+        : rows;
+
+      // Batch upsert in chunks of 100
+      for (let i = 0; i < filteredRows.length; i += 100) {
+        const chunk = filteredRows.slice(i, i + 100);
+        const { error: msgErr } = await supabase
+          .from("chat_messages")
+          .upsert(chunk, { onConflict: "id" });
+        if (msgErr) throw msgErr;
+      }
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to save session:", err);
+    return NextResponse.json({ error: "Failed to save session" }, { status: 500 });
   }
 }

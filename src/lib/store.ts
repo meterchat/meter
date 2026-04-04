@@ -639,17 +639,69 @@ export const useMeterStore = create<MeterState>()(
 
       logout: async () => {
         set({ loggingOut: true });
+        // Flush unsaved messages to server BEFORE clearing state.
+        // Fire all syncs in parallel (not sequential) to avoid N×latency.
+        const currentSessions = get().sessions;
 
-        // Tear down Realtime subscriptions
-        try {
-          const { destroyRealtimeClient } = await import("@/lib/supabase-realtime");
-          destroyRealtimeClient();
-        } catch { /* module not loaded */ }
+        // Skip subtrack threads — they are local-only forks
+        const wsSubtrackIds = new Set(
+          useWorkspaceStore.getState().tracks
+            .filter((p) => p.isSubtrack)
+            .map((p) => p.id)
+        );
+
+        const syncPromises = currentSessions
+          .filter((sess) => sess.messages.length > 0 && !wsSubtrackIds.has(sess.id))
+          .map((sess) => {
+            const sessionMeta = {
+              id: sess.id,
+              name: sess.name,
+              totalCost: sess.totalCost,
+              todayCost: sess.todayCost,
+              todayTokensIn: sess.todayTokensIn,
+              todayTokensOut: sess.todayTokensOut,
+              todayMessageCount: sess.todayMessageCount,
+              todayDate: sess.todayDate,
+              weekCost: sess.weekCost ?? 0,
+              weekKey: sess.weekKey,
+              monthCost: sess.monthCost ?? 0,
+              monthKey: sess.monthKey,
+            };
+
+            return authFetch("/api/sessions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                session: sessionMeta,
+                messages: sess.messages,
+              }),
+            }).catch(() => {
+              // Fetch failed — fall back to sendBeacon with size safety
+              if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+                const MAX_BEACON_BYTES = 60_000;
+                const recentMessages = sess.messages.slice(-50);
+                const payload = JSON.stringify({ session: sessionMeta, messages: recentMessages });
+                const blob = new Blob([payload], { type: "application/json" });
+                if (blob.size < MAX_BEACON_BYTES) {
+                  navigator.sendBeacon("/api/sessions", blob);
+                } else {
+                  const metaOnly = JSON.stringify({ session: sessionMeta, messages: [] });
+                  navigator.sendBeacon("/api/sessions", new Blob([metaOnly], { type: "application/json" }));
+                }
+              }
+            });
+          });
+
+        // Wait for all syncs in parallel — timeout after 3s so logout isn't blocked
+        await Promise.race([
+          Promise.allSettled(syncPromises),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
 
         // Fire-and-forget server-side session cleanup
         authFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
 
-        // Clear this store — everything is already in the DB
+        // Clear this store immediately — sendBeacon is queued and will complete
         set({
           userId: null,
           handle: null,
@@ -1707,14 +1759,15 @@ export const useMeterStore = create<MeterState>()(
       createSubtrackSession: (subtrackId: string, parentSessionId: string, forkMessageId: string) => {
         set((s) => {
           const existing = s.sessions.find((p) => p.id === subtrackId);
+          // If subtrack already has messages, skip (idempotent)
           if (existing && existing.messages.length > 0) return s;
 
           const parent = s.sessions.find((p) => p.id === parentSessionId);
           if (!parent) return s;
-
+          // Find all messages up to and including the fork message
           const forkIdx = parent.messages.findIndex((m) => m.id === forkMessageId);
           if (forkIdx === -1) return s;
-
+          const sharedMessages = parent.messages.slice(0, forkIdx + 1).map((m) => ({ ...m }));
           // Mark the fork point on the parent thread
           const updatedParent = {
             ...parent,
@@ -1723,18 +1776,25 @@ export const useMeterStore = create<MeterState>()(
             ),
           };
 
-          // Create subtrack session with NO messages (empty).
-          // The UI composes the view at render time:
-          //   parent messages up to fork point + subtrack's own messages.
-          // This eliminates the bug where cloned message IDs conflict
-          // with the parent session during sync/upsert.
-          const subSession = existing ?? createSession(subtrackId, `Branch from ${parent.name}`);
+          // If thread shell exists (e.g. from localStorage after refresh), update in place
+          if (existing) {
+            return {
+              sessions: s.sessions.map((p) => {
+                if (p.id === parentSessionId) return updatedParent;
+                if (p.id === subtrackId) return { ...p, messages: sharedMessages, connectedServices: { ...parent.connectedServices }, cardAssigned: parent.cardAssigned };
+                return p;
+              }),
+            };
+          }
 
+          // Create new subtrack thread with cloned messages
+          const subtrackThread = createSession(subtrackId, subtrackId);
+          subtrackThread.messages = sharedMessages;
+          // Copy connected services from parent
+          subtrackThread.connectedServices = { ...parent.connectedServices };
+          subtrackThread.cardAssigned = parent.cardAssigned;
           return {
-            sessions: s.sessions
-              .map((p) => (p.id === parentSessionId ? updatedParent : p))
-              .filter((p) => p.id !== subtrackId)
-              .concat([subSession]),
+            sessions: s.sessions.map((p) => (p.id === parentSessionId ? updatedParent : p)).concat(subtrackThread),
           };
         });
       },
@@ -1880,35 +1940,3 @@ export const selectWorkspaceCardReady = (s: MeterState): boolean => {
   if (active.cardAssigned === undefined) return s.cardOnFile;
   return active.cardAssigned;
 };
-
-/**
- * Get the composed message list for a session. For subtracks, this
- * prepends the parent's messages up to the fork point. For regular
- * sessions, returns session.messages as-is. ALL consumers of session
- * messages should use this selector instead of reading session.messages
- * directly — rendering, pagination, export, settlement, search, counters.
- */
-export function getComposedMessages(
-  sessions: Session[],
-  sessionId: string,
-  tracks: { id: string; isSubtrack?: boolean; workspaceId?: string; forkMessageId?: string }[],
-  workspaces: { id: string; sessionId?: string }[],
-): ChatMessage[] {
-  const session = sessions.find((s) => s.id === sessionId);
-  if (!session) return [];
-
-  const track = tracks.find((t) => t.id === sessionId && t.isSubtrack);
-  if (!track?.forkMessageId) return session.messages;
-
-  const parentWs = workspaces.find((w) => w.id === track.workspaceId);
-  if (!parentWs?.sessionId) return session.messages;
-
-  const parent = sessions.find((s) => s.id === parentWs.sessionId);
-  if (!parent) return session.messages;
-
-  const forkIdx = parent.messages.findIndex((m) => m.id === track.forkMessageId);
-  if (forkIdx === -1) return session.messages;
-
-  const preFork = parent.messages.slice(0, forkIdx + 1);
-  return [...preFork, ...session.messages];
-}
