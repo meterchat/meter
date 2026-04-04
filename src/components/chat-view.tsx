@@ -46,10 +46,10 @@ import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-st
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS, DEBATE_MODEL } from "@/lib/models";
-// import { useSessionSync } from "@/lib/use-session-sync";  // disabled — replaced by Realtime
-// requestImmediateSync still used for legacy write-path (non-clientRequestId sends).
-// Will be removed in PR5 when use-session-sync.ts is deleted entirely.
-import { requestImmediateSync } from "@/lib/use-session-sync";
+// Feature flag: toggle sync mode without redeploying.
+//   Default: "realtime" (new Supabase Realtime subscriptions)
+//   Revert: localStorage.setItem("meter-sync-mode", "legacy") then refresh
+import { useSessionSync, requestImmediateSync } from "@/lib/use-session-sync";
 import { useRealtimeSync } from "@/lib/use-realtime-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { authFetch } from "@/lib/auth-fetch";
@@ -1121,10 +1121,23 @@ function ThinkingIndicator({
   );
 }
 
+// ── Sync mode feature flag ──────────────────────────────────────
+// Wrapper components so each sync hook is always called (rules of hooks)
+// but only one is rendered. Toggle via browser console without redeploying:
+//   localStorage.setItem("meter-sync-mode", "legacy")  // revert to old sync
+//   localStorage.setItem("meter-sync-mode", "realtime") // back to Realtime
+//   localStorage.removeItem("meter-sync-mode")          // default = realtime
+function LegacySync() { useSessionSync(); return null; }
+function RealtimeSync() { useRealtimeSync(); return null; }
+
+function getSyncMode(): "realtime" | "legacy" {
+  if (typeof window === "undefined") return "realtime";
+  return (localStorage.getItem("meter-sync-mode") as "realtime" | "legacy") ?? "realtime";
+}
+
 /* ─── Main ChatView ────────────────────────────────────────────── */
 export function ChatView() {
-  // Bootstrap from server + subscribe to Realtime for live updates
-  useRealtimeSync();
+  const [syncMode] = useState(getSyncMode);
 
   const isMobile = useIsMobile();
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
@@ -2640,6 +2653,7 @@ export function ChatView() {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
+      {syncMode === "legacy" ? <LegacySync /> : <RealtimeSync />}
       <ProfileSettings open={profileOpen} onClose={() => setProfileOpen(false)} />
       {switchingSessionName && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 backdrop-blur-sm">
