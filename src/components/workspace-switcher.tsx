@@ -99,10 +99,11 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
   const handleCreate = () => {
     const name = newName.trim();
     if (!name) return;
-    const sessionId = `ws_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    createWorkspace(name, sessionId);
+    createWorkspace(name);
     trackWorkspaceCreated({ name, source: "switcher" });
-    switchToChatThread(sessionId, name);
+    // Don't call switchToChatThread here — createWorkspace now handles
+    // server-side creation and session activation asynchronously.
+    // The workspace is activated optimistically via createWorkspace's set().
     setNewName("");
     setCreating(false);
     setOpen(false);
