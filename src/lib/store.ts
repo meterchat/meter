@@ -274,7 +274,6 @@ interface MeterState {
   updateReconnectMessageThinking: (sessionId: string, messageId: string, thinking: string) => void;
   finalizeReconnectedMessage: (sessionId: string, messageId: string, usage: { tokensIn?: number; tokensOut?: number; cacheCreationTokens?: number; cacheReadTokens?: number; cost?: number }) => void;
   removeLastMessage: (forSessionId?: string) => void;
-  replaceMessageId: (oldId: string, newId: string, forSessionId?: string) => void;
 
   setPendingInput: (v: string | null) => void;
 
@@ -1492,16 +1491,6 @@ export const useMeterStore = create<MeterState>()(
               messages: active.messages.slice(0, -1),
             }),
           };
-        }),
-
-      replaceMessageId: (oldId, newId, forSessionId?) =>
-        set((s) => {
-          const active = getSessionByIdOrActive(s, forSessionId);
-          const msgs = active.messages.map((m) =>
-            m.id === oldId ? { ...m, id: newId } : m
-          );
-          const updated = { ...active, messages: msgs };
-          return { sessions: replaceActiveSession(s, updated) };
         }),
 
       clearSettlementError: () =>

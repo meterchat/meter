@@ -1134,7 +1134,6 @@ export function ChatView() {
   const addMessage = useMeterStore((s) => s.addMessage);
   const updateLastAssistantMessage = useMeterStore((s) => s.updateLastAssistantMessage);
   const finalizeResponse = useMeterStore((s) => s.finalizeResponse);
-  const replaceMessageId = useMeterStore((s) => s.replaceMessageId);
   const setStreaming = useMeterStore((s) => s.setStreaming);
   const incrementCurrentMessageCost = useMeterStore((s) => s.incrementCurrentMessageCost);
   const inspectorOpen = useMeterStore((s) => s.inspectorOpen);
@@ -1813,9 +1812,8 @@ export function ChatView() {
       }
     }
 
-    const clientRequestId = `req_${crypto.randomUUID()}`;
     const userMsg: ChatMessage = {
-      id: `pending_${crypto.randomUUID()}`,
+      id: Math.random().toString(36).slice(2, 10),
       role: "user",
       content: userContent,
       timestamp: Date.now(),
@@ -1823,16 +1821,12 @@ export function ChatView() {
       ...(options?.hiddenUser ? { hidden: true } : {}),
     };
     addMessage(userMsg, streamSessionId);
-    // Skip immediate sync for the new flow — create_run writes messages to the
-    // DB server-side. Syncing now would persist the pending_* temp ID as a
-    // duplicate row before the canonical ID arrives from the SSE preamble.
-    // For the legacy flow (no clientRequestId), still sync immediately.
-    if (!clientRequestId) {
-      requestImmediateSync();
-    }
+    // Immediately sync user message to server — don't wait for 2s debounce.
+    // This ensures the message survives a page refresh even if done instantly.
+    requestImmediateSync();
 
     const assistantMsg: ChatMessage = {
-      id: `pending_${crypto.randomUUID()}`,
+      id: Math.random().toString(36).slice(2, 10),
       role: "assistant",
       content: "",
       tokensOut: 0,
@@ -1899,7 +1893,8 @@ export function ChatView() {
           messages: allMessages,
           model: effectiveModel,
           sessionId: streamSessionId,
-          clientRequestId,
+          userMessageId: userMsg.id,
+          assistantMessageId: assistantMsg.id,
           markupMultiplier,
           connectedServices: Object.keys(connectedServices).filter(
             (k) => connectedServices[k]
@@ -2000,20 +1995,6 @@ export function ChatView() {
 
           try {
             const data = JSON.parse(payload);
-
-              // ── Server canonical ID swap ─────────────────────
-              if (data.type === "ids") {
-                const { userMessageId: serverUserMsgId, assistantMessageId: serverAssistantMsgId } = data;
-                if (serverUserMsgId) {
-                  replaceMessageId(userMsg.id, serverUserMsgId, streamSessionId);
-                  userMsg.id = serverUserMsgId;
-                }
-                if (serverAssistantMsgId) {
-                  replaceMessageId(assistantMsg.id, serverAssistantMsgId, streamSessionId);
-                  assistantMsg.id = serverAssistantMsgId;
-                }
-                continue;
-              }
 
             // ── Debate-specific events ────────────────────────
             if (data.type === "debate_start") {
