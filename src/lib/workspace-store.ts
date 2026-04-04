@@ -119,6 +119,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               })
               .catch((err) => {
                 console.error("[workspace] Failed to create on server:", err);
+                // Remove the failed workspace so it doesn't stay as a dead pending_ entry
+                set((s) => ({
+                  workspaces: s.workspaces.filter((w) => w.id !== id),
+                }));
               });
           });
         }

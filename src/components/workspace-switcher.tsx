@@ -91,7 +91,9 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
     setOpen(false);
     if (workspace) {
       trackWorkspaceSwitched({ workspaceId: workspace.id, workspaceName: workspace.name });
-      const sessionId = workspace.sessionId ?? workspace.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const sessionId = workspace.sessionId;
+      // Don't switch to workspaces still awaiting a server-minted ID
+      if (!sessionId || sessionId.startsWith("pending_")) return;
       switchToChatThread(sessionId, workspace.name);
     }
   };
