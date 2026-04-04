@@ -7,7 +7,7 @@ import { useMeterStore, createSession, type ChatMessage, type ReceiptStatus } fr
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { authFetch } from "@/lib/auth-fetch";
-import { getRealtimeClient, destroyRealtimeClient } from "@/lib/supabase-realtime";
+import { getRealtimeClient } from "@/lib/supabase-realtime";
 import { getModel } from "@/lib/models";
 
 // ── ID Scoping Boundary ──────────────────────────────────────────────
@@ -177,8 +177,9 @@ export function useRealtimeSync() {
 
         // ── Reconciliation: close the bootstrap→subscribe gap ──
         // Between bootstrap fetch and subscriptions becoming live, events could
-        // have been missed. Do a lightweight re-fetch of the active session's
-        // recent messages and merge any new ones.
+        // have been missed. Re-fetch and merge any new messages.
+        // TODO: Scope this to the active session only (e.g. ?sessionId=X) to
+        // avoid re-fetching all sessions. Currently doubles data on page load.
         try {
           const reconRes = await authFetch("/api/sessions");
           if (reconRes.ok) {

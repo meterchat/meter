@@ -47,6 +47,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS, DEBATE_MODEL } from "@/lib/models";
 // import { useSessionSync } from "@/lib/use-session-sync";  // disabled — replaced by Realtime
+// requestImmediateSync still used for legacy write-path (non-clientRequestId sends).
+// Will be removed in PR5 when use-session-sync.ts is deleted entirely.
 import { requestImmediateSync } from "@/lib/use-session-sync";
 import { useRealtimeSync } from "@/lib/use-realtime-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
