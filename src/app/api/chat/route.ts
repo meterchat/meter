@@ -45,7 +45,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { messages, model, connectedServices, attachments, debateRoster, userMessageId, assistantMessageId } = body;
+    const { messages, model, connectedServices, attachments, debateRoster, clientRequestId } = body;
+    // Legacy: still accept userMessageId/assistantMessageId for backwards compatibility during rollout
+    let userMessageId: string | undefined = body.userMessageId;
+    let assistantMessageId: string | undefined = body.assistantMessageId;
     // Accept both sessionId (new) and projectId (legacy) for backward compatibility
     const projectId: string | undefined = body.sessionId ?? body.projectId;
 
@@ -297,6 +300,61 @@ export async function POST(req: NextRequest) {
       })();
     }
 
+    // ── Server-minted IDs via create_run RPC ──────────────────────
+    // If clientRequestId is provided (new flow), create the run + messages
+    // server-side. This is atomic and idempotent (retries reuse the same run).
+    let runId: string | undefined;
+    if (clientRequestId && projectId) {
+      const supabaseRun = getSupabaseServer();
+      const dbSessionId = projectId.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
+      const userContent = messages[messages.length - 1]?.content ?? "";
+
+      const { data: runData, error: runErr } = await supabaseRun.rpc("create_run", {
+        p_session_id: dbSessionId,
+        p_client_request_id: clientRequestId,
+        p_model: model ?? "auto",
+        p_user_content: typeof userContent === "string" ? userContent : JSON.stringify(userContent),
+      });
+
+      if (runErr) {
+        console.error("[/api/chat] create_run failed:", runErr);
+        return new Response(
+          JSON.stringify({ error: "Failed to create run" }),
+          { status: 500, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      const run = Array.isArray(runData) ? runData[0] : runData;
+      if (run) {
+        runId = run.run_id;
+        userMessageId = run.user_message_id;
+        assistantMessageId = run.assistant_message_id;
+
+        // If run is already terminal (retry of finished request), return immediately
+        if (run.run_status === "complete" || run.run_status === "failed" || run.run_status === "timed_out") {
+          return new Response(
+            JSON.stringify({ error: `Run already ${run.run_status}`, runId, userMessageId, assistantMessageId }),
+            { status: 409, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        // If run is already streaming from another request, don't start a duplicate
+        // model call. create_run returns is_new=false when the run was already fully
+        // built (messages existed). Without this guard, a retry with the same
+        // clientRequestId would reuse the same run but start a SECOND upstream model
+        // call — conflicting content writes and double billing.
+        if (run.run_status === "streaming" && run.is_new === false) {
+          return new Response(
+            JSON.stringify({
+              error: "Run already streaming elsewhere",
+              runId, userMessageId, assistantMessageId,
+            }),
+            { status: 409, headers: { "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
+
     // Track the full assistant response for server-side save after completion
     let fullAssistantContent = "";
     let fullThinkingContent = "";
@@ -356,6 +414,14 @@ export async function POST(req: NextRequest) {
 
     const stream = new ReadableStream({
       async start(controller) {
+        // Send canonical IDs so the client can swap its temp IDs
+        if (runId && userMessageId && assistantMessageId) {
+          const preamble = { type: "ids", runId, userMessageId, assistantMessageId };
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(preamble)}\n\n`));
+          } catch { /* client closed */ }
+        }
+
         const send: Send = (data) => {
           // Accumulate assistant content BEFORE trying to push to client.
           // This ensures content is captured even if the client is gone.
@@ -379,6 +445,15 @@ export async function POST(req: NextRequest) {
                 dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
             simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
               }).catch(() => { /* best-effort periodic save */ });
+              // Update run's last_chunk_at for dead stream detection
+              if (runId) {
+                const supabaseChunk = getSupabaseServer();
+                supabaseChunk.from("chat_runs")
+                  .update({ last_chunk_at: new Date().toISOString() })
+                  .eq("id", runId)
+                  .then(() => {})
+                  .catch(() => {});
+              }
             }
           }
           if (data.type === "thinking_delta" && typeof data.content === "string") {
@@ -399,6 +474,15 @@ export async function POST(req: NextRequest) {
                 timestamp: Date.now(),
                 thinking: fullThinkingContent || undefined,
               }).catch(() => { /* best-effort periodic save */ });
+              // Update run's last_chunk_at for dead stream detection
+              if (runId) {
+                const supabaseChunk = getSupabaseServer();
+                supabaseChunk.from("chat_runs")
+                  .update({ last_chunk_at: new Date().toISOString() })
+                  .eq("id", runId)
+                  .then(() => {})
+                  .catch(() => {});
+              }
             }
           }
           // Capture usage events for DB persistence
@@ -829,6 +913,39 @@ export async function POST(req: NextRequest) {
             thinking: fullThinkingContent || undefined,
             documents: serverDocuments.length > 0 ? serverDocuments : undefined,
           });
+
+          // Exactly-once finalization via RPC (if using new run flow)
+          if (runId) {
+            try {
+              const supabaseFinalize = getSupabaseServer();
+              // Compute cost server-side (same logic as saveMessageToDB)
+              let cost = 0;
+              try {
+                const modelInfo = getModel(activeModel);
+                const cacheWrite = cumulativeCacheCreation ?? 0;
+                const cacheHit = cumulativeCacheRead ?? 0;
+                const readRate = roundCacheReadRate || 0.1;
+                const uncachedIn = (cumulativeTokensIn ?? 0) - cacheWrite - cacheHit;
+                const inputCost = (cacheWrite > 0 || cacheHit > 0)
+                  ? (uncachedIn * modelInfo.inputPrice) +
+                    (cacheWrite * modelInfo.inputPrice * 1.25) +
+                    (cacheHit * modelInfo.inputPrice * readRate)
+                  : (cumulativeTokensIn ?? 0) * modelInfo.inputPrice;
+                cost = (inputCost + (cumulativeTokensOut ?? 0) * modelInfo.outputPrice) * markupMultiplier;
+              } catch { /* unknown model */ }
+
+              await supabaseFinalize.rpc("finalize_run", {
+                p_run_id: runId,
+                p_cost: cost,
+                p_tokens_in: cumulativeTokensIn ?? 0,
+                p_tokens_out: cumulativeTokensOut ?? 0,
+                p_cache_creation_tokens: cumulativeCacheCreation ?? null,
+                p_cache_read_tokens: cumulativeCacheRead ?? null,
+              });
+            } catch (err) {
+              console.warn("[/api/chat] finalize_run failed:", err);
+            }
+          }
         }
 
         req.signal.removeEventListener("abort", abortHandler);
@@ -855,6 +972,15 @@ export async function POST(req: NextRequest) {
             simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
             documents: serverDocuments.length > 0 ? serverDocuments : undefined,
           }).catch(() => { /* best-effort */ });
+          // Mark the run as failed so the cron watchdog doesn't also reap it
+          if (runId) {
+            const supabaseCancel = getSupabaseServer();
+            supabaseCancel.from("chat_runs")
+              .update({ status: "failed" })
+              .eq("id", runId)
+              .then(() => {})
+              .catch(() => {});
+          }
         }
       },
     });
