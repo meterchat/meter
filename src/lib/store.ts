@@ -1759,15 +1759,14 @@ export const useMeterStore = create<MeterState>()(
       createSubtrackSession: (subtrackId: string, parentSessionId: string, forkMessageId: string) => {
         set((s) => {
           const existing = s.sessions.find((p) => p.id === subtrackId);
-          // If subtrack already has messages, skip (idempotent)
           if (existing && existing.messages.length > 0) return s;
 
           const parent = s.sessions.find((p) => p.id === parentSessionId);
           if (!parent) return s;
-          // Find all messages up to and including the fork message
+
           const forkIdx = parent.messages.findIndex((m) => m.id === forkMessageId);
           if (forkIdx === -1) return s;
-          const sharedMessages = parent.messages.slice(0, forkIdx + 1).map((m) => ({ ...m }));
+
           // Mark the fork point on the parent thread
           const updatedParent = {
             ...parent,
@@ -1776,25 +1775,18 @@ export const useMeterStore = create<MeterState>()(
             ),
           };
 
-          // If thread shell exists (e.g. from localStorage after refresh), update in place
-          if (existing) {
-            return {
-              sessions: s.sessions.map((p) => {
-                if (p.id === parentSessionId) return updatedParent;
-                if (p.id === subtrackId) return { ...p, messages: sharedMessages, connectedServices: { ...parent.connectedServices }, cardAssigned: parent.cardAssigned };
-                return p;
-              }),
-            };
-          }
+          // Create subtrack session with NO messages (empty).
+          // The UI composes the view at render time:
+          //   parent messages up to fork point + subtrack's own messages.
+          // This eliminates the bug where cloned message IDs conflict
+          // with the parent session during sync/upsert.
+          const subSession = existing ?? createSession(subtrackId, `Branch from ${parent.name}`);
 
-          // Create new subtrack thread with cloned messages
-          const subtrackThread = createSession(subtrackId, subtrackId);
-          subtrackThread.messages = sharedMessages;
-          // Copy connected services from parent
-          subtrackThread.connectedServices = { ...parent.connectedServices };
-          subtrackThread.cardAssigned = parent.cardAssigned;
           return {
-            sessions: s.sessions.map((p) => (p.id === parentSessionId ? updatedParent : p)).concat(subtrackThread),
+            sessions: s.sessions
+              .map((p) => (p.id === parentSessionId ? updatedParent : p))
+              .filter((p) => p.id !== subtrackId)
+              .concat([subSession]),
           };
         });
       },
@@ -1940,3 +1932,35 @@ export const selectWorkspaceCardReady = (s: MeterState): boolean => {
   if (active.cardAssigned === undefined) return s.cardOnFile;
   return active.cardAssigned;
 };
+
+/**
+ * Get the composed message list for a session. For subtracks, this
+ * prepends the parent's messages up to the fork point. For regular
+ * sessions, returns session.messages as-is. ALL consumers of session
+ * messages should use this selector instead of reading session.messages
+ * directly — rendering, pagination, export, settlement, search, counters.
+ */
+export function getComposedMessages(
+  sessions: Session[],
+  sessionId: string,
+  tracks: { id: string; isSubtrack?: boolean; workspaceId?: string; forkMessageId?: string }[],
+  workspaces: { id: string; sessionId?: string }[],
+): ChatMessage[] {
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session) return [];
+
+  const track = tracks.find((t) => t.id === sessionId && t.isSubtrack);
+  if (!track?.forkMessageId) return session.messages;
+
+  const parentWs = workspaces.find((w) => w.id === track.workspaceId);
+  if (!parentWs?.sessionId) return session.messages;
+
+  const parent = sessions.find((s) => s.id === parentWs.sessionId);
+  if (!parent) return session.messages;
+
+  const forkIdx = parent.messages.findIndex((m) => m.id === track.forkMessageId);
+  if (forkIdx === -1) return session.messages;
+
+  const preFork = parent.messages.slice(0, forkIdx + 1);
+  return [...preFork, ...session.messages];
+}
