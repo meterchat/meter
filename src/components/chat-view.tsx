@@ -1236,7 +1236,10 @@ export function ChatView() {
   const handleOnboardingCreateWorkspace = () => {
     const name = onboardingWorkspaceName.trim();
     if (!name) return;
-    createWorkspace(name);
+    const sessionId = `ws_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    createWorkspace(name, sessionId);
+    addSession(name, sessionId);
+    setActiveSessionChat(sessionId);
     trackWorkspaceCreated({ name, source: "chat_onboarding" });
   };
 

@@ -908,13 +908,6 @@ const STATEMENTS: string[] = [
        );
    exception when duplicate_object then null;
    end $$`,
-
-  // ── PR2: Idempotency key for get-or-create workspace semantics ──
-  // Format: "{userId}:idem:{key}" — scoped per user.
-  `alter table chat_sessions add column if not exists idempotency_key text`,
-  `create unique index if not exists uq_chat_sessions_idem_key
-   on chat_sessions (idempotency_key)
-   where idempotency_key is not null`,
 ];
 
 function getProjectRef(url: string): string | null {

@@ -91,9 +91,7 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
     setOpen(false);
     if (workspace) {
       trackWorkspaceSwitched({ workspaceId: workspace.id, workspaceName: workspace.name });
-      const sessionId = workspace.sessionId;
-      // Don't switch to workspaces still awaiting a server-minted ID
-      if (!sessionId || sessionId.startsWith("pending_")) return;
+      const sessionId = workspace.sessionId ?? workspace.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
       switchToChatThread(sessionId, workspace.name);
     }
   };
@@ -101,19 +99,10 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
   const handleCreate = () => {
     const name = newName.trim();
     if (!name) return;
-    const wsId = createWorkspace(name);
+    const sessionId = `ws_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    createWorkspace(name, sessionId);
     trackWorkspaceCreated({ name, source: "switcher" });
-    // Activate the workspace in the meter store immediately so the chat
-    // view switches. createWorkspace sets activeWorkspaceId, but we also
-    // need activeSessionId to point at the pending session so the UI
-    // renders the new (empty) workspace. The server callback will migrate
-    // it to the canonical ID once it arrives.
-    const ws = workspaces.find((w) => w.id === wsId) ??
-      useWorkspaceStore.getState().workspaces.find((w) => w.id === wsId);
-    if (ws?.sessionId) {
-      ensureSession(ws.sessionId, name);
-      setActiveSession(ws.sessionId);
-    }
+    switchToChatThread(sessionId, name);
     setNewName("");
     setCreating(false);
     setOpen(false);

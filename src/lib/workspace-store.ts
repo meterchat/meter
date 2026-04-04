@@ -68,75 +68,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       activeWorkspaceId: null,
       activeTrackId: null,
 
-      // Create workspace via server (canonical ID) and activate it.
-      // If sessionId is provided (e.g. from server response), use it directly.
-      // Otherwise call POST /api/workspaces to get a server-minted ID.
+      // Add workspace AND activate it in a single set() — no cascading renders
       createWorkspace: (name: string, sessionId?: string) => {
-        const id = generateId(); // local workspace-store ID (not the session ID)
-        const tempSessionId = sessionId ?? `pending_${generateId()}`;
-
+        const id = generateId();
+        const session = sessionId ?? `ws_${generateId()}`;
         emitLogEvent("workspace_created", getCurrentUserId());
-
-        // Optimistically add with temp session ID
         set((s) => ({
-          workspaces: [...s.workspaces, { id, name, sessionId: tempSessionId, createdAt: Date.now() }],
+          workspaces: [...s.workspaces, { id, name, sessionId: session, createdAt: Date.now() }],
           activeWorkspaceId: id,
           activeTrackId: null,
         }));
-
-        // If no sessionId was provided, create on server and swap the ID
-        if (!sessionId) {
-          import("@/lib/auth-fetch").then(({ authFetch }) => {
-            authFetch("/api/workspaces", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name }),
-            })
-              .then((res) => {
-                if (!res.ok) throw new Error(`Server returned ${res.status}`);
-                return res.json();
-              })
-              .then((data) => {
-                if (!data?.sessionId) return;
-                // Swap temp session ID with server-minted canonical ID
-                set((s) => ({
-                  workspaces: s.workspaces.map((w) =>
-                    w.id === id ? { ...w, sessionId: data.sessionId } : w
-                  ),
-                }));
-                // Create the session in the meter store, migrate activeSessionId,
-                // and clean up the optimistic temp session.
-                import("@/lib/store").then(({ useMeterStore }) => {
-                  const store = useMeterStore.getState();
-                  store.addSession(name, data.sessionId);
-                  // If activeSessionId still points at the temp, migrate it
-                  if (store.activeSessionId === tempSessionId) {
-                    useMeterStore.setState({ activeSessionId: data.sessionId });
-                  }
-                  // Remove the optimistic temp session (if one was auto-created
-                  // by addSession or other callers using the pending_ ID)
-                  useMeterStore.setState((s) => ({
-                    sessions: s.sessions.filter((sess) => sess.id !== tempSessionId),
-                  }));
-                });
-              })
-              .catch((err) => {
-                console.error("[workspace] Failed to create on server:", err);
-                // Remove the failed workspace and reset activeWorkspaceId if it
-                // still points at the dead entry
-                set((s) => {
-                  const remaining = s.workspaces.filter((w) => w.id !== id);
-                  return {
-                    workspaces: remaining,
-                    activeWorkspaceId: s.activeWorkspaceId === id
-                      ? (remaining[remaining.length - 1]?.id ?? null)
-                      : s.activeWorkspaceId,
-                  };
-                });
-              });
-          });
-        }
-
         return id;
       },
 
