@@ -101,11 +101,19 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
   const handleCreate = () => {
     const name = newName.trim();
     if (!name) return;
-    createWorkspace(name);
+    const wsId = createWorkspace(name);
     trackWorkspaceCreated({ name, source: "switcher" });
-    // Don't call switchToChatThread here — createWorkspace now handles
-    // server-side creation and session activation asynchronously.
-    // The workspace is activated optimistically via createWorkspace's set().
+    // Activate the workspace in the meter store immediately so the chat
+    // view switches. createWorkspace sets activeWorkspaceId, but we also
+    // need activeSessionId to point at the pending session so the UI
+    // renders the new (empty) workspace. The server callback will migrate
+    // it to the canonical ID once it arrives.
+    const ws = workspaces.find((w) => w.id === wsId) ??
+      useWorkspaceStore.getState().workspaces.find((w) => w.id === wsId);
+    if (ws?.sessionId) {
+      ensureSession(ws.sessionId, name);
+      setActiveSession(ws.sessionId);
+    }
     setNewName("");
     setCreating(false);
     setOpen(false);

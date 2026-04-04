@@ -33,13 +33,17 @@ export async function PATCH(
     if (body.archived != null) updates.archived = body.archived;
     if (body.committed != null) updates.committed = body.committed;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("chat_sessions")
       .update(updates)
       .eq("id", dbId)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select("id");
 
     if (error) throw error;
+    if (!data?.length) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -62,13 +66,17 @@ export async function DELETE(
     const supabase = getSupabaseServer();
     const dbId = scopedId(userId, id);
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("chat_sessions")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", dbId)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select("id");
 
     if (error) throw error;
+    if (!data?.length) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

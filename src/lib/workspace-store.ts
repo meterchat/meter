@@ -92,7 +92,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ name }),
             })
-              .then((res) => (res.ok ? res.json() : null))
+              .then((res) => {
+                if (!res.ok) throw new Error(`Server returned ${res.status}`);
+                return res.json();
+              })
               .then((data) => {
                 if (!data?.sessionId) return;
                 // Swap temp session ID with server-minted canonical ID
@@ -119,10 +122,17 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               })
               .catch((err) => {
                 console.error("[workspace] Failed to create on server:", err);
-                // Remove the failed workspace so it doesn't stay as a dead pending_ entry
-                set((s) => ({
-                  workspaces: s.workspaces.filter((w) => w.id !== id),
-                }));
+                // Remove the failed workspace and reset activeWorkspaceId if it
+                // still points at the dead entry
+                set((s) => {
+                  const remaining = s.workspaces.filter((w) => w.id !== id);
+                  return {
+                    workspaces: remaining,
+                    activeWorkspaceId: s.activeWorkspaceId === id
+                      ? (remaining[remaining.length - 1]?.id ?? null)
+                      : s.activeWorkspaceId,
+                  };
+                });
               });
           });
         }
