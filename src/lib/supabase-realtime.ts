@@ -58,7 +58,11 @@ async function initialize(): Promise<SupabaseClient> {
  */
 export function getRealtimeClient(): Promise<SupabaseClient> {
   if (!initPromise) {
-    initPromise = initialize();
+    initPromise = initialize().catch((err) => {
+      // Reset so the next call retries instead of returning a dead promise
+      initPromise = null;
+      throw err;
+    });
   }
   return initPromise;
 }

@@ -31,5 +31,7 @@ export async function GET() {
     .setExpirationTime("1h")
     .sign(key);
 
-  return NextResponse.json({ token });
+  return NextResponse.json({ token }, {
+    headers: { "Cache-Control": "no-store" },
+  });
 }

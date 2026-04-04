@@ -707,6 +707,13 @@ const STATEMENTS: string[] = [
     v_asst_msg_id text;
     v_status text;
   begin
+    -- Guard: client_request_id must not be NULL. Without this, the SELECT below
+    -- would match no rows (NULL = NULL is false in SQL), leaving v_run_id NULL
+    -- and creating orphaned messages with no run.
+    if p_client_request_id is null then
+      raise exception 'client_request_id must not be null';
+    end if;
+
     -- Attempt insert; ON CONFLICT means this client_request_id already exists (retry).
     insert into chat_runs (session_id, client_request_id, status, model)
       values (p_session_id, p_client_request_id, 'created', p_model)
