@@ -228,6 +228,7 @@ interface MeterState {
   setAdminConfig: (config: { markupMultiplier?: number; enabledModels?: string[]; enabledCommands?: string[] }) => void;
   setAuth: (userId: string, handle: string | null, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => void;
   setSessionsLoaded: (v: boolean) => void;
+  setSessionsFromServer: (sessions: Session[]) => void;
   setEmail: (email: string) => void;
   setCardOnFile: (v: boolean, last4?: string, brand?: string) => void;
   setStripeCustomerId: (id: string) => void;
@@ -512,6 +513,8 @@ export const useMeterStore = create<MeterState>()(
       })),
       setAuth: (userId: string, handle: string | null, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, handle, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? DEFAULT_MARKUP_MULTIPLIER, authenticated: true }),
       setSessionsLoaded: (v) => set({ sessionsLoaded: v }),
+      setSessionsFromServer: (sessions) =>
+        set({ sessions, sessionsLoaded: true }),
       setEmail: (email) => set({ email }),
       setCardOnFile: (v, last4, brand) =>
         set((s) => ({
@@ -1864,17 +1867,13 @@ export const useMeterStore = create<MeterState>()(
         return state as MeterState;
       },
       partialize: (s) => ({
+        // Auth state (needed for fast page load before server fetch)
         userId: s.userId,
         email: s.email,
         handle: s.handle,
         accountType: s.accountType,
-        markupMultiplier: s.markupMultiplier,
         authenticated: s.authenticated,
-        cardOnFile: s.cardOnFile,
-        cardLast4: s.cardLast4,
-        cardBrand: s.cardBrand,
-        stripeCustomerId: s.stripeCustomerId,
-        creditBalance: s.creditBalance,
+        // UI preferences
         selectedModelId: s.selectedModelId,
         debateMode: s.debateMode,
         debateRoster: s.debateRoster,
@@ -1882,16 +1881,11 @@ export const useMeterStore = create<MeterState>()(
         spendingCap: s.spendingCap,
         autoSettleThreshold: s.autoSettleThreshold,
         lastAutoSettleDate: s.lastAutoSettleDate,
-        sessions: s.sessions.map((p) => ({
-          ...p,
-          // Keep the last N messages so localStorage acts as a local-first
-          // fallback across page refreshes.  Server is still the durable
-          // source of truth, but this closes the gap when beacons fail or
-          // the server fetch is slow/errored.
-          messages: p.messages.slice(-50),
-        })),
+        // Active session ID (so the user returns to the same workspace)
         activeSessionId: s.activeSessionId,
         spendLimits: s.spendLimits,
+        // NOTE: sessions, messages, and cost counters are NO LONGER persisted.
+        // The server is the source of truth. Bootstrap fetch loads them.
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
