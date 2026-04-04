@@ -584,7 +584,7 @@ export async function POST(req: NextRequest) {
             if (runId) {
               try {
                 const supabaseFinalize = getSupabaseServer();
-                const cost = lastUsageEvent?.actualCost ?? 0;
+                const cost = (lastUsageEvent?.actualCost ?? 0) * markupMultiplier;
                 await supabaseFinalize.rpc("finalize_run", {
                   p_run_id: runId,
                   p_cost: cost,
@@ -632,7 +632,7 @@ export async function POST(req: NextRequest) {
             if (runId) {
               try {
                 const supabaseFinalize = getSupabaseServer();
-                const cost = lastUsageEvent?.actualCost ?? 0;
+                const cost = (lastUsageEvent?.actualCost ?? 0) * markupMultiplier;
                 await supabaseFinalize.rpc("finalize_run", {
                   p_run_id: runId,
                   p_cost: cost,
@@ -679,7 +679,7 @@ export async function POST(req: NextRequest) {
             if (runId) {
               try {
                 const supabaseFinalize = getSupabaseServer();
-                const cost = lastUsageEvent?.actualCost ?? 0;
+                const cost = (lastUsageEvent?.actualCost ?? 0) * markupMultiplier;
                 await supabaseFinalize.rpc("finalize_run", {
                   p_run_id: runId,
                   p_cost: cost,

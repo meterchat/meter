@@ -1823,9 +1823,13 @@ export function ChatView() {
       ...(options?.hiddenUser ? { hidden: true } : {}),
     };
     addMessage(userMsg, streamSessionId);
-    // Immediately sync user message to server — don't wait for 2s debounce.
-    // This ensures the message survives a page refresh even if done instantly.
-    requestImmediateSync();
+    // Skip immediate sync for the new flow — create_run writes messages to the
+    // DB server-side. Syncing now would persist the pending_* temp ID as a
+    // duplicate row before the canonical ID arrives from the SSE preamble.
+    // For the legacy flow (no clientRequestId), still sync immediately.
+    if (!clientRequestId) {
+      requestImmediateSync();
+    }
 
     const assistantMsg: ChatMessage = {
       id: `pending_${crypto.randomUUID()}`,

@@ -5,10 +5,11 @@ import { getSupabaseServer } from "@/lib/supabase";
 // Vercel cron calls this every minute. Marks stale streaming runs as timed_out.
 // The 5-minute threshold matches maxDuration=300 in the chat route.
 export async function GET(req: NextRequest) {
-  // Verify cron secret to prevent unauthorized calls
+  // Verify cron secret to prevent unauthorized calls.
+  // Reject if secret is missing OR if the header doesn't match.
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
