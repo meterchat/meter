@@ -39,11 +39,12 @@ export async function GET() {
     const INITIAL_MESSAGE_LIMIT = 20;
     const messagesBySession: Record<string, Record<string, unknown>[]> = {};
     const aggregatesBySession: Record<string, { totalTokensIn: number; totalTokensOut: number; totalMessageCount: number; pendingBalance: number; hasMore: boolean }> = {};
+    const activeRunsBySession: Record<string, Record<string, unknown>[]> = {};
 
     // Fetch messages + aggregates in parallel per session for speed.
     await Promise.all((sessions ?? []).map(async (session) => {
       // Fetch recent messages (limit+1 to check hasMore)
-      const [msgsResult, statsResult] = await Promise.all([
+      const [msgsResult, statsResult, runsResult] = await Promise.all([
         supabase
           .from("chat_messages")
           .select("*")
@@ -53,6 +54,14 @@ export async function GET() {
 
         // Single SQL aggregate instead of paginating through all messages
         supabase.rpc("get_session_message_stats", { p_session_id: session.id }).single(),
+
+        // Fetch active runs (streaming or created) for this session
+        supabase
+          .from("chat_runs")
+          .select("id, status, assistant_message_id, last_chunk_at")
+          .eq("session_id", session.id)
+          .in("status", ["created", "streaming"])
+          .is("finalized_at", null),
       ]);
 
       if (msgsResult.error) throw msgsResult.error;
@@ -72,6 +81,10 @@ export async function GET() {
         pendingBalance: Number(stats?.pending_balance ?? 0),
         hasMore,
       };
+
+      // Store active runs for this session
+      const activeRuns = (runsResult.data ?? []) as Record<string, unknown>[];
+      activeRunsBySession[session.id] = activeRuns;
     }));
 
     // Return sessions with unscoped IDs so the client sees its original local IDs
@@ -92,6 +105,12 @@ export async function GET() {
         total_message_count: agg.totalMessageCount,
         pending_balance: agg.pendingBalance,
         has_more_messages: agg.hasMore,
+        active_runs: (activeRunsBySession[s.id] ?? []).map((r) => ({
+          id: r.id,
+          status: r.status,
+          assistant_message_id: r.assistant_message_id,
+          last_chunk_at: r.last_chunk_at,
+        })),
       };
     });
 
