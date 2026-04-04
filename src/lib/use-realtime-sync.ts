@@ -150,13 +150,6 @@ export function useRealtimeSync() {
         const currentInSessions = sessions.find((s: { id: string }) => s.id === store.activeSessionId);
         const nextActiveId = currentInSessions ? store.activeSessionId : sessions[0]?.id ?? "default";
 
-        // Mark this session as "already subscribed" BEFORE setting state.
-        // Without this, setState triggers the session-switching effect which
-        // sees prevSessionIdRef.current === null, bypasses the guard, and
-        // calls subscribeToRealtime a SECOND time — creating duplicate
-        // channel handlers that fire setState twice per event → infinite loop.
-        prevSessionIdRef.current = nextActiveId;
-
         useMeterStore.setState({
           sessions,
           activeSessionId: nextActiveId,
