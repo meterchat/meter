@@ -68,6 +68,10 @@ function mapServerMessage(m: Record<string, unknown>): ChatMessage {
   };
 }
 
+// Track active run IDs per session so we only clear isStreaming when ALL
+// runs for a session are terminal, not just the first one that completes.
+const activeRunsBySession = new Map<string, Set<string>>();
+
 export function useRealtimeSync() {
   const authenticated = useMeterStore((s) => s.authenticated);
   const userId = useMeterStore((s) => s.userId);
@@ -463,15 +467,22 @@ function handleRunChange(
   const { eventType, new: newRow } = payload;
   if (!newRow || typeof newRow !== "object") return;
 
+  const runId = newRow.id as string;
   const status = newRow.status as string;
 
   if (eventType === "INSERT" || eventType === "UPDATE") {
-    // Run started or status changed
     const isActive = status === "created" || status === "streaming";
     const isTerminal = status === "complete" || status === "failed" || status === "timed_out";
 
+    // Track active runs per session so completing one run doesn't clear
+    // isStreaming when other runs are still in progress.
+    if (!activeRunsBySession.has(sessionId)) {
+      activeRunsBySession.set(sessionId, new Set());
+    }
+    const runs = activeRunsBySession.get(sessionId)!;
+
     if (isActive) {
-      // Show streaming indicator
+      runs.add(runId);
       useMeterStore.setState((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, isStreaming: true } : sess
@@ -480,12 +491,15 @@ function handleRunChange(
     }
 
     if (isTerminal) {
-      // Stop streaming indicator
-      useMeterStore.setState((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, isStreaming: false } : sess
-        ),
-      }));
+      runs.delete(runId);
+      // Only clear isStreaming when NO active runs remain for this session
+      if (runs.size === 0) {
+        useMeterStore.setState((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === sessionId ? { ...sess, isStreaming: false } : sess
+          ),
+        }));
+      }
     }
   }
 }

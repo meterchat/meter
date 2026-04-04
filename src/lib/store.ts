@@ -514,7 +514,16 @@ export const useMeterStore = create<MeterState>()(
       setAuth: (userId: string, handle: string | null, email: string | null, accountType?: "standard" | "superadmin", markupMultiplier?: number) => set({ userId, handle, email, accountType: accountType ?? "standard", markupMultiplier: markupMultiplier ?? DEFAULT_MARKUP_MULTIPLIER, authenticated: true }),
       setSessionsLoaded: (v) => set({ sessionsLoaded: v }),
       setSessionsFromServer: (sessions) =>
-        set({ sessions, sessionsLoaded: true }),
+        set((s) => ({
+          sessions,
+          sessionsLoaded: true,
+          // Normalize activeSessionId to an ID that exists in the new list.
+          // If the current active session isn't in the server data, fall back
+          // to the first session or "default".
+          activeSessionId: sessions.some((sess) => sess.id === s.activeSessionId)
+            ? s.activeSessionId
+            : sessions[0]?.id ?? "default",
+        })),
       setEmail: (email) => set({ email }),
       setCardOnFile: (v, last4, brand) =>
         set((s) => ({

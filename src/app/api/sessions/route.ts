@@ -82,8 +82,11 @@ export async function GET() {
         hasMore,
       };
 
-      // Store active runs for this session
-      const activeRuns = (runsResult.data ?? []) as Record<string, unknown>[];
+      // Store active runs for this session (log query errors but don't fail the whole response)
+      if (runsResult.error) {
+        console.warn(`[sessions] Failed to fetch active runs for ${session.id}:`, runsResult.error);
+      }
+      const activeRuns = (runsResult.error ? [] : runsResult.data ?? []) as Record<string, unknown>[];
       activeRunsBySession[session.id] = activeRuns;
     }));
 
