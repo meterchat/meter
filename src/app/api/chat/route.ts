@@ -580,6 +580,21 @@ export async function POST(req: NextRequest) {
               timestamp: Date.now(),
               debateTrace: serverDebateTrace.length > 0 ? serverDebateTrace : undefined,
             });
+            // Finalize run for debate mode
+            if (runId) {
+              try {
+                const supabaseFinalize = getSupabaseServer();
+                const cost = lastUsageEvent?.actualCost ?? 0;
+                await supabaseFinalize.rpc("finalize_run", {
+                  p_run_id: runId,
+                  p_cost: cost,
+                  p_tokens_in: lastUsageEvent?.tokensIn ?? 0,
+                  p_tokens_out: lastUsageEvent?.tokensOut ?? 0,
+                  p_cache_creation_tokens: lastUsageEvent?.cacheCreationTokens ?? null,
+                  p_cache_read_tokens: lastUsageEvent?.cacheReadTokens ?? null,
+                });
+              } catch (err) { console.warn("[/api/chat] finalize_run (debate) failed:", err); }
+            }
           }
           if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
           return;
@@ -611,8 +626,23 @@ export async function POST(req: NextRequest) {
               receiptStatus: "metered",
               timestamp: Date.now(),
               dissectorTrace: serverDissectorTrace.length > 0 ? serverDissectorTrace : undefined,
-            simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
+              simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
             });
+            // Finalize run for dissect mode
+            if (runId) {
+              try {
+                const supabaseFinalize = getSupabaseServer();
+                const cost = lastUsageEvent?.actualCost ?? 0;
+                await supabaseFinalize.rpc("finalize_run", {
+                  p_run_id: runId,
+                  p_cost: cost,
+                  p_tokens_in: lastUsageEvent?.tokensIn ?? 0,
+                  p_tokens_out: lastUsageEvent?.tokensOut ?? 0,
+                  p_cache_creation_tokens: lastUsageEvent?.cacheCreationTokens ?? null,
+                  p_cache_read_tokens: lastUsageEvent?.cacheReadTokens ?? null,
+                });
+              } catch (err) { console.warn("[/api/chat] finalize_run (dissect) failed:", err); }
+            }
           }
           if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
           return;
@@ -645,6 +675,21 @@ export async function POST(req: NextRequest) {
               timestamp: Date.now(),
               simplifierTrace: serverSimplifierTrace.length > 0 ? serverSimplifierTrace : undefined,
             });
+            // Finalize run for simplify mode
+            if (runId) {
+              try {
+                const supabaseFinalize = getSupabaseServer();
+                const cost = lastUsageEvent?.actualCost ?? 0;
+                await supabaseFinalize.rpc("finalize_run", {
+                  p_run_id: runId,
+                  p_cost: cost,
+                  p_tokens_in: lastUsageEvent?.tokensIn ?? 0,
+                  p_tokens_out: lastUsageEvent?.tokensOut ?? 0,
+                  p_cache_creation_tokens: lastUsageEvent?.cacheCreationTokens ?? null,
+                  p_cache_read_tokens: lastUsageEvent?.cacheReadTokens ?? null,
+                });
+              } catch (err) { console.warn("[/api/chat] finalize_run (simplify) failed:", err); }
+            }
           }
           if (!clientDisconnected) try { controller.close(); } catch { /* already closed */ }
           return;
