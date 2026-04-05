@@ -28,6 +28,7 @@ import {
 } from "@/lib/analytics";
 import { emitLogEvent } from "@/lib/log-event";
 import { MeterPill } from "@/components/meter-pill";
+import { StatusBanner } from "@/components/status-banner";
 import { HeaderMeter } from "@/components/header-meter";
 import { SyncButton } from "@/components/sync-button";
 // CommitButton removed from header — decisions now log directly
@@ -2746,6 +2747,9 @@ export function ChatView() {
             </button>
           </div>
         </header>
+
+        {/* Incident status banner — remove when persistence issue is resolved */}
+        <StatusBanner />
 
         {/* Messages */}
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0" style={{ overflowAnchor: "auto" }}>
