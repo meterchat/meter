@@ -2647,6 +2647,8 @@ export function ChatView() {
       <div
         className={`relative flex flex-1 flex-col min-w-0 transition-all duration-300 ${inspectorOpen && !isMobile ? "mr-[420px]" : ""}`}
       >
+        {/* Incident status banner — remove when persistence issue is resolved */}
+        <StatusBanner />
         <header className="flex h-12 items-center justify-between border-b border-border px-4" style={{ paddingTop: isMobile ? "env(safe-area-inset-top, 0px)" : undefined, height: isMobile ? "calc(3rem + env(safe-area-inset-top, 0px))" : undefined }}>
           <div className="relative flex items-center gap-2" ref={logoMenuRef}>
             <button
@@ -2747,9 +2749,6 @@ export function ChatView() {
             </button>
           </div>
         </header>
-
-        {/* Incident status banner — remove when persistence issue is resolved */}
-        <StatusBanner />
 
         {/* Messages */}
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0" style={{ overflowAnchor: "auto" }}>
