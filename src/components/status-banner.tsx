@@ -12,7 +12,7 @@ export function StatusBanner() {
       <div className="mx-auto flex items-center justify-center gap-2">
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
         <p className="font-mono text-[11px] text-foreground/70">
-          Chats may not persist on refresh or logout. Copy or export important conversations locally.
+          Intermittent issues with message persistence. Chats may be lost on refresh or logout — copy or export locally. Fix in progress.
         </p>
         <button
           onClick={() => setDismissed(true)}
