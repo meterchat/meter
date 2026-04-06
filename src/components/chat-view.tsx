@@ -1261,7 +1261,9 @@ export function ChatView() {
   // Sync workspace store's active track to main store's active session.
   // When switching to a subtrack, main store must also switch so messages route correctly.
   // When switching to null (main), main store should use the workspace's sessionId.
+  // Guard: don't reconcile until sessions are loaded from server (server-first).
   useEffect(() => {
+    if (!sessionsLoaded) return;
     if (wsActiveTrackId) {
       // Subtrack selected — switch main store to the subtrack's Session
       const mainSessions = useMeterStore.getState().sessions;
@@ -1295,7 +1297,7 @@ export function ChatView() {
         setActiveSessionChat(workspace.sessionId);
       }
     }
-  }, [wsActiveTrackId, activeWorkspaceId, wsWorkspaces, wsTracks, setActiveSessionChat, createSubtrackSession]);
+  }, [sessionsLoaded, wsActiveTrackId, activeWorkspaceId, wsWorkspaces, wsTracks, setActiveSessionChat, createSubtrackSession]);
 
   // Current workspace track (from workspace store, has branching metadata)
   const currentWsTrack = useMemo(
