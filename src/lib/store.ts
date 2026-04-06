@@ -1796,9 +1796,8 @@ export const useMeterStore = create<MeterState>()(
     }),
     {
       name: "meter-store-v3",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
-      // Migrate old localStorage shape (projects/activeProjectId) → new (sessions/activeSessionId)
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
         if (version < 2) {
@@ -1810,6 +1809,11 @@ export const useMeterStore = create<MeterState>()(
             state.activeSessionId = state.activeProjectId;
             delete state.activeProjectId;
           }
+        }
+        if (version < 3) {
+          // Server-first migration: strip sessions from localStorage.
+          // Sessions now load exclusively from the server.
+          delete state.sessions;
         }
         return state as MeterState;
       },
