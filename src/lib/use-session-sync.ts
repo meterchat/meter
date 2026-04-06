@@ -130,8 +130,11 @@ export function useSessionSync() {
   const authenticated = useMeterStore((s) => s.authenticated);
   const resetDailyIfNeeded = useMeterStore((s) => s.resetDailyIfNeeded);
 
+  console.log("[useSessionSync] render, authenticated:", authenticated);
+
   // ── Poll admin config so model/command changes propagate live ──
   useEffect(() => {
+    console.log("[useSessionSync] admin-config effect fired");
     if (!authenticated) return;
     const pollAdminConfig = () => {
       authFetch("/api/auth/me")
@@ -154,6 +157,7 @@ export function useSessionSync() {
 
   // ── Reset daily counters at local midnight ──
   useEffect(() => {
+    console.log("[useSessionSync] midnight-reset effect fired");
     if (!authenticated) return;
     resetDailyIfNeeded();
     let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -170,6 +174,7 @@ export function useSessionSync() {
 
   // ── Re-fetch from server when tab becomes visible after >2s ──
   useEffect(() => {
+    console.log("[useSessionSync] visibility effect fired");
     if (!authenticated) return;
     let lastHidden = 0;
 
@@ -231,6 +236,7 @@ export function useSessionSync() {
 
   // ── Load sessions from server on mount ──
   useEffect(() => {
+    console.log("[useSessionSync] loadSessions effect fired");
     if (!authenticated) return;
     let cancelled = false;
 
