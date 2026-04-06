@@ -47,7 +47,7 @@ import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-st
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS, DEBATE_MODEL } from "@/lib/models";
-import { useSessionSync, requestImmediateSync } from "@/lib/use-session-sync";
+import { useSessionSync } from "@/lib/use-session-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { authFetch } from "@/lib/auth-fetch";
 import { useArtifactsStore } from "@/lib/artifacts-store";
@@ -1825,9 +1825,6 @@ export function ChatView() {
       ...(options?.hiddenUser ? { hidden: true } : {}),
     };
     addMessage(userMsg, streamSessionId);
-    // Immediately sync user message to server — don't wait for 2s debounce.
-    // This ensures the message survives a page refresh even if done instantly.
-    requestImmediateSync();
 
     const assistantMsg: ChatMessage = {
       id: Math.random().toString(36).slice(2, 10),
@@ -1905,6 +1902,18 @@ export function ChatView() {
           ),
           ...(userAttachments?.length ? { attachments: userAttachments } : {}),
           ...(effectiveModel === "debate" ? { debateRoster: useMeterStore.getState().debateRoster } : {}),
+          // Server-first: pass subtrack metadata so /api/chat can create the
+          // session row with proper FK references on the first message.
+          ...(() => {
+            const track = wsTracks.find((t) => t.id === streamSessionId && t.isSubtrack);
+            if (!track) return {};
+            const parentWs = wsWorkspaces.find((w) => w.id === track.workspaceId);
+            return {
+              isSubtrack: true,
+              parentSessionId: parentWs?.sessionId,
+              forkMessageId: track.forkMessageId,
+            };
+          })(),
         }),
       });
 
@@ -2248,9 +2257,6 @@ export function ChatView() {
           streamSessionId,
         );
       }
-      // Immediately sync the finalized message to the server so it
-      // survives a page refresh (don't wait for the 2s debounce).
-      requestImmediateSync();
     } catch {
       // Abort or network error — persist whatever we have so far.
       // Partial responses are still billed upstream (industry standard).
@@ -2283,8 +2289,6 @@ export function ChatView() {
             streamSessionId,
           );
         }
-        // Best-effort sync on error path too
-        requestImmediateSync();
       }
     } finally {
       activeStreamsRef.current.delete(streamSessionId);

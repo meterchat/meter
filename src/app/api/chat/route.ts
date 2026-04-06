@@ -268,33 +268,48 @@ export async function POST(req: NextRequest) {
       }
     };
 
-    // Ensure the session row exists before saving messages (FK constraint).
-    // For new sessions, the client's periodic sync may not have created it yet.
-    // Fire-and-forget — don't block stream creation on this DB call.
+    // Ensure the session row exists (FK constraint) and persist the user
+    // message BEFORE starting the stream.  Server-first: the message is
+    // durable in the DB before the client ever sees a streaming token.
     if (projectId && userMessageId) {
       const dbSessId = projectId.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
       const supabaseEnsure = getSupabaseServer();
       const userContent = messages[messages.length - 1]?.content ?? "";
-      // Wrap in async IIFE so we get a proper Promise chain
-      (async () => {
-        try {
-          await supabaseEnsure
-            .from("chat_sessions")
-            .upsert(
-              { id: dbSessId, user_id: userId, created_at: new Date().toISOString() },
-              { onConflict: "id" }
-            );
-          // Session row exists — now save user message
-          await saveMessageToDB({
-            id: userMessageId,
-            sessionId: projectId,
-            role: "user",
-            content: typeof userContent === "string" ? userContent : JSON.stringify(userContent),
-            timestamp: Date.now(),
-            attachments: parsedAttachments.length > 0 ? parsedAttachments : undefined,
-          });
-        } catch { /* best-effort — periodic sync will handle it */ }
-      })();
+
+      // Build session upsert payload — include subtrack metadata when provided
+      const sessionRow: Record<string, unknown> = {
+        id: dbSessId,
+        user_id: userId,
+        created_at: new Date().toISOString(),
+      };
+      if (body.isSubtrack) {
+        sessionRow.is_subtrack = true;
+        if (body.parentSessionId) {
+          sessionRow.parent_session_id = body.parentSessionId.startsWith(`${userId}:`)
+            ? body.parentSessionId
+            : `${userId}:${body.parentSessionId}`;
+        }
+        if (body.forkMessageId) sessionRow.fork_message_id = body.forkMessageId;
+      }
+
+      try {
+        await supabaseEnsure
+          .from("chat_sessions")
+          .upsert(sessionRow, { onConflict: "id" });
+
+        await saveMessageToDB({
+          id: userMessageId,
+          sessionId: projectId,
+          role: "user",
+          content: typeof userContent === "string" ? userContent : JSON.stringify(userContent),
+          timestamp: Date.now(),
+          attachments: parsedAttachments.length > 0 ? parsedAttachments : undefined,
+        });
+      } catch (err) {
+        // Log but don't block streaming — degraded persistence is better
+        // than a broken chat experience.
+        console.error("[chat] Failed to persist user message before stream:", err);
+      }
     }
 
     // Track the full assistant response for server-side save after completion
