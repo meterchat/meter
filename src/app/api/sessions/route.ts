@@ -266,7 +266,7 @@ export async function POST(req: NextRequest) {
           .from("chat_messages")
           .select("id")
           .in("id", meteringIds)
-          .in("receipt_status", ["metered"]);
+          .in("receipt_status", ["metered", "settled"]);
         if (meteredRows) {
           alreadyMeteredIds = new Set(meteredRows.map((r: { id: string }) => r.id));
         }

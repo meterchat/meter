@@ -13,9 +13,19 @@ function patchMessageField(messageId: string, fields: Record<string, unknown>) {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messageId, fields }),
-  }).catch(() => {
-    // Silent — periodic sync will eventually catch up
-  });
+  }).catch(() => {});
+}
+
+/** Persist session metadata (name, subtrack flags, etc.) directly to the server. */
+function saveSessionMeta(sessionId: string, meta: Record<string, unknown>) {
+  authFetch("/api/sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session: { id: sessionId, ...meta },
+      messages: [],
+    }),
+  }).catch(() => {});
 }
 
 export type ReceiptStatus = "metering" | "metered" | "settled";
@@ -626,69 +636,12 @@ export const useMeterStore = create<MeterState>()(
 
       logout: async () => {
         set({ loggingOut: true });
-        // Flush unsaved messages to server BEFORE clearing state.
-        // Fire all syncs in parallel (not sequential) to avoid N×latency.
-        const currentSessions = get().sessions;
 
-        // Skip subtrack threads — they are local-only forks
-        const wsSubtrackIds = new Set(
-          useWorkspaceStore.getState().tracks
-            .filter((p) => p.isSubtrack)
-            .map((p) => p.id)
-        );
-
-        const syncPromises = currentSessions
-          .filter((sess) => sess.messages.length > 0 && !wsSubtrackIds.has(sess.id))
-          .map((sess) => {
-            const sessionMeta = {
-              id: sess.id,
-              name: sess.name,
-              totalCost: sess.totalCost,
-              todayCost: sess.todayCost,
-              todayTokensIn: sess.todayTokensIn,
-              todayTokensOut: sess.todayTokensOut,
-              todayMessageCount: sess.todayMessageCount,
-              todayDate: sess.todayDate,
-              weekCost: sess.weekCost ?? 0,
-              weekKey: sess.weekKey,
-              monthCost: sess.monthCost ?? 0,
-              monthKey: sess.monthKey,
-            };
-
-            return authFetch("/api/sessions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                session: sessionMeta,
-                messages: sess.messages,
-              }),
-            }).catch(() => {
-              // Fetch failed — fall back to sendBeacon with size safety
-              if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-                const MAX_BEACON_BYTES = 60_000;
-                const recentMessages = sess.messages.slice(-50);
-                const payload = JSON.stringify({ session: sessionMeta, messages: recentMessages });
-                const blob = new Blob([payload], { type: "application/json" });
-                if (blob.size < MAX_BEACON_BYTES) {
-                  navigator.sendBeacon("/api/sessions", blob);
-                } else {
-                  const metaOnly = JSON.stringify({ session: sessionMeta, messages: [] });
-                  navigator.sendBeacon("/api/sessions", new Blob([metaOnly], { type: "application/json" }));
-                }
-              }
-            });
-          });
-
-        // Wait for all syncs in parallel — timeout after 3s so logout isn't blocked
-        await Promise.race([
-          Promise.allSettled(syncPromises),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-
-        // Fire-and-forget server-side session cleanup
+        // Server-first: all messages are already persisted by /api/chat.
+        // Just invalidate the server session and clear local state.
         authFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
 
-        // Clear this store immediately — sendBeacon is queued and will complete
+        // Clear local state immediately — everything is already on the server
         set({
           userId: null,
           handle: null,
@@ -751,12 +704,14 @@ export const useMeterStore = create<MeterState>()(
           return { sessions: [...s.sessions, createSession(id, cleanName)] };
         }),
 
-      renameSession: (sessionId, newName) =>
+      renameSession: (sessionId, newName) => {
         set((s) => ({
           sessions: s.sessions.map((p) =>
             p.id === sessionId ? { ...p, name: newName } : p
           ),
-        })),
+        }));
+        saveSessionMeta(sessionId, { name: newName });
+      },
 
       togglePinMessage: (messageId) => {
         // Find current pin state before toggling
@@ -1774,6 +1729,11 @@ export const useMeterStore = create<MeterState>()(
             sessions: s.sessions.map((p) => (p.id === parentSessionId ? updatedParent : p)).concat(subtrackThread),
           };
         });
+        saveSessionMeta(subtrackId, {
+          isSubtrack: true,
+          parentSessionId,
+          forkMessageId,
+        });
       },
 
       mergeSubtrackIntoParent: (subtrackId: string, parentSessionId: string, forkMessageId: string) => {
@@ -1804,6 +1764,7 @@ export const useMeterStore = create<MeterState>()(
             .map((p) => (p.id === parentSessionId ? updatedParent : p));
           return { sessions };
         });
+        saveSessionMeta(subtrackId, { archived: true, committed: true });
       },
 
       clearForkPoint: (parentSessionId: string, forkMessageId: string) => {
@@ -1871,44 +1832,11 @@ export const useMeterStore = create<MeterState>()(
         spendingCap: s.spendingCap,
         autoSettleThreshold: s.autoSettleThreshold,
         lastAutoSettleDate: s.lastAutoSettleDate,
-        sessions: s.sessions.map((p) => ({
-          ...p,
-          // Keep the last N messages so localStorage acts as a local-first
-          // fallback across page refreshes.  Server is still the durable
-          // source of truth, but this closes the gap when beacons fail or
-          // the server fetch is slow/errored.
-          messages: p.messages.slice(-50),
-        })),
+        // Server-first: messages are NOT cached in localStorage.
+        // Sessions load from GET /api/sessions on mount.
         activeSessionId: s.activeSessionId,
         spendLimits: s.spendLimits,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (!state) return;
-        const now = new Date();
-        const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        const day = now.getDay();
-        const diff = day === 0 ? -6 : 1 - day;
-        const mon = new Date(now);
-        mon.setDate(now.getDate() + diff);
-        mon.setHours(0, 0, 0, 0);
-        const curWeek = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`;
-        const weekStart = mon.getTime();
-
-        state.sessions = state.sessions.map((p) => {
-          let proj = p.isStreaming ? { ...p, isStreaming: false } : p;
-
-          // Seed monthKey/weekKey if missing (old-format migration).
-          if (proj.monthKey == null) {
-            proj = { ...proj, monthCost: Math.max(proj.monthCost ?? 0, proj.todayCost ?? 0), monthKey: curMonth };
-          }
-          if (proj.weekKey == null) {
-            proj = { ...proj, weekCost: Math.max(proj.weekCost ?? 0, proj.todayCost ?? 0), weekKey: curWeek };
-          }
-
-          return proj;
-        });
-      },
     }
   )
 );
