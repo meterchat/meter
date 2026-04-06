@@ -170,16 +170,17 @@ export async function POST(req: NextRequest) {
     const upsertData: Record<string, unknown> = {
       id: dbSessionId,
       user_id: userId,
-      project_name: session.name,
-      workspace_name: session.name,
-      total_cost: session.totalCost ?? 0,
-      today_cost: session.todayCost ?? 0,
-      today_tokens_in: session.todayTokensIn ?? 0,
-      today_tokens_out: session.todayTokensOut ?? 0,
-      today_message_count: session.todayMessageCount ?? 0,
-      today_date: session.todayDate,
       updated_at: new Date().toISOString(),
     };
+    // Only include fields that were explicitly provided — avoids overwriting
+    // server-side totals with 0/undefined on metadata-only saves.
+    if (session.name != null) { upsertData.project_name = session.name; upsertData.workspace_name = session.name; }
+    if (session.totalCost != null) upsertData.total_cost = session.totalCost;
+    if (session.todayCost != null) upsertData.today_cost = session.todayCost;
+    if (session.todayTokensIn != null) upsertData.today_tokens_in = session.todayTokensIn;
+    if (session.todayTokensOut != null) upsertData.today_tokens_out = session.todayTokensOut;
+    if (session.todayMessageCount != null) upsertData.today_message_count = session.todayMessageCount;
+    if (session.todayDate != null) upsertData.today_date = session.todayDate;
     // Track vs workspace distinction
     if (session.isSubtrack != null) upsertData.is_subtrack = session.isSubtrack;
     if (session.parentSessionId != null) upsertData.parent_session_id = scopedId(userId, session.parentSessionId);
