@@ -135,7 +135,14 @@ export function useSessionSync() {
     if (!authenticated) return;
     const pollAdminConfig = () => {
       authFetch("/api/auth/me")
-        .then((r) => (r.ok ? r.json() : null))
+        .then((r) => {
+          if (r.status === 404 || r.status === 401) {
+            // User not found or session expired — force re-login
+            useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+            return null;
+          }
+          return r.ok ? r.json() : null;
+        })
         .then((data) => {
           if (!data?.adminConfig) return;
           console.log("[admin-config] poll received:", JSON.stringify(data.adminConfig));
@@ -266,7 +273,7 @@ export function useSessionSync() {
         }
 
         if (!res || !res.ok) {
-          if (res?.status === 401) {
+          if (res?.status === 401 || res?.status === 404) {
             useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
             return;
           }
@@ -512,7 +519,13 @@ export function useSessionSync() {
     useDecisionsStore.getState().fetchDecisions();
 
     authFetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (r.status === 404 || r.status === 401) {
+          useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
       .then((data) => {
         if (!data || cancelled) return;
         const store = useMeterStore.getState();
