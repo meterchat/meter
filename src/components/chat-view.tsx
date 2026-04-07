@@ -1156,6 +1156,11 @@ export function ChatView() {
   // Scrolling up reveals more via the existing fetchOlderMessages mechanism.
   const RENDER_WINDOW = 200;
   const [renderLimit, setRenderLimit] = useState(RENDER_WINDOW);
+  const renderLimitRef = useRef(renderLimit);
+  renderLimitRef.current = renderLimit;
+  const allVisibleMessagesLenRef = useRef(0);
+  allVisibleMessagesLenRef.current = allVisibleMessages.length;
+  const scrollBtnRafRef = useRef(0);
   // Reset render limit when switching sessions
   useEffect(() => { setRenderLimit(RENDER_WINDOW); }, [activeSessionId]);
   const visibleMessages = useMemo(() => {
@@ -1697,7 +1702,8 @@ export function ChatView() {
     if (!el) return;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     isNearBottomRef.current = nearBottom;
-    setShowScrollBtn(!nearBottom);
+    cancelAnimationFrame(scrollBtnRafRef.current);
+    scrollBtnRafRef.current = requestAnimationFrame(() => setShowScrollBtn(!nearBottom));
     // Re-engage auto-scroll only when the user has clearly returned to the
     // bottom AND enough time has passed since they scrolled away (1.5 s on
     // mobile, 500 ms on desktop).  The shorter desktop timeout is fine because
@@ -1712,9 +1718,9 @@ export function ChatView() {
     // Pagination: reveal more locally-loaded messages or fetch from server
     if (el.scrollTop < 100) {
       // First, expand the client-side render window to show more already-loaded messages
-      if (renderLimit < allVisibleMessages.length) {
+      if (renderLimitRef.current < allVisibleMessagesLenRef.current) {
         const prevScrollHeight = el.scrollHeight;
-        setRenderLimit((prev) => Math.min(prev + RENDER_WINDOW, allVisibleMessages.length));
+        setRenderLimit((prev) => Math.min(prev + RENDER_WINDOW, allVisibleMessagesLenRef.current));
         requestAnimationFrame(() => {
           const newScrollHeight = el.scrollHeight;
           el.scrollTop = newScrollHeight - prevScrollHeight;
@@ -1733,7 +1739,7 @@ export function ChatView() {
         });
       }
     }
-  }, [activeSession?.hasOlderMessages, activeSession?.loadingOlderMessages, activeSessionId, fetchOlderMessages, renderLimit, allVisibleMessages.length]);
+  }, [activeSession?.hasOlderMessages, activeSession?.loadingOlderMessages, activeSessionId, fetchOlderMessages]);
 
   // Auto-scroll using instant scrollTop (no smooth animation that fights
   // with user scroll). Guarded by isProgrammaticScrollRef so our own scroll
