@@ -47,7 +47,6 @@ import { useWorkspaceStore, resolveWorkspaceSessionId } from "@/lib/workspace-st
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineCardForm } from "@/components/inline-card-form";
 import { getModel, shortModelName, DEBATE_MODELS, DEBATE_MODEL } from "@/lib/models";
-import { useSessionSync } from "@/lib/use-session-sync";
 import { useDecisionsStore } from "@/lib/decisions-store";
 import { authFetch } from "@/lib/auth-fetch";
 import { useArtifactsStore } from "@/lib/artifacts-store";
@@ -1120,9 +1119,6 @@ function ThinkingIndicator({
 
 /* ─── Main ChatView ────────────────────────────────────────────── */
 export function ChatView() {
-  // Sync sessions to Supabase for eternal persistence
-  useSessionSync();
-
   const isMobile = useIsMobile();
   const sessionsLoaded = useMeterStore((s) => s.sessionsLoaded);
 
