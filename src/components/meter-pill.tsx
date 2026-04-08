@@ -57,12 +57,15 @@ type Phase = "idle" | "resetting" | "streaming" | "settling" | "locked";
 
 /* ── MeterPill ─────────────────────────────────────────────────────── */
 export function MeterPill() {
-  const { sessions, activeSessionId } = useMeterStore();
-  const active =
-    sessions.find((p) => p.id === activeSessionId) ?? sessions[0];
-  const isStreaming = active?.isStreaming ?? false;
-  const rawCost = active?.currentMessageCost ?? 0;
-  const todayCost = active?.todayCost ?? 0;
+  const activeSessionId = useMeterStore((s) => s.activeSessionId);
+  const isStreaming = useMeterStore((s) => {
+    const sess = s.sessions.find((p) => p.id === s.activeSessionId) ?? s.sessions[0];
+    return sess?.isStreaming ?? false;
+  });
+  const rawCost = useMeterStore((s) => {
+    const sess = s.sessions.find((p) => p.id === s.activeSessionId) ?? s.sessions[0];
+    return sess?.currentMessageCost ?? 0;
+  });
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [displayCost, setDisplayCost] = useState(0);
@@ -115,10 +118,14 @@ export function MeterPill() {
   /* Monotonic cost updates — buffer during reset, apply during stream/settling */
   useEffect(() => {
     const clamped = Math.max(0, rawCost);
-    if (phase === "streaming" || phase === "settling") {
+    if (phase === "streaming") {
       const next = Math.max(maxCostRef.current, clamped);
       maxCostRef.current = next;
       setDisplayCost(next);
+    } else if (phase === "settling") {
+      // Snap to final cost from finalizeResponse — may be lower than
+      // the streaming estimate (char/4 heuristic overshoots)
+      setDisplayCost(clamped);
     } else if (phase === "resetting") {
       maxCostRef.current = Math.max(maxCostRef.current, clamped);
     }
