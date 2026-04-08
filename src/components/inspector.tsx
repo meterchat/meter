@@ -1445,7 +1445,7 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
     return rawSessionId;
   }, [rawSessionId, wsTracks, wsWorkspaces, meterSessions]);
 
-  const { inputs, loading, uploading, fetchInputs, addInput, removeInput, setUploading } = useInputsStore();
+  const { inputs, loading, uploading, fetchInputs, addInput, removeInput, toggleInput, setUploading } = useInputsStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1483,6 +1483,20 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  const estimateTokens = (text: string | null | undefined) => {
+    if (!text) return 0;
+    return Math.ceil(text.length / 4);
+  };
+
+  const formatTokens = (tokens: number) => {
+    if (tokens < 1000) return `${tokens}`;
+    if (tokens < 10000) return `${(tokens / 1000).toFixed(1)}k`;
+    return `${Math.round(tokens / 1000)}k`;
+  };
+
+  const enabledInputs = inputs.filter((i) => i.enabled);
+  const totalEnabledTokens = enabledInputs.reduce((sum, i) => sum + estimateTokens(i.contentText), 0);
 
   const fileIcon = (mimeType: string) => {
     if (mimeType.startsWith("image/")) return "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z";
@@ -1528,6 +1542,9 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
       <div className="flex items-center justify-between">
         <div className="font-sans text-xs text-muted-foreground/60 uppercase tracking-wider">
           Inputs{inputs.length > 0 && <span className="ml-1.5 text-muted-foreground/40">{inputs.length}</span>}
+          {totalEnabledTokens > 0 && (
+            <span className="ml-2 font-mono text-[10px] text-muted-foreground/40 normal-case">~{formatTokens(totalEnabledTokens)} tokens</span>
+          )}
         </div>
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -1558,17 +1575,29 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
       {/* File list */}
       {inputs.map((input) => {
         const isExpanded = expandedId === input.id;
+        const tokens = estimateTokens(input.contentText);
         return (
-          <div key={input.id} className="group">
-            <button
-              onClick={() => setExpandedId(isExpanded ? null : input.id)}
-              className="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-foreground/[0.03]"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/60">
-                <path d={fileIcon(input.mimeType)} />
-              </svg>
-              <span className="flex-1 truncate font-mono text-[11px] text-foreground/80">{input.fileName}</span>
-              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40">{formatSize(input.fileSize)}</span>
+          <div key={input.id} className={`group rounded-md transition-colors ${input.enabled ? "" : "opacity-50"}`}>
+            <div className="flex w-full items-center gap-1.5 px-1.5 py-1.5">
+              {/* Toggle */}
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleInput(input.id); }}
+                className={`shrink-0 h-3.5 w-6 rounded-full transition-colors ${input.enabled ? "bg-emerald-500" : "bg-foreground/15"}`}
+                title={input.enabled ? "Disable context" : "Enable context"}
+              >
+                <div className={`h-2.5 w-2.5 rounded-full bg-white transition-transform ${input.enabled ? "translate-x-3" : "translate-x-0.5"}`} />
+              </button>
+              {/* File row */}
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : input.id)}
+                className="flex flex-1 items-center gap-1.5 min-w-0 text-left"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/60">
+                  <path d={fileIcon(input.mimeType)} />
+                </svg>
+                <span className="flex-1 truncate font-mono text-[11px] text-foreground/80">{input.fileName}</span>
+                {tokens > 0 && <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40">~{formatTokens(tokens)}</span>}
+              </button>
               <button
                 onClick={(e) => { e.stopPropagation(); removeInput(input.id); }}
                 className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground/40 hover:text-red-400 transition-all"
@@ -1578,7 +1607,7 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
-            </button>
+            </div>
 
             {isExpanded && (
               <div className="ml-5 mt-1 mb-2 border-l border-border/40 pl-3">

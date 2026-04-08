@@ -621,6 +621,9 @@ const STATEMENTS: string[] = [
    exception when duplicate_object then null;
    end $$`,
 
+  // Inputs: add enabled toggle for context injection control
+  `alter table workspace_inputs add column if not exists enabled boolean default true`,
+
   // ── Remove legacy crypto/blockchain columns ──
   `alter table chat_messages drop column if exists signature`,
   `alter table chat_messages drop column if exists tx_hash`,

@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     mimeType: row.mime_type,
     fileSize: row.file_size,
     contentText: row.content_text,
+    enabled: row.enabled ?? true,
     sessionId,
     createdAt: new Date(row.created_at as string).getTime(),
   }));
@@ -86,4 +87,35 @@ export async function DELETE(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true });
+}
+
+/** PATCH /api/inputs — toggle enabled state */
+export async function PATCH(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { userId } = auth;
+
+  try {
+    const { id, enabled } = await req.json();
+    if (!id || typeof enabled !== "boolean") {
+      return NextResponse.json({ error: "Missing id or enabled" }, { status: 400 });
+    }
+
+    const supabase = getSupabaseServer();
+    const { error } = await supabase
+      .from("workspace_inputs")
+      .update({ enabled })
+      .eq("id", id)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("[inputs] PATCH error:", error.message);
+      return NextResponse.json({ error: "Failed to update input" }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[inputs] PATCH error:", err);
+    return NextResponse.json({ error: "Failed to update input" }, { status: 500 });
+  }
 }
