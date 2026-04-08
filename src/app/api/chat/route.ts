@@ -305,9 +305,8 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now(),
           attachments: parsedAttachments.length > 0 ? parsedAttachments : undefined,
         });
+        console.log("[chat] User message saved to DB:", userMessageId, "session:", dbSessId);
       } catch (err) {
-        // Log but don't block streaming — degraded persistence is better
-        // than a broken chat experience.
         console.error("[chat] Failed to persist user message before stream:", err);
       }
     }

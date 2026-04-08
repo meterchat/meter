@@ -292,6 +292,7 @@ export function useSessionSync() {
         }
 
         const data = await res.json();
+        console.log("[loadSessions] server returned", data.sessions?.length ?? 0, "sessions, messages:", data.sessions?.map((s: { id: string; messages?: unknown[] }) => `${s.id}:${s.messages?.length ?? 0}`));
         if (cancelled) return;
 
         if (!data.sessions?.length) {
