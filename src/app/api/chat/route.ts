@@ -86,7 +86,27 @@ export async function POST(req: NextRequest) {
     const resolvedModel = !model || model === "auto" ? "openai/gpt-5.4" : model;
     const encoder = new TextEncoder();
     const tools = getToolsForConnectors(connectedIds);
-    const systemPrompt = buildSystemPrompt(connectedIds);
+
+    // Fetch workspace input documents for AI context injection
+    let inputDocuments: { fileName: string; content: string }[] = [];
+    if (projectId) {
+      try {
+        const dbSessId = projectId.startsWith(`${userId}:`) ? projectId : `${userId}:${projectId}`;
+        const { data: inputs } = await getSupabaseServer()
+          .from("workspace_inputs")
+          .select("file_name, content_text")
+          .eq("user_id", userId)
+          .eq("session_id", dbSessId)
+          .not("content_text", "is", null);
+        if (inputs?.length) {
+          inputDocuments = inputs.map((i: { file_name: string; content_text: string }) => ({
+            fileName: i.file_name,
+            content: i.content_text,
+          }));
+        }
+      } catch { /* non-fatal — skip context injection */ }
+    }
+    const systemPrompt = buildSystemPrompt(connectedIds, inputDocuments);
 
     // Build conversation with context window management.
     // Cap input context to avoid sending 100k+ tokens of history on every call.

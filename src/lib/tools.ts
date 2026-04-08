@@ -185,7 +185,10 @@ export function getToolsForConnectors(connectedIds: string[]): ToolDef[] {
 
 /* ─── System prompt ─────────────────────────────────────────────── */
 
-export function buildSystemPrompt(connectedIds: string[]): string {
+export function buildSystemPrompt(
+  connectedIds: string[],
+  inputDocuments?: { fileName: string; content: string }[],
+): string {
   const connectorLines = connectedIds
     .map((id) => {
       const c = CONNECTORS.find((conn) => conn.id === id);
@@ -289,7 +292,27 @@ Be specific — no vague "better UX" or "more flexible". State the actual gain o
 FINAL REMINDER — TOOL CALLS ARE MANDATORY:
 - To log a decision: you MUST call list_decisions then save_decision. Saying "locked" or "decision saved" in text does NOTHING — only the tool call persists it. If you catch yourself writing "decision saved" without having made a save_decision tool call, STOP and make the tool call.
 - To save a document: you MUST call save_artifact. Describing a document in text does not save it.
-Never narrate tool usage — actually call the tools.`;
+Never narrate tool usage — actually call the tools.${buildInputDocumentsSection(inputDocuments)}`;
+}
+
+function buildInputDocumentsSection(docs?: { fileName: string; content: string }[]): string {
+  if (!docs || docs.length === 0) return "";
+  // Cap total injected text to ~50KB to avoid blowing up context
+  const MAX_CHARS = 50_000;
+  let totalChars = 0;
+  const sections: string[] = [];
+  for (const doc of docs) {
+    if (totalChars + doc.content.length > MAX_CHARS) {
+      const remaining = MAX_CHARS - totalChars;
+      if (remaining > 500) {
+        sections.push(`<input-document name="${doc.fileName}">\n${doc.content.slice(0, remaining)}\n[truncated]\n</input-document>`);
+      }
+      break;
+    }
+    sections.push(`<input-document name="${doc.fileName}">\n${doc.content}\n</input-document>`);
+    totalChars += doc.content.length;
+  }
+  return `\n\nThe user has uploaded the following context documents for this workspace. Reference them when relevant:\n\n${sections.join("\n\n")}`;
 }
 
 export const SYSTEM_PROMPT = buildSystemPrompt([]);
