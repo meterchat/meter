@@ -92,6 +92,37 @@ export async function createIssue(accessToken: string, params: { repo: string; t
   };
 }
 
+/** Create a new branch from the repo's default branch. */
+export async function createBranch(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  branchName: string,
+): Promise<void> {
+  // Get the default branch's HEAD SHA
+  const repoData = await githubFetch(
+    `https://api.github.com/repos/${owner}/${repo}`,
+    accessToken,
+  );
+  const defaultBranch = repoData.default_branch as string;
+  const refData = await githubFetch(
+    `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${defaultBranch}`,
+    accessToken,
+  );
+  const sha = refData.object?.sha as string;
+
+  // Create the new branch ref
+  await githubFetch(
+    `https://api.github.com/repos/${owner}/${repo}/git/refs`,
+    accessToken,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha }),
+    },
+  );
+}
+
 export async function getFileContent(
   accessToken: string,
   owner: string,

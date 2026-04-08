@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { getValidAccessToken } from "@/lib/oauth";
-import { getFileContent, createOrUpdateFile } from "@/lib/connectors/github";
+import { getFileContent, createOrUpdateFile, createBranch } from "@/lib/connectors/github";
 import { serverTrackArtifactsPushed } from "@/lib/analytics-server";
 import { serverEmitLogEvent } from "@/lib/log-event-server";
 
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const { userId } = auth;
 
   try {
-    const { artifactIds, repo, path: basePath, workspaceId } = await req.json();
+    const { artifactIds, repo, path: basePath, workspaceId, branch } = await req.json();
 
     if (!repo || typeof repo !== "string" || !repo.includes("/")) {
       return NextResponse.json({ error: "repo must be in owner/name format" }, { status: 400 });
@@ -48,6 +48,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No artifacts found to push" }, { status: 404 });
     }
 
+    // Create a new branch if specified (never push to main directly)
+    const targetBranch = branch || `meter/${Date.now().toString(36)}`;
+    try {
+      await createBranch(token.accessToken, owner, repoName, targetBranch);
+    } catch (err) {
+      console.error("[artifacts/push] Failed to create branch:", err);
+      return NextResponse.json({ error: `Failed to create branch: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 });
+    }
+
     const results: { filePath: string; sha: string; url: string }[] = [];
     const errors: { filePath: string; error: string }[] = [];
 
@@ -57,8 +66,8 @@ export async function POST(req: NextRequest) {
         : artifact.file_path;
 
       try {
-        // Check if file exists to get SHA for update
-        const existing = await getFileContent(token.accessToken, owner, repoName, filePath);
+        // Check if file exists on the branch to get SHA for update
+        const existing = await getFileContent(token.accessToken, owner, repoName, filePath, targetBranch);
         const result = await createOrUpdateFile(
           token.accessToken,
           owner,
@@ -66,7 +75,7 @@ export async function POST(req: NextRequest) {
           filePath,
           artifact.content,
           `Update ${artifact.file_path} via Meter`,
-          undefined,
+          targetBranch,
           existing?.sha,
         );
 
