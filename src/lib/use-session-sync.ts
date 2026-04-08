@@ -135,13 +135,22 @@ export function useSessionSync() {
     if (!authenticated) return;
     const pollAdminConfig = () => {
       authFetch("/api/auth/me")
-        .then((r) => {
-          if (r.status === 404 || r.status === 401) {
-            // User not found or session expired — force re-login
+        .then(async (r) => {
+          if (r.status === 401) {
             useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
             return null;
           }
-          return r.ok ? r.json() : null;
+          if (r.status === 404) {
+            const body = await r.json().catch(() => ({}));
+            console.error("[auth/me] user not found:", body.userId);
+            useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+            return null;
+          }
+          if (!r.ok) {
+            console.error("[auth/me] server error:", r.status);
+            return null; // don't log out on 500 — transient DB error
+          }
+          return r.json();
         })
         .then((data) => {
           if (!data?.adminConfig) return;
@@ -519,12 +528,22 @@ export function useSessionSync() {
     useDecisionsStore.getState().fetchDecisions();
 
     authFetch("/api/auth/me")
-      .then((r) => {
-        if (r.status === 404 || r.status === 401) {
+      .then(async (r) => {
+        if (r.status === 401) {
           useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
           return null;
         }
-        return r.ok ? r.json() : null;
+        if (r.status === 404) {
+          const body = await r.json().catch(() => ({}));
+          console.error("[auth/me] user not found on load:", body.userId);
+          useMeterStore.setState({ authenticated: false, sessionsLoaded: false });
+          return null;
+        }
+        if (!r.ok) {
+          console.error("[auth/me] server error on load:", r.status);
+          return null;
+        }
+        return r.json();
       })
       .then((data) => {
         if (!data || cancelled) return;
