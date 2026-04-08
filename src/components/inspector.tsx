@@ -5,6 +5,8 @@ import { useMeterStore, selectWorkspaceCardReady } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
 import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
+import { useInputsStore, type WorkspaceInput } from "@/lib/inputs-store";
+import { authFetch } from "@/lib/auth-fetch";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { emitLogEvent } from "@/lib/log-event";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
@@ -1361,11 +1363,177 @@ function ArtifactRow({ artifact, onOpen }: {
   );
 }
 
-function InputsTab({ activeSessionId }: { activeSessionId: string | null }) {
+function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string | null }) {
+  // Resolve subtrack → parent workspace
+  const wsTracks = useWorkspaceStore((s) => s.tracks);
+  const wsWorkspaces = useWorkspaceStore((s) => s.workspaces);
+  const meterSessions = useMeterStore((s) => s.sessions);
+  const activeSessionId = useMemo(() => {
+    if (!rawSessionId) return null;
+    const wsTrack = wsTracks.find((p) => p.id === rawSessionId);
+    if (wsTrack?.isSubtrack) {
+      const workspace = wsWorkspaces.find((c) => c.id === wsTrack.workspaceId);
+      if (workspace?.sessionId) {
+        const parent = meterSessions.find((p) => p.id === workspace.sessionId);
+        if (parent) return parent.id;
+      }
+    }
+    return rawSessionId;
+  }, [rawSessionId, wsTracks, wsWorkspaces, meterSessions]);
+
+  const { inputs, loading, uploading, fetchInputs, addInput, removeInput, setUploading } = useInputsStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchInputs(activeSessionId);
+  }, [activeSessionId, fetchInputs]);
+
+  const handleUpload = async (files: FileList | File[]) => {
+    if (!activeSessionId) return;
+    setUploading(true);
+    for (const file of Array.from(files)) {
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("sessionId", activeSessionId);
+        const res = await authFetch("/api/inputs/upload", { method: "POST", body: form });
+        if (res.ok) {
+          const data = await res.json();
+          addInput(data);
+        }
+      } catch { /* silent */ }
+    }
+    setUploading(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files);
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const fileIcon = (mimeType: string) => {
+    if (mimeType.startsWith("image/")) return "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z";
+    if (mimeType === "application/pdf") return "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z";
+    if (mimeType.includes("json") || mimeType.includes("yaml") || mimeType.includes("xml")) return "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4";
+    return "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z";
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-foreground/20 border-t-foreground/60" />
+      </div>
+    );
+  }
+
+  if (inputs.length === 0 && !uploading) {
+    return (
+      <div
+        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16 text-center transition-colors ${
+          dragOver ? "border-foreground/30 bg-foreground/[0.03]" : "border-border/40"
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
+        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) handleUpload(e.target.files); e.target.value = ""; }} />
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40 mb-3">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <p className="text-sm text-muted-foreground/60">Drop files here or</p>
+        <button onClick={() => fileInputRef.current?.click()} className="mt-1 font-mono text-xs text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">
+          click to upload
+        </button>
+        <p className="mt-3 text-xs text-muted-foreground/40">Uploaded files provide context for the AI</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <p className="text-sm text-muted-foreground/60">No inputs yet</p>
-      <p className="mt-1 text-xs text-muted-foreground/40">Inputs are logged as you chat</p>
+    <div className="flex flex-col gap-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="font-sans text-xs text-muted-foreground/60 uppercase tracking-wider">
+          Inputs{inputs.length > 0 && <span className="ml-1.5 text-muted-foreground/40">{inputs.length}</span>}
+        </div>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="font-mono text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
+        >
+          + Upload
+        </button>
+        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) handleUpload(e.target.files); e.target.value = ""; }} />
+      </div>
+
+      {uploading && (
+        <div className="flex items-center gap-2 py-2">
+          <div className="h-3 w-3 animate-spin rounded-full border border-foreground/20 border-t-foreground/60" />
+          <span className="font-mono text-[11px] text-muted-foreground/60">Uploading...</span>
+        </div>
+      )}
+
+      {/* Drop zone overlay */}
+      <div
+        className={`rounded-lg border border-dashed transition-colors ${dragOver ? "border-foreground/30 bg-foreground/[0.03] py-6 text-center" : "border-transparent"}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
+        {dragOver && <p className="text-xs text-muted-foreground/60">Drop files to upload</p>}
+      </div>
+
+      {/* File list */}
+      {inputs.map((input) => {
+        const isExpanded = expandedId === input.id;
+        return (
+          <div key={input.id} className="group">
+            <button
+              onClick={() => setExpandedId(isExpanded ? null : input.id)}
+              className="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-foreground/[0.03]"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/60">
+                <path d={fileIcon(input.mimeType)} />
+              </svg>
+              <span className="flex-1 truncate font-mono text-[11px] text-foreground/80">{input.fileName}</span>
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40">{formatSize(input.fileSize)}</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); removeInput(input.id); }}
+                className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground/40 hover:text-red-400 transition-all"
+                title="Remove"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </button>
+
+            {isExpanded && (
+              <div className="ml-5 mt-1 mb-2 border-l border-border/40 pl-3">
+                <span className="font-mono text-[10px] text-muted-foreground/40">
+                  {new Date(input.createdAt).toLocaleString()}
+                </span>
+                {input.contentText && (
+                  <pre className="mt-1.5 max-h-48 overflow-auto rounded bg-foreground/[0.02] p-2 font-mono text-[11px] text-foreground/70 whitespace-pre-wrap break-words">
+                    {input.contentText.slice(0, 5000)}{input.contentText.length > 5000 ? "\n..." : ""}
+                  </pre>
+                )}
+                {input.mimeType.startsWith("image/") && (
+                  <img src={input.publicUrl} alt={input.fileName} className="mt-1.5 max-h-48 rounded border border-border/30" />
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

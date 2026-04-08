@@ -600,6 +600,27 @@ const STATEMENTS: string[] = [
    end;
    $$ language plpgsql`,
 
+  // ── Workspace inputs (user-uploaded context documents) ──
+  `create table if not exists workspace_inputs (
+    id text primary key,
+    user_id text not null,
+    session_id text,
+    file_name text not null,
+    file_path text not null,
+    public_url text not null,
+    mime_type text not null,
+    file_size integer not null,
+    content_text text,
+    created_at timestamptz default now()
+  )`,
+  `create index if not exists idx_workspace_inputs_session on workspace_inputs(user_id, session_id)`,
+  `alter table workspace_inputs enable row level security`,
+  `do $$ begin
+     create policy workspace_inputs_owner on workspace_inputs for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null;
+   end $$`,
+
   // ── Remove legacy crypto/blockchain columns ──
   `alter table chat_messages drop column if exists signature`,
   `alter table chat_messages drop column if exists tx_hash`,
