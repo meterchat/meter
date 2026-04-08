@@ -20,7 +20,7 @@ export async function GET() {
     const supabase = getSupabaseServer();
     const { data: user, error } = await supabase
       .from("meter_users")
-      .select("id, handle, email, account_type, stripe_customer_id, card_last4, card_brand, markup_multiplier, credit_balance")
+      .select("id, handle, email, account_type, stripe_customer_id, card_last4, card_brand, credit_balance")
       .eq("id", userId)
       .single();
 
