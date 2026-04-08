@@ -9,6 +9,7 @@ export interface WorkspaceInput {
   mimeType: string;
   fileSize: number;
   contentText?: string | null;
+  enabled: boolean;
   sessionId?: string;
   createdAt: number;
 }
@@ -22,6 +23,7 @@ interface InputsState {
   fetchInputs: (sessionId: string | null) => Promise<void>;
   addInput: (input: WorkspaceInput) => void;
   removeInput: (id: string) => Promise<void>;
+  toggleInput: (id: string) => void;
   clearInputs: () => void;
   setUploading: (v: boolean) => void;
 }
@@ -38,7 +40,6 @@ export const useInputsStore = create<InputsState>((set, get) => ({
 
     try {
       const res = await authFetch(`/api/inputs?sessionId=${encodeURIComponent(sessionId)}`);
-      // Discard if session changed while fetching
       if (get().currentSessionId !== sessionId) return;
       if (!res.ok) {
         set({ loading: false });
@@ -55,13 +56,26 @@ export const useInputsStore = create<InputsState>((set, get) => ({
     set((s) => ({ inputs: [input, ...s.inputs] })),
 
   removeInput: async (id) => {
-    // Optimistic removal
     set((s) => ({ inputs: s.inputs.filter((i) => i.id !== id) }));
     try {
       await authFetch(`/api/inputs?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    } catch {
-      // Silent — already removed from UI
-    }
+    } catch { /* silent */ }
+  },
+
+  toggleInput: (id) => {
+    const input = get().inputs.find((i) => i.id === id);
+    if (!input) return;
+    const newEnabled = !input.enabled;
+    // Optimistic update
+    set((s) => ({
+      inputs: s.inputs.map((i) => i.id === id ? { ...i, enabled: newEnabled } : i),
+    }));
+    // Persist
+    authFetch("/api/inputs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, enabled: newEnabled }),
+    }).catch(() => {});
   },
 
   clearInputs: () => set({ inputs: [], currentSessionId: null }),

@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
           .select("file_name, content_text")
           .eq("user_id", userId)
           .eq("session_id", dbSessId)
+          .eq("enabled", true)
           .not("content_text", "is", null);
         if (inputs?.length) {
           inputDocuments = inputs.map((i: { file_name: string; content_text: string }) => ({
