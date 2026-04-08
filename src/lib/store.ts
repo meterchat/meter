@@ -1351,7 +1351,8 @@ export const useMeterStore = create<MeterState>()(
           const updated = {
             ...active,
             isStreaming: v,
-            ...(v ? { currentMessageCost: 0 } : { lastStreamEndedAt: Date.now() }),
+            currentMessageCost: 0,
+            ...(v ? {} : { lastStreamEndedAt: Date.now() }),
           };
           return { sessions: replaceActiveSession(s, updated) };
         }),
