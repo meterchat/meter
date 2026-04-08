@@ -24,8 +24,18 @@ export async function GET() {
       .eq("id", userId)
       .single();
 
-    if (error || !user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (error) {
+      console.error("[auth/me] DB error for userId:", userId, "code:", error.code, "message:", error.message, "details:", error.details);
+      // PGRST116 = row genuinely not found; anything else is a DB/connection issue
+      if (error.code === "PGRST116") {
+        return NextResponse.json({ error: "User not found", userId }, { status: 404 });
+      }
+      return NextResponse.json({ error: "Database error", code: error.code }, { status: 500 });
+    }
+
+    if (!user) {
+      console.error("[auth/me] No user row for userId:", userId);
+      return NextResponse.json({ error: "User not found", userId }, { status: 404 });
     }
 
     // Fetch global admin config (piggyback on auth to avoid extra round-trip)
