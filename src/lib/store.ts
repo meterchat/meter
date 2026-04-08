@@ -695,14 +695,15 @@ export const useMeterStore = create<MeterState>()(
         }
       },
 
-      addSession: (name, idOverride) =>
-        set((s) => {
-          const cleanName = name.trim();
-          if (!cleanName) return s;
-          const id = idOverride ?? cleanName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-          if (s.sessions.some((p) => p.id === id)) return s;
-          return { sessions: [...s.sessions, createSession(id, cleanName)] };
-        }),
+      addSession: (name, idOverride) => {
+        const cleanName = name.trim();
+        if (!cleanName) return;
+        const id = idOverride ?? cleanName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        const exists = get().sessions.some((p) => p.id === id);
+        if (exists) return;
+        set((s) => ({ sessions: [...s.sessions, createSession(id, cleanName)] }));
+        saveSessionMeta(id, { name: cleanName });
+      },
 
       renameSession: (sessionId, newName) => {
         set((s) => ({
