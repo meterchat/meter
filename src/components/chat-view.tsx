@@ -28,7 +28,6 @@ import {
 } from "@/lib/analytics";
 import { emitLogEvent } from "@/lib/log-event";
 import { MeterPill } from "@/components/meter-pill";
-import { StatusBanner } from "@/components/status-banner";
 import { HeaderMeter } from "@/components/header-meter";
 import { SyncButton } from "@/components/sync-button";
 // CommitButton removed from header — decisions now log directly
@@ -2655,8 +2654,6 @@ export function ChatView() {
       <div
         className={`relative flex flex-1 flex-col min-w-0 transition-all duration-300 ${inspectorOpen && !isMobile ? "mr-[420px]" : ""}`}
       >
-        {/* Incident status banner — remove when persistence issue is resolved */}
-        <StatusBanner />
         <header className="flex h-12 items-center justify-between border-b border-border px-4" style={{ paddingTop: isMobile ? "env(safe-area-inset-top, 0px)" : undefined, height: isMobile ? "calc(3rem + env(safe-area-inset-top, 0px))" : undefined }}>
           <div className="relative flex items-center gap-2" ref={logoMenuRef}>
             <button
