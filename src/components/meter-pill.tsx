@@ -124,12 +124,11 @@ export function MeterPill() {
     }
   }, [rawCost, phase]);
 
-  /* Counter visibility: always shown — today's cost when idle, message cost when streaming */
-  const showCounter = true;
+  /* Counter visibility: icon-only when idle, expand during streaming */
+  const showCounter = phase !== "idle";
 
-  /* Display: show per-message cost during streaming, today's accumulated cost when idle */
-  const visibleCost = phase === "idle" ? todayCost : displayCost;
-  const decimalPlaces = phase === "idle" ? 2 : 4;
+  const visibleCost = displayCost;
+  const decimalPlaces = 4;
 
   const formatted = visibleCost.toFixed(decimalPlaces);
   const [intPart, decPart] = formatted.split(".");
