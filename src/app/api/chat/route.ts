@@ -256,7 +256,6 @@ export async function POST(req: NextRequest) {
           receipt_status: msg.receiptStatus ?? null,
           debate_trace: msg.debateTrace ?? null,
           dissector_trace: msg.dissectorTrace ?? null,
-          simplifier_trace: msg.simplifierTrace ?? null,
           documents: msg.documents ?? null,
           thinking: msg.thinking ?? null,
           attachments: msg.attachments ?? null,
