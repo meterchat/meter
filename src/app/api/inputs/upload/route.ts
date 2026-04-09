@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import pdfParse from "pdf-parse";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -80,13 +81,22 @@ export async function POST(req: NextRequest) {
       .from("attachments")
       .getPublicUrl(storagePath);
 
-    // Extract text content for text-based files
+    // Extract text content for text-based files and PDFs
     let contentText: string | null = null;
     if (isTextFile(file.name, file.type)) {
       try {
         contentText = buffer.toString("utf-8");
       } catch {
         // Not valid UTF-8 — treat as binary
+      }
+    } else if (file.type === "application/pdf") {
+      try {
+        const pdf = await pdfParse(buffer);
+        if (pdf.text?.trim()) {
+          contentText = pdf.text.trim();
+        }
+      } catch (err) {
+        console.warn("[inputs/upload] PDF text extraction failed:", err);
       }
     }
 
