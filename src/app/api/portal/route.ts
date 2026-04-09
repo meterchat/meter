@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = getSupabaseServer();
+    const dbSessionId = sessionId.startsWith(`${userId}:`) ? sessionId : `${userId}:${sessionId}`;
 
     // Fetch user handle and workspace data in parallel
     const [{ data: user }, { data: session }] = await Promise.all([
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
       supabase
         .from("chat_sessions")
         .select("portal_slug, workspace_name, project_name")
-        .eq("id", sessionId)
+        .eq("id", dbSessionId)
         .eq("user_id", userId)
         .single(),
     ]);
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
     await supabase
       .from("chat_sessions")
       .update({ portal_slug: slug })
-      .eq("id", sessionId)
+      .eq("id", dbSessionId)
       .eq("user_id", userId);
 
     return NextResponse.json({ slug, handle });
