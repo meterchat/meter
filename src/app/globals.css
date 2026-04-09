@@ -75,11 +75,11 @@
 
 /* ── Light mode ──────────────────────────────────────────────── */
 :root:not(.dark) {
-  --background: #eeecea;
+  --background: #ffffff;
   --foreground: #1c1917;
-  --card: #f5f4f2;
+  --card: #ffffff;
   --card-foreground: #1c1917;
-  --popover: #fafaf9;
+  --popover: #ffffff;
   --popover-foreground: #1c1917;
   --primary: #1c1917;
   --primary-foreground: #fafaf9;
