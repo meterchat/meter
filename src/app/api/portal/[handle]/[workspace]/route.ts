@@ -41,12 +41,16 @@ export async function GET(
       return NextResponse.json({ error: "Portal not found" }, { status: 404 });
     }
 
-    // Fetch all artifacts for this workspace
+    // Fetch all artifacts for this workspace.
+    // Artifacts may be stored with either the scoped ID (usr_xxx:ws_xxx) or
+    // the unscoped ID (ws_xxx) depending on when they were created.
+    const scopedId = session.id;
+    const unscopedId = scopedId.includes(":") ? scopedId.split(":").slice(1).join(":") : scopedId;
     const { data: artifacts } = await supabase
       .from("artifacts")
       .select("id, file_path, content, status, category, last_generated_at, created_at, updated_at")
       .eq("user_id", user.id)
-      .or(`session_id.eq.${session.id},project_id.eq.${session.id}`)
+      .or(`session_id.eq.${scopedId},session_id.eq.${unscopedId},project_id.eq.${scopedId},project_id.eq.${unscopedId}`)
       .order("created_at", { ascending: true });
 
     return NextResponse.json({
