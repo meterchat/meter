@@ -148,6 +148,40 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+// PATCH /api/sessions?sessionId=xxx&action=archive|unarchive
+export async function PATCH(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { userId } = auth;
+
+  const localSessionId = req.nextUrl.searchParams.get("sessionId");
+  const action = req.nextUrl.searchParams.get("action");
+
+  if (!localSessionId || !action) {
+    return NextResponse.json({ error: "Missing sessionId or action" }, { status: 400 });
+  }
+
+  const dbId = scopedId(userId, localSessionId);
+
+  try {
+    const supabase = getSupabaseServer();
+    const archived = action === "archive";
+
+    const { error } = await supabase
+      .from("chat_sessions")
+      .update({ archived })
+      .eq("id", dbId)
+      .eq("user_id", userId);
+
+    if (error) throw error;
+
+    return NextResponse.json({ ok: true, archived });
+  } catch (err) {
+    console.error("Failed to archive/unarchive session:", err);
+    return NextResponse.json({ error: "Failed to update session" }, { status: 500 });
+  }
+}
+
 // POST /api/sessions — save/sync a session with its messages
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();

@@ -45,7 +45,7 @@ function DeleteDangerZone({
   isLastWorkspace?: boolean;
 }) {
   const pendingBalance = useMeterStore.getState().getPendingBalance();
-  const hasPending = pendingBalance >= 0.50;
+  const hasPending = pendingBalance > 0.01;
   const busy = deleting || settlingBeforeDelete;
 
   return (
@@ -127,6 +127,7 @@ export function Inspector() {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [deleteSettleError, setDeleteSettleError] = useState<string | null>(null);
   const [settlingBeforeDelete, setSettlingBeforeDelete] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const feedbackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -136,6 +137,24 @@ export function Inspector() {
   }, [inspectorTab, setInspectorTab]);
 
   const isLastWorkspace = workspaces.length <= 1;
+
+  const handleArchiveWorkspace = async () => {
+    if (!activeWorkspace) return;
+    const sessionId = activeWorkspace.sessionId;
+    const isArchived = activeWorkspace.archived;
+    setArchiving(true);
+    try {
+      if (sessionId) {
+        await authFetch(
+          `/api/sessions?sessionId=${encodeURIComponent(sessionId)}&action=${isArchived ? "unarchive" : "archive"}`,
+          { method: "PATCH" },
+        );
+      }
+      useWorkspaceStore.getState().archiveWorkspace(activeWorkspace.id, !isArchived);
+    } catch { /* silent */ }
+    setArchiving(false);
+    if (!isArchived) setManageOpen(false);
+  };
 
   const handleDeleteWorkspace = async () => {
     if (!activeWorkspace) return;
@@ -405,6 +424,23 @@ export function Inspector() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Archive */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-sans text-xs font-medium text-foreground/80">Archive Workspace</div>
+              <div className="font-sans text-[11px] text-muted-foreground/60 mt-0.5">
+                {activeWorkspace.archived ? "This workspace is archived. Unarchive to resume." : "Remove from active list. Messages and docs are kept."}
+              </div>
+            </div>
+            <button
+              onClick={handleArchiveWorkspace}
+              disabled={archiving}
+              className="shrink-0 rounded-md border border-border px-3 py-1.5 font-sans text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors disabled:opacity-50"
+            >
+              {archiving ? "..." : activeWorkspace.archived ? "Unarchive" : "Archive"}
+            </button>
           </div>
 
           <div className="h-px bg-border" />

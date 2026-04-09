@@ -15,6 +15,7 @@ export interface Workspace {
   name: string;
   sessionId?: string;
   createdAt: number;
+  archived?: boolean;
 }
 
 export interface Track {
@@ -41,6 +42,7 @@ interface WorkspaceState {
   renameWorkspace: (id: string, name: string) => void;
   reorderWorkspaces: (fromIndex: number, toIndex: number) => void;
   deleteWorkspace: (id: string) => void;
+  archiveWorkspace: (id: string, archived: boolean) => void;
   createTrack: (workspaceId: string, name: string) => string;
   setActiveWorkspace: (id: string) => void;
   setActiveTrack: (id: string | null) => void;
@@ -120,6 +122,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             : s.activeWorkspaceId;
           const activeTrackId = s.activeWorkspaceId === id ? null : s.activeTrackId;
           return { workspaces, tracks, activeWorkspaceId, activeTrackId };
+        });
+      },
+
+      archiveWorkspace: (id: string, archived: boolean) => {
+        set((s) => {
+          const workspaces = s.workspaces.map((w) => w.id === id ? { ...w, archived } : w);
+          // If archiving the active workspace, switch to the first non-archived one
+          let activeWorkspaceId = s.activeWorkspaceId;
+          if (archived && s.activeWorkspaceId === id) {
+            activeWorkspaceId = workspaces.find((w) => !w.archived && w.id !== id)?.id ?? s.activeWorkspaceId;
+          }
+          return { workspaces, activeWorkspaceId };
         });
       },
 
@@ -237,6 +251,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 name,
                 sessionId,
                 createdAt,
+                archived: session.archived ?? false,
               });
             } else {
               const existing = workspaces[idx];
@@ -244,6 +259,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 ...existing,
                 name: existing.name || name,
                 sessionId: existing.sessionId ?? sessionId,
+                archived: session.archived ?? existing.archived ?? false,
               };
             }
           }

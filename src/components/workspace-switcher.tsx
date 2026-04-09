@@ -130,13 +130,17 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
     setDragOverIndex(null);
   }, [dragIndex, dragOverIndex, reorderWorkspaces]);
 
+  const [showArchived, setShowArchived] = useState(false);
+  const activeWorkspaces = workspaces.filter((w) => !w.archived);
+  const archivedWorkspaces = workspaces.filter((w) => w.archived);
+
   const switcherContent = (
     <>
       <div className="font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider px-2 py-1">Workspaces</div>
-      {workspaces.length === 0 && !creating && (
+      {activeWorkspaces.length === 0 && !creating && (
         <div className="px-2 py-3 text-center font-mono text-[11px] text-muted-foreground/50">No workspaces yet</div>
       )}
-      {workspaces.map((w, i) => (
+      {activeWorkspaces.map((w, i) => (
         <button
           key={w.id}
           draggable={!isMobile}
@@ -157,6 +161,31 @@ export function WorkspaceSwitcher({ activeWorkspace }: WorkspaceSwitcherProps) {
           <span className="truncate">{w.name}</span>
         </button>
       ))}
+      {archivedWorkspaces.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className="flex w-full items-center gap-1.5 px-2 py-1.5 mt-1 font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
+          >
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showArchived ? "rotate-90" : ""}`}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            Archived ({archivedWorkspaces.length})
+          </button>
+          {showArchived && archivedWorkspaces.map((w) => (
+            <button
+              key={w.id}
+              onClick={() => handleSelect(w.id)}
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] opacity-50 transition-colors ${
+                w.id === activeWorkspace?.id ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+              }`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/20" />
+              <span className="truncate">{w.name}</span>
+            </button>
+          ))}
+        </>
+      )}
       {creating ? (
         <div className="mt-1 flex items-center gap-1 px-1">
           <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
