@@ -1457,6 +1457,7 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
   const [dragOver, setDragOver] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
     fetchInputs(activeSessionId);
@@ -1525,14 +1526,14 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
   return (
     <div className="flex flex-col gap-4">
       {/* ── Context window header ── */}
-      <div className="rounded-lg border border-border/40 p-3">
+      <div className="rounded-lg border border-border/50 p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-[11px] text-foreground/70">~{fmtTokens(totalTokens)} / {fmtTokens(contextWindow)}</span>
-          <span className="font-mono text-[10px] text-muted-foreground/50">{model.name}</span>
+          <span className="font-mono text-[12px] text-foreground/90">~{fmtTokens(totalTokens)} / {fmtTokens(contextWindow)}</span>
+          <span className="font-mono text-[11px] text-muted-foreground/70">{model.name}</span>
         </div>
-        <div className="h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
+        <div className="h-1.5 rounded-full bg-foreground/[0.08] overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-300 ${utilization > 80 ? "bg-amber-500" : "bg-emerald-500/60"}`}
+            className={`h-full rounded-full transition-all duration-300 ${utilization > 80 ? "bg-amber-500" : "bg-emerald-500/70"}`}
             style={{ width: `${Math.max(1, utilization)}%` }}
           />
         </div>
@@ -1542,31 +1543,34 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
       <div className="flex flex-col gap-1">
         <button
           onClick={() => setShowSystemPrompt(!showSystemPrompt)}
-          className="flex items-center justify-between py-1 text-left"
+          className="flex items-center justify-between py-1.5 text-left rounded-md hover:bg-foreground/[0.03] px-1 transition-colors"
         >
           <div className="flex items-center gap-2">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-muted-foreground/50 transition-transform ${showSystemPrompt ? "rotate-90" : ""}`}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-            <span className="font-mono text-[11px] text-foreground/70">System Instructions</span>
+            <span className="font-mono text-[12px] text-foreground/80">System Instructions</span>
           </div>
-          <span className="font-mono text-[10px] text-muted-foreground/40">~{fmtTokens(systemPromptTokens)}</span>
+          <span className="font-mono text-[11px] text-muted-foreground/50">~{fmtTokens(systemPromptTokens)}</span>
         </button>
         {showSystemPrompt && (
-          <pre className="max-h-48 overflow-auto rounded bg-foreground/[0.02] p-2 font-mono text-[10px] text-foreground/50 whitespace-pre-wrap break-words leading-relaxed">
+          <pre className="max-h-60 overflow-auto rounded bg-foreground/[0.03] p-3 font-mono text-[11px] text-foreground/60 whitespace-pre-wrap break-words leading-relaxed">
             {SYSTEM_PROMPT.slice(0, 2000)}{SYSTEM_PROMPT.length > 2000 ? "\n\n[...truncated]" : ""}
           </pre>
         )}
       </div>
 
       {/* ── Input Documents ── */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between py-1">
           <div className="flex items-center gap-2">
-            <span className="font-sans text-[10px] text-muted-foreground/50 uppercase tracking-wider">Documents</span>
-            {documentTokens > 0 && <span className="font-mono text-[10px] text-muted-foreground/40">~{fmtTokens(documentTokens)}</span>}
+            <span className="font-sans text-[11px] text-muted-foreground/70 uppercase tracking-wider">Documents</span>
+            {documentTokens > 0 && <span className="font-mono text-[11px] text-muted-foreground/50">~{fmtTokens(documentTokens)}</span>}
           </div>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="font-mono text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors"
+            className="font-mono text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
           >
             + Upload
           </button>
@@ -1606,28 +1610,28 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
               const tokens = estTokens(input.contentText);
               return (
                 <div key={input.id} className={`group rounded-md transition-colors ${input.enabled ? "" : "opacity-40"}`}>
-                  <div className="flex w-full items-center gap-1.5 px-1 py-1">
+                  <div className="flex w-full items-center gap-2 px-1 py-1.5">
                     <button
                       onClick={() => toggleInput(input.id)}
-                      className={`shrink-0 h-3 w-5 rounded-full transition-colors ${input.enabled ? "bg-emerald-500" : "bg-foreground/15"}`}
+                      className={`shrink-0 h-3.5 w-6 rounded-full transition-colors ${input.enabled ? "bg-emerald-500" : "bg-foreground/20"}`}
                     >
-                      <div className={`h-2 w-2 rounded-full bg-white transition-transform ${input.enabled ? "translate-x-2.5" : "translate-x-0.5"}`} />
+                      <div className={`h-2.5 w-2.5 rounded-full bg-white transition-transform ${input.enabled ? "translate-x-3" : "translate-x-0.5"}`} />
                     </button>
                     <button
                       onClick={() => setExpandedId(isExpanded ? null : input.id)}
                       className="flex flex-1 items-center gap-1.5 min-w-0 text-left"
                     >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/60">
                         <path d={fileIcon(input.mimeType)} />
                       </svg>
-                      <span className="flex-1 truncate font-mono text-[10px] text-foreground/70">{input.fileName}</span>
-                      {tokens > 0 && <span className="shrink-0 font-mono text-[9px] text-muted-foreground/35">~{fmtTokens(tokens)}</span>}
+                      <span className="flex-1 truncate font-mono text-[11px] text-foreground/80">{input.fileName}</span>
+                      {tokens > 0 && <span className="shrink-0 font-mono text-[10px] text-muted-foreground/50">~{fmtTokens(tokens)}</span>}
                     </button>
                     <button
                       onClick={() => removeInput(input.id)}
-                      className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground/30 hover:text-red-400 transition-all"
+                      className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground/40 hover:text-red-400 transition-all"
                     >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                       </svg>
                     </button>
@@ -1659,27 +1663,113 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
 
       {/* ── Connected Services ── */}
       {connectedServiceIds.length > 0 && (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between py-1">
-            <span className="font-sans text-[10px] text-muted-foreground/50 uppercase tracking-wider">Connected Services</span>
-            <span className="font-mono text-[10px] text-muted-foreground/40">~{fmtTokens(connectorTokens)}</span>
+            <span className="font-sans text-[11px] text-muted-foreground/70 uppercase tracking-wider">Connected Services</span>
+            <span className="font-mono text-[11px] text-muted-foreground/50">~{fmtTokens(connectorTokens)}</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {connectedServiceIds.map((id) => (
-              <span key={id} className="rounded-full bg-foreground/[0.04] px-2 py-0.5 font-mono text-[10px] text-muted-foreground/60 capitalize">{id}</span>
+              <span key={id} className="rounded-full bg-foreground/[0.06] px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground/70 capitalize">{id}</span>
             ))}
           </div>
         </div>
       )}
 
       {/* ── Conversation History ── */}
-      <div className="flex items-center justify-between py-1">
-        <div className="flex items-center gap-2">
-          <span className="font-sans text-[10px] text-muted-foreground/50 uppercase tracking-wider">Conversation</span>
-          <span className="font-mono text-[10px] text-muted-foreground/40">{messages.length} messages</span>
-        </div>
-        <span className="font-mono text-[10px] text-muted-foreground/40">~{fmtTokens(conversationTokens)} / 30k</span>
+      <div className="flex flex-col gap-1.5">
+        <button
+          onClick={() => setExpandedId(expandedId === "_conversation" ? null : "_conversation")}
+          className="flex items-center justify-between py-1.5 text-left rounded-md hover:bg-foreground/[0.03] px-1 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-muted-foreground/50 transition-transform ${expandedId === "_conversation" ? "rotate-90" : ""}`}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            <span className="font-sans text-[11px] text-muted-foreground/70 uppercase tracking-wider">Conversation</span>
+            <span className="font-mono text-[11px] text-muted-foreground/50">{messages.length} messages</span>
+          </div>
+          <span className="font-mono text-[11px] text-muted-foreground/50">~{fmtTokens(conversationTokens)} / 30k</span>
+        </button>
+        {expandedId === "_conversation" && messages.length > 0 && (
+          <div className="flex flex-col gap-1 max-h-60 overflow-y-auto rounded bg-foreground/[0.02] p-2">
+            {messages.slice(-20).map((m) => (
+              <div key={m.id} className="flex gap-2 py-0.5">
+                <span className={`shrink-0 font-mono text-[10px] ${m.role === "user" ? "text-blue-400/70" : "text-emerald-400/70"}`}>
+                  {m.role === "user" ? "You" : "AI"}
+                </span>
+                <span className="font-mono text-[10px] text-foreground/50 truncate">{m.content?.slice(0, 80) || "..."}</span>
+              </div>
+            ))}
+            {messages.length > 20 && (
+              <span className="font-mono text-[10px] text-muted-foreground/40 text-center py-1">+{messages.length - 20} older messages (trimmed from context)</span>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── Reset Context ── */}
+      {messages.length > 0 && (
+        <div className="border-t border-border/30 pt-3 mt-1">
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:text-red-400 hover:bg-red-500/[0.05] transition-colors"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
+            </svg>
+            Clear context &amp; start fresh
+          </button>
+        </div>
+      )}
+
+      {/* Reset confirmation modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={() => setShowResetConfirm(false)}>
+          <div className="rounded-xl border border-border bg-card p-6 shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-sans text-sm font-medium text-foreground mb-2">Clear context window?</h3>
+            <p className="font-sans text-xs text-muted-foreground/80 mb-4 leading-relaxed">
+              This will remove all messages from this workspace. Input documents and workspace settings are kept. A divider will appear in chat marking the reset.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="rounded-md px-3 py-1.5 font-sans text-xs text-muted-foreground/70 hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (activeSessionId) {
+                    // Add a divider message before clearing
+                    useMeterStore.getState().addMessage({
+                      id: `ctx-clear-${Date.now().toString(36)}`,
+                      role: "assistant",
+                      content: "",
+                      timestamp: Date.now(),
+                      hidden: true,
+                      isForkPoint: true,
+                      forkResolution: "closed",
+                    }, activeSessionId);
+                    // Clear all messages except the divider
+                    useMeterStore.setState((s) => ({
+                      sessions: s.sessions.map((sess) =>
+                        sess.id === activeSessionId
+                          ? { ...sess, messages: [{ id: `ctx-clear-${Date.now().toString(36)}`, role: "assistant" as const, content: "Context window cleared. Starting fresh.", timestamp: Date.now() }] }
+                          : sess
+                      ),
+                    }));
+                  }
+                  setShowResetConfirm(false);
+                }}
+                className="rounded-md bg-red-500/10 border border-red-500/20 px-3 py-1.5 font-sans text-xs text-red-400 hover:bg-red-500/20 transition-colors"
+              >
+                Clear context
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
