@@ -7,6 +7,8 @@ import { useDecisionsStore, Decision } from "@/lib/decisions-store";
 import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
 import { useInputsStore, type WorkspaceInput } from "@/lib/inputs-store";
 import { authFetch } from "@/lib/auth-fetch";
+import { getModel } from "@/lib/models";
+import { SYSTEM_PROMPT } from "@/lib/tools";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { emitLogEvent } from "@/lib/log-event";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
@@ -1432,6 +1434,11 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
   const wsTracks = useWorkspaceStore((s) => s.tracks);
   const wsWorkspaces = useWorkspaceStore((s) => s.workspaces);
   const meterSessions = useMeterStore((s) => s.sessions);
+  const selectedModelId = useMeterStore((s) => s.selectedModelId);
+  const connectedServices = useMeterStore((s) => {
+    const sess = s.sessions.find((p) => p.id === s.activeSessionId) ?? s.sessions[0];
+    return sess?.connectedServices ?? {};
+  });
   const activeSessionId = useMemo(() => {
     if (!rawSessionId) return null;
     const wsTrack = wsTracks.find((p) => p.id === rawSessionId);
@@ -1449,6 +1456,7 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
 
   useEffect(() => {
     fetchInputs(activeSessionId);
@@ -1478,25 +1486,26 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
     if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files);
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+  // Token estimation helpers
+  const estTokens = (text: string | null | undefined) => text ? Math.ceil(text.length / 4) : 0;
+  const fmtTokens = (t: number) => t < 1000 ? `${t}` : t < 10000 ? `${(t / 1000).toFixed(1)}k` : `${Math.round(t / 1000)}k`;
 
-  const estimateTokens = (text: string | null | undefined) => {
-    if (!text) return 0;
-    return Math.ceil(text.length / 4);
-  };
-
-  const formatTokens = (tokens: number) => {
-    if (tokens < 1000) return `${tokens}`;
-    if (tokens < 10000) return `${(tokens / 1000).toFixed(1)}k`;
-    return `${Math.round(tokens / 1000)}k`;
-  };
-
+  // Context window computation
+  const model = getModel(selectedModelId === "auto" ? "openai/gpt-5.4" : selectedModelId);
+  const contextWindow = model.contextWindow ?? 200_000;
+  const systemPromptTokens = 2_500; // base instructions (stable)
+  const connectedServiceIds = Object.keys(connectedServices).filter((k) => connectedServices[k]);
+  const connectorTokens = connectedServiceIds.length * 200; // ~200 tokens per service
   const enabledInputs = inputs.filter((i) => i.enabled);
-  const totalEnabledTokens = enabledInputs.reduce((sum, i) => sum + estimateTokens(i.contentText), 0);
+  const documentTokens = enabledInputs.reduce((sum, i) => sum + estTokens(i.contentText), 0);
+  const activeSession = meterSessions.find((p) => p.id === (activeSessionId ?? rawSessionId));
+  const messages = activeSession?.messages ?? [];
+  const conversationTokens = Math.min(
+    messages.reduce((sum, m) => sum + estTokens(m.content) + 4, 0),
+    30_000, // MAX_CONTEXT_TOKENS cap
+  );
+  const totalTokens = systemPromptTokens + connectorTokens + documentTokens + conversationTokens;
+  const utilization = Math.min(100, (totalTokens / contextWindow) * 100);
 
   const fileIcon = (mimeType: string) => {
     if (mimeType.startsWith("image/")) return "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z";
@@ -1513,128 +1522,164 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
     );
   }
 
-  if (inputs.length === 0 && !uploading) {
-    return (
-      <div
-        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16 text-center transition-colors ${
-          dragOver ? "border-foreground/30 bg-foreground/[0.03]" : "border-border/40"
-        }`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-      >
-        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) handleUpload(e.target.files); e.target.value = ""; }} />
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40 mb-3">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
-        <p className="text-sm text-muted-foreground/60">Drop files here or</p>
-        <button onClick={() => fileInputRef.current?.click()} className="mt-1 font-mono text-xs text-foreground/70 underline underline-offset-2 hover:text-foreground transition-colors">
-          click to upload
-        </button>
-        <p className="mt-3 text-xs text-muted-foreground/40">Uploaded files provide context for the AI</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="font-sans text-xs text-muted-foreground/60 uppercase tracking-wider">
-          Inputs{inputs.length > 0 && <span className="ml-1.5 text-muted-foreground/40">{inputs.length}</span>}
-          {totalEnabledTokens > 0 && (
-            <span className="ml-2 font-mono text-[10px] text-muted-foreground/40 normal-case">~{formatTokens(totalEnabledTokens)} tokens</span>
-          )}
+    <div className="flex flex-col gap-4">
+      {/* ── Context window header ── */}
+      <div className="rounded-lg border border-border/40 p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-mono text-[11px] text-foreground/70">~{fmtTokens(totalTokens)} / {fmtTokens(contextWindow)}</span>
+          <span className="font-mono text-[10px] text-muted-foreground/50">{model.name}</span>
         </div>
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="font-mono text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
-        >
-          + Upload
-        </button>
-        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) handleUpload(e.target.files); e.target.value = ""; }} />
+        <div className="h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-300 ${utilization > 80 ? "bg-amber-500" : "bg-emerald-500/60"}`}
+            style={{ width: `${Math.max(1, utilization)}%` }}
+          />
+        </div>
       </div>
 
-      {uploading && (
-        <div className="flex items-center gap-2 py-2">
-          <div className="h-3 w-3 animate-spin rounded-full border border-foreground/20 border-t-foreground/60" />
-          <span className="font-mono text-[11px] text-muted-foreground/60">Uploading...</span>
+      {/* ── System Instructions ── */}
+      <div className="flex flex-col gap-1">
+        <button
+          onClick={() => setShowSystemPrompt(!showSystemPrompt)}
+          className="flex items-center justify-between py-1 text-left"
+        >
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span className="font-mono text-[11px] text-foreground/70">System Instructions</span>
+          </div>
+          <span className="font-mono text-[10px] text-muted-foreground/40">~{fmtTokens(systemPromptTokens)}</span>
+        </button>
+        {showSystemPrompt && (
+          <pre className="max-h-48 overflow-auto rounded bg-foreground/[0.02] p-2 font-mono text-[10px] text-foreground/50 whitespace-pre-wrap break-words leading-relaxed">
+            {SYSTEM_PROMPT.slice(0, 2000)}{SYSTEM_PROMPT.length > 2000 ? "\n\n[...truncated]" : ""}
+          </pre>
+        )}
+      </div>
+
+      {/* ── Input Documents ── */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between py-1">
+          <div className="flex items-center gap-2">
+            <span className="font-sans text-[10px] text-muted-foreground/50 uppercase tracking-wider">Documents</span>
+            {documentTokens > 0 && <span className="font-mono text-[10px] text-muted-foreground/40">~{fmtTokens(documentTokens)}</span>}
+          </div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="font-mono text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors"
+          >
+            + Upload
+          </button>
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) handleUpload(e.target.files); e.target.value = ""; }} />
+        </div>
+
+        {uploading && (
+          <div className="flex items-center gap-2 py-1">
+            <div className="h-3 w-3 animate-spin rounded-full border border-foreground/20 border-t-foreground/60" />
+            <span className="font-mono text-[10px] text-muted-foreground/50">Uploading...</span>
+          </div>
+        )}
+
+        {inputs.length === 0 ? (
+          <div
+            className={`flex flex-col items-center rounded-lg border border-dashed py-8 text-center transition-colors ${
+              dragOver ? "border-foreground/30 bg-foreground/[0.03]" : "border-border/30"
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/30 mb-2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <p className="text-[11px] text-muted-foreground/40">Drop files to add context</p>
+          </div>
+        ) : (
+          <div
+            className={`flex flex-col gap-0.5 ${dragOver ? "rounded-lg border border-dashed border-foreground/30 bg-foreground/[0.02] p-1" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+          >
+            {inputs.map((input) => {
+              const isExpanded = expandedId === input.id;
+              const tokens = estTokens(input.contentText);
+              return (
+                <div key={input.id} className={`group rounded-md transition-colors ${input.enabled ? "" : "opacity-40"}`}>
+                  <div className="flex w-full items-center gap-1.5 px-1 py-1">
+                    <button
+                      onClick={() => toggleInput(input.id)}
+                      className={`shrink-0 h-3 w-5 rounded-full transition-colors ${input.enabled ? "bg-emerald-500" : "bg-foreground/15"}`}
+                    >
+                      <div className={`h-2 w-2 rounded-full bg-white transition-transform ${input.enabled ? "translate-x-2.5" : "translate-x-0.5"}`} />
+                    </button>
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : input.id)}
+                      className="flex flex-1 items-center gap-1.5 min-w-0 text-left"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+                        <path d={fileIcon(input.mimeType)} />
+                      </svg>
+                      <span className="flex-1 truncate font-mono text-[10px] text-foreground/70">{input.fileName}</span>
+                      {tokens > 0 && <span className="shrink-0 font-mono text-[9px] text-muted-foreground/35">~{fmtTokens(tokens)}</span>}
+                    </button>
+                    <button
+                      onClick={() => removeInput(input.id)}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground/30 hover:text-red-400 transition-all"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                  {isExpanded && (
+                    <div className="ml-7 mt-0.5 mb-1.5 border-l border-border/30 pl-2.5">
+                      <span className="font-mono text-[9px] text-muted-foreground/35">{new Date(input.createdAt).toLocaleString()}</span>
+                      {input.contentText && (
+                        <pre className="mt-1 max-h-40 overflow-auto rounded bg-foreground/[0.02] p-1.5 font-mono text-[10px] text-foreground/60 whitespace-pre-wrap break-words">
+                          {input.contentText.slice(0, 5000)}{input.contentText.length > 5000 ? "\n..." : ""}
+                        </pre>
+                      )}
+                      {input.mimeType.startsWith("image/") && (
+                        <img src={input.publicUrl} alt={input.fileName} className="mt-1 max-h-40 rounded border border-border/20" />
+                      )}
+                      {input.mimeType === "application/pdf" && (
+                        <a href={input.publicUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 font-mono text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+                          Open PDF
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Connected Services ── */}
+      {connectedServiceIds.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between py-1">
+            <span className="font-sans text-[10px] text-muted-foreground/50 uppercase tracking-wider">Connected Services</span>
+            <span className="font-mono text-[10px] text-muted-foreground/40">~{fmtTokens(connectorTokens)}</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {connectedServiceIds.map((id) => (
+              <span key={id} className="rounded-full bg-foreground/[0.04] px-2 py-0.5 font-mono text-[10px] text-muted-foreground/60 capitalize">{id}</span>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Drop zone overlay */}
-      <div
-        className={`rounded-lg border border-dashed transition-colors ${dragOver ? "border-foreground/30 bg-foreground/[0.03] py-6 text-center" : "border-transparent"}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-      >
-        {dragOver && <p className="text-xs text-muted-foreground/60">Drop files to upload</p>}
+      {/* ── Conversation History ── */}
+      <div className="flex items-center justify-between py-1">
+        <div className="flex items-center gap-2">
+          <span className="font-sans text-[10px] text-muted-foreground/50 uppercase tracking-wider">Conversation</span>
+          <span className="font-mono text-[10px] text-muted-foreground/40">{messages.length} messages</span>
+        </div>
+        <span className="font-mono text-[10px] text-muted-foreground/40">~{fmtTokens(conversationTokens)} / 30k</span>
       </div>
-
-      {/* File list */}
-      {inputs.map((input) => {
-        const isExpanded = expandedId === input.id;
-        const tokens = estimateTokens(input.contentText);
-        return (
-          <div key={input.id} className={`group rounded-md transition-colors ${input.enabled ? "" : "opacity-50"}`}>
-            <div className="flex w-full items-center gap-1.5 px-1.5 py-1.5">
-              {/* Toggle */}
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleInput(input.id); }}
-                className={`shrink-0 h-3.5 w-6 rounded-full transition-colors ${input.enabled ? "bg-emerald-500" : "bg-foreground/15"}`}
-                title={input.enabled ? "Disable context" : "Enable context"}
-              >
-                <div className={`h-2.5 w-2.5 rounded-full bg-white transition-transform ${input.enabled ? "translate-x-3" : "translate-x-0.5"}`} />
-              </button>
-              {/* File row */}
-              <button
-                onClick={() => setExpandedId(isExpanded ? null : input.id)}
-                className="flex flex-1 items-center gap-1.5 min-w-0 text-left"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/60">
-                  <path d={fileIcon(input.mimeType)} />
-                </svg>
-                <span className="flex-1 truncate font-mono text-[11px] text-foreground/80">{input.fileName}</span>
-                {tokens > 0 && <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40">~{formatTokens(tokens)}</span>}
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); removeInput(input.id); }}
-                className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground/40 hover:text-red-400 transition-all"
-                title="Remove"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            {isExpanded && (
-              <div className="ml-5 mt-1 mb-2 border-l border-border/40 pl-3">
-                <span className="font-mono text-[10px] text-muted-foreground/40">
-                  {new Date(input.createdAt).toLocaleString()}
-                </span>
-                {input.contentText && (
-                  <pre className="mt-1.5 max-h-48 overflow-auto rounded bg-foreground/[0.02] p-2 font-mono text-[11px] text-foreground/70 whitespace-pre-wrap break-words">
-                    {input.contentText.slice(0, 5000)}{input.contentText.length > 5000 ? "\n..." : ""}
-                  </pre>
-                )}
-                {input.mimeType.startsWith("image/") && (
-                  <img src={input.publicUrl} alt={input.fileName} className="mt-1.5 max-h-48 rounded border border-border/30" />
-                )}
-                {input.mimeType === "application/pdf" && (
-                  <a href={input.publicUrl} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[11px] text-blue-400 hover:text-blue-300 transition-colors">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                    Open PDF
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }

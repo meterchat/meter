@@ -9,6 +9,8 @@ export interface ModelConfig {
   quality?: number;
   /** Output speed in tokens/sec from native API */
   speed?: number;
+  /** Max context window in tokens */
+  contextWindow?: number;
 }
 
 /**
@@ -46,6 +48,7 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (15.0 / 1_000_000),
     quality: 92,  // GPQA Diamond — routes to GPT-5.4
     speed: 90,
+    contextWindow: 200_000,
   },
   {
     id: "anthropic/claude-sonnet-4.6",
@@ -56,6 +59,7 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (15.0 / 1_000_000),
     quality: 74,  // GPQA Diamond
     speed: 60,
+    contextWindow: 200_000,
   },
   {
     id: "anthropic/claude-opus-4.6",
@@ -66,6 +70,7 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (25.0 / 1_000_000),
     quality: 91,  // GPQA Diamond
     speed: 70,
+    contextWindow: 200_000,
   },
   {
     id: "openai/gpt-5.4",
@@ -76,6 +81,7 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (15.0 / 1_000_000),
     quality: 92,  // GPQA Diamond
     speed: 90,
+    contextWindow: 200_000,
   },
   {
     id: "google/gemini-3.1-pro-preview",
@@ -86,6 +92,7 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (12.0 / 1_000_000),
     quality: 92,  // GPQA Diamond
     speed: 138,
+    contextWindow: 1_000_000,
   },
   {
     id: "x-ai/grok-4.1-fast",
@@ -96,6 +103,7 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (0.50 / 1_000_000),
     quality: 86,  // GPQA Diamond (est. from Grok 4 Fast 85.7%)
     speed: 129,
+    contextWindow: 128_000,
   },
   {
     id: "deepseek/deepseek-chat-v3-0324",
@@ -106,6 +114,7 @@ export const MODELS: ModelConfig[] = [
     outputPrice: (1.10 / 1_000_000),
     quality: 59,  // GPQA Diamond
     speed: 50,
+    contextWindow: 64_000,
   },
 ];
 
