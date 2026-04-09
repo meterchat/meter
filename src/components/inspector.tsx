@@ -45,7 +45,7 @@ function DeleteDangerZone({
   isLastWorkspace?: boolean;
 }) {
   const pendingBalance = useMeterStore.getState().getPendingBalance();
-  const hasPending = pendingBalance > 0.01;
+  const hasPending = pendingBalance >= 0.50;
   const busy = deleting || settlingBeforeDelete;
 
   return (
@@ -141,10 +141,11 @@ export function Inspector() {
     if (!activeWorkspace) return;
     if (isLastWorkspace) return;
 
-    // Settle any pending balance before deletion
+    // Settle any pending balance before deletion — but skip if below
+    // Stripe's $0.50 minimum (will be collected on next settlement)
     const store = useMeterStore.getState();
     const pendingBalance = store.getPendingBalance();
-    if (pendingBalance > 0.01) {
+    if (pendingBalance >= 0.50) {
       setSettlingBeforeDelete(true);
       setDeleteSettleError(null);
       const result = await store.settleAll();
