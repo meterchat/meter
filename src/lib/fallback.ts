@@ -24,6 +24,9 @@ import { GoogleGenerativeAI, type Content, type Part, type FunctionDeclarationSc
 import type { ToolDef } from "./tools";
 
 
+/* ─── Thinking mode (set per-request by streamWithFallback) ────── */
+let _thinkingMode: "standard" | "max" = "standard";
+
 /* ─── Types ─────────────────────────────────────────────────────── */
 
 type Message = OpenAI.Chat.ChatCompletionMessageParam;
@@ -198,7 +201,7 @@ export async function streamOpenRouter(
     stream: true,
     stream_options: { include_usage: true },
     // GPT-5.4 / Grok reasoning
-    ...(isOpenAIReasoning || isXAIReasoning ? { reasoning_effort: "medium" } : {}),
+    ...(isOpenAIReasoning || isXAIReasoning ? { reasoning_effort: _thinkingMode === "max" ? "high" : "medium" } : {}),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
@@ -437,7 +440,7 @@ async function _streamAnthropicProtocol(
   const stream = await client.messages.stream({
     model: nativeModel,
     max_tokens: 16384,
-    thinking: { type: "enabled", budget_tokens: 4096 },
+    thinking: { type: "enabled", budget_tokens: _thinkingMode === "max" ? 32768 : 4096 },
     system: [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }],
     messages: msgs,
     tools: anthropicTools,
@@ -708,7 +711,7 @@ async function streamOpenAIDirect(
     stream: true,
     stream_options: { include_usage: true },
     // GPT-5.4 / Grok reasoning
-    ...(isGPT || isGrok ? { reasoning_effort: "medium" } : {}),
+    ...(isGPT || isGrok ? { reasoning_effort: _thinkingMode === "max" ? "high" : "medium" } : {}),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
@@ -810,7 +813,7 @@ async function streamGemini(
   const model = genAI.getGenerativeModel({
     model: nativeModel,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    generationConfig: { maxOutputTokens: 16384, thinkingConfig: { thinkingBudget: 4096 } } as any,
+    generationConfig: { maxOutputTokens: 16384, thinkingConfig: { thinkingBudget: _thinkingMode === "max" ? 32768 : 4096 } } as any,
     ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
   }, { timeout: timeoutMs ?? 600_000 });
 
@@ -1014,6 +1017,8 @@ export interface StreamOptions {
   silent?: boolean;
   /** Models to skip in Tier 4 auto-route (e.g. other debate roster models). */
   excludeModels?: string[];
+  /** Thinking/reasoning depth: "standard" (default) or "max" (higher budget, more expensive). */
+  thinkingMode?: "standard" | "max";
 }
 
 export interface FallbackResult {
@@ -1047,6 +1052,7 @@ export async function streamWithFallback(
 ): Promise<FallbackResult> {
   const timeoutMs = options?.timeoutMs;
   const silent = options?.silent ?? false;
+  _thinkingMode = options?.thinkingMode ?? "standard";
   const errors: { tier: number; model: string; error: string }[] = [];
 
   const directProvider = DIRECT_PROVIDERS[requestedModel];

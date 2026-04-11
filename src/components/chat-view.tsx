@@ -743,6 +743,35 @@ function DiscussDebateToggle() {
   );
 }
 
+function ThinkingModeToggle() {
+  const thinkingMode = useMeterStore((s) => s.thinkingMode);
+  const setThinkingMode = useMeterStore((s) => s.setThinkingMode);
+  const isStreaming = useMeterStore((s) => {
+    const sess = s.sessions.find((p) => p.id === s.activeSessionId) ?? s.sessions[0];
+    return sess?.isStreaming ?? false;
+  });
+  const isMax = thinkingMode === "max";
+
+  return (
+    <button
+      onClick={() => setThinkingMode(isMax ? "standard" : "max")}
+      disabled={isStreaming}
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[11px] transition-all disabled:opacity-40 disabled:pointer-events-none ${
+        isMax
+          ? "text-violet-400 bg-violet-500/10 ring-1 ring-violet-500/30 shadow-[0_0_8px_rgba(139,92,246,0.15)]"
+          : "text-muted-foreground/60 hover:bg-foreground/5 hover:text-muted-foreground"
+      }`}
+      title={isMax ? "Max thinking enabled (higher cost)" : "Standard thinking"}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
+        <line x1="10" y1="22" x2="14" y2="22" />
+      </svg>
+      {isMax ? "Max" : "Think"}
+    </button>
+  );
+}
+
 /** Check if a message contains the [decision-point] tag (dual-nature A-vs-B decisions) */
 function hasDecisionPoint(content: string): boolean {
   return content.includes("[decision-point]");
@@ -1905,6 +1934,7 @@ export function ChatView() {
           ),
           ...(userAttachments?.length ? { attachments: userAttachments } : {}),
           ...(effectiveModel === "debate" ? { debateRoster: useMeterStore.getState().debateRoster } : {}),
+          thinkingMode: useMeterStore.getState().thinkingMode,
           // Server-first: pass subtrack metadata so /api/chat can create the
           // session row with proper FK references on the first message.
           ...(() => {
@@ -3346,6 +3376,7 @@ export function ChatView() {
                     </svg>
                   </button>
                   <DiscussDebateToggle />
+                  <ThinkingModeToggle />
                   <div className="flex-1" />
                   <MeterPill />
                   {isStreaming ? (

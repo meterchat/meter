@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { messages, model, connectedServices, attachments, debateRoster, userMessageId, assistantMessageId } = body;
+    const { messages, model, connectedServices, attachments, debateRoster, userMessageId, assistantMessageId, thinkingMode } = body;
     // Accept both sessionId (new) and projectId (legacy) for backward compatibility
     const projectId: string | undefined = body.sessionId ?? body.projectId;
 
@@ -655,6 +655,7 @@ export async function POST(req: NextRequest) {
               roundSend,
               estimateTokens,
               totalTokensOut,
+              { thinkingMode: thinkingMode === "max" ? "max" : "standard" },
             );
 
             // Accumulate this round's API-reported usage

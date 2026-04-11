@@ -196,6 +196,8 @@ interface MeterState {
   debateMode: boolean;
   /** Models checked in the picker for debate (2+ models = auto-debate) */
   debateRoster: string[];
+  /** Thinking depth: "standard" (default) or "max" (higher budget, more expensive) */
+  thinkingMode: "standard" | "max";
   spendingCapEnabled: boolean;
   spendingCap: number;
 
@@ -296,6 +298,7 @@ interface MeterState {
   setDebateMode: (on: boolean) => void;
   toggleDebateMode: () => void;
   setDebateRoster: (models: string[]) => void;
+  setThinkingMode: (mode: "standard" | "max") => void;
   setSpendingCapEnabled: (v: boolean) => void;
   setSpendingCap: (v: number) => void;
   setAutoSettleThreshold: (v: number) => void;
@@ -483,6 +486,7 @@ export const useMeterStore = create<MeterState>()(
       selectedModelId: DEFAULT_MODEL.id,
       debateMode: false,
       debateRoster: [],
+      thinkingMode: "standard" as const,
       spendingCapEnabled: false,
       spendingCap: 10,
 
@@ -1578,6 +1582,7 @@ export const useMeterStore = create<MeterState>()(
       setInspectorTab: (tab) => set({ inspectorTab: tab }),
       setScrollToMessageId: (id) => set({ scrollToMessageId: id }),
       setSelectedModelId: (id) => set({ selectedModelId: id }),
+      setThinkingMode: (mode) => set({ thinkingMode: mode }),
       setDebateMode: (on) => set({ debateMode: on }),
       toggleDebateMode: () => set((s) => {
         if (s.debateMode) {
@@ -1834,6 +1839,7 @@ export const useMeterStore = create<MeterState>()(
         selectedModelId: s.selectedModelId,
         debateMode: s.debateMode,
         debateRoster: s.debateRoster,
+        thinkingMode: s.thinkingMode,
         spendingCapEnabled: s.spendingCapEnabled,
         spendingCap: s.spendingCap,
         autoSettleThreshold: s.autoSettleThreshold,
