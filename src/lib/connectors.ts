@@ -116,7 +116,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     label: "/circuit",
     chatPrompt:
       "Run /circuit — surface my active two-way email conversations from the last 30 days. Search my sent messages, read threads to confirm two-way exchange, filter out newsletters and automated messages, classify by relationship type (investor, partner, vendor, customer, etc.), extract deadlines and action items, and present the full circuit table with status (waiting on me / waiting on them / active / stalled). Include upcoming deadlines, my action items, and what I'm waiting on others for.",
-    connectorId: "gmail",
+    connectorId: "_builtin",
     iconPath:
       "M13 10V3L4 14h7v7l9-11h-7z",
   },
