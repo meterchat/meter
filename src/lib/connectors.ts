@@ -76,24 +76,6 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
       "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
   },
   {
-    command: "invert",
-    label: "/invert",
-    chatPrompt:
-      "Invert this. Flip my assumption completely — what if the opposite were true? What would that world look like, and what would I do differently?",
-    connectorId: "_builtin",
-    iconPath:
-      "M21 12a9 9 0 1 1-9-9 M21 3v9h-9",
-  },
-  {
-    command: "steelman",
-    label: "/steelman",
-    chatPrompt:
-      "Steelman this. Make the strongest possible case for the position I just described — even if you disagree. Find the best evidence, the most compelling framing, and the strongest arguments. Then tell me what would need to be true for this to be the right call.",
-    connectorId: "_builtin",
-    iconPath:
-      "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
-  },
-  {
     command: "score",
     label: "/score",
     chatPrompt:
@@ -128,24 +110,6 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z",
-  },
-  {
-    command: "simplify",
-    label: "/simplify",
-    chatPrompt:
-      "Simplify this.",
-    connectorId: "_builtin",
-    iconPath:
-      "M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z M18 9l-6 6 M12 9l6 6",
-  },
-  {
-    command: "sync",
-    label: "/sync",
-    chatPrompt:
-      "__SYNC__",
-    connectorId: "_builtin",
-    iconPath:
-      "M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z",
   },
   {
     command: "circuit",
