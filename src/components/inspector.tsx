@@ -891,16 +891,10 @@ function ServiceConnectors() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
 
-  const handleOAuthConnect = async (providerId: string) => {
+  const handleOAuthConnect = (providerId: string) => {
     setConnecting(providerId);
-    try {
-      const res = await authFetch(`/api/oauth/${providerId}/authorize?workspaceId=${encodeURIComponent(activeSessionId ?? "")}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) window.location.href = data.url;
-      }
-    } catch { /* silent */ }
-    setConnecting(null);
+    // Navigate directly — the authorize endpoint returns a redirect to the provider
+    window.location.href = `/api/oauth/${providerId}/authorize?workspaceId=${encodeURIComponent(activeSessionId ?? "")}`;
   };
 
   const handleApiKeyConnect = async (providerId: string) => {
@@ -931,58 +925,60 @@ function ServiceConnectors() {
   return (
     <div className="flex flex-col gap-2">
       <span className="font-sans text-xs uppercase tracking-wider text-muted-foreground">Services</span>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-1.5">
         {SERVICE_CONNECTORS.map((svc) => {
           const isConnected = !!connectedServices[svc.id];
           const isConnecting = connecting === svc.id;
           const showApiKeyForm = svc.type === "api_key" && apiKeyProvider === svc.id && !isConnected;
 
-          return (
-            <div key={svc.id} className="flex flex-col">
-              {isConnected ? (
-                <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    <span className="font-sans text-[11px] text-foreground/80">{svc.name}</span>
-                  </div>
-                  <button onClick={() => handleDisconnect(svc.id)} className="font-mono text-[9px] text-muted-foreground/50 hover:text-red-400 transition-colors">
-                    ×
+          if (showApiKeyForm) {
+            return (
+              <div key={svc.id} className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5">
+                <span className="font-sans text-[11px] text-muted-foreground/70">{svc.name} API Key</span>
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleApiKeyConnect(svc.id); if (e.key === "Escape") { setApiKeyProvider(null); setApiKeyInput(""); } }}
+                  placeholder="phx_..."
+                  autoFocus
+                  className="rounded bg-foreground/[0.04] px-2.5 py-1.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 outline-none"
+                />
+                <div className="flex gap-1.5">
+                  <button onClick={() => handleApiKeyConnect(svc.id)} disabled={isConnecting} className="flex-1 rounded bg-foreground/10 px-2.5 py-1 font-sans text-[11px] text-foreground hover:bg-foreground/15 transition-colors disabled:opacity-50">
+                    {isConnecting ? "..." : "Save"}
+                  </button>
+                  <button onClick={() => { setApiKeyProvider(null); setApiKeyInput(""); }} className="rounded px-2.5 py-1 font-sans text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors">
+                    Cancel
                   </button>
                 </div>
-              ) : showApiKeyForm ? (
-                <div className="flex flex-col gap-1.5 rounded-lg border border-border p-2">
-                  <span className="font-sans text-[10px] text-muted-foreground/60">{svc.name} API Key</span>
-                  <input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleApiKeyConnect(svc.id); if (e.key === "Escape") { setApiKeyProvider(null); setApiKeyInput(""); } }}
-                    placeholder="phx_..."
-                    autoFocus
-                    className="rounded bg-foreground/[0.04] px-2 py-1 font-mono text-[10px] text-foreground placeholder:text-muted-foreground/40 outline-none"
-                  />
-                  <div className="flex gap-1">
-                    <button onClick={() => handleApiKeyConnect(svc.id)} disabled={isConnecting} className="flex-1 rounded bg-foreground/10 px-2 py-0.5 font-sans text-[10px] text-foreground hover:bg-foreground/15 transition-colors disabled:opacity-50">
-                      {isConnecting ? "..." : "Save"}
-                    </button>
-                    <button onClick={() => { setApiKeyProvider(null); setApiKeyInput(""); }} className="rounded px-2 py-0.5 font-sans text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors">
-                      Cancel
-                    </button>
-                  </div>
+              </div>
+            );
+          }
+
+          return (
+            <div key={svc.id} className="flex items-center gap-2.5 rounded-lg border border-border px-3 py-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-muted-foreground/60">
+                <path d={svc.icon} />
+              </svg>
+              <span className="flex-1 font-sans text-[12px] text-foreground/80">{svc.name}</span>
+              {isConnected ? (
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 font-sans text-[11px] text-emerald-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Connected
+                  </span>
+                  <button onClick={() => handleDisconnect(svc.id)} className="font-mono text-[10px] text-muted-foreground/40 hover:text-red-400 transition-colors">
+                    ×
+                  </button>
                 </div>
               ) : (
                 <button
                   onClick={() => svc.type === "oauth" ? handleOAuthConnect(svc.id) : setApiKeyProvider(svc.id)}
                   disabled={isConnecting}
-                  className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-2 font-sans text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground/10 transition-colors disabled:opacity-50"
+                  className="rounded-md border border-border px-2.5 py-1 font-sans text-[11px] text-muted-foreground/70 hover:text-foreground hover:border-foreground/10 transition-colors disabled:opacity-50"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 opacity-60">
-                    <path d={svc.icon} />
-                  </svg>
-                  <div className="flex flex-col items-start">
-                    <span>{isConnecting ? "..." : svc.name}</span>
-                    <span className="font-mono text-[9px] text-muted-foreground/40">{svc.desc}</span>
-                  </div>
+                  {isConnecting ? "..." : "Connect"}
                 </button>
               )}
             </div>
