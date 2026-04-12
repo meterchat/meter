@@ -147,6 +147,15 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     iconPath:
       "M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z",
   },
+  {
+    command: "circuit",
+    label: "/circuit",
+    chatPrompt:
+      "Run /circuit — surface my active two-way email conversations from the last 30 days. Search my sent messages, read threads to confirm two-way exchange, filter out newsletters and automated messages, classify by relationship type (investor, partner, vendor, customer, etc.), extract deadlines and action items, and present the full circuit table with status (waiting on me / waiting on them / active / stalled). Include upcoming deadlines, my action items, and what I'm waiting on others for.",
+    connectorId: "gmail",
+    iconPath:
+      "M13 10V3L4 14h7v7l9-11h-7z",
+  },
 ];
 
 /* ─── v1 Connectors: GitHub, Stripe, Mercury, PostHog ──────────── */
