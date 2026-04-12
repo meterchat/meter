@@ -153,6 +153,44 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
 
 export const CONNECTORS: ConnectorDef[] = [
   {
+    id: "gmail",
+    name: "Gmail",
+    connectionType: "oauth",
+    description: "read emails & receipts",
+    iconPath: "M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z",
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "search_emails",
+          description: "Search Gmail inbox by query string. Returns matching emails with subject, from, date, and snippet.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "Gmail search query (e.g. 'from:bob subject:invoice')" },
+              max_results: { type: "number", description: "Max emails to return (default 10)" },
+            },
+            required: ["query"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "read_email",
+          description: "Read the full content of a specific email by ID. Returns subject, from, date, and full body text.",
+          parameters: {
+            type: "object",
+            properties: {
+              email_id: { type: "string", description: "Gmail message ID (from search_emails results)" },
+            },
+            required: ["email_id"],
+          },
+        },
+      },
+    ],
+  },
+  {
     id: "github",
     name: "GitHub",
     connectionType: "oauth",

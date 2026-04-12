@@ -872,63 +872,123 @@ const MCP_CONNECTORS: McpConnector[] = [
   },
 ];
 
-/* ─── GitHub Connect Section ──────────────────────────────────── */
+/* ─── Service Connectors ──────────────────────────────────────── */
 
-function GitHubConnectSection() {
+const SERVICE_CONNECTORS = [
+  { id: "github", name: "GitHub", type: "oauth" as const, icon: "M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z", desc: "repos, PRs & commits" },
+  { id: "gmail", name: "Gmail", type: "oauth" as const, icon: "M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z", desc: "read emails & receipts" },
+  { id: "stripe", name: "Stripe", type: "oauth" as const, icon: "M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z", desc: "MRR, customers & churn" },
+  { id: "posthog", name: "PostHog", type: "api_key" as const, icon: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5", desc: "DAUs, retention & funnels" },
+];
+
+function ServiceConnectors() {
   const activeSessionId = useMeterStore((s) => s.activeSessionId);
   const connectedServices = useMeterStore((s) => {
     const sess = s.sessions.find((p) => p.id === s.activeSessionId) ?? s.sessions[0];
     return sess?.connectedServices ?? {};
   });
-  const isConnected = !!connectedServices["github"];
-  const [connecting, setConnecting] = useState(false);
+  const [connecting, setConnecting] = useState<string | null>(null);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiKeyProvider, setApiKeyProvider] = useState<string | null>(null);
 
-  const handleConnect = async () => {
-    setConnecting(true);
+  const handleOAuthConnect = async (providerId: string) => {
+    setConnecting(providerId);
     try {
-      const res = await authFetch(`/api/oauth/github/authorize?workspaceId=${encodeURIComponent(activeSessionId ?? "")}`);
+      const res = await authFetch(`/api/oauth/${providerId}/authorize?workspaceId=${encodeURIComponent(activeSessionId ?? "")}`);
       if (res.ok) {
         const data = await res.json();
         if (data.url) window.location.href = data.url;
       }
     } catch { /* silent */ }
-    setConnecting(false);
+    setConnecting(null);
   };
 
-  const handleDisconnect = async () => {
+  const handleApiKeyConnect = async (providerId: string) => {
+    if (!apiKeyInput.trim()) return;
+    setConnecting(providerId);
     try {
-      await authFetch(`/api/oauth/github/disconnect?workspaceId=${encodeURIComponent(activeSessionId ?? "")}`, { method: "POST" });
-      useMeterStore.getState().disconnectService("github");
+      const res = await authFetch("/api/oauth/api-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: providerId, apiKey: apiKeyInput.trim(), workspaceId: activeSessionId }),
+      });
+      if (res.ok) {
+        useMeterStore.getState().connectService(providerId);
+        setApiKeyInput("");
+        setApiKeyProvider(null);
+      }
+    } catch { /* silent */ }
+    setConnecting(null);
+  };
+
+  const handleDisconnect = async (providerId: string) => {
+    try {
+      await authFetch(`/api/oauth/${providerId}/disconnect?workspaceId=${encodeURIComponent(activeSessionId ?? "")}`, { method: "POST" });
+      useMeterStore.getState().disconnectService(providerId);
     } catch { /* silent */ }
   };
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="font-sans text-xs uppercase tracking-wider text-muted-foreground">
-        GitHub
-      </span>
-      {isConnected ? (
-        <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span className="font-sans text-xs text-foreground/80">Connected</span>
-          </div>
-          <button onClick={handleDisconnect} className="font-mono text-[10px] text-muted-foreground/60 hover:text-red-400 transition-colors">
-            Disconnect
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={handleConnect}
-          disabled={connecting}
-          className="flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 font-sans text-xs text-muted-foreground hover:text-foreground hover:border-foreground/10 transition-colors disabled:opacity-50"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-          {connecting ? "Connecting..." : "Connect GitHub"}
-        </button>
-      )}
+      <span className="font-sans text-xs uppercase tracking-wider text-muted-foreground">Services</span>
+      <div className="grid grid-cols-2 gap-2">
+        {SERVICE_CONNECTORS.map((svc) => {
+          const isConnected = !!connectedServices[svc.id];
+          const isConnecting = connecting === svc.id;
+          const showApiKeyForm = svc.type === "api_key" && apiKeyProvider === svc.id && !isConnected;
+
+          return (
+            <div key={svc.id} className="flex flex-col">
+              {isConnected ? (
+                <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span className="font-sans text-[11px] text-foreground/80">{svc.name}</span>
+                  </div>
+                  <button onClick={() => handleDisconnect(svc.id)} className="font-mono text-[9px] text-muted-foreground/50 hover:text-red-400 transition-colors">
+                    ×
+                  </button>
+                </div>
+              ) : showApiKeyForm ? (
+                <div className="flex flex-col gap-1.5 rounded-lg border border-border p-2">
+                  <span className="font-sans text-[10px] text-muted-foreground/60">{svc.name} API Key</span>
+                  <input
+                    type="password"
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleApiKeyConnect(svc.id); if (e.key === "Escape") { setApiKeyProvider(null); setApiKeyInput(""); } }}
+                    placeholder="phx_..."
+                    autoFocus
+                    className="rounded bg-foreground/[0.04] px-2 py-1 font-mono text-[10px] text-foreground placeholder:text-muted-foreground/40 outline-none"
+                  />
+                  <div className="flex gap-1">
+                    <button onClick={() => handleApiKeyConnect(svc.id)} disabled={isConnecting} className="flex-1 rounded bg-foreground/10 px-2 py-0.5 font-sans text-[10px] text-foreground hover:bg-foreground/15 transition-colors disabled:opacity-50">
+                      {isConnecting ? "..." : "Save"}
+                    </button>
+                    <button onClick={() => { setApiKeyProvider(null); setApiKeyInput(""); }} className="rounded px-2 py-0.5 font-sans text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => svc.type === "oauth" ? handleOAuthConnect(svc.id) : setApiKeyProvider(svc.id)}
+                  disabled={isConnecting}
+                  className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-2 font-sans text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground/10 transition-colors disabled:opacity-50"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 opacity-60">
+                    <path d={svc.icon} />
+                  </svg>
+                  <div className="flex flex-col items-start">
+                    <span>{isConnecting ? "..." : svc.name}</span>
+                    <span className="font-mono text-[9px] text-muted-foreground/40">{svc.desc}</span>
+                  </div>
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1065,8 +1125,8 @@ function ConnectTab() {
         )}
       </div>
 
-      {/* GitHub */}
-      <GitHubConnectSection />
+      {/* Services: GitHub, Gmail, Stripe, PostHog */}
+      <ServiceConnectors />
 
       {/* Connectors */}
       <div className="flex flex-col gap-2">

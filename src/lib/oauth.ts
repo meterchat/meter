@@ -37,6 +37,16 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   },
   mercury: { id: "mercury", name: "Mercury", type: "api_key", clientIdEnv: "", clientSecretEnv: "" },
   posthog: { id: "posthog", name: "PostHog", type: "api_key", clientIdEnv: "", clientSecretEnv: "" },
+  gmail: {
+    id: "gmail",
+    name: "Gmail",
+    type: "oauth",
+    authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenUrl: "https://oauth2.googleapis.com/token",
+    scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+    clientIdEnv: "GOOGLE_CLIENT_ID",
+    clientSecretEnv: "GOOGLE_CLIENT_SECRET",
+  },
 };
 
 /* ─── Token encryption ────────────────────────────────────────── */
