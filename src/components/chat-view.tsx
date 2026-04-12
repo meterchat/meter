@@ -2607,17 +2607,15 @@ export function ChatView() {
     });
   }, [isStreaming, workspaceCardReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [connectPrompt, setConnectPrompt] = useState<{ provider: string; command: string } | null>(null);
+
   const handleSlashConnect = useCallback((providerId: string) => {
     if (!userId) return;
-    trackConnectorInitiated({ provider: providerId, method: isApiKeyProvider(providerId) ? "api_key" : "oauth" });
-    if (isApiKeyProvider(providerId)) {
-      setApiKeyProvider(providerId);
-    } else {
-      initiateOAuthFlow(providerId, activeSessionId);
-    }
+    // Show a connect dialog instead of navigating away immediately
+    setConnectPrompt({ provider: providerId, command: slashQuery || providerId });
     setSlashOpen(false);
     setSlashQuery("");
-  }, [userId, activeSessionId]);
+  }, [userId, slashQuery]);
 
   const handleSlashFile = useCallback(() => {
     setSlashOpen(false);
@@ -2664,6 +2662,40 @@ export function ChatView() {
           <div className="rounded-2xl border border-border bg-card px-8 py-6 text-center shadow-xl">
             <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">Switching workspace</p>
             <p className="mt-2 text-xl text-foreground">{switchingSessionName}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Connect service prompt dialog */}
+      {connectPrompt && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={() => setConnectPrompt(null)}>
+          <div className="rounded-xl border border-border bg-card p-6 shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-sans text-sm font-medium text-foreground mb-2">Connect {connectPrompt.provider.charAt(0).toUpperCase() + connectPrompt.provider.slice(1)}</h3>
+            <p className="font-sans text-xs text-muted-foreground/80 mb-4 leading-relaxed">
+              This command requires {connectPrompt.provider.charAt(0).toUpperCase() + connectPrompt.provider.slice(1)} to be connected. You&apos;ll be redirected to authorize access.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConnectPrompt(null)}
+                className="rounded-md px-3 py-1.5 font-sans text-xs text-muted-foreground/70 hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  trackConnectorInitiated({ provider: connectPrompt.provider, method: isApiKeyProvider(connectPrompt.provider) ? "api_key" : "oauth" });
+                  if (isApiKeyProvider(connectPrompt.provider)) {
+                    setApiKeyProvider(connectPrompt.provider);
+                  } else {
+                    initiateOAuthFlow(connectPrompt.provider, activeSessionId);
+                  }
+                  setConnectPrompt(null);
+                }}
+                className="rounded-md bg-foreground px-3 py-1.5 font-sans text-xs text-background hover:bg-foreground/90 transition-colors"
+              >
+                Connect
+              </button>
+            </div>
           </div>
         </div>
       )}
