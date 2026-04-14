@@ -29,6 +29,9 @@ function HomeInner() {
       connectService(provider);
       fetchConnectionStatus();
       router.replace("/");
+    } else if (oauthResult === "error") {
+      // Clear error params from URL so they don't persist
+      router.replace("/");
     }
   }, [searchParams, connectService, fetchConnectionStatus, router]);
 
