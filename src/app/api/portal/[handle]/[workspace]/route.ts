@@ -46,12 +46,26 @@ export async function GET(
     // the unscoped ID (ws_xxx) depending on when they were created.
     const scopedId = session.id;
     const unscopedId = scopedId.includes(":") ? scopedId.split(":").slice(1).join(":") : scopedId;
-    const { data: artifacts } = await supabase
+    // Try with portal_tab column; fall back without it if column doesn't exist yet
+    let artifacts: Record<string, unknown>[] | null = null;
+    const { data: withTab, error: tabErr } = await supabase
       .from("artifacts")
       .select("id, file_path, content, status, category, portal_tab, last_generated_at, created_at, updated_at")
       .eq("user_id", user.id)
       .or(`session_id.eq.${scopedId},session_id.eq.${unscopedId},project_id.eq.${scopedId},project_id.eq.${unscopedId}`)
       .order("created_at", { ascending: true });
+    if (!tabErr) {
+      artifacts = withTab;
+    } else {
+      // portal_tab column may not exist yet — query without it
+      const { data: withoutTab } = await supabase
+        .from("artifacts")
+        .select("id, file_path, content, status, category, last_generated_at, created_at, updated_at")
+        .eq("user_id", user.id)
+        .or(`session_id.eq.${scopedId},session_id.eq.${unscopedId},project_id.eq.${scopedId},project_id.eq.${unscopedId}`)
+        .order("created_at", { ascending: true });
+      artifacts = withoutTab;
+    }
 
     return NextResponse.json({
       workspace: {

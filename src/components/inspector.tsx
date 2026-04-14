@@ -132,7 +132,7 @@ export function Inspector() {
 
   useEffect(() => {
     if (!INSPECTOR_TABS.includes(inspectorTab as typeof INSPECTOR_TABS[number])) {
-      setInspectorTab("decisions");
+      setInspectorTab("context");
     }
   }, [inspectorTab, setInspectorTab]);
 
