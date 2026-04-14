@@ -240,58 +240,179 @@ export default function DocsPortalPage() {
     );
   }
 
+  /* ── Tab icons (Lucide paths) ────────────────────────────────── */
+
+  const TAB_ICONS: Record<string, string> = {
+    thesis: "M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z",
+    specs: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
+    design: "M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z",
+  };
+
+  const SIDEBAR_ICONS: Record<string, string> = {
+    overview: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z",
+    architecture: "M4 6h16M4 10h16M4 14h16M4 18h16",
+    features: "M22 11.08V12a10 10 0 11-5.93-9.14",
+    api: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4",
+    setup: "M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z",
+    decisions: "M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11",
+    agent: "M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2h-4a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7zM10 22h4",
+    design: "M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z",
+    tech: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4",
+    brand: "M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01",
+  };
+
+  function getSidebarIcon(text: string): string | null {
+    const lower = text.toLowerCase();
+    for (const [key, path] of Object.entries(SIDEBAR_ICONS)) {
+      if (lower.includes(key)) return path;
+    }
+    return null;
+  }
+
+  /* ── Tab dropdown state ────────────────────────────────────────── */
+
+  const [tabDropdownOpen, setTabDropdownOpen] = useState(false);
+  const tabDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!tabDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (tabDropdownRef.current && !tabDropdownRef.current.contains(e.target as Node)) setTabDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [tabDropdownOpen]);
+
   /* ── Main layout ─────────────────────────────────────────────── */
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      {/* Header */}
+      {/* Header — breadcrumb style */}
       <header className="shrink-0 border-b border-border/40">
-        <div className="flex items-center justify-between px-8 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/">
-              <Image src="/logo-dark-copy.webp" alt="Meter" width={72} height={20} className="opacity-60 hover:opacity-90 transition-opacity hidden dark:block" />
-              <Image src="/logo-light.webp" alt="Meter" width={72} height={20} className="opacity-60 hover:opacity-90 transition-opacity block dark:hidden" />
-            </Link>
-            {tabs.map((tab) => (
+        <div className="flex items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-2 font-sans text-[13px]">
+            {/* Workspace name */}
+            <span className="font-semibold text-foreground">{data.workspace.name}</span>
+            <span className="text-muted-foreground/30">/</span>
+            {/* Tab dropdown */}
+            <div className="relative" ref={tabDropdownRef}>
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`font-sans text-[13px] transition-colors ${
-                  activeTab === tab
-                    ? "text-foreground font-medium"
-                    : "text-muted-foreground/60 hover:text-foreground"
-                }`}
+                onClick={() => setTabDropdownOpen(!tabDropdownOpen)}
+                className="flex items-center gap-1.5 text-muted-foreground/80 hover:text-foreground transition-colors"
               >
-                {TAB_LABELS[tab] ?? tab}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+                  <path d={TAB_ICONS[activeTab ?? "specs"] ?? TAB_ICONS.specs} />
+                </svg>
+                {TAB_LABELS[activeTab ?? ""] ?? activeTab}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
               </button>
-            ))}
+              {tabDropdownOpen && (
+                <div className="absolute left-0 top-full mt-1 w-48 rounded-lg border border-border bg-card shadow-lg py-1 z-50">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => { setActiveTab(tab); setTabDropdownOpen(false); }}
+                      className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] transition-colors hover:bg-foreground/[0.03] ${
+                        activeTab === tab ? "text-foreground font-medium" : "text-muted-foreground/70"
+                      }`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+                        <path d={TAB_ICONS[tab] ?? TAB_ICONS.specs} />
+                      </svg>
+                      {TAB_LABELS[tab] ?? tab}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Copy dropdown */}
+          <div className="relative" ref={copyMenuRef}>
+            <button
+              onClick={() => setCopyMenuOpen(!copyMenuOpen)}
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-sans text-[12px] text-muted-foreground/70 hover:text-foreground hover:bg-foreground/[0.03] transition-colors"
+            >
+              {copied ? "Copied!" : "Copy page"}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {copyMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-card shadow-lg py-1 z-50">
+                <button onClick={handleCopyAll} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-muted-foreground/60">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  </svg>
+                  <div>
+                    <div className="font-sans text-[12px] text-foreground/80">Copy page</div>
+                    <div className="font-sans text-[10px] text-muted-foreground/50">Copy as Markdown for LLMs</div>
+                  </div>
+                </button>
+                <button onClick={handleOpenInChatGPT} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="mt-0.5 shrink-0 text-muted-foreground/60">
+                    <path d="M22.282 9.821a5.985 5.985 0 00-.516-4.91 6.046 6.046 0 00-6.51-2.9A6.065 6.065 0 0011.741.253a6.04 6.04 0 00-5.765 4.17 5.982 5.982 0 00-3.996 2.9 6.049 6.049 0 00.743 7.097 5.98 5.98 0 00.51 4.911 6.051 6.051 0 006.515 2.9A5.985 5.985 0 0013.26 23.75a6.023 6.023 0 005.738-4.186 5.98 5.98 0 003.997-2.9 6.045 6.045 0 00-.713-6.843z"/>
+                  </svg>
+                  <div>
+                    <div className="font-sans text-[12px] text-foreground/80">Open in ChatGPT</div>
+                    <div className="font-sans text-[10px] text-muted-foreground/50">Ask questions about this page</div>
+                  </div>
+                </button>
+                <button onClick={handleOpenInClaude} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="mt-0.5 shrink-0 text-muted-foreground/60">
+                    <path d="M4.709 15.955l4.71-11.91h2.828L7.537 15.955H4.709zm7.065 0l4.71-11.91h2.807L14.602 15.955h-2.828z"/>
+                  </svg>
+                  <div>
+                    <div className="font-sans text-[12px] text-foreground/80">Open in Claude</div>
+                    <div className="font-sans text-[10px] text-muted-foreground/50">Copies to clipboard, opens Claude</div>
+                  </div>
+                </button>
+                <div className="mx-2 my-1 h-px bg-border" />
+                <button onClick={handleDownload} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-muted-foreground/60">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <div>
+                    <div className="font-sans text-[12px] text-foreground/80">Download MD</div>
+                    <div className="font-sans text-[10px] text-muted-foreground/50">Save as Markdown file</div>
+                  </div>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       {/* Content + TOC */}
       <div className="flex flex-1 overflow-hidden">
-        {/* TOC Sidebar */}
+        {/* TOC Sidebar with icons */}
         {headings.length > 0 && (
-          <aside className="hidden lg:block w-60 shrink-0 overflow-y-auto px-8 pt-10 pb-6">
-            <div className="font-mono text-[10px] text-muted-foreground/40 uppercase tracking-wider mb-3">{data.workspace.handle}</div>
-            <div className="font-sans text-[15px] font-semibold text-foreground mb-6">{data.workspace.name}</div>
+          <aside className="hidden lg:block w-60 shrink-0 overflow-y-auto pl-8 pr-4 pt-8 pb-6">
             <nav className="flex flex-col gap-0.5">
-              {headings.map((h) => (
-                <button
-                  key={h.id}
-                  onClick={() => scrollToHeading(h.id)}
-                  className={`text-left py-1 font-sans text-[13px] transition-colors ${
-                    h.level === 3 ? "pl-4 text-[12px]" : ""
-                  } ${
-                    activeHeading === h.id
-                      ? "text-foreground font-medium"
-                      : "text-muted-foreground/60 hover:text-foreground"
-                  }`}
-                >
-                  {h.text}
-                </button>
-              ))}
+              {headings.map((h) => {
+                const icon = h.level === 2 ? getSidebarIcon(h.text) : null;
+                return (
+                  <button
+                    key={h.id}
+                    onClick={() => scrollToHeading(h.id)}
+                    className={`flex items-center gap-2 text-left py-1.5 font-sans transition-colors ${
+                      h.level === 3 ? "pl-7 text-[12px]" : "text-[13px] font-medium"
+                    } ${
+                      activeHeading === h.id
+                        ? "text-foreground"
+                        : "text-muted-foreground/60 hover:text-foreground"
+                    }`}
+                  >
+                    {icon && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-60">
+                        <path d={icon} />
+                      </svg>
+                    )}
+                    <span className="truncate">{h.text}</span>
+                  </button>
+                );
+              })}
             </nav>
           </aside>
         )}
@@ -299,68 +420,9 @@ export default function DocsPortalPage() {
         {/* Main content */}
         <main ref={contentRef} className="flex-1 overflow-y-auto">
           {activeDoc ? (
-            <div className="max-w-2xl px-10 pt-10 pb-8 ml-2">
-              {/* Breadcrumb + copy dropdown */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="font-mono text-[11px] text-muted-foreground/50 uppercase tracking-wider">
-                  {data.workspace.name} / {TAB_LABELS[activeTab ?? ""] ?? activeTab}
-                </div>
-                <div className="relative" ref={copyMenuRef}>
-                  <button
-                    onClick={() => setCopyMenuOpen(!copyMenuOpen)}
-                    className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-sans text-[12px] text-muted-foreground/70 hover:text-foreground hover:bg-foreground/[0.03] transition-colors"
-                  >
-                    {copied ? "Copied!" : "Copy page"}
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </button>
-                  {copyMenuOpen && (
-                    <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-card shadow-lg py-1 z-50">
-                      <button onClick={handleCopyAll} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-muted-foreground/60">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                        </svg>
-                        <div>
-                          <div className="font-sans text-[12px] text-foreground/80">Copy page</div>
-                          <div className="font-sans text-[10px] text-muted-foreground/50">Copy as Markdown for LLMs</div>
-                        </div>
-                      </button>
-                      <button onClick={handleOpenInChatGPT} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="mt-0.5 shrink-0 text-muted-foreground/60">
-                          <path d="M22.282 9.821a5.985 5.985 0 00-.516-4.91 6.046 6.046 0 00-6.51-2.9A6.065 6.065 0 0011.741.253a6.04 6.04 0 00-5.765 4.17 5.982 5.982 0 00-3.996 2.9 6.049 6.049 0 00.743 7.097 5.98 5.98 0 00.51 4.911 6.051 6.051 0 006.515 2.9A5.985 5.985 0 0013.26 23.75a6.023 6.023 0 005.738-4.186 5.98 5.98 0 003.997-2.9 6.045 6.045 0 00-.713-6.843z"/>
-                        </svg>
-                        <div>
-                          <div className="font-sans text-[12px] text-foreground/80">Open in ChatGPT</div>
-                          <div className="font-sans text-[10px] text-muted-foreground/50">Ask questions about this page</div>
-                        </div>
-                      </button>
-                      <button onClick={handleOpenInClaude} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="mt-0.5 shrink-0 text-muted-foreground/60">
-                          <path d="M4.709 15.955l4.71-11.91h2.828L7.537 15.955H4.709zm7.065 0l4.71-11.91h2.807L14.602 15.955h-2.828z"/>
-                        </svg>
-                        <div>
-                          <div className="font-sans text-[12px] text-foreground/80">Open in Claude</div>
-                          <div className="font-sans text-[10px] text-muted-foreground/50">Copies to clipboard, opens Claude</div>
-                        </div>
-                      </button>
-                      <div className="mx-2 my-1 h-px bg-border" />
-                      <button onClick={handleDownload} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-muted-foreground/60">
-                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                        <div>
-                          <div className="font-sans text-[12px] text-foreground/80">Download MD</div>
-                          <div className="font-sans text-[10px] text-muted-foreground/50">Save as Markdown file</div>
-                        </div>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Title */}
-              <h1 className="font-sans text-[28px] font-bold text-foreground mb-8">{TAB_LABELS[activeTab ?? ""] ?? data.workspace.name}</h1>
+            <div className="max-w-2xl px-10 pt-8 pb-8 ml-2">
+              {/* Page title */}
+              <h1 className="font-sans text-[26px] font-bold text-foreground mb-8">{TAB_LABELS[activeTab ?? ""] ?? data.workspace.name}</h1>
               <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-sans prose-headings:font-semibold prose-p:text-foreground/80 prose-li:text-foreground/80 prose-a:text-blue-500 dark:prose-a:text-blue-400 prose-pre:bg-foreground/[0.04] prose-pre:border prose-pre:border-border prose-code:text-orange-600 dark:prose-code:text-orange-400">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
