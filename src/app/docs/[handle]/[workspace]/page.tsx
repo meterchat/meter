@@ -77,7 +77,9 @@ export default function DocsPortalPage() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [activeHeading, setActiveHeading] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [copyMenuOpen, setCopyMenuOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const copyMenuRef = useRef<HTMLDivElement>(null);
 
   // Fetch portal data
   useEffect(() => {
@@ -150,11 +152,36 @@ export default function DocsPortalPage() {
     setActiveHeading("");
   }, [activeTab]);
 
+  // Close copy menu on click outside
+  useEffect(() => {
+    if (!copyMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (copyMenuRef.current && !copyMenuRef.current.contains(e.target as Node)) setCopyMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [copyMenuOpen]);
+
   const handleCopyAll = useCallback(() => {
     if (!activeDoc) return;
     navigator.clipboard.writeText(activeDoc.content);
     setCopied(true);
+    setCopyMenuOpen(false);
     setTimeout(() => setCopied(false), 1500);
+  }, [activeDoc]);
+
+  const handleOpenInChatGPT = useCallback(() => {
+    if (!activeDoc) return;
+    const text = encodeURIComponent(activeDoc.content.slice(0, 10000));
+    window.open(`https://chatgpt.com/?q=${text}`, "_blank");
+    setCopyMenuOpen(false);
+  }, [activeDoc]);
+
+  const handleOpenInClaude = useCallback(() => {
+    if (!activeDoc) return;
+    navigator.clipboard.writeText(activeDoc.content);
+    window.open("https://claude.ai/new", "_blank");
+    setCopyMenuOpen(false);
   }, [activeDoc]);
 
   const handleDownload = useCallback(() => {
@@ -218,30 +245,26 @@ export default function DocsPortalPage() {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       {/* Header */}
-      <header className="shrink-0">
-        <div className="flex items-center justify-between px-8 py-4">
-          <div className="flex items-center gap-5">
+      <header className="shrink-0 border-b border-border/40">
+        <div className="flex items-center justify-between px-8 py-3">
+          <div className="flex items-center gap-6">
             <Link href="/">
-              <Image src="/logo-dark-copy.webp" alt="Meter" width={64} height={18} className="opacity-60 hover:opacity-90 transition-opacity hidden dark:block" />
-              <Image src="/logo-light.webp" alt="Meter" width={64} height={18} className="opacity-60 hover:opacity-90 transition-opacity block dark:hidden" />
+              <Image src="/logo-dark-copy.webp" alt="Meter" width={72} height={20} className="opacity-60 hover:opacity-90 transition-opacity hidden dark:block" />
+              <Image src="/logo-light.webp" alt="Meter" width={72} height={20} className="opacity-60 hover:opacity-90 transition-opacity block dark:hidden" />
             </Link>
-            <span className="text-sm font-medium text-foreground/80">{data.workspace.name}</span>
-            {/* Tabs — inline in header */}
-            <div className="flex gap-1 ml-4">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1 rounded-md font-mono text-[12px] transition-colors ${
-                    activeTab === tab
-                      ? "bg-foreground/[0.08] text-foreground"
-                      : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-foreground/[0.03]"
-                  }`}
-                >
-                  {TAB_LABELS[tab] ?? tab}
-                </button>
-              ))}
-            </div>
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`font-sans text-[13px] transition-colors ${
+                  activeTab === tab
+                    ? "text-foreground font-medium"
+                    : "text-muted-foreground/60 hover:text-foreground"
+                }`}
+              >
+                {TAB_LABELS[tab] ?? tab}
+              </button>
+            ))}
           </div>
         </div>
       </header>
@@ -250,18 +273,20 @@ export default function DocsPortalPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* TOC Sidebar */}
         {headings.length > 0 && (
-          <aside className="hidden md:block w-56 shrink-0 overflow-y-auto px-8 py-6">
+          <aside className="hidden lg:block w-60 shrink-0 overflow-y-auto px-8 pt-10 pb-6">
+            <div className="font-mono text-[10px] text-muted-foreground/40 uppercase tracking-wider mb-3">{data.workspace.handle}</div>
+            <div className="font-sans text-[15px] font-semibold text-foreground mb-6">{data.workspace.name}</div>
             <nav className="flex flex-col gap-0.5">
               {headings.map((h) => (
                 <button
                   key={h.id}
                   onClick={() => scrollToHeading(h.id)}
-                  className={`text-left py-1 font-sans text-[12px] transition-colors truncate ${
-                    h.level === 3 ? "pl-3" : ""
+                  className={`text-left py-1 font-sans text-[13px] transition-colors ${
+                    h.level === 3 ? "pl-4 text-[12px]" : ""
                   } ${
                     activeHeading === h.id
                       ? "text-foreground font-medium"
-                      : "text-muted-foreground/70 hover:text-foreground"
+                      : "text-muted-foreground/60 hover:text-foreground"
                   }`}
                 >
                   {h.text}
@@ -274,16 +299,68 @@ export default function DocsPortalPage() {
         {/* Main content */}
         <main ref={contentRef} className="flex-1 overflow-y-auto">
           {activeDoc ? (
-            <div className="max-w-2xl px-8 py-8 ml-4">
-              {/* Action buttons at top of content */}
-              <div className="flex items-center gap-2 mb-8">
-                <button onClick={handleDownload} className="rounded-md border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:text-foreground hover:bg-foreground/[0.04] transition-colors">
-                  Download MD
-                </button>
-                <button onClick={handleCopyAll} className="rounded-md border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:text-foreground hover:bg-foreground/[0.04] transition-colors">
-                  {copied ? "Copied!" : "Copy All"}
-                </button>
+            <div className="max-w-2xl px-10 pt-10 pb-8 ml-2">
+              {/* Breadcrumb + copy dropdown */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="font-mono text-[11px] text-muted-foreground/50 uppercase tracking-wider">
+                  {data.workspace.name} / {TAB_LABELS[activeTab ?? ""] ?? activeTab}
+                </div>
+                <div className="relative" ref={copyMenuRef}>
+                  <button
+                    onClick={() => setCopyMenuOpen(!copyMenuOpen)}
+                    className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-sans text-[12px] text-muted-foreground/70 hover:text-foreground hover:bg-foreground/[0.03] transition-colors"
+                  >
+                    {copied ? "Copied!" : "Copy page"}
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                  {copyMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-card shadow-lg py-1 z-50">
+                      <button onClick={handleCopyAll} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-muted-foreground/60">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                        </svg>
+                        <div>
+                          <div className="font-sans text-[12px] text-foreground/80">Copy page</div>
+                          <div className="font-sans text-[10px] text-muted-foreground/50">Copy as Markdown for LLMs</div>
+                        </div>
+                      </button>
+                      <button onClick={handleOpenInChatGPT} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="mt-0.5 shrink-0 text-muted-foreground/60">
+                          <path d="M22.282 9.821a5.985 5.985 0 00-.516-4.91 6.046 6.046 0 00-6.51-2.9A6.065 6.065 0 0011.741.253a6.04 6.04 0 00-5.765 4.17 5.982 5.982 0 00-3.996 2.9 6.049 6.049 0 00.743 7.097 5.98 5.98 0 00.51 4.911 6.051 6.051 0 006.515 2.9A5.985 5.985 0 0013.26 23.75a6.023 6.023 0 005.738-4.186 5.98 5.98 0 003.997-2.9 6.045 6.045 0 00-.713-6.843z"/>
+                        </svg>
+                        <div>
+                          <div className="font-sans text-[12px] text-foreground/80">Open in ChatGPT</div>
+                          <div className="font-sans text-[10px] text-muted-foreground/50">Ask questions about this page</div>
+                        </div>
+                      </button>
+                      <button onClick={handleOpenInClaude} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="mt-0.5 shrink-0 text-muted-foreground/60">
+                          <path d="M4.709 15.955l4.71-11.91h2.828L7.537 15.955H4.709zm7.065 0l4.71-11.91h2.807L14.602 15.955h-2.828z"/>
+                        </svg>
+                        <div>
+                          <div className="font-sans text-[12px] text-foreground/80">Open in Claude</div>
+                          <div className="font-sans text-[10px] text-muted-foreground/50">Copies to clipboard, opens Claude</div>
+                        </div>
+                      </button>
+                      <div className="mx-2 my-1 h-px bg-border" />
+                      <button onClick={handleDownload} className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-foreground/[0.03] transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-muted-foreground/60">
+                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        <div>
+                          <div className="font-sans text-[12px] text-foreground/80">Download MD</div>
+                          <div className="font-sans text-[10px] text-muted-foreground/50">Save as Markdown file</div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Title */}
+              <h1 className="font-sans text-[28px] font-bold text-foreground mb-8">{TAB_LABELS[activeTab ?? ""] ?? data.workspace.name}</h1>
               <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-sans prose-headings:font-semibold prose-p:text-foreground/80 prose-li:text-foreground/80 prose-a:text-blue-500 dark:prose-a:text-blue-400 prose-pre:bg-foreground/[0.04] prose-pre:border prose-pre:border-border prose-code:text-orange-600 dark:prose-code:text-orange-400">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
