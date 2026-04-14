@@ -2595,16 +2595,11 @@ export function ChatView() {
       return;
     }
 
-    inputRef.current.value = chatPrompt;
     setSlashOpen(false);
     setSlashQuery("");
-    // Need a tick for the value to settle before handleSend reads it
-    requestAnimationFrame(() => {
-      const input = inputRef.current;
-      if (!input || !input.value.trim() || isStreaming || !workspaceCardReady) return;
-      // Trigger send by dispatching keydown
-      handleSend();
-    });
+    // Send the command prompt directly as a chat message
+    if (inputRef.current) inputRef.current.value = "";
+    streamResponse(chatPrompt);
   }, [isStreaming, workspaceCardReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [connectPrompt, setConnectPrompt] = useState<{ provider: string; command: string } | null>(null);
