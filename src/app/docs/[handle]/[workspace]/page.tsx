@@ -78,8 +78,21 @@ export default function DocsPortalPage() {
   const [activeHeading, setActiveHeading] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
+  const [tabDropdownOpen, setTabDropdownOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const copyMenuRef = useRef<HTMLDivElement>(null);
+  const tabDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on click outside
+  useEffect(() => {
+    if (!tabDropdownOpen && !copyMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (tabDropdownRef.current && !tabDropdownRef.current.contains(e.target as Node)) setTabDropdownOpen(false);
+      if (copyMenuRef.current && !copyMenuRef.current.contains(e.target as Node)) setCopyMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [tabDropdownOpen, copyMenuOpen]);
 
   // Fetch portal data
   useEffect(() => {
@@ -152,15 +165,7 @@ export default function DocsPortalPage() {
     setActiveHeading("");
   }, [activeTab]);
 
-  // Close copy menu on click outside
-  useEffect(() => {
-    if (!copyMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (copyMenuRef.current && !copyMenuRef.current.contains(e.target as Node)) setCopyMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [copyMenuOpen]);
+
 
   const handleCopyAll = useCallback(() => {
     if (!activeDoc) return;
@@ -269,19 +274,6 @@ export default function DocsPortalPage() {
     return null;
   }
 
-  /* ── Tab dropdown state ────────────────────────────────────────── */
-
-  const [tabDropdownOpen, setTabDropdownOpen] = useState(false);
-  const tabDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!tabDropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (tabDropdownRef.current && !tabDropdownRef.current.contains(e.target as Node)) setTabDropdownOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [tabDropdownOpen]);
 
   /* ── Main layout ─────────────────────────────────────────────── */
 
