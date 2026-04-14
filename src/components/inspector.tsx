@@ -1759,7 +1759,8 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
         )}
       </div>
 
-      </div>)}
+      </div>
+      )}
       </div>
 
       {/* ── Connected Services ── */}
