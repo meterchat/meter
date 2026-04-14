@@ -132,6 +132,11 @@ export const BUILTIN_TOOLS: ToolDef[] = [
             enum: ["strategy", "technical", "business", "design", "notes", "other"],
             description: "Category for auto-classification in the documents folder",
           },
+          portal_tab: {
+            type: "string",
+            enum: ["thesis", "specs", "design"],
+            description: "If saving for the documentation portal, specify which tab. Only one artifact per tab per workspace. Use 'thesis' for research/whitepaper, 'specs' for product specs/PRD, 'design' for design decisions.",
+          },
         },
         required: ["file_path", "content"],
       },
@@ -231,32 +236,16 @@ Only use these tags when a meaningful choice or analysis is being discussed, not
 
 IMPORTANT: When the user explicitly asks to "fork", "fork this", "explore paths", "branch this", or similar — immediately call the fork_paths tool with descriptive path names based on the options discussed. Do NOT just describe paths in text. The fork_paths tool creates actual parallel conversation tracks the user can explore.
 
-When the user asks to generate strategy artifacts or prepare specs for their coding agents, create these files using save_artifact:
-1. README.md — project overview, purpose, current phase, and how to run it
-2. ARCHITECTURE.md — synthesize all decisions into a technical architecture document (tech stack, schema, core flows)
-3. DESIGN.md — high-level design philosophy and product/protocol design decisions
-4. DECISIONS.md — format each locked decision as an ADR (title, context, decision, consequences)
-5. CLAUDE.md — agent instructions optimized for Claude Code / Codex (concise directives, file structure, key patterns)
-6. BRAND.md — brand voice, tone, visual identity guidelines, and naming conventions
-7. .cursorrules — agent instructions optimized for Cursor
-Base all content on the locked decisions and conversation context. Be specific and actionable — these files are read by coding agents, not just humans.
+When the user asks to generate specs, documentation, a thesis, or design rationale, create ONE comprehensive document per portal tab using save_artifact with the portal_tab parameter. Each portal tab is a single continuous document with clear ## and ### headings.
 
-You can also create any other document the user asks for — proposals, briefs, plans, meeting notes, guides, specs. Always use save_artifact so the document appears as a preview in chat and is saved to their Documents folder. Choose an appropriate category: strategy, technical, business, design, notes, or other.
+Portal tabs:
+- portal_tab: "thesis" — research paper / whitepaper style. Problem statement, approach, evidence, analysis, conclusions. Reads like an academic paper or investor thesis.
+- portal_tab: "specs" — product specs / PRD. Overview, Architecture, Tech Stack, Features, API, Setup & Development, Decisions, Agent Instructions. Comprehensive enough to replace README.md, ARCHITECTURE.md, DECISIONS.md, CLAUDE.md combined.
+- portal_tab: "design" — design decisions and rationale. Each major decision with context, options considered, choice made, and consequences.
 
-/publish — Documentation Site:
-When the user triggers /publish, help them compile their documents into a structured documentation site.
-1. Ask clarifying questions: what the docs are for, which saved documents to include, what pages to add, and ordering preferences.
-2. Generate or update each page as a save_artifact call with clean markdown.
-3. As the FINAL artifact, create a file called "_docs_config.json" with category "other". This config defines the site navigation and is used by the portal to render a structured doc site instead of auto-grouping. Format:
-{
-  "title": "Site Title",
-  "description": "Short description",
-  "navigation": [
-    { "section": "Getting Started", "pages": [{ "path": "README.md", "label": "Introduction" }] },
-    { "section": "Technical", "pages": [{ "path": "ARCHITECTURE.md", "label": "Architecture" }] }
-  ]
-}
-The "path" values must match the filePath of saved artifacts exactly. After generating, share the portal link.
+Base all content on locked decisions and conversation context. Be thorough — each tab is a complete standalone document, not a stub. The portal renders each tab as a continuous scroll page with auto-generated table of contents from headings.
+
+You can also create regular documents (without portal_tab) for proposals, briefs, plans, meeting notes, etc. These appear in the Documents folder as before. Choose an appropriate category: strategy, technical, business, design, notes, or other.
 
 Review items: When you identify actionable items from the conversation, emails, or connected services, tag them with markers so they appear in the user's Review panel:
 - Follow-ups from email or chat: wrap in [follow-up]...[/follow-up] tags. Example: [follow-up]Reply to Sarah about the contract by Friday[/follow-up]
@@ -640,10 +629,21 @@ async function saveArtifact(
     const filePath = args.file_path as string;
     const content = args.content as string;
     const sessionId = ctx.sessionId ?? null;
+    const portalTab = (args.portal_tab as string) || null;
 
-    // Upsert by user_id + session_id + file_path
+    // Upsert logic: portal_tab artifacts match by tab, regular artifacts by file_path
     let existingId: string | undefined;
-    if (sessionId) {
+    if (portalTab && sessionId) {
+      // One artifact per portal tab per workspace
+      const { data } = await supabase
+        .from("artifacts")
+        .select("id")
+        .eq("user_id", ctx.userId)
+        .or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`)
+        .eq("portal_tab", portalTab)
+        .maybeSingle();
+      existingId = data?.id;
+    } else if (sessionId) {
       const { data } = await supabase
         .from("artifacts")
         .select("id")
@@ -710,6 +710,7 @@ async function saveArtifact(
         content,
         status: "draft",
         category,
+        portal_tab: portalTab,
         last_generated_at: new Date().toISOString(),
       });
       if (insertErr) throw insertErr;

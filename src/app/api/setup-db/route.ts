@@ -355,6 +355,7 @@ const STATEMENTS: string[] = [
   // ── Artifact versioning columns ──
   `alter table artifacts add column if not exists version integer default 1`,
   `alter table artifacts add column if not exists parent_version_id text`,
+  `alter table artifacts add column if not exists portal_tab text`,
 
   // ── Artifact version history table ──
   `create table if not exists artifact_versions (

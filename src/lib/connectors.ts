@@ -85,13 +85,31 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
       "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
   },
   {
-    command: "blueprint",
-    label: "/blueprint",
+    command: "spec",
+    label: "/spec",
     chatPrompt:
-      "Blueprint. Generate my full project spec files — README.md, ARCHITECTURE.md, DESIGN.md, DECISIONS.md, CLAUDE.md, and .cursorrules — based on all locked decisions and our conversation. Ask me to clarify anything major before generating.",
+      "Generate my comprehensive project spec as a single document using save_artifact with portal_tab 'specs'. Include sections for Overview, Architecture, Tech Stack, Features, API, Setup & Development, Decisions, and Agent Instructions. Synthesize all locked decisions and our conversation into one thorough spec. Ask me to clarify anything major before generating.",
     connectorId: "_builtin",
     iconPath:
       "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z",
+  },
+  {
+    command: "thesis",
+    label: "/thesis",
+    chatPrompt:
+      "Generate a thesis / whitepaper for this project using save_artifact with portal_tab 'thesis'. Write it as a research paper: problem statement, approach, evidence, analysis, and conclusions. Base it on our conversation, locked decisions, and any input documents. Make it thorough enough to serve as an investor thesis or academic paper.",
+    connectorId: "_builtin",
+    iconPath:
+      "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z",
+  },
+  {
+    command: "design",
+    label: "/design",
+    chatPrompt:
+      "Generate a design rationale document using save_artifact with portal_tab 'design'. Cover each major design decision: context, options considered, choice made, and consequences. Include architecture decisions, product decisions, and any tradeoffs discussed. Base it on our conversation and locked decisions.",
+    connectorId: "_builtin",
+    iconPath:
+      "M12 20h9 M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z",
   },
   {
     command: "export",
@@ -101,15 +119,6 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     connectorId: "_builtin",
     iconPath:
       "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",
-  },
-  {
-    command: "publish",
-    label: "/publish",
-    chatPrompt:
-      "Publish a documentation site. Review my saved documents and our conversation history, then help me compile a polished documentation portal.\n\nBefore generating anything, ask me:\n1. What is this documentation for? (product docs, API reference, internal wiki, onboarding guide, etc.)\n2. Which of my saved documents should be included? (list them for me to pick from)\n3. What additional pages or sections should I create from scratch?\n4. Any specific ordering or grouping preferences?\n\nOnce I confirm, generate each page as a saved artifact with clean markdown structure, and then create a special artifact with file_path \"_docs_config.json\" and category \"other\" that defines the site navigation. The _docs_config.json should follow this format:\n{\n  \"title\": \"Site Title\",\n  \"description\": \"One-line description\",\n  \"navigation\": [\n    {\n      \"section\": \"Section Name\",\n      \"pages\": [\n        { \"path\": \"README.md\", \"label\": \"Introduction\" }\n      ]\n    }\n  ]\n}\n\nAfter generating everything, share the portal link so I can preview it.",
-    connectorId: "_builtin",
-    iconPath:
-      "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z",
   },
   {
     command: "circuit",

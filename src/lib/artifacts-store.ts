@@ -15,6 +15,7 @@ export interface Artifact {
   lastCommittedContent?: string;
   lastCommittedAt?: number;
   sessionId?: string;
+  portalTab?: string;
 }
 
 export interface ArtifactVersion {

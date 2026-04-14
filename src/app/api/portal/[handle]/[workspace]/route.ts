@@ -48,7 +48,7 @@ export async function GET(
     const unscopedId = scopedId.includes(":") ? scopedId.split(":").slice(1).join(":") : scopedId;
     const { data: artifacts } = await supabase
       .from("artifacts")
-      .select("id, file_path, content, status, category, last_generated_at, created_at, updated_at")
+      .select("id, file_path, content, status, category, portal_tab, last_generated_at, created_at, updated_at")
       .eq("user_id", user.id)
       .or(`session_id.eq.${scopedId},session_id.eq.${unscopedId},project_id.eq.${scopedId},project_id.eq.${unscopedId}`)
       .order("created_at", { ascending: true });
@@ -66,6 +66,7 @@ export async function GET(
         filePath: a.file_path,
         content: a.content,
         category: a.category,
+        portalTab: a.portal_tab ?? null,
         lastGeneratedAt: a.last_generated_at,
         updatedAt: a.updated_at,
       })),
