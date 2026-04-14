@@ -218,39 +218,31 @@ export default function DocsPortalPage() {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       {/* Header */}
-      <header className="shrink-0 border-b border-border">
-        <div className="flex items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-4">
+      <header className="shrink-0">
+        <div className="flex items-center justify-between px-8 py-4">
+          <div className="flex items-center gap-5">
             <Link href="/">
-              <Image src="/logo-dark-copy.webp" alt="Meter" width={48} height={14} className="opacity-50 hover:opacity-80 transition-opacity hidden dark:block" />
-              <Image src="/logo-light.webp" alt="Meter" width={48} height={14} className="opacity-50 hover:opacity-80 transition-opacity block dark:hidden" />
+              <Image src="/logo-dark-copy.webp" alt="Meter" width={64} height={18} className="opacity-60 hover:opacity-90 transition-opacity hidden dark:block" />
+              <Image src="/logo-light.webp" alt="Meter" width={64} height={18} className="opacity-60 hover:opacity-90 transition-opacity block dark:hidden" />
             </Link>
             <span className="text-sm font-medium text-foreground/80">{data.workspace.name}</span>
+            {/* Tabs — inline in header */}
+            <div className="flex gap-1 ml-4">
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1 rounded-md font-mono text-[12px] transition-colors ${
+                    activeTab === tab
+                      ? "bg-foreground/[0.08] text-foreground"
+                      : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-foreground/[0.03]"
+                  }`}
+                >
+                  {TAB_LABELS[tab] ?? tab}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleDownload} className="rounded-md border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground/70 hover:text-foreground hover:bg-foreground/[0.05] transition-colors">
-              Download MD
-            </button>
-            <button onClick={handleCopyAll} className="rounded-md border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground/70 hover:text-foreground hover:bg-foreground/[0.05] transition-colors">
-              {copied ? "Copied!" : "Copy All"}
-            </button>
-          </div>
-        </div>
-        {/* Tabs */}
-        <div className="flex gap-0 px-6">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 font-mono text-[12px] border-b-2 transition-colors ${
-                activeTab === tab
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground/60 hover:text-muted-foreground"
-              }`}
-            >
-              {TAB_LABELS[tab] ?? tab}
-            </button>
-          ))}
         </div>
       </header>
 
@@ -258,18 +250,18 @@ export default function DocsPortalPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* TOC Sidebar */}
         {headings.length > 0 && (
-          <aside className="hidden md:block w-56 shrink-0 border-r border-border overflow-y-auto p-4">
+          <aside className="hidden md:block w-56 shrink-0 overflow-y-auto px-8 py-6">
             <nav className="flex flex-col gap-0.5">
               {headings.map((h) => (
                 <button
                   key={h.id}
                   onClick={() => scrollToHeading(h.id)}
-                  className={`text-left py-1 font-mono text-[11px] transition-colors truncate ${
+                  className={`text-left py-1 font-sans text-[12px] transition-colors truncate ${
                     h.level === 3 ? "pl-3" : ""
                   } ${
                     activeHeading === h.id
                       ? "text-foreground font-medium"
-                      : "text-muted-foreground/60 hover:text-muted-foreground"
+                      : "text-muted-foreground/70 hover:text-foreground"
                   }`}
                 >
                   {h.text}
@@ -282,7 +274,16 @@ export default function DocsPortalPage() {
         {/* Main content */}
         <main ref={contentRef} className="flex-1 overflow-y-auto">
           {activeDoc ? (
-            <div className="mx-auto max-w-3xl px-8 py-10">
+            <div className="max-w-2xl px-8 py-8 ml-4">
+              {/* Action buttons at top of content */}
+              <div className="flex items-center gap-2 mb-8">
+                <button onClick={handleDownload} className="rounded-md border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:text-foreground hover:bg-foreground/[0.04] transition-colors">
+                  Download MD
+                </button>
+                <button onClick={handleCopyAll} className="rounded-md border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground/60 hover:text-foreground hover:bg-foreground/[0.04] transition-colors">
+                  {copied ? "Copied!" : "Copy All"}
+                </button>
+              </div>
               <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-sans prose-headings:font-semibold prose-p:text-foreground/80 prose-li:text-foreground/80 prose-a:text-blue-500 dark:prose-a:text-blue-400 prose-pre:bg-foreground/[0.04] prose-pre:border prose-pre:border-border prose-code:text-orange-600 dark:prose-code:text-orange-400">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
