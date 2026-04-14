@@ -512,7 +512,7 @@ export const useMeterStore = create<MeterState>()(
       loggingOut: false,
 
       inspectorOpen: false,
-      inspectorTab: "inputs",
+      inspectorTab: "context",
       scrollToMessageId: null,
 
       enabledModels: [],

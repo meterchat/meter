@@ -23,7 +23,7 @@ import {
   trackInspectorTabChanged,
 } from "@/lib/analytics";
 
-const INSPECTOR_TABS = ["inputs", "outputs", "decisions", "connect"] as const;
+const INSPECTOR_TABS = ["context", "memory", "connect"] as const;
 
 function DeleteDangerZone({
   workspaceName,
@@ -284,9 +284,8 @@ export function Inspector() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {inspectorTab === "inputs" && <InputsTab activeSessionId={activeSession?.id ?? null} />}
-        {inspectorTab === "outputs" && <BlueprintTab activeSessionId={activeSession?.id ?? null} />}
-        {inspectorTab === "decisions" && <DecisionsTab activeSessionId={activeSession?.id ?? null} />}
+        {inspectorTab === "context" && <InputsTab activeSessionId={activeSession?.id ?? null} />}
+        {inspectorTab === "memory" && <DecisionsTab activeSessionId={activeSession?.id ?? null} />}
         {inspectorTab === "connect" && <ConnectTab />}
       </div>
 
@@ -299,85 +298,26 @@ export function Inspector() {
             Manage workspace
           </button>
 
-          {/* Feedback button / badge */}
-          {feedbackSent ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-1 font-sans text-xs text-blue-400">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              feedback logged
-            </span>
-          ) : (
-            <button
-              onClick={() => setFeedbackOpen(!feedbackOpen)}
-              className="inline-flex items-center gap-1.5 rounded-md py-1.5 px-2 font-sans text-xs text-muted-foreground/80 transition-colors hover:text-foreground hover:bg-foreground/5"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              Feedback
-            </button>
-          )}
-
-          {/* Feedback dropup — desktop */}
-          {feedbackOpen && !isMobile && (
-            <div
-              ref={feedbackRef}
-              className="absolute bottom-full right-4 mb-2 w-96 rounded-lg border border-border bg-card shadow-xl z-50"
-            >
-              <div className="p-3 flex flex-col gap-2">
-                <textarea
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder="Share feedback, ideas, or bugs..."
-                  rows={5}
-                  className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-sans text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-foreground/20 transition-colors"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && feedbackText.trim()) {
-                      e.preventDefault();
-                      handleFeedbackSubmit();
-                    }
-                  }}
-                />
-                <div className="flex items-center justify-between">
-                  <span className="font-sans text-xs text-muted-foreground/60">
-                    {"\u2318"}+Enter to send
-                  </span>
-                  <button
-                    onClick={handleFeedbackSubmit}
-                    disabled={!feedbackText.trim() || feedbackSubmitting}
-                    className="rounded-md px-3 py-1 font-sans text-xs bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {feedbackSubmitting ? "Sending..." : "Send"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Feedback — mobile drawer */}
-          <Drawer open={feedbackOpen && isMobile} onOpenChange={(v) => { if (!v) setFeedbackOpen(false); }}>
-            <DrawerContent className="bg-card">
-              <div className="p-4 flex flex-col gap-3">
-                <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground/60">Feedback</div>
-                <textarea
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder="Share feedback, ideas, or bugs..."
-                  rows={5}
-                  className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-sans text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-foreground/20 transition-colors"
-                  autoFocus
-                />
-                <button
-                  onClick={handleFeedbackSubmit}
-                  disabled={!feedbackText.trim() || feedbackSubmitting}
-                  className="w-full rounded-lg py-2.5 font-sans text-sm bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
-                >
-                  {feedbackSubmitting ? "Sending..." : "Send Feedback"}
-                </button>
-              </div>
-            </DrawerContent>
-          </Drawer>
+          {/* Docs button */}
+          <button
+            onClick={async () => {
+              const sessionId = activeSession?.id;
+              if (!sessionId) return;
+              try {
+                const res = await authFetch(`/api/portal?sessionId=${encodeURIComponent(sessionId)}`);
+                if (res.ok) {
+                  const d = await res.json();
+                  if (d.slug && d.handle) window.open(`/docs/${d.handle}/${d.slug}`, "_blank");
+                }
+              } catch { /* silent */ }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md py-1.5 px-2 font-sans text-xs text-muted-foreground/80 transition-colors hover:text-foreground hover:bg-foreground/5"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 016.5 17H20" /><path d="M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z" />
+            </svg>
+            Docs
+          </button>
         </div>
       )}
     </>
@@ -1630,6 +1570,59 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
             style={{ width: `${Math.max(1, utilization)}%` }}
           />
         </div>
+      </div>
+
+      {/* ── Logo ── */}
+      <div className="flex flex-col gap-2">
+        <span className="font-sans text-[11px] text-muted-foreground/70 uppercase tracking-wider">Logo</span>
+        {inputs.some((i) => i.mimeType.startsWith("image/") && i.fileName.toLowerCase().includes("logo")) ? (
+          <div className="flex items-center gap-3">
+            <img
+              src={inputs.find((i) => i.mimeType.startsWith("image/") && i.fileName.toLowerCase().includes("logo"))?.publicUrl}
+              alt="Logo"
+              className="h-8 w-auto rounded"
+            />
+            <button
+              onClick={() => {
+                const logo = inputs.find((i) => i.mimeType.startsWith("image/") && i.fileName.toLowerCase().includes("logo"));
+                if (logo) removeInput(logo.id);
+              }}
+              className="font-mono text-[10px] text-muted-foreground/50 hover:text-red-400 transition-colors"
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <label className="flex items-center gap-2 rounded-lg border border-dashed border-border/40 px-3 py-2 cursor-pointer hover:bg-foreground/[0.02] transition-colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+            </svg>
+            <span className="font-sans text-[12px] text-muted-foreground/60">Upload logo</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !activeSessionId) return;
+                const renamedFile = new File([file], `logo-${file.name}`, { type: file.type });
+                setUploading(true);
+                try {
+                  const form = new FormData();
+                  form.append("file", renamedFile);
+                  form.append("sessionId", activeSessionId);
+                  const res = await authFetch("/api/inputs/upload", { method: "POST", body: form });
+                  if (res.ok) {
+                    const data = await res.json();
+                    addInput(data);
+                  }
+                } catch { /* silent */ }
+                setUploading(false);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        )}
       </div>
 
       {/* ── System Instructions ── */}
