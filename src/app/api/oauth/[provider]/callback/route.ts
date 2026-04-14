@@ -76,8 +76,9 @@ export async function GET(
       serverEmitLogEvent("connector_connected", userId, { preview: providerId });
       return NextResponse.redirect(`${appUrl}/?oauth=success&provider=${providerId}`);
     } catch (err) {
-      console.error(`OAuth callback error for ${providerId}:`, err);
-      return NextResponse.redirect(`${appUrl}/?oauth=error&provider=${providerId}`);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`OAuth callback error for ${providerId}:`, errMsg);
+      return NextResponse.redirect(`${appUrl}/?oauth=error&provider=${providerId}&detail=${encodeURIComponent(errMsg.slice(0, 200))}`);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
