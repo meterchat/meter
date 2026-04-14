@@ -625,6 +625,26 @@ const STATEMENTS: string[] = [
   // Inputs: add enabled toggle for context injection control
   `alter table workspace_inputs add column if not exists enabled boolean default true`,
 
+  // ── Datasheets (structured tables in memory) ──
+  `create table if not exists datasheets (
+    id text primary key,
+    user_id text not null,
+    title text not null,
+    columns jsonb not null default '[]',
+    rows jsonb not null default '[]',
+    session_id text,
+    chat_message_id text,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
+  )`,
+  `create index if not exists idx_datasheets_session on datasheets(user_id, session_id)`,
+  `alter table datasheets enable row level security`,
+  `do $$ begin
+     create policy datasheets_owner on datasheets for all
+       using (user_id = current_setting('app.user_id', true));
+   exception when duplicate_object then null;
+   end $$`,
+
   // ── Remove legacy crypto/blockchain columns ──
   `alter table chat_messages drop column if exists signature`,
   `alter table chat_messages drop column if exists tx_hash`,

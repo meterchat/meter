@@ -720,6 +720,17 @@ export async function POST(req: NextRequest) {
                   });
                 }
               }
+              if (tc.name === "save_datasheet") {
+                try {
+                  const dsData = JSON.parse(toolResult);
+                  toolResultEvent.datasheet = {
+                    id: dsData.id,
+                    title: dsData.title,
+                    columns: dsData.columns,
+                    rows: dsData.rows,
+                  };
+                } catch { /* plain text fallback */ }
+              }
               if (tc.name === "save_artifact") {
                 let artifactData: { id?: string; content?: string; category?: string } | undefined;
                 try { artifactData = JSON.parse(toolResult); } catch { /* plain text fallback */ }

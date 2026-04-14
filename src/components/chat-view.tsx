@@ -204,6 +204,93 @@ function DecisionPill({ decisionId, onOpen }: { decisionId: string; onOpen: () =
   );
 }
 
+function DatasheetCard({ datasheet }: { datasheet: { id: string; title: string; columns: string[]; rows: Record<string, string>[] } }) {
+  const [rows, setRows] = useState(datasheet.rows);
+  const [editCell, setEditCell] = useState<{ row: number; col: string } | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const saveRows = (newRows: Record<string, string>[]) => {
+    setRows(newRows);
+    import("@/lib/datasheets-store").then(({ useDatasheetsStore }) => {
+      useDatasheetsStore.getState().updateDatasheet(datasheet.id, { rows: newRows });
+    });
+  };
+
+  return (
+    <div className="mt-2 mb-1 rounded-lg border border-border/50 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 bg-foreground/[0.02]">
+        <span className="font-mono text-[11px] text-foreground/70 font-medium">{datasheet.title}</span>
+        <span className="font-mono text-[10px] text-muted-foreground/50">{rows.length} rows</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="border-b border-border/30">
+              {datasheet.columns.map((col) => (
+                <th key={col} className="px-3 py-1.5 text-left font-mono font-medium text-muted-foreground/70 whitespace-nowrap">{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, ri) => (
+              <tr key={ri} className="border-b border-border/20 hover:bg-foreground/[0.02]">
+                {datasheet.columns.map((col) => {
+                  const isEditing = editCell?.row === ri && editCell?.col === col;
+                  return (
+                    <td key={col} className="px-3 py-1.5 whitespace-nowrap">
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => {
+                            const newRows = [...rows];
+                            newRows[ri] = { ...newRows[ri], [col]: editValue };
+                            saveRows(newRows);
+                            setEditCell(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === "Tab") {
+                              e.preventDefault();
+                              const newRows = [...rows];
+                              newRows[ri] = { ...newRows[ri], [col]: editValue };
+                              saveRows(newRows);
+                              setEditCell(null);
+                            }
+                            if (e.key === "Escape") setEditCell(null);
+                          }}
+                          className="w-full bg-transparent font-mono text-[11px] text-foreground outline-none border-b border-foreground/20"
+                        />
+                      ) : (
+                        <span
+                          onClick={() => { setEditCell({ row: ri, col }); setEditValue(row[col] ?? ""); }}
+                          className="font-mono text-foreground/70 cursor-text hover:text-foreground"
+                        >
+                          {row[col] || <span className="text-muted-foreground/30">—</span>}
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button
+        onClick={() => {
+          const emptyRow: Record<string, string> = {};
+          datasheet.columns.forEach((c) => { emptyRow[c] = ""; });
+          saveRows([...rows, emptyRow]);
+        }}
+        className="w-full px-3 py-1.5 text-left font-mono text-[10px] text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/[0.02] transition-colors"
+      >
+        + Add row
+      </button>
+    </div>
+  );
+}
+
 /* ─── Decision-point buttons (Decide / Debate / Dissect) ─── */
 
 /**
@@ -2182,6 +2269,35 @@ export function ChatView() {
                 useMeterStore.getState().setMessageDecisionId(decId, streamSessionId);
                 trackDecisionStaged({ decisionId: decId, title: d.title, projectId: streamSessionId });
               }
+              if (data.name === "save_datasheet" && data.datasheet) {
+                const ds = data.datasheet as { id: string; title: string; columns: string[]; rows: Record<string, string>[] };
+                import("@/lib/datasheets-store").then(({ useDatasheetsStore }) => {
+                  useDatasheetsStore.getState().addDatasheet({
+                    id: ds.id,
+                    title: ds.title,
+                    columns: ds.columns,
+                    rows: ds.rows,
+                    sessionId: streamSessionId,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                  });
+                });
+                // Store datasheet ID on the message for inline rendering
+                useMeterStore.setState((s) => ({
+                  sessions: s.sessions.map((sess) =>
+                    sess.id === streamSessionId
+                      ? {
+                          ...sess,
+                          messages: sess.messages.map((m, i) =>
+                            i === sess.messages.length - 1 && m.role === "assistant"
+                              ? { ...m, datasheetId: ds.id, datasheetData: ds }
+                              : m
+                          ),
+                        }
+                      : sess
+                  ),
+                }));
+              }
               if (data.name === "save_artifact" && data.artifact) {
                 const a = data.artifact as { id?: string; filePath: string; content?: string; category?: string; status: string };
                 const artId = a.id || `temp_${Date.now()}`;
@@ -3149,7 +3265,10 @@ export function ChatView() {
                       )}
 
                       {msg.role === "assistant" && msg.decisionId && (
-                        <DecisionPill decisionId={msg.decisionId} onOpen={() => { trackInspectorToggled({ open: true }); setInspectorOpen(true); setInspectorTab("decisions"); }} />
+                        <DecisionPill decisionId={msg.decisionId} onOpen={() => { trackInspectorToggled({ open: true }); setInspectorOpen(true); setInspectorTab("memory"); }} />
+                      )}
+                      {msg.role === "assistant" && (msg as Record<string, unknown>).datasheetData && (
+                        <DatasheetCard datasheet={(msg as Record<string, unknown>).datasheetData as { id: string; title: string; columns: string[]; rows: Record<string, string>[] }} />
                       )}
                       {msg.role === "assistant" && msg.id.startsWith("sync-report-") && (
                         <SyncReportActions onReconcile={() => {

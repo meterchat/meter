@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useMeterStore, selectWorkspaceCardReady } from "@/lib/store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { useDecisionsStore, Decision } from "@/lib/decisions-store";
+import { useDatasheetsStore } from "@/lib/datasheets-store";
 import { useArtifactsStore, Artifact } from "@/lib/artifacts-store";
 import { useInputsStore, type WorkspaceInput } from "@/lib/inputs-store";
 import { authFetch } from "@/lib/auth-fetch";
@@ -1213,25 +1214,83 @@ function DecisionsTab({ activeSessionId: rawSessionId }: { activeSessionId: stri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisions, activeSessionId]);
 
+  // Datasheets
+  const { datasheets, fetchDatasheets } = useDatasheetsStore();
+  const [expandedDsId, setExpandedDsId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDatasheets(activeSessionId);
+  }, [activeSessionId, fetchDatasheets]);
+
+  const sessionDatasheets = datasheets.filter((ds) => ds.sessionId === activeSessionId || ds.sessionId === rawSessionId);
+
   return (
     <div className="flex flex-col gap-4">
       <PinsSection activeSessionId={activeSessionId} />
-      {allVisible.length === 0 ? (
+
+      {/* Datasheets */}
+      {sessionDatasheets.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="font-sans text-[11px] text-muted-foreground/60 uppercase tracking-wider px-1">Datasheets</span>
+          {sessionDatasheets.map((ds) => (
+            <div key={ds.id} className="group">
+              <button
+                onClick={() => setExpandedDsId(expandedDsId === ds.id ? null : ds.id)}
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-foreground/[0.03] transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground/50">
+                    <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="3" x2="9" y2="21" />
+                  </svg>
+                  <span className="font-sans text-[12px] text-foreground/80">{ds.title}</span>
+                </div>
+                <span className="font-mono text-[10px] text-muted-foreground/50">{ds.rows.length} rows</span>
+              </button>
+              {expandedDsId === ds.id && (
+                <div className="mx-2 mb-2 overflow-x-auto rounded border border-border/30">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="border-b border-border/30 bg-foreground/[0.02]">
+                        {ds.columns.map((col) => (
+                          <th key={col} className="px-2 py-1 text-left font-mono font-medium text-muted-foreground/70 whitespace-nowrap">{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ds.rows.map((row, ri) => (
+                        <tr key={ri} className="border-b border-border/20">
+                          {ds.columns.map((col) => (
+                            <td key={col} className="px-2 py-1 font-mono text-foreground/70 whitespace-nowrap">{row[col] || "—"}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Decisions */}
+      {allVisible.length === 0 && sessionDatasheets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <span className="font-sans text-xs text-muted-foreground/70">
-            No decisions yet
+            No memories yet
           </span>
           <span className="font-sans text-xs text-muted-foreground/60">
-            Decisions are logged as you chat
+            Decisions and datasheets are logged as you chat
           </span>
         </div>
-      ) : (
+      ) : allVisible.length > 0 ? (
         <div className="flex flex-col gap-1">
+          {sessionDatasheets.length > 0 && <span className="font-sans text-[11px] text-muted-foreground/60 uppercase tracking-wider px-1 mt-2">Decisions</span>}
           {grouped.map(([category, categoryDecisions]) => (
             <CategoryGroup key={category} category={category} decisions={categoryDecisions} />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

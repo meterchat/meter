@@ -145,6 +145,22 @@ export const BUILTIN_TOOLS: ToolDef[] = [
   {
     type: "function",
     function: {
+      name: "save_datasheet",
+      description: "Save a data table / spreadsheet. Use when the user wants to track a list, compare options, build a pipeline, or organize any structured data into rows and columns. The table will appear as an editable card in chat and in the Memory tab.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Name of the datasheet (e.g. 'Target Retailers', 'Feature Comparison')" },
+          columns: { type: "array", items: { type: "string" }, description: "Column headers (e.g. ['Name', 'Location', 'Status', 'Notes'])" },
+          rows: { type: "array", items: { type: "object" }, description: "Array of row objects where keys match column names (e.g. [{Name: 'Whole Foods', Location: 'SF', Status: 'Active'}])" },
+        },
+        required: ["title", "columns", "rows"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "porkbun_check_domain",
       description:
         "Check if a domain name is available for registration and get its price. Use when the user is discussing brand names, project names, or asks about domain availability. A purchase card will appear automatically for available domains.",
@@ -218,6 +234,7 @@ You have tools. Use them:
 - save_decision: MANDATORY tool for logging decisions. When the user says "lock this", "log this", "decide", "yes lock it", or clicks Decide — you MUST call this tool. Never say "Locked" or "Decision saved" without actually calling save_decision. The tool call is what persists the decision — text alone does nothing. Before saving, ALWAYS call list_decisions first to check for existing decisions on the same topic. If you find one that this new decision updates or replaces, pass its ID in the \`supersedes\` field — this creates versioned history instead of duplicates. Always assign a category (branding, architecture, billing, product, engineering, strategy, or other).
 - list_decisions: Recall past decisions when the user asks "what did we decide" or references earlier choices. Also call this BEFORE save_decision to check for existing decisions on the same topic.
 - save_artifact: Save any document — strategy specs, technical docs, proposals, guides, meeting notes, plans, or briefs. Use whenever the user asks you to write, draft, or generate a document. Each document gets a preview in chat and is saved to their Documents folder.
+- save_datasheet: Save a data table. Use when the user wants to track a list, compare options, build a pipeline, or organize any structured data into rows and columns. The table appears as an editable card in chat and in the Memory tab. Pass title, columns (array of header strings), and rows (array of objects keyed by column names).
 - get_current_datetime: Know what day/time it is.
 - porkbun_check_domain: Check if a domain is available and get its price. Use when the user picks a brand name or asks about domains. A purchase card will appear in chat for available domains.
 - porkbun_get_pricing: Get pricing for popular TLDs (.com, .io, .dev, etc.).${connectorSection}
@@ -346,6 +363,8 @@ export async function executeTool(
       return listDecisions(ctx);
     case "save_artifact":
       return saveArtifact(args, ctx);
+    case "save_datasheet":
+      return saveDatasheet(args, ctx);
     case "fork_paths":
       // Client-side tool — server just acknowledges, client creates the subtracks
       return JSON.stringify({ ok: true, paths: args.paths });
@@ -780,5 +799,34 @@ async function listDecisions(ctx: ToolContext): Promise<string> {
       .join("\n");
   } catch (err) {
     return `Failed to list decisions: ${(err as Error).message}`;
+  }
+}
+
+async function saveDatasheet(
+  args: Record<string, unknown>,
+  ctx: ToolContext,
+): Promise<string> {
+  if (!ctx.userId) return "Cannot save datasheet: not authenticated.";
+  try {
+    const supabase = getSupabaseServer();
+    const title = args.title as string;
+    const columns = args.columns as string[];
+    const rows = args.rows as Record<string, string>[];
+    const sessionId = ctx.sessionId ?? null;
+    const id = `ds_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const { error } = await supabase.from("datasheets").insert({
+      id,
+      user_id: ctx.userId,
+      title,
+      columns,
+      rows,
+      session_id: sessionId,
+    });
+    if (error) throw error;
+
+    return JSON.stringify({ id, title, columns, rows, message: `Datasheet "${title}" saved with ${rows.length} rows.` });
+  } catch (err) {
+    return `Failed to save datasheet: ${(err as Error).message}`;
   }
 }
