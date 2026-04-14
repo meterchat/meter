@@ -1489,7 +1489,11 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showBranding, setShowBranding] = useState(false);
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(true);
+  const [showServices, setShowServices] = useState(false);
+  const [showConversation, setShowConversation] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
@@ -1572,96 +1576,104 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
         </div>
       </div>
 
-      {/* ── Logo ── */}
-      <div className="flex flex-col gap-2">
-        <span className="font-sans text-[11px] text-muted-foreground/70 uppercase tracking-wider">Logo</span>
-        {inputs.some((i) => i.mimeType.startsWith("image/") && i.fileName.toLowerCase().includes("logo")) ? (
-          <div className="flex items-center gap-3">
-            <img
-              src={inputs.find((i) => i.mimeType.startsWith("image/") && i.fileName.toLowerCase().includes("logo"))?.publicUrl}
-              alt="Logo"
-              className="h-8 w-auto rounded"
-            />
-            <button
-              onClick={() => {
-                const logo = inputs.find((i) => i.mimeType.startsWith("image/") && i.fileName.toLowerCase().includes("logo"));
-                if (logo) removeInput(logo.id);
-              }}
-              className="font-mono text-[10px] text-muted-foreground/50 hover:text-red-400 transition-colors"
-            >
-              Remove
-            </button>
-          </div>
-        ) : (
-          <label className="flex items-center gap-2 rounded-lg border border-dashed border-border/40 px-3 py-2 cursor-pointer hover:bg-foreground/[0.02] transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+      {/* ── Branding ── */}
+      <div className="flex flex-col">
+        <button onClick={() => setShowBranding(!showBranding)} className="flex items-center justify-between py-2 text-left rounded-md hover:bg-foreground/[0.03] px-1 transition-colors">
+          <div className="flex items-center gap-2">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-muted-foreground/50 transition-transform ${showBranding ? "rotate-90" : ""}`}>
+              <polyline points="9 18 15 12 9 6" />
             </svg>
-            <span className="font-sans text-[12px] text-muted-foreground/60">Upload logo</span>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file || !activeSessionId) return;
-                const renamedFile = new File([file], `logo-${file.name}`, { type: file.type });
-                setUploading(true);
-                try {
-                  const form = new FormData();
-                  form.append("file", renamedFile);
-                  form.append("sessionId", activeSessionId);
-                  const res = await authFetch("/api/inputs/upload", { method: "POST", body: form });
-                  if (res.ok) {
-                    const data = await res.json();
-                    addInput(data);
-                  }
-                } catch { /* silent */ }
-                setUploading(false);
-                e.target.value = "";
-              }}
-            />
-          </label>
-        )}
+            <span className="font-sans text-[12px] text-foreground/80">Branding</span>
+          </div>
+        </button>
+        {showBranding && (() => {
+          const iconInput = inputs.find((i) => i.mimeType.startsWith("image/") && i.fileName.toLowerCase().includes("icon"));
+          const logoInput = inputs.find((i) => i.mimeType.startsWith("image/") && i.fileName.toLowerCase().includes("logo") && !i.fileName.toLowerCase().includes("icon"));
+          const uploadBrand = async (prefix: string, file: File) => {
+            if (!activeSessionId) return;
+            const named = new File([file], `${prefix}-${file.name}`, { type: file.type });
+            setUploading(true);
+            try {
+              const form = new FormData();
+              form.append("file", named);
+              form.append("sessionId", activeSessionId);
+              const res = await authFetch("/api/inputs/upload", { method: "POST", body: form });
+              if (res.ok) addInput(await res.json());
+            } catch { /* silent */ }
+            setUploading(false);
+          };
+          return (
+            <div className="flex flex-col gap-3 pl-5 pb-2">
+              {/* Icon */}
+              <div className="flex flex-col gap-1.5">
+                <span className="font-sans text-[11px] text-muted-foreground/60">Icon (favicon)</span>
+                {iconInput ? (
+                  <div className="flex items-center gap-3">
+                    <img src={iconInput.publicUrl} alt="Icon" className="h-6 w-6 rounded" />
+                    <button onClick={() => removeInput(iconInput.id)} className="font-mono text-[10px] text-muted-foreground/50 hover:text-red-400 transition-colors">Replace</button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-2 rounded-md border border-dashed border-border/30 px-2.5 py-1.5 cursor-pointer hover:bg-foreground/[0.02] transition-colors w-fit">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M12 8v8M8 12h8" /></svg>
+                    <span className="font-sans text-[11px] text-muted-foreground/50">Upload icon</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadBrand("icon", e.target.files[0]); e.target.value = ""; }} />
+                  </label>
+                )}
+              </div>
+              {/* Logo */}
+              <div className="flex flex-col gap-1.5">
+                <span className="font-sans text-[11px] text-muted-foreground/60">Logo (full)</span>
+                {logoInput ? (
+                  <div className="flex items-center gap-3">
+                    <img src={logoInput.publicUrl} alt="Logo" className="h-8 w-auto rounded" />
+                    <button onClick={() => removeInput(logoInput.id)} className="font-mono text-[10px] text-muted-foreground/50 hover:text-red-400 transition-colors">Replace</button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-2 rounded-md border border-dashed border-border/30 px-2.5 py-1.5 cursor-pointer hover:bg-foreground/[0.02] transition-colors w-fit">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                    <span className="font-sans text-[11px] text-muted-foreground/50">Upload logo</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadBrand("logo", e.target.files[0]); e.target.value = ""; }} />
+                  </label>
+                )}
+              </div>
+              <p className="font-sans text-[10px] text-muted-foreground/40 leading-relaxed">Icon is used as favicon. Logo replaces workspace title in docs header.</p>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── System Instructions ── */}
-      <div className="flex flex-col gap-1">
-        <button
-          onClick={() => setShowSystemPrompt(!showSystemPrompt)}
-          className="flex items-center justify-between py-1.5 text-left rounded-md hover:bg-foreground/[0.03] px-1 transition-colors"
-        >
+      <div className="flex flex-col">
+        <button onClick={() => setShowSystemPrompt(!showSystemPrompt)} className="flex items-center justify-between py-2 text-left rounded-md hover:bg-foreground/[0.03] px-1 transition-colors">
           <div className="flex items-center gap-2">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-muted-foreground/50 transition-transform ${showSystemPrompt ? "rotate-90" : ""}`}>
               <polyline points="9 18 15 12 9 6" />
             </svg>
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-            <span className="font-mono text-[12px] text-foreground/80">System Instructions</span>
+            <span className="font-sans text-[12px] text-foreground/80">System Instructions</span>
           </div>
           <span className="font-mono text-[11px] text-muted-foreground/50">~{fmtTokens(systemPromptTokens)}</span>
         </button>
         {showSystemPrompt && (
-          <pre className="max-h-60 overflow-auto rounded bg-foreground/[0.03] p-3 font-mono text-[11px] text-foreground/60 whitespace-pre-wrap break-words leading-relaxed">
+          <pre className="max-h-60 overflow-auto rounded bg-foreground/[0.03] p-3 font-mono text-[11px] text-foreground/60 whitespace-pre-wrap break-words leading-relaxed ml-5">
             {SYSTEM_PROMPT.slice(0, 2000)}{SYSTEM_PROMPT.length > 2000 ? "\n\n[...truncated]" : ""}
           </pre>
         )}
       </div>
 
-      {/* ── Input Documents ── */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between py-1">
+      {/* ── Documents ── */}
+      <div className="flex flex-col">
+        <button onClick={() => setShowDocuments(!showDocuments)} className="flex items-center justify-between py-2 text-left rounded-md hover:bg-foreground/[0.03] px-1 transition-colors">
           <div className="flex items-center gap-2">
-            <span className="font-sans text-[11px] text-muted-foreground/70 uppercase tracking-wider">Documents</span>
-            {documentTokens > 0 && <span className="font-mono text-[11px] text-muted-foreground/50">~{fmtTokens(documentTokens)}</span>}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-muted-foreground/50 transition-transform ${showDocuments ? "rotate-90" : ""}`}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            <span className="font-sans text-[12px] text-foreground/80">Documents</span>
+            {documentTokens > 0 && <span className="font-mono text-[10px] text-muted-foreground/50">~{fmtTokens(documentTokens)}</span>}
           </div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="font-mono text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
-          >
-            + Upload
-          </button>
+          <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="font-mono text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors">+ Upload</button>
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) handleUpload(e.target.files); e.target.value = ""; }} />
-        </div>
+        </button>
+        {showDocuments && (<div className="pl-5">
 
         {uploading && (
           <div className="flex items-center gap-2 py-1">
@@ -1747,38 +1759,45 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
         )}
       </div>
 
+      </div>)}
+      </div>
+
       {/* ── Connected Services ── */}
       {connectedServiceIds.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between py-1">
-            <span className="font-sans text-[11px] text-muted-foreground/70 uppercase tracking-wider">Connected Services</span>
-            <span className="font-mono text-[11px] text-muted-foreground/50">~{fmtTokens(connectorTokens)}</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {connectedServiceIds.map((id) => (
-              <span key={id} className="rounded-full bg-foreground/[0.06] px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground/70 capitalize">{id}</span>
-            ))}
-          </div>
+        <div className="flex flex-col">
+          <button onClick={() => setShowServices(!showServices)} className="flex items-center justify-between py-2 text-left rounded-md hover:bg-foreground/[0.03] px-1 transition-colors">
+            <div className="flex items-center gap-2">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-muted-foreground/50 transition-transform ${showServices ? "rotate-90" : ""}`}>
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+              <span className="font-sans text-[12px] text-foreground/80">Connected Services</span>
+            </div>
+            <span className="font-mono text-[10px] text-muted-foreground/50">~{fmtTokens(connectorTokens)}</span>
+          </button>
+          {showServices && (
+            <div className="flex flex-wrap gap-1.5 pl-5 pb-2">
+              {connectedServiceIds.map((id) => (
+                <span key={id} className="rounded-full bg-foreground/[0.06] px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground/70 capitalize">{id}</span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Conversation History ── */}
-      <div className="flex flex-col gap-1.5">
-        <button
-          onClick={() => setExpandedId(expandedId === "_conversation" ? null : "_conversation")}
-          className="flex items-center justify-between py-1.5 text-left rounded-md hover:bg-foreground/[0.03] px-1 transition-colors"
-        >
+      {/* ── Conversation ── */}
+      <div className="flex flex-col">
+        <button onClick={() => setShowConversation(!showConversation)} className="flex items-center justify-between py-2 text-left rounded-md hover:bg-foreground/[0.03] px-1 transition-colors">
           <div className="flex items-center gap-2">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-muted-foreground/50 transition-transform ${expandedId === "_conversation" ? "rotate-90" : ""}`}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-muted-foreground/50 transition-transform ${showConversation ? "rotate-90" : ""}`}>
               <polyline points="9 18 15 12 9 6" />
             </svg>
-            <span className="font-sans text-[11px] text-muted-foreground/70 uppercase tracking-wider">Conversation</span>
-            <span className="font-mono text-[11px] text-muted-foreground/50">{messages.length} messages</span>
+            <span className="font-sans text-[12px] text-foreground/80">Conversation</span>
+            <span className="font-mono text-[10px] text-muted-foreground/50">{messages.length} messages</span>
           </div>
-          <span className="font-mono text-[11px] text-muted-foreground/50">~{fmtTokens(conversationTokens)} / 30k</span>
+          <span className="font-mono text-[10px] text-muted-foreground/50">~{fmtTokens(conversationTokens)} / 30k</span>
         </button>
-        {expandedId === "_conversation" && messages.length > 0 && (
-          <div className="flex flex-col gap-1 max-h-60 overflow-y-auto rounded bg-foreground/[0.02] p-2">
+        {showConversation && messages.length > 0 && (
+          <div className="flex flex-col gap-1 max-h-60 overflow-y-auto rounded bg-foreground/[0.02] p-2 ml-5">
             {messages.slice(-20).map((m) => (
               <div key={m.id} className="flex gap-2 py-0.5">
                 <span className={`shrink-0 font-mono text-[10px] ${m.role === "user" ? "text-blue-400/70" : "text-emerald-400/70"}`}>
@@ -1788,7 +1807,7 @@ function InputsTab({ activeSessionId: rawSessionId }: { activeSessionId: string 
               </div>
             ))}
             {messages.length > 20 && (
-              <span className="font-mono text-[10px] text-muted-foreground/40 text-center py-1">+{messages.length - 20} older messages (trimmed from context)</span>
+              <span className="font-mono text-[10px] text-muted-foreground/40 text-center py-1">+{messages.length - 20} older messages</span>
             )}
           </div>
         )}
