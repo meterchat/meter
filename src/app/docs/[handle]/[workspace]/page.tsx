@@ -140,23 +140,28 @@ export default function DocsPortalPage() {
     return extractHeadings(activeDoc.content);
   }, [activeDoc]);
 
-  // Scroll spy
+  // Scroll spy — observe all h2/h3 elements with IDs in the content area
   useEffect(() => {
     const root = contentRef.current;
     if (!root || headings.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) setActiveHeading(entry.target.id);
-        }
-      },
-      { root, rootMargin: "0px 0px -70% 0px", threshold: 0 },
-    );
-    for (const h of headings) {
-      const el = root.querySelector(`#${CSS.escape(h.id)}`);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
+    // Small delay to ensure DOM is rendered after tab switch
+    const timer = setTimeout(() => {
+      const elements = root.querySelectorAll("h2[id], h3[id]");
+      if (elements.length === 0) return;
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting && entry.target.id) {
+              setActiveHeading(entry.target.id);
+            }
+          }
+        },
+        { root, rootMargin: "-10% 0px -80% 0px", threshold: 0 },
+      );
+      elements.forEach((el) => observer.observe(el));
+      return () => observer.disconnect();
+    }, 100);
+    return () => clearTimeout(timer);
   }, [headings, activeTab]);
 
   // Reset scroll on tab change
@@ -245,36 +250,6 @@ export default function DocsPortalPage() {
     );
   }
 
-  /* ── Tab icons (Lucide paths) ────────────────────────────────── */
-
-  const TAB_ICONS: Record<string, string> = {
-    thesis: "M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z",
-    specs: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
-    design: "M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z",
-  };
-
-  const SIDEBAR_ICONS: Record<string, string> = {
-    overview: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z",
-    architecture: "M4 6h16M4 10h16M4 14h16M4 18h16",
-    features: "M22 11.08V12a10 10 0 11-5.93-9.14",
-    api: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4",
-    setup: "M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z",
-    decisions: "M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11",
-    agent: "M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2h-4a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7zM10 22h4",
-    design: "M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z",
-    tech: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4",
-    brand: "M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01",
-  };
-
-  function getSidebarIcon(text: string): string | null {
-    const lower = text.toLowerCase();
-    for (const [key, path] of Object.entries(SIDEBAR_ICONS)) {
-      if (lower.includes(key)) return path;
-    }
-    return null;
-  }
-
-
   /* ── Main layout ─────────────────────────────────────────────── */
 
   return (
@@ -292,12 +267,9 @@ export default function DocsPortalPage() {
                 onClick={() => setTabDropdownOpen(!tabDropdownOpen)}
                 className="flex items-center gap-1.5 text-muted-foreground/80 hover:text-foreground transition-colors"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
-                  <path d={TAB_ICONS[activeTab ?? "specs"] ?? TAB_ICONS.specs} />
-                </svg>
                 {TAB_LABELS[activeTab ?? ""] ?? activeTab}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
-                  <polyline points="6 9 12 15 18 9" />
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                  <polyline points="7 10 12 5 17 10" /><polyline points="7 14 12 19 17 14" />
                 </svg>
               </button>
               {tabDropdownOpen && (
@@ -306,13 +278,10 @@ export default function DocsPortalPage() {
                     <button
                       key={tab}
                       onClick={() => { setActiveTab(tab); setTabDropdownOpen(false); }}
-                      className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] transition-colors hover:bg-foreground/[0.03] ${
+                      className={`flex w-full items-center px-3 py-2 text-left text-[13px] transition-colors hover:bg-foreground/[0.03] ${
                         activeTab === tab ? "text-foreground font-medium" : "text-muted-foreground/70"
                       }`}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
-                        <path d={TAB_ICONS[tab] ?? TAB_ICONS.specs} />
-                      </svg>
                       {TAB_LABELS[tab] ?? tab}
                     </button>
                   ))}
@@ -378,30 +347,34 @@ export default function DocsPortalPage() {
 
       {/* Content + TOC */}
       <div className="flex flex-1 overflow-hidden">
-        {/* TOC Sidebar with icons */}
+        {/* TOC Sidebar */}
         {headings.length > 0 && (
-          <aside className="hidden lg:block w-60 shrink-0 overflow-y-auto pl-8 pr-4 pt-8 pb-6">
+          <aside className="hidden lg:block w-64 shrink-0 overflow-y-auto pl-8 pr-6 pt-8 pb-6">
             <nav className="flex flex-col gap-0.5">
               {headings.map((h) => {
-                const icon = h.level === 2 ? getSidebarIcon(h.text) : null;
+                if (h.level === 2) {
+                  return (
+                    <div
+                      key={h.id}
+                      className={`text-left py-2 mt-3 first:mt-0 font-sans text-[13px] font-semibold transition-colors ${
+                        activeHeading === h.id ? "text-foreground" : "text-foreground/70"
+                      }`}
+                    >
+                      {h.text}
+                    </div>
+                  );
+                }
                 return (
                   <button
                     key={h.id}
                     onClick={() => scrollToHeading(h.id)}
-                    className={`flex items-center gap-2 text-left py-1.5 font-sans transition-colors ${
-                      h.level === 3 ? "pl-7 text-[12px]" : "text-[13px] font-medium"
-                    } ${
+                    className={`text-left py-1 pl-3 font-sans text-[13px] transition-colors ${
                       activeHeading === h.id
-                        ? "text-foreground"
-                        : "text-muted-foreground/60 hover:text-foreground"
+                        ? "text-foreground font-medium"
+                        : "text-foreground/50 hover:text-foreground/80"
                     }`}
                   >
-                    {icon && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-60">
-                        <path d={icon} />
-                      </svg>
-                    )}
-                    <span className="truncate">{h.text}</span>
+                    {h.text}
                   </button>
                 );
               })}
@@ -412,7 +385,7 @@ export default function DocsPortalPage() {
         {/* Main content */}
         <main ref={contentRef} className="flex-1 overflow-y-auto">
           {activeDoc ? (
-            <div className="max-w-2xl px-10 pt-8 pb-8 ml-2">
+            <div className="max-w-2xl px-12 pt-8 pb-8 ml-6">
               {/* Page title */}
               <h1 className="font-sans text-[26px] font-bold text-foreground mb-8">{TAB_LABELS[activeTab ?? ""] ?? data.workspace.name}</h1>
               <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-sans prose-headings:font-semibold prose-p:text-foreground/80 prose-li:text-foreground/80 prose-a:text-blue-500 dark:prose-a:text-blue-400 prose-pre:bg-foreground/[0.04] prose-pre:border prose-pre:border-border prose-code:text-orange-600 dark:prose-code:text-orange-400">
