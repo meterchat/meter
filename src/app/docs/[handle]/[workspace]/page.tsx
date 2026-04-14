@@ -20,7 +20,7 @@ interface PortalDocument {
 }
 
 interface PortalData {
-  workspace: { name: string; slug: string; handle: string; createdAt: string };
+  workspace: { name: string; slug: string; handle: string; createdAt: string; logoUrl?: string | null; iconUrl?: string | null };
   documents: PortalDocument[];
 }
 
@@ -258,8 +258,17 @@ export default function DocsPortalPage() {
       <header className="shrink-0 border-b border-border/40">
         <div className="flex items-center justify-between px-6 py-3">
           <div className="flex items-center gap-2 font-sans text-[13px]">
-            {/* Workspace name */}
-            <span className="font-semibold text-foreground">{data.workspace.name}</span>
+            {/* Workspace branding */}
+            {data.workspace.logoUrl ? (
+              <img src={data.workspace.logoUrl} alt={data.workspace.name} className="h-6 w-auto" />
+            ) : data.workspace.iconUrl ? (
+              <div className="flex items-center gap-2">
+                <img src={data.workspace.iconUrl} alt="" className="h-5 w-5 rounded" />
+                <span className="font-semibold text-foreground">{data.workspace.name}</span>
+              </div>
+            ) : (
+              <span className="font-semibold text-foreground">{data.workspace.name}</span>
+            )}
             <span className="text-muted-foreground/30">/</span>
             {/* Tab dropdown */}
             <div className="relative" ref={tabDropdownRef}>
@@ -385,7 +394,7 @@ export default function DocsPortalPage() {
         {/* Main content */}
         <main ref={contentRef} className="flex-1 overflow-y-auto">
           {activeDoc ? (
-            <div className="max-w-2xl px-12 pt-8 pb-8 ml-6">
+            <div className="max-w-2xl px-16 pt-8 pb-8 ml-12">
               {/* Page title */}
               <h1 className="font-sans text-[26px] font-bold text-foreground mb-8">{TAB_LABELS[activeTab ?? ""] ?? data.workspace.name}</h1>
               <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-sans prose-headings:font-semibold prose-p:text-foreground/80 prose-li:text-foreground/80 prose-a:text-blue-500 dark:prose-a:text-blue-400 prose-pre:bg-foreground/[0.04] prose-pre:border prose-pre:border-border prose-code:text-orange-600 dark:prose-code:text-orange-400">

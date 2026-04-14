@@ -67,12 +67,25 @@ export async function GET(
       artifacts = withoutTab;
     }
 
+    // Fetch branding inputs (logo/icon)
+    const { data: brandingInputs } = await supabase
+      .from("workspace_inputs")
+      .select("file_name, public_url, mime_type")
+      .eq("user_id", user.id)
+      .or(`session_id.eq.${scopedId},session_id.eq.${unscopedId}`)
+      .ilike("file_name", "%logo%,%icon%");
+
+    const logoUrl = brandingInputs?.find((i: { file_name: string }) => i.file_name.toLowerCase().includes("logo") && !i.file_name.toLowerCase().includes("icon"))?.public_url ?? null;
+    const iconUrl = brandingInputs?.find((i: { file_name: string }) => i.file_name.toLowerCase().includes("icon"))?.public_url ?? null;
+
     return NextResponse.json({
       workspace: {
         name: session.workspace_name || session.project_name || "Workspace",
         slug: workspace,
         handle,
         createdAt: session.created_at,
+        logoUrl,
+        iconUrl,
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       documents: (artifacts ?? []).map((a: any) => ({
