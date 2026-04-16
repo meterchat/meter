@@ -55,12 +55,8 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    if (!isAllowed(file.name, file.type)) {
-      return NextResponse.json(
-        { error: `Unsupported file type: ${file.name}` },
-        { status: 400 },
-      );
-    }
+    // Accept all file types — text extraction attempted for known types,
+    // everything else stored as binary in Supabase Storage.
 
     const supabase = getSupabaseServer();
     const ext = file.name.split(".").pop() || "bin";
