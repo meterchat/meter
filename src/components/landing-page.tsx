@@ -224,7 +224,7 @@ export function LiveDebateTrace() {
   const turns = useMemo(
     () => [
       {
-        model: "anthropic/claude-opus-4.6",
+        model: "anthropic/claude-opus-4.7",
         phase: "Opening",
         content: "The monorepo approach reduces deployment complexity by 40% based on our dependency graph analysis...",
       },

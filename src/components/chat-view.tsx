@@ -2184,7 +2184,7 @@ export function ChatView() {
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
                 if (isActiveStream()) brainwaveRef.current?.push(estTokens);
-                const dissModel = getModel("anthropic/claude-opus-4.6");
+                const dissModel = getModel("anthropic/claude-opus-4.7");
                 incrementCurrentMessageCost(estTokens * dissModel.outputPrice, streamSessionId);
                 if (checkSpendLimits()) break;
               }
@@ -2215,7 +2215,7 @@ export function ChatView() {
                 const deltaText = data.content as string;
                 const estTokens = Math.ceil(deltaText.length / 4);
                 if (isActiveStream()) brainwaveRef.current?.push(estTokens);
-                const simpModel = getModel("anthropic/claude-opus-4.6");
+                const simpModel = getModel("anthropic/claude-opus-4.7");
                 incrementCurrentMessageCost(estTokens * simpModel.outputPrice, streamSessionId);
                 if (checkSpendLimits()) break;
               }
