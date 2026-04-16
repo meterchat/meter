@@ -100,7 +100,7 @@ function BoxForkMerge({ active }: { active: boolean }) {
 
   return (
     <div className="w-full max-w-[220px]">
-      <div className="rounded-lg border border-foreground/[0.06] bg-background/50 overflow-hidden">
+      <div className="rounded-lg border border-foreground/[0.06] bg-muted/50 overflow-hidden">
         {/* Main thread */}
         <div className="px-3 py-2 border-b border-foreground/[0.04]">
           <div className="text-[10px] text-muted-foreground/40 truncate">
@@ -216,7 +216,7 @@ function BoxSpecKit({ active }: { active: boolean }) {
 
   return (
     <div className="w-full max-w-[320px]">
-      <div className="rounded-lg border border-foreground/[0.06] bg-background/50 overflow-hidden">
+      <div className="rounded-lg border border-foreground/[0.06] bg-muted/50 overflow-hidden">
         <div className="px-3 py-2 border-b border-foreground/[0.04] flex items-center justify-between">
           <span className="font-mono text-[10px] text-foreground/60">Agent Spec Kit</span>
           <span
@@ -280,7 +280,7 @@ function BoxSlashCommands({ active }: { active: boolean }) {
 
   return (
     <div className="w-full max-w-[180px]">
-      <div className="rounded-lg border border-foreground/[0.06] bg-background/50 overflow-hidden">
+      <div className="rounded-lg border border-foreground/[0.06] bg-muted/50 overflow-hidden">
         <div className="p-1.5 space-y-0.5">
           {STRATEGY_COMMANDS.map((cmd, i) => (
             <div
@@ -522,7 +522,7 @@ function BoxTrackUsage({ active }: { active: boolean }) {
 
   return (
     <div className="w-full max-w-[200px]">
-      <div className="rounded-lg border border-foreground/[0.06] bg-background/50 overflow-hidden">
+      <div className="rounded-lg border border-foreground/[0.06] bg-muted/50 overflow-hidden">
         <div className="px-3 py-2 border-b border-foreground/[0.04] flex items-center gap-1.5">
           <MeterIcon active={false} size={10} />
           <span className="font-mono text-[10px] text-foreground/60">Usage</span>
@@ -663,7 +663,7 @@ function BoxMCPConnect({ active }: { active: boolean }) {
     <div className="w-full max-w-[260px]">
       <div className="relative h-[120px]">
         {/* Center - Meter icon */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-10 h-10 rounded-xl border border-foreground/[0.08] bg-background">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-10 h-10 rounded-xl border border-foreground/[0.08] bg-muted">
           <MeterIcon active={false} size={18} />
         </div>
 
@@ -701,7 +701,7 @@ function BoxMCPConnect({ active }: { active: boolean }) {
               className={`flex items-center gap-1 px-2 py-1 rounded-md border transition-colors duration-300 ${
                 connected.includes(i)
                   ? "border-emerald-500/20 bg-emerald-500/5"
-                  : "border-foreground/[0.06] bg-background/50"
+                  : "border-foreground/[0.06] bg-muted/50"
               }`}
             >
               <span
