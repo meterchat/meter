@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import dynamic from "next/dynamic";
+import { useTheme } from "next-themes";
 import { MeterIcon } from "./meter-icon";
 
 const Liveline = dynamic(() => import("liveline").then((m) => m.Liveline), {
@@ -467,6 +468,7 @@ function BoxCapsLimits({ active }: { active: boolean }) {
 
 // 6. Track Usage & Spend (with real Liveline)
 function BoxTrackUsage({ active }: { active: boolean }) {
+  const { resolvedTheme } = useTheme();
   const [counters, setCounters] = useState({ today: 0, week: 0, messages: 0 });
   const [data, setData] = useState<{ time: number; value: number }[]>([]);
   const [currentValue, setCurrentValue] = useState(0);
@@ -551,7 +553,7 @@ function BoxTrackUsage({ active }: { active: boolean }) {
                 data={data}
                 value={currentValue}
                 window={30}
-                theme="dark"
+                theme={resolvedTheme === "dark" ? "dark" : "light"}
                 color="#f59e0b"
                 fill
                 pulse
@@ -740,7 +742,7 @@ export function FeatureBoxGrid() {
         </div>
 
         {/* Grid container with outer border */}
-        <div className="rounded-2xl border border-foreground/[0.06] bg-[#1e1e1e] overflow-hidden">
+        <div className="rounded-2xl border border-foreground/[0.06] bg-card overflow-hidden">
           {/* Row 1: Fork & Merge | Agent Spec Kit (2 cols) | Slash Commands */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
             <div className="border-b border-foreground/[0.06] md:border-r">
