@@ -15,7 +15,6 @@ import {
   trackCrossDeviceAuthStarted,
 } from "@/lib/analytics";
 import {
-  startRegistration,
   base64URLStringToBuffer,
   bufferToBase64URLString,
 } from "@simplewebauthn/browser";
@@ -591,7 +590,6 @@ function AuthButtons({
   error,
   status,
   onContinue,
-  onCreateAccount,
   onCrossDevice,
   onBack,
 }: {
@@ -600,7 +598,6 @@ function AuthButtons({
   error: string | null;
   status: string | null;
   onContinue: () => void;
-  onCreateAccount: () => void;
   onCrossDevice: () => void;
   onBack: () => void;
 }) {
@@ -650,13 +647,6 @@ function AuthButtons({
           </svg>
         )}
         {loading ? "Authenticating..." : "Sign in to start thinking"}
-      </button>
-      <button
-        onClick={onCreateAccount}
-        disabled={loading}
-        className="w-full h-10 rounded-xl border border-foreground/[0.08] text-foreground text-sm font-medium transition-colors hover:bg-foreground/[0.03] active:bg-foreground/[0.05] disabled:opacity-50"
-      >
-        Create new account
       </button>
     </div>
   );
@@ -777,34 +767,6 @@ export function LandingPage() {
         setError("Device verification failed. Make sure Face ID, Touch ID, or a PIN is set up.");
         trackLoginFailed({ method: "passkey", error: "device_verification_failed" });
       } else { setError(msg); trackLoginFailed({ method: "passkey", error: msg }); }
-      setLoading(false);
-      setStatus(null);
-    }
-  };
-
-  const handleCreateAccount = async () => {
-    setLoading(true);
-    setError(null);
-    setStatus("Setting up passkey...");
-    try {
-      const optRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "register-options" }) });
-      const optData = await optRes.json();
-      if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
-      const credential = await startRegistration({ optionsJSON: optData.options });
-      setStatus("Verifying...");
-      const verifyRes = await authFetch("/api/auth/passkey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "register-verify", challengeId: optData.challengeId, credential, userId: optData.userId }) });
-      const verifyData = await verifyRes.json();
-      if (!verifyRes.ok) throw new Error(verifyData.error || "Registration failed");
-      afterPasskey(verifyData.user, "register");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
-      if (msg.includes("timed out") || msg.includes("not allowed") || msg.includes("AbortError") || msg.includes("NotAllowedError")) {
-        setError("Passkey prompt was cancelled. Try again.");
-        trackLoginFailed({ method: "passkey_register", error: "cancelled" });
-      } else if (msg.includes("user could not be verified") || msg.includes("User verification")) {
-        setError("Device verification failed. Make sure Face ID, Touch ID, or a PIN is set up.");
-        trackLoginFailed({ method: "passkey_register", error: "device_verification_failed" });
-      } else { setError(msg); trackLoginFailed({ method: "passkey_register", error: msg }); }
       setLoading(false);
       setStatus(null);
     }
@@ -934,7 +896,7 @@ export function LandingPage() {
               error={error}
               status={status}
               onContinue={handleContinue}
-              onCreateAccount={handleCreateAccount}
+
               onCrossDevice={handleCrossDevice}
               onBack={() => { setStep("passkey"); setError(null); setStatus(null); }}
             />
@@ -1062,7 +1024,7 @@ export function LandingPage() {
                 error={error}
                 status={status}
                 onContinue={handleContinue}
-                onCreateAccount={handleCreateAccount}
+  
                 onCrossDevice={handleCrossDevice}
                 onBack={() => { setStep("passkey"); setError(null); setStatus(null); }}
               />
