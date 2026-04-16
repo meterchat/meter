@@ -157,6 +157,7 @@ export async function POST(req: NextRequest) {
 
     // ── register-options: create new account + generate passkey registration ──
     if (step === "register-options") {
+      return NextResponse.json({ error: "Signups are closed." }, { status: 403 });
       const userId = `usr_${crypto.randomBytes(12).toString("hex")}`;
 
       // Generate a unique short handle (e.g. "ab41ki")
@@ -232,81 +233,7 @@ export async function POST(req: NextRequest) {
 
     // ── register-verify: verify new passkey registration ──
     if (step === "register-verify") {
-      const { challengeId, credential, userId: uid } = body;
-
-      const { data: challengeRecord } = await supabase
-        .from("auth_challenges")
-        .select("*")
-        .eq("id", challengeId)
-        .single();
-
-      if (!challengeRecord) {
-        return NextResponse.json({ error: "Challenge not found" }, { status: 400 });
-      }
-      if (new Date(challengeRecord.expires_at) < new Date()) {
-        return NextResponse.json({ error: "Challenge expired" }, { status: 400 });
-      }
-
-      const verification = await verifyRegistrationResponse({
-        response: credential,
-        expectedChallenge: challengeRecord.challenge,
-        expectedOrigin: EXPECTED_ORIGINS,
-        expectedRPID: RP_ID,
-        requireUserVerification: false,
-      });
-
-      if (!verification.verified || !verification.registrationInfo) {
-        return NextResponse.json({ error: "Verification failed" }, { status: 400 });
-      }
-
-      const { credential: regCred, credentialDeviceType, credentialBackedUp } =
-        verification.registrationInfo;
-
-      // Store credential
-      await supabase.from("passkey_credentials").insert({
-        credential_id: regCred.id,
-        user_id: uid,
-        public_key: Buffer.from(regCred.publicKey).toString("base64url"),
-        counter: regCred.counter,
-        device_type: credentialDeviceType,
-        backed_up: credentialBackedUp,
-        transports: (credential.response?.transports?.length
-          ? credential.response.transports
-          : ["internal", "hybrid"]),
-      });
-
-      // Clean up challenge
-      await supabase.from("auth_challenges").delete().eq("id", challengeId);
-
-      // Get user
-      const { data: user } = await supabase
-        .from("meter_users")
-        .select("*")
-        .eq("id", uid)
-        .single();
-
-      // Create session + cookie
-      const sessionToken = await createSession(uid);
-
-      serverEmitLogEvent("account_created", uid, { preview: "passkey signup" });
-
-      const response = NextResponse.json({
-        verified: true,
-        user: {
-          id: user?.id,
-          handle: user?.handle ?? null,
-          email: user?.email ?? null,
-          cardOnFile: !!user?.stripe_customer_id && !!user?.card_last4,
-          cardLast4: user?.card_last4,
-          cardBrand: user?.card_brand,
-          gmailConnected: user?.gmail_connected ?? false,
-          accountType: user?.account_type ?? "standard",
-          markupMultiplier: Number(user?.markup_multiplier ?? DEFAULT_MARKUP_MULTIPLIER),
-          creditBalance: Number(user?.credit_balance ?? 0),
-        },
-      });
-      setSessionCookie(response, sessionToken);
-      return response;
+      return NextResponse.json({ error: "Signups are closed." }, { status: 403 });
     }
 
     return NextResponse.json({ error: "Invalid step" }, { status: 400 });

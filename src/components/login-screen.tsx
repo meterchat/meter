@@ -13,7 +13,6 @@ import {
   trackCrossDeviceAuthStarted,
 } from "@/lib/analytics";
 import {
-  startRegistration,
   base64URLStringToBuffer,
   bufferToBase64URLString,
 } from "@simplewebauthn/browser";
@@ -353,55 +352,6 @@ export function LoginScreen() {
     }
   };
 
-  // ── Create new account ────────────────────────────────────────────
-  const handleCreateAccount = async () => {
-    setLoading(true);
-    setError(null);
-    setStatus("Setting up passkey...");
-
-    try {
-      const optRes = await authFetch("/api/auth/passkey", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step: "register-options" }),
-      });
-      const optData = await optRes.json();
-      if (!optRes.ok) throw new Error(optData.error || "Failed to get options");
-
-      const credential = await startRegistration({ optionsJSON: optData.options });
-
-      setStatus("Verifying...");
-      const verifyRes = await authFetch("/api/auth/passkey", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          step: "register-verify",
-          challengeId: optData.challengeId,
-          credential,
-          userId: optData.userId,
-        }),
-      });
-      const verifyData = await verifyRes.json();
-      if (!verifyRes.ok) throw new Error(verifyData.error || "Registration failed");
-
-      afterPasskey(verifyData.user, "register");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
-      if (msg.includes("timed out") || msg.includes("not allowed") || msg.includes("AbortError") || msg.includes("NotAllowedError")) {
-        setError("Passkey prompt was cancelled. Try again.");
-        trackLoginFailed({ method: "passkey_register", error: "cancelled" });
-      } else if (msg.includes("user could not be verified") || msg.includes("User verification")) {
-        setError("Device verification failed. Make sure Face ID, Touch ID, or a PIN is set up.");
-        trackLoginFailed({ method: "passkey_register", error: "device_verification_failed" });
-      } else {
-        setError(msg);
-        trackLoginFailed({ method: "passkey_register", error: msg });
-      }
-      setLoading(false);
-      setStatus(null);
-    }
-  };
-
   // ── Sign in from another device (allows QR code) ──────────────────
   const handleCrossDevice = async () => {
     setLoading(true);
@@ -578,7 +528,7 @@ export function LoginScreen() {
               No account found on this device
             </p>
             <p className="text-xs text-muted-foreground/70 leading-relaxed">
-              Create a new account or sign in from a device where you&apos;re already set up.
+              This is a private tool. Sign in from a device where you&apos;re already set up.
             </p>
 
             {error && (
@@ -590,7 +540,7 @@ export function LoginScreen() {
             )}
 
             <button
-              onClick={handleCreateAccount}
+              onClick={handleCrossDevice}
               disabled={loading}
               className="w-full h-10 rounded-lg bg-foreground text-background text-sm font-medium transition-colors hover:bg-foreground/90 active:bg-foreground/80 disabled:opacity-50 flex items-center justify-center gap-2"
             >
@@ -600,15 +550,7 @@ export function LoginScreen() {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               )}
-              {loading ? "Setting up..." : "Create new account"}
-            </button>
-
-            <button
-              onClick={handleCrossDevice}
-              disabled={loading}
-              className="w-full h-10 rounded-lg border border-border text-foreground text-sm font-medium transition-colors hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-50"
-            >
-              Sign in from another device
+              {loading ? "Authenticating..." : "Sign in from another device"}
             </button>
 
             <button
