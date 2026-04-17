@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const { messages, model, endUserId } = body;
-  const resolvedModel = model || "anthropic/claude-opus-4.7";
+  const resolvedModel = model || "anthropic/claude-opus-4.6";
   const openrouter = getOpenRouterClient();
   const encoder = new TextEncoder();
   const supabase = getSupabaseServer();

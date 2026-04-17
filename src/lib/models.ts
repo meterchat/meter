@@ -30,13 +30,13 @@ export const DEFAULT_MARKUP_MULTIPLIER = 1.0;
 
 /** Default debate roster when user toggles debate mode without selecting models */
 export const DEFAULT_DEBATE_MODELS = [
-  "anthropic/claude-opus-4.7",
+  "anthropic/claude-opus-4.6",
   "openai/gpt-5.4",
   "x-ai/grok-4.1-fast",
 ] as const;
 
 /** Underlying Opus model used by meta-models (Dissector, etc.) */
-export const META_MODEL = "anthropic/claude-opus-4.7";
+export const META_MODEL = "anthropic/claude-opus-4.6";
 
 export const MODELS: ModelConfig[] = [
   {
@@ -62,15 +62,15 @@ export const MODELS: ModelConfig[] = [
     contextWindow: 200_000,
   },
   {
-    id: "anthropic/claude-opus-4.7",
-    name: "Opus 4.7",
+    id: "anthropic/claude-opus-4.6",
+    name: "Opus 4.6",
     provider: "Anthropic",
     color: "#D97757",
     inputPrice: (5.0 / 1_000_000),
     outputPrice: (25.0 / 1_000_000),
-    quality: 93,  // GPQA Diamond (step-change over 4.6)
+    quality: 91,  // GPQA Diamond
     speed: 70,
-    contextWindow: 1_000_000,
+    contextWindow: 200_000,
   },
   {
     id: "openai/gpt-5.4",

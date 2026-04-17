@@ -62,7 +62,7 @@ interface DirectProvider {
 
 const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
   "anthropic/claude-sonnet-4.6": { envKey: "ANTHROPIC_API_KEY", nativeModel: "claude-sonnet-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
-  "anthropic/claude-opus-4.7": { envKey: "ANTHROPIC_API_KEY", nativeModel: "claude-opus-4-7", sdk: "anthropic", cacheReadRate: 0.1 },
+  "anthropic/claude-opus-4.6": { envKey: "ANTHROPIC_API_KEY", nativeModel: "claude-opus-4-6", sdk: "anthropic", cacheReadRate: 0.1 },
   "openai/gpt-5.4": { envKey: "OPENAI_API_KEY", nativeModel: "gpt-5.4", sdk: "openai", cacheReadRate: 0.5 },
   "google/gemini-3.1-pro-preview": { envKey: "GEMINI_API_KEY", nativeModel: "gemini-3.1-pro-preview", sdk: "gemini", cacheReadRate: 0.25 },
   "x-ai/grok-4.1-fast": { envKey: "XAI_API_KEY", nativeModel: "grok-4-1-fast", sdk: "openai", baseURL: "https://api.x.ai/v1", cacheReadRate: 0.25 },
@@ -74,7 +74,7 @@ const DIRECT_PROVIDERS: Record<string, DirectProvider> = {
 /** Maps OpenRouter model IDs to AWS Bedrock cross-region inference profile IDs */
 const BEDROCK_MODELS: Record<string, string> = {
   "anthropic/claude-sonnet-4.6": "us.anthropic.claude-sonnet-4-6",
-  "anthropic/claude-opus-4.7": "us.anthropic.claude-opus-4-7",
+  "anthropic/claude-opus-4.6": "us.anthropic.claude-opus-4-6-v1",
 };
 
 /** Check whether AWS Bedrock API key is configured */
