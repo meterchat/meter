@@ -511,7 +511,7 @@ const STATEMENTS: string[] = [
   // ── Global admin config (single-row, controls markup / enabled models / commands) ──
   `create table if not exists app_config (
     id text primary key default 'global',
-    markup_multiplier numeric not null default 2,
+    markup_multiplier numeric not null default 1,
     enabled_models jsonb not null default '[]'::jsonb,
     enabled_commands jsonb not null default '[]'::jsonb,
     free_usd_credit numeric not null default 0,
@@ -533,7 +533,7 @@ const STATEMENTS: string[] = [
   `alter table meter_users add column if not exists free_credit_remaining numeric not null default 0`,
 
   // Sync markup multiplier to 2x everywhere
-  `update app_config set markup_multiplier = 2 where id = 'global' and markup_multiplier != 2`,
+  `update app_config set markup_multiplier = 1 where id = 'global'`,
 
   // Bonus credit gating: first N signups get $X credit
   `alter table app_config add column if not exists bonus_credit_limit integer not null default 100`,

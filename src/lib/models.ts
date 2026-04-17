@@ -26,7 +26,7 @@ export function costBadge(m: ModelConfig): string {
 }
 
 /** Default markup applied to base model prices. Change this one value to update pricing everywhere. */
-export const DEFAULT_MARKUP_MULTIPLIER = 2.0;
+export const DEFAULT_MARKUP_MULTIPLIER = 1.0;
 
 /** Default debate roster when user toggles debate mode without selecting models */
 export const DEFAULT_DEBATE_MODELS = [
