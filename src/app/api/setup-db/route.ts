@@ -676,6 +676,7 @@ const STATEMENTS: string[] = [
 
   // Aggregate message stats for a session in a single query (replaces
   // the slow pagination loop that fetched all messages in chunks of 1000).
+  `drop function if exists get_session_message_stats(text)`,
   `create or replace function get_session_message_stats(p_session_id text)
    returns table(
      total_message_count bigint,
