@@ -70,6 +70,10 @@ export async function GET() {
         totalTokensOut: Number(stats?.total_tokens_out ?? 0),
         totalMessageCount: Number(stats?.total_message_count ?? 0),
         pendingBalance: Number(stats?.pending_balance ?? 0),
+        todayCost: Number(stats?.today_cost ?? 0),
+        weekCost: Number(stats?.week_cost ?? 0),
+        monthCost: Number(stats?.month_cost ?? 0),
+        totalCost: Number(stats?.total_cost ?? 0),
         hasMore,
       };
     }));
@@ -91,6 +95,10 @@ export async function GET() {
         total_tokens_out: agg.totalTokensOut,
         total_message_count: agg.totalMessageCount,
         pending_balance: agg.pendingBalance,
+        server_today_cost: agg.todayCost,
+        server_week_cost: agg.weekCost,
+        server_month_cost: agg.monthCost,
+        server_total_cost: agg.totalCost,
         has_more_messages: agg.hasMore,
       };
     });

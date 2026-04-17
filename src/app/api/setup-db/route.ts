@@ -681,15 +681,27 @@ const STATEMENTS: string[] = [
      total_message_count bigint,
      total_tokens_in bigint,
      total_tokens_out bigint,
-     pending_balance numeric
+     pending_balance numeric,
+     today_cost numeric,
+     week_cost numeric,
+     month_cost numeric,
+     total_cost numeric
    ) as $$
+   declare
+     v_today_start timestamptz := date_trunc('day', now());
+     v_week_start timestamptz := date_trunc('week', now());
+     v_month_start timestamptz := date_trunc('month', now());
    begin
      return query
        select
          count(*)::bigint as total_message_count,
          coalesce(sum(tokens_in), 0)::bigint as total_tokens_in,
          coalesce(sum(tokens_out), 0)::bigint as total_tokens_out,
-         coalesce(sum(case when role = 'assistant' and cost is not null and not coalesce(settled, false) then cost else 0 end), 0)::numeric as pending_balance
+         coalesce(sum(case when role = 'assistant' and cost is not null and not coalesce(settled, false) then cost else 0 end), 0)::numeric as pending_balance,
+         coalesce(sum(case when role = 'assistant' and cost is not null and created_at >= v_today_start then cost else 0 end), 0)::numeric as today_cost,
+         coalesce(sum(case when role = 'assistant' and cost is not null and created_at >= v_week_start then cost else 0 end), 0)::numeric as week_cost,
+         coalesce(sum(case when role = 'assistant' and cost is not null and created_at >= v_month_start then cost else 0 end), 0)::numeric as month_cost,
+         coalesce(sum(case when role = 'assistant' and cost is not null then cost else 0 end), 0)::numeric as total_cost
        from chat_messages
        where session_id = p_session_id;
    end;

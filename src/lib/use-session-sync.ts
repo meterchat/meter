@@ -28,6 +28,10 @@ interface ServerSession {
   total_tokens_out?: number;
   total_message_count?: number;
   has_more_messages?: boolean;
+  server_today_cost?: number;
+  server_week_cost?: number;
+  server_month_cost?: number;
+  server_total_cost?: number;
   [key: string]: unknown;
 }
 
@@ -89,36 +93,17 @@ const buildSessionFromServer = (
   const messages = Array.isArray(session.messages)
     ? session.messages.map((m: Record<string, unknown>) => mapServerMessage(m))
     : [];
-  const assistantMessages = messages.filter((m) => m.role === "assistant" && m.cost != null);
-  const totalFromMessages = assistantMessages.reduce((sum, m) => sum + (m.cost ?? 0), 0);
-  const totalFromSession = Number(session.total_cost ?? 0);
+  // Use server-side aggregates for cost counters — computed from ALL messages
+  // via the get_session_message_stats RPC, not from the partial 20-message set.
+  const todayCost = Number(session.server_today_cost ?? 0);
+  const weekCost = Number(session.server_week_cost ?? 0);
+  const monthCost = Number(session.server_month_cost ?? 0);
+  const serverTotalCost = Number(session.server_total_cost ?? 0);
 
-  // Compute today/week/month costs from actual message timestamps.
-  // Server-first: these are no longer written to chat_sessions by a sync loop,
-  // so we derive them from the messages we just loaded.
   const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const day = now.getDay();
   const weekOffset = day === 0 ? -6 : 1 - day;
   const weekStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + weekOffset);
-  const weekStart = weekStartDate.getTime();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
-  let todayCost = 0, todayTokensIn = 0, todayTokensOut = 0, todayMessageCount = 0;
-  let weekCost = 0, monthCost = 0;
-  for (const m of assistantMessages) {
-    const ts = m.timestamp ?? 0;
-    const cost = m.cost ?? 0;
-    if (ts >= todayStart) {
-      todayCost += cost;
-      todayTokensIn += m.tokensIn ?? 0;
-      todayTokensOut += m.tokensOut ?? 0;
-      todayMessageCount++;
-    }
-    if (ts >= weekStart) weekCost += cost;
-    if (ts >= monthStart) monthCost += cost;
-  }
-
   const curWeekKey = `${weekStartDate.getFullYear()}-${String(weekStartDate.getMonth() + 1).padStart(2, "0")}-${String(weekStartDate.getDate()).padStart(2, "0")}`;
   const curMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -130,16 +115,16 @@ const buildSessionFromServer = (
     settlementError: null,
     chatBlocked: false,
     todayCost,
-    todayTokensIn,
-    todayTokensOut,
-    todayMessageCount,
+    todayTokensIn: Number(session.total_tokens_in ?? 0),
+    todayTokensOut: Number(session.total_tokens_out ?? 0),
+    todayMessageCount: Number(session.total_message_count ?? 0),
     todayByModel: {},
     todayDate: todayStr(),
     weekCost,
     weekKey: curWeekKey,
     monthCost,
     monthKey: curMonthKey,
-    totalCost: Math.max(totalFromSession, totalFromMessages),
+    totalCost: serverTotalCost,
     currentMessageCost: 0,
     connectedServices: existingConnectedServices ?? {},
     hasOlderMessages: session.has_more_messages ?? false,
