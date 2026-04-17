@@ -22,7 +22,8 @@ const SECTION_IDS = [
 ];
 
 export default function DocsPage() {
-  const markup = useMeterStore((s) => s.markupMultiplier) || DEFAULT_MARKUP_MULTIPLIER;
+  // Marketing/public pricing always shows 2x markup regardless of internal config
+  const markup = 2.0;
   const mainRef = useRef<HTMLElement>(null);
   const [activeId, setActiveId] = useState<string>("introduction");
   const [sidebarOpen, setSidebarOpen] = useState(false);
