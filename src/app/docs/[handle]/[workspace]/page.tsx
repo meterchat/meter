@@ -270,8 +270,8 @@ export default function DocsPortalPage() {
     <div className="flex h-screen flex-col bg-background text-foreground">
       {/* Header — breadcrumb style */}
       <header className="shrink-0 border-b border-border/40">
-        <div className="flex items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-2 font-sans text-[13px]">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3">
+          <div className="flex items-center gap-2 font-sans text-[12px] md:text-[13px]">
             {/* Workspace branding */}
             {data.workspace.logoUrl ? (
               <img src={data.workspace.logoUrl} alt={data.workspace.name} className="h-6 w-auto" />
@@ -411,10 +411,10 @@ export default function DocsPortalPage() {
         {/* Main content */}
         <main ref={contentRef} className="flex-1 overflow-y-auto">
           {activeDoc ? (
-            <div className="max-w-3xl px-16 pt-8 pb-8 ml-20">
+            <div className="max-w-3xl px-5 md:px-16 pt-6 md:pt-8 pb-8 ml-0 lg:ml-20">
               {/* Page title */}
-              <h1 className="font-sans text-[26px] font-bold text-foreground mb-8">{TAB_LABELS[activeTab ?? ""] ?? data.workspace.name}</h1>
-              <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-sans prose-headings:font-semibold prose-p:text-foreground/80 prose-li:text-foreground/80 prose-a:text-blue-500 dark:prose-a:text-blue-400 prose-pre:bg-foreground/[0.04] prose-pre:border prose-pre:border-border prose-code:text-orange-600 dark:prose-code:text-orange-400">
+              <h1 className="font-sans text-[20px] md:text-[26px] font-bold text-foreground mb-6 md:mb-8">{TAB_LABELS[activeTab ?? ""] ?? data.workspace.name}</h1>
+              <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-sans prose-headings:font-semibold prose-h1:text-lg md:prose-h1:text-xl prose-h2:text-base md:prose-h2:text-lg prose-h3:text-sm md:prose-h3:text-base prose-p:text-foreground/80 prose-li:text-foreground/80 prose-a:text-blue-500 dark:prose-a:text-blue-400 prose-pre:bg-foreground/[0.04] prose-pre:border prose-pre:border-border prose-pre:text-[11px] prose-pre:overflow-x-auto prose-code:text-orange-600 dark:prose-code:text-orange-400">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={(() => {
