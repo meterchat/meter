@@ -754,6 +754,20 @@ export async function POST(req: NextRequest) {
                   });
                 }
               }
+              if (tc.name === "patch_artifact") {
+                let patchData: { id?: string; filePath?: string; content?: string; portalTab?: string } | undefined;
+                try { patchData = JSON.parse(toolResult); } catch { /* plain text fallback */ }
+                if (patchData?.id) {
+                  toolResultEvent.artifact = {
+                    id: patchData.id,
+                    filePath: patchData.filePath || args.file_path,
+                    content: patchData.content || "",
+                    category: "other",
+                    status: "draft",
+                    portalTab: patchData.portalTab || args.portal_tab || undefined,
+                  };
+                }
+              }
               if (tc.name === "fork_paths") {
                 toolResultEvent.forkPaths = args.paths;
               }

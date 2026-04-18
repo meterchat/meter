@@ -145,6 +145,40 @@ export const BUILTIN_TOOLS: ToolDef[] = [
   {
     type: "function",
     function: {
+      name: "patch_artifact",
+      description: "Apply targeted edits to an existing document without rewriting the whole thing. Use this instead of save_artifact when making small or medium changes to an existing document. Much faster and cheaper than regenerating the entire document. Provide an array of operations — each replaces a section of text.",
+      parameters: {
+        type: "object",
+        properties: {
+          file_path: {
+            type: "string",
+            description: "File path of the existing artifact to patch (e.g. 'SPECS.md')",
+          },
+          portal_tab: {
+            type: "string",
+            enum: ["thesis", "specs", "design"],
+            description: "If patching a portal document, specify the tab.",
+          },
+          operations: {
+            type: "array",
+            description: "Array of search-and-replace operations to apply in order.",
+            items: {
+              type: "object",
+              properties: {
+                search: { type: "string", description: "Exact text to find in the document (must match exactly, including whitespace)" },
+                replace: { type: "string", description: "Text to replace it with" },
+              },
+              required: ["search", "replace"],
+            },
+          },
+        },
+        required: ["file_path", "operations"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "save_datasheet",
       description: "Save a data table / spreadsheet. Use when the user wants to track a list, compare options, build a pipeline, or organize any structured data into rows and columns. The table will appear as an editable card in chat and in the Memory tab.",
       parameters: {
@@ -206,7 +240,8 @@ You have tools. Use them:
 - web_search: Search the web for anything current — news, docs, prices, APIs, etc. Use this proactively when questions touch on recent events or data you're unsure about.
 - save_decision: MANDATORY tool for logging decisions. When the user says "lock this", "log this", "decide", "yes lock it", or clicks Decide — you MUST call this tool. Never say "Locked" or "Decision saved" without actually calling save_decision. The tool call is what persists the decision — text alone does nothing. Before saving, ALWAYS call list_decisions first to check for existing decisions on the same topic. If you find one that this new decision updates or replaces, pass its ID in the \`supersedes\` field — this creates versioned history instead of duplicates. Always assign a category (branding, architecture, billing, product, engineering, strategy, or other).
 - list_decisions: Recall past decisions when the user asks "what did we decide" or references earlier choices. Also call this BEFORE save_decision to check for existing decisions on the same topic.
-- save_artifact: Save any document — strategy specs, technical docs, proposals, guides, meeting notes, plans, or briefs. Use whenever the user asks you to write, draft, or generate a document. Each document gets a preview in chat and is saved to their Documents folder.
+- save_artifact: Save a NEW document — strategy specs, technical docs, proposals, guides, meeting notes, plans, or briefs. Use for creating documents from scratch. Each document gets a preview in chat and is saved to their Documents folder.
+- patch_artifact: Apply targeted edits to an EXISTING document. Use this instead of save_artifact when updating an existing document — it's much faster because you only output the changed parts. Provide search/replace operations that match exact text in the document. ALWAYS prefer patch_artifact over save_artifact when the document already exists.
 - save_datasheet: Save a data table. Use when the user wants to track a list, compare options, build a pipeline, or organize any structured data into rows and columns. The table appears as an editable card in chat and in the Memory tab. Pass title, columns (array of header strings), and rows (array of objects keyed by column names).
 - get_current_datetime: Know what day/time it is.
 ${connectorSection}
@@ -335,6 +370,8 @@ export async function executeTool(
       return listDecisions(ctx);
     case "save_artifact":
       return saveArtifact(args, ctx);
+    case "patch_artifact":
+      return patchArtifact(args, ctx);
     case "save_datasheet":
       return saveDatasheet(args, ctx);
     case "fork_paths":
@@ -767,6 +804,115 @@ async function listDecisions(ctx: ToolContext): Promise<string> {
       .join("\n");
   } catch (err) {
     return `Failed to list decisions: ${(err as Error).message}`;
+  }
+}
+
+async function patchArtifact(
+  args: Record<string, unknown>,
+  ctx: ToolContext,
+): Promise<string> {
+  if (!ctx.userId) return "Cannot patch artifact: not authenticated.";
+  try {
+    const supabase = getSupabaseServer();
+    const filePath = args.file_path as string;
+    const portalTab = (args.portal_tab as string) || null;
+    const operations = args.operations as { search: string; replace: string }[];
+    const sessionId = ctx.sessionId ?? null;
+
+    if (!operations || operations.length === 0) {
+      return "No operations provided.";
+    }
+
+    // Find the existing artifact
+    let existingId: string | undefined;
+    let existingContent: string | undefined;
+
+    if (portalTab && sessionId) {
+      const { data } = await supabase
+        .from("artifacts")
+        .select("id, content, version")
+        .eq("user_id", ctx.userId)
+        .or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`)
+        .eq("portal_tab", portalTab)
+        .maybeSingle();
+      existingId = data?.id;
+      existingContent = data?.content;
+    } else if (sessionId) {
+      const { data } = await supabase
+        .from("artifacts")
+        .select("id, content, version")
+        .eq("user_id", ctx.userId)
+        .or(`session_id.eq.${sessionId},project_id.eq.${sessionId}`)
+        .eq("file_path", filePath)
+        .maybeSingle();
+      existingId = data?.id;
+      existingContent = data?.content;
+    }
+
+    if (!existingId || !existingContent) {
+      return `Artifact "${filePath}" not found. Use save_artifact to create it first.`;
+    }
+
+    // Apply operations sequentially
+    let content = existingContent;
+    let applied = 0;
+    let failed = 0;
+    for (const op of operations) {
+      if (content.includes(op.search)) {
+        content = content.replace(op.search, op.replace);
+        applied++;
+      } else {
+        failed++;
+      }
+    }
+
+    if (applied === 0) {
+      return `No operations matched. ${failed} search strings not found in the document. Make sure the search text matches exactly (including whitespace and line breaks).`;
+    }
+
+    // Snapshot current version before updating
+    const { data: current } = await supabase
+      .from("artifacts")
+      .select("id, version, content, category, file_path")
+      .eq("id", existingId)
+      .single();
+
+    if (current?.content) {
+      const versionId = `artv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      await supabase.from("artifact_versions").insert({
+        id: versionId,
+        artifact_id: current.id,
+        user_id: ctx.userId,
+        version: current.version ?? 1,
+        file_path: current.file_path,
+        content: current.content,
+        category: current.category ?? "other",
+        change_summary: `Patched: ${applied} operations applied`,
+      });
+    }
+
+    const newVersion = (current?.version ?? 1) + 1;
+    const { error: updateErr } = await supabase.from("artifacts").update({
+      content,
+      version: newVersion,
+      last_generated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", existingId);
+
+    if (updateErr) throw updateErr;
+
+    return JSON.stringify({
+      id: existingId,
+      filePath,
+      content,
+      portalTab,
+      applied,
+      failed,
+      version: newVersion,
+      message: `Patched "${filePath}": ${applied} changes applied${failed > 0 ? `, ${failed} not found` : ""}. (v${newVersion})`,
+    });
+  } catch (err) {
+    return `Failed to patch artifact: ${(err as Error).message}`;
   }
 }
 
