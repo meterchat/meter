@@ -742,6 +742,7 @@ export async function POST(req: NextRequest) {
                   content: args.content,
                   category: docCategory,
                   status: "draft",
+                  portalTab: args.portal_tab || undefined,
                 };
                 // Accumulate for DB persistence so document cards survive page reload
                 if (args.content) {

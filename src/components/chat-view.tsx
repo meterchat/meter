@@ -891,10 +891,44 @@ function DocumentPreviewCard({
   onSave: (messageId: string, docId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const isPortalDoc = doc.content.startsWith("__portal_tab__");
+  const portalTab = isPortalDoc ? doc.content.replace("__portal_tab__", "") : null;
+  const TAB_LABELS: Record<string, string> = { thesis: "Thesis", specs: "Specs", design: "Design" };
+
+  // Portal tab documents get a compact "updated" card
+  if (isPortalDoc) {
+    return (
+      <div className="mt-2 w-full max-w-[400px] rounded-lg border border-emerald-500/20 bg-emerald-500/5 overflow-hidden">
+        <div className="flex items-center gap-2.5 px-3 py-2.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 shrink-0">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <span className="font-sans text-[12px] text-foreground/80">{TAB_LABELS[portalTab ?? ""] ?? portalTab} updated</span>
+            <span className="font-mono text-[10px] text-muted-foreground/50 ml-2">{doc.filePath}</span>
+          </div>
+          <button
+            onClick={() => {
+              // Open docs portal
+              import("@/lib/auth-fetch").then(({ authFetch }) => {
+                const sessionId = useMeterStore.getState().activeSessionId;
+                authFetch(`/api/portal?sessionId=${encodeURIComponent(sessionId ?? "")}`)
+                  .then((r) => r.ok ? r.json() : null)
+                  .then((d) => { if (d?.slug && d?.handle) window.open(`/docs/${d.handle}/${d.slug}`, "_blank"); });
+              });
+            }}
+            className="shrink-0 font-mono text-[10px] text-emerald-500/70 hover:text-emerald-500 transition-colors"
+          >
+            View
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3 w-full max-w-[600px] rounded-lg border border-border overflow-hidden">
-      {/* Title bar — matches the PDF attachment header style */}
+      {/* Title bar */}
       <div className="flex items-center gap-2 bg-foreground/5 px-3 py-1.5 border-b border-border">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400 shrink-0">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -2299,7 +2333,7 @@ export function ChatView() {
                 }));
               }
               if (data.name === "save_artifact" && data.artifact) {
-                const a = data.artifact as { id?: string; filePath: string; content?: string; category?: string; status: string };
+                const a = data.artifact as { id?: string; filePath: string; content?: string; category?: string; status: string; portalTab?: string };
                 const artId = a.id || `temp_${Date.now()}`;
                 useArtifactsStore.getState().upsertArtifact({
                   id: artId,
@@ -2308,9 +2342,17 @@ export function ChatView() {
                   category: a.category || "other",
                   status: (a.status as "draft" | "synced") || "draft",
                   lastGeneratedAt: Date.now(),
+                  portalTab: a.portalTab,
                 });
-                // Add preview card to the current message
-                if (a.content) {
+                // For portal tab docs, show a compact "updated" card instead of full content
+                if (a.portalTab) {
+                  useMeterStore.getState().addDocumentToLastMessage({
+                    id: artId,
+                    filePath: a.filePath,
+                    content: `__portal_tab__${a.portalTab}`,
+                    category: a.category || "other",
+                  }, streamSessionId);
+                } else if (a.content) {
                   useMeterStore.getState().addDocumentToLastMessage({
                     id: artId,
                     filePath: a.filePath,
