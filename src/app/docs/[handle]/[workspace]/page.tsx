@@ -80,6 +80,7 @@ export default function DocsPortalPage() {
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
   const [tabDropdownOpen, setTabDropdownOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
   const copyMenuRef = useRef<HTMLDivElement>(null);
   const tabDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -167,6 +168,15 @@ export default function DocsPortalPage() {
       root.removeEventListener("scroll", handleScroll);
     };
   }, [headings, activeTab, activeHeading]);
+
+  // Auto-scroll sidebar to keep active heading visible
+  useEffect(() => {
+    if (!activeHeading || !sidebarRef.current) return;
+    const active = sidebarRef.current.querySelector(`[data-heading-id="${CSS.escape(activeHeading)}"]`) as HTMLElement | null;
+    if (active) {
+      active.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [activeHeading]);
 
   // Reset scroll on tab change
   useEffect(() => {
@@ -362,13 +372,14 @@ export default function DocsPortalPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* TOC Sidebar */}
         {headings.length > 0 && (
-          <aside className="hidden lg:block w-72 shrink-0 overflow-y-auto pl-8 pr-4 pt-8 pb-6">
+          <aside ref={sidebarRef} className="hidden lg:block w-72 shrink-0 overflow-y-auto pl-8 pr-4 pt-8 pb-6">
             <nav className="flex flex-col">
               {headings.map((h) => {
                 if (h.level === 2) {
                   return (
                     <button
                       key={h.id}
+                      data-heading-id={h.id}
                       onClick={() => scrollToHeading(h.id)}
                       className={`text-left py-1 mt-2 first:mt-0 font-sans text-[13px] font-semibold transition-colors hover:text-foreground ${
                         activeHeading === h.id ? "text-foreground" : "text-foreground/70"
@@ -381,6 +392,7 @@ export default function DocsPortalPage() {
                 return (
                   <button
                     key={h.id}
+                    data-heading-id={h.id}
                     onClick={() => scrollToHeading(h.id)}
                     className={`text-left py-0.5 pl-3 font-sans text-[12px] transition-colors ${
                       activeHeading === h.id
