@@ -362,26 +362,27 @@ export default function DocsPortalPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* TOC Sidebar */}
         {headings.length > 0 && (
-          <aside className="hidden lg:block w-64 shrink-0 overflow-y-auto pl-8 pr-6 pt-8 pb-6">
-            <nav className="flex flex-col gap-0.5">
+          <aside className="hidden lg:block w-72 shrink-0 overflow-y-auto pl-8 pr-4 pt-8 pb-6">
+            <nav className="flex flex-col">
               {headings.map((h) => {
                 if (h.level === 2) {
                   return (
-                    <div
+                    <button
                       key={h.id}
-                      className={`text-left py-2 mt-3 first:mt-0 font-sans text-[13px] font-semibold transition-colors ${
+                      onClick={() => scrollToHeading(h.id)}
+                      className={`text-left py-1 mt-2 first:mt-0 font-sans text-[13px] font-semibold transition-colors hover:text-foreground ${
                         activeHeading === h.id ? "text-foreground" : "text-foreground/70"
                       }`}
                     >
                       {h.text}
-                    </div>
+                    </button>
                   );
                 }
                 return (
                   <button
                     key={h.id}
                     onClick={() => scrollToHeading(h.id)}
-                    className={`text-left py-1 pl-3 font-sans text-[13px] transition-colors ${
+                    className={`text-left py-0.5 pl-3 font-sans text-[12px] transition-colors ${
                       activeHeading === h.id
                         ? "text-foreground font-medium"
                         : "text-foreground/50 hover:text-foreground/80"
@@ -398,7 +399,7 @@ export default function DocsPortalPage() {
         {/* Main content */}
         <main ref={contentRef} className="flex-1 overflow-y-auto">
           {activeDoc ? (
-            <div className="max-w-2xl px-16 pt-8 pb-8 ml-20">
+            <div className="max-w-3xl px-16 pt-8 pb-8 ml-20">
               {/* Page title */}
               <h1 className="font-sans text-[26px] font-bold text-foreground mb-8">{TAB_LABELS[activeTab ?? ""] ?? data.workspace.name}</h1>
               <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-sans prose-headings:font-semibold prose-p:text-foreground/80 prose-li:text-foreground/80 prose-a:text-blue-500 dark:prose-a:text-blue-400 prose-pre:bg-foreground/[0.04] prose-pre:border prose-pre:border-border prose-code:text-orange-600 dark:prose-code:text-orange-400">
