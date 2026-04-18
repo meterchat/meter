@@ -90,16 +90,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             w.id === id ? { ...w, name } : w
           ),
         }));
-        // Sync renamed workspace name to the meter store session so it
-        // persists to the server on the next session sync.
+        // Persist rename to server (server-first — no sync loop)
         if (workspace?.sessionId) {
-          // Lazy import to avoid circular dependency
           import("@/lib/store").then(({ useMeterStore }) => {
-            useMeterStore.setState((s) => ({
-              sessions: s.sessions.map((sess) =>
-                sess.id === workspace.sessionId ? { ...sess, name } : sess
-              ),
-            }));
+            useMeterStore.getState().renameSession(workspace.sessionId!, name);
           });
         }
       },
