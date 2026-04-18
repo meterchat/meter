@@ -37,23 +37,22 @@ export async function GET(req: NextRequest) {
     }
 
     const handle = user?.handle ?? null;
+    const name = session.workspace_name || session.project_name || "workspace";
+    const freshSlug = generatePortalSlug(name);
 
-    if (session.portal_slug) {
+    // Regenerate slug if name changed (slug no longer matches workspace name)
+    if (session.portal_slug && session.portal_slug === freshSlug) {
       return NextResponse.json({ slug: session.portal_slug, handle });
     }
 
-    // Generate a slug from the workspace name (unique per user, no suffix needed)
-    const name = session.workspace_name || session.project_name || "workspace";
-    const slug = generatePortalSlug(name);
-
-    // Save it
+    // Save the (new or first) slug
     await supabase
       .from("chat_sessions")
-      .update({ portal_slug: slug })
+      .update({ portal_slug: freshSlug })
       .eq("id", dbSessionId)
       .eq("user_id", userId);
 
-    return NextResponse.json({ slug, handle });
+    return NextResponse.json({ slug: freshSlug, handle });
   } catch (err) {
     console.error("Failed to get/create portal slug:", err);
     return NextResponse.json({ error: "Failed to create portal" }, { status: 500 });
