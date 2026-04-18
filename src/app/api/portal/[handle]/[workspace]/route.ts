@@ -73,7 +73,7 @@ export async function GET(
       .select("file_name, public_url, mime_type")
       .eq("user_id", user.id)
       .or(`session_id.eq.${scopedId},session_id.eq.${unscopedId}`)
-      .ilike("file_name", "%logo%,%icon%");
+      .or("file_name.ilike.%logo%,file_name.ilike.%icon%");
 
     const logoUrl = brandingInputs?.find((i: { file_name: string }) => i.file_name.toLowerCase().includes("logo") && !i.file_name.toLowerCase().includes("icon"))?.public_url ?? null;
     const iconUrl = brandingInputs?.find((i: { file_name: string }) => i.file_name.toLowerCase().includes("icon"))?.public_url ?? null;

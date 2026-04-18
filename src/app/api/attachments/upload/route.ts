@@ -3,14 +3,6 @@ import { getSupabaseServer } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-]);
-
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
@@ -22,13 +14,6 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    if (!ALLOWED_TYPES.has(file.type)) {
-      return NextResponse.json(
-        { error: `Unsupported file type: ${file.type}. Allowed: images, PDFs.` },
-        { status: 400 }
-      );
     }
 
     if (file.size > MAX_FILE_SIZE) {

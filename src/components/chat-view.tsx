@@ -2815,7 +2815,7 @@ export function ChatView() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,application/pdf"
+        accept="*/*"
         multiple
         className="hidden"
         onChange={(e) => {
