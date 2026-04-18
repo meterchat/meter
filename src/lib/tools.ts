@@ -158,33 +158,6 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
     },
   },
-  {
-    type: "function",
-    function: {
-      name: "porkbun_check_domain",
-      description:
-        "Check if a domain name is available for registration and get its price. Use when the user is discussing brand names, project names, or asks about domain availability. A purchase card will appear automatically for available domains.",
-      parameters: {
-        type: "object",
-        properties: {
-          domain: {
-            type: "string",
-            description: "Domain name to check (e.g. 'coolstartup.com', 'mybrand.io')",
-          },
-        },
-        required: ["domain"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "porkbun_get_pricing",
-      description:
-        "Get registration pricing for popular TLD extensions (.com, .io, .dev, .ai, etc.). Use when the user wants to compare prices across different TLDs.",
-      parameters: { type: "object", properties: {} },
-    },
-  },
 ];
 
 /** For backwards compat — all built-in tools */
@@ -236,8 +209,7 @@ You have tools. Use them:
 - save_artifact: Save any document — strategy specs, technical docs, proposals, guides, meeting notes, plans, or briefs. Use whenever the user asks you to write, draft, or generate a document. Each document gets a preview in chat and is saved to their Documents folder.
 - save_datasheet: Save a data table. Use when the user wants to track a list, compare options, build a pipeline, or organize any structured data into rows and columns. The table appears as an editable card in chat and in the Memory tab. Pass title, columns (array of header strings), and rows (array of objects keyed by column names).
 - get_current_datetime: Know what day/time it is.
-- porkbun_check_domain: Check if a domain is available and get its price. Use when the user picks a brand name or asks about domains. A purchase card will appear in chat for available domains.
-- porkbun_get_pricing: Get pricing for popular TLDs (.com, .io, .dev, etc.).${connectorSection}
+${connectorSection}
 
 Be direct and concise. Write in plain prose — avoid bullet lists and bold text unless truly necessary. Use short paragraphs instead of lists. When citing search results, mention the source. Don't apologize for using tools — just use them when they'll help.
 
@@ -485,10 +457,6 @@ export async function executeTool(
         posthogGetInsights(token, { limit: args.limit as number | undefined })
       );
     // Porkbun (platform-level — no user token needed)
-    case "porkbun_check_domain":
-      return porkbunCheck(args.domain as string);
-    case "porkbun_get_pricing":
-      return porkbunPricing();
     default:
       return `Unknown tool: ${name}`;
   }
