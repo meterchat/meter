@@ -381,7 +381,7 @@ export default function DocsPortalPage() {
                       key={h.id}
                       data-heading-id={h.id}
                       onClick={() => scrollToHeading(h.id)}
-                      className={`text-left py-1 mt-2 first:mt-0 font-sans text-[13px] font-semibold transition-colors hover:text-foreground ${
+                      className={`text-left py-1 mt-2 first:mt-0 font-sans text-[14px] font-semibold transition-colors hover:text-foreground ${
                         activeHeading === h.id ? "text-foreground" : "text-foreground/70"
                       }`}
                     >
@@ -394,7 +394,7 @@ export default function DocsPortalPage() {
                     key={h.id}
                     data-heading-id={h.id}
                     onClick={() => scrollToHeading(h.id)}
-                    className={`text-left py-0.5 pl-3 font-sans text-[12px] transition-colors ${
+                    className={`text-left py-0.5 pl-3 font-sans text-[13px] transition-colors ${
                       activeHeading === h.id
                         ? "text-foreground font-medium"
                         : "text-foreground/50 hover:text-foreground/80"
