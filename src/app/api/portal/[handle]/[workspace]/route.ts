@@ -68,15 +68,19 @@ export async function GET(
     }
 
     // Fetch branding inputs (logo/icon)
-    const { data: brandingInputs } = await supabase
+    // Fetch all workspace inputs and filter for branding in JS
+    // (Supabase .or() chaining doesn't nest properly for combined filters)
+    const { data: allInputs } = await supabase
       .from("workspace_inputs")
       .select("file_name, public_url, mime_type")
       .eq("user_id", user.id)
-      .or(`session_id.eq.${scopedId},session_id.eq.${unscopedId}`)
-      .or("file_name.ilike.%logo%,file_name.ilike.%icon%");
+      .or(`session_id.eq.${scopedId},session_id.eq.${unscopedId}`);
 
-    const logoUrl = brandingInputs?.find((i: { file_name: string }) => i.file_name.toLowerCase().includes("logo") && !i.file_name.toLowerCase().includes("icon"))?.public_url ?? null;
-    const iconUrl = brandingInputs?.find((i: { file_name: string }) => i.file_name.toLowerCase().includes("icon"))?.public_url ?? null;
+    const brandingInputs = (allInputs ?? []).filter((i: { file_name: string; mime_type: string }) =>
+      i.mime_type.startsWith("image/") && (i.file_name.toLowerCase().includes("logo") || i.file_name.toLowerCase().includes("icon"))
+    );
+    const logoUrl = brandingInputs.find((i: { file_name: string }) => i.file_name.toLowerCase().includes("logo") && !i.file_name.toLowerCase().includes("icon"))?.public_url ?? null;
+    const iconUrl = brandingInputs.find((i: { file_name: string }) => i.file_name.toLowerCase().includes("icon"))?.public_url ?? null;
 
     return NextResponse.json({
       workspace: {

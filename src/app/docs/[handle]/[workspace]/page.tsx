@@ -140,31 +140,33 @@ export default function DocsPortalPage() {
     return extractHeadings(activeDoc.content);
   }, [activeDoc]);
 
-  // Scroll spy — observe all h2/h3 elements with IDs in the content area
+  // Scroll spy — use scroll event on the main content area
   useEffect(() => {
     const root = contentRef.current;
     if (!root || headings.length === 0) return;
-    let observer: IntersectionObserver | null = null;
-    const timer = setTimeout(() => {
-      const elements = root.querySelectorAll("h2[id], h3[id]");
-      if (elements.length === 0) return;
-      observer = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting && entry.target.id) {
-              setActiveHeading(entry.target.id);
-            }
-          }
-        },
-        { root, rootMargin: "0px 0px -75% 0px", threshold: 0.1 },
-      );
-      elements.forEach((el) => observer!.observe(el));
-    }, 200);
+
+    const handleScroll = () => {
+      const scrollTop = root.scrollTop;
+      let current = "";
+      for (const h of headings) {
+        const el = root.querySelector(`#${CSS.escape(h.id)}`) as HTMLElement | null;
+        if (el && el.offsetTop - 120 <= scrollTop) {
+          current = h.id;
+        }
+      }
+      if (current && current !== activeHeading) {
+        setActiveHeading(current);
+      }
+    };
+
+    // Run once on mount to set initial heading
+    const timer = setTimeout(handleScroll, 300);
+    root.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
       clearTimeout(timer);
-      observer?.disconnect();
+      root.removeEventListener("scroll", handleScroll);
     };
-  }, [headings, activeTab]);
+  }, [headings, activeTab, activeHeading]);
 
   // Reset scroll on tab change
   useEffect(() => {
