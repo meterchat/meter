@@ -144,11 +144,11 @@ export default function DocsPortalPage() {
   useEffect(() => {
     const root = contentRef.current;
     if (!root || headings.length === 0) return;
-    // Small delay to ensure DOM is rendered after tab switch
+    let observer: IntersectionObserver | null = null;
     const timer = setTimeout(() => {
       const elements = root.querySelectorAll("h2[id], h3[id]");
       if (elements.length === 0) return;
-      const observer = new IntersectionObserver(
+      observer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
             if (entry.isIntersecting && entry.target.id) {
@@ -156,12 +156,14 @@ export default function DocsPortalPage() {
             }
           }
         },
-        { root, rootMargin: "-10% 0px -80% 0px", threshold: 0 },
+        { root, rootMargin: "0px 0px -75% 0px", threshold: 0.1 },
       );
-      elements.forEach((el) => observer.observe(el));
-      return () => observer.disconnect();
-    }, 100);
-    return () => clearTimeout(timer);
+      elements.forEach((el) => observer!.observe(el));
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      observer?.disconnect();
+    };
   }, [headings, activeTab]);
 
   // Reset scroll on tab change
@@ -394,24 +396,32 @@ export default function DocsPortalPage() {
         {/* Main content */}
         <main ref={contentRef} className="flex-1 overflow-y-auto">
           {activeDoc ? (
-            <div className="max-w-2xl px-16 pt-8 pb-8 ml-12">
+            <div className="max-w-2xl px-16 pt-8 pb-8 ml-20">
               {/* Page title */}
               <h1 className="font-sans text-[26px] font-bold text-foreground mb-8">{TAB_LABELS[activeTab ?? ""] ?? data.workspace.name}</h1>
               <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-sans prose-headings:font-semibold prose-p:text-foreground/80 prose-li:text-foreground/80 prose-a:text-blue-500 dark:prose-a:text-blue-400 prose-pre:bg-foreground/[0.04] prose-pre:border prose-pre:border-border prose-code:text-orange-600 dark:prose-code:text-orange-400">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
-                  components={{
-                    h2: ({ children, ...props }) => {
-                      const text = extractText(children);
-                      const id = slugify(text);
-                      return <h2 id={id} className="scroll-mt-6" {...props}>{children}</h2>;
-                    },
-                    h3: ({ children, ...props }) => {
-                      const text = extractText(children);
-                      const id = slugify(text);
-                      return <h3 id={id} className="scroll-mt-6" {...props}>{children}</h3>;
-                    },
-                  }}
+                  components={(() => {
+                    const seen = new Map<string, number>();
+                    const makeId = (text: string) => {
+                      let id = slugify(text);
+                      const count = seen.get(id) ?? 0;
+                      if (count > 0) id = `${id}-${count}`;
+                      seen.set(id, count + 1);
+                      return id;
+                    };
+                    return {
+                      h2: ({ children, ...props }: React.ComponentProps<"h2">) => {
+                        const text = extractText(children);
+                        return <h2 id={makeId(text)} className="scroll-mt-6" {...props}>{children}</h2>;
+                      },
+                      h3: ({ children, ...props }: React.ComponentProps<"h3">) => {
+                        const text = extractText(children);
+                        return <h3 id={makeId(text)} className="scroll-mt-6" {...props}>{children}</h3>;
+                      },
+                    };
+                  })()}
                 >
                   {activeDoc.content}
                 </ReactMarkdown>
