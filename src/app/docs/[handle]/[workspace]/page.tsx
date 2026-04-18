@@ -372,7 +372,7 @@ export default function DocsPortalPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* TOC Sidebar */}
         {headings.length > 0 && (
-          <aside ref={sidebarRef} className="hidden lg:block w-72 shrink-0 overflow-y-auto pl-8 pr-4 pt-8 pb-6">
+          <aside ref={sidebarRef} className="hidden lg:block w-56 shrink-0 overflow-y-auto pl-6 pr-3 pt-8 pb-6">
             <nav className="flex flex-col">
               {headings.map((h) => {
                 if (h.level === 2) {
