@@ -891,14 +891,38 @@ function DocumentPreviewCard({
   onSave: (messageId: string, docId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
   const isPortalDoc = doc.content.startsWith("__portal_tab__");
   const portalTab = isPortalDoc ? doc.content.replace("__portal_tab__", "") : null;
   const TAB_LABELS: Record<string, string> = { thesis: "Thesis", specs: "Specs", design: "Design" };
 
-  // Portal tab documents get a compact "updated" card
+  // Diff data for portal docs
+  const artifact = isPortalDoc ? useArtifactsStore.getState().artifacts.find((a) => a.id === doc.id) : null;
+  const newContent = artifact?.content ?? "";
+  const oldContent = artifact?.lastCommittedContent ?? "";
+  const hasChanges = isPortalDoc && !!oldContent && !!newContent && oldContent !== newContent;
+  const diffLines = useMemo(() => {
+    if (!hasChanges) return [];
+    const oldLines = oldContent.split("\n");
+    const newLines = newContent.split("\n");
+    const result: { type: "add" | "remove"; text: string }[] = [];
+    const maxLen = Math.max(oldLines.length, newLines.length);
+    for (let i = 0; i < maxLen; i++) {
+      const o = oldLines[i];
+      const n = newLines[i];
+      if (o !== n) {
+        if (o != null && !newLines.includes(o)) result.push({ type: "remove", text: o });
+        if (n != null && !oldLines.includes(n)) result.push({ type: "add", text: n });
+      }
+    }
+    return result.slice(0, 50);
+  }, [hasChanges, oldContent, newContent]);
+
+  // Portal tab documents get a compact "updated" card with diff dropdown
   if (isPortalDoc) {
+
     return (
-      <div className="mt-2 w-full max-w-[400px] rounded-lg border border-emerald-500/20 bg-emerald-500/5 overflow-hidden">
+      <div className="mt-2 w-full max-w-[500px] rounded-lg border border-emerald-500/20 bg-emerald-500/5 overflow-hidden">
         <div className="flex items-center gap-2.5 px-3 py-2.5">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 shrink-0">
             <polyline points="20 6 9 17 4 12" />
@@ -907,9 +931,16 @@ function DocumentPreviewCard({
             <span className="font-sans text-[12px] text-foreground/80">{TAB_LABELS[portalTab ?? ""] ?? portalTab} updated</span>
             <span className="font-mono text-[10px] text-muted-foreground/50 ml-2">{doc.filePath}</span>
           </div>
+          {hasChanges && (
+            <button
+              onClick={() => setShowDiff(!showDiff)}
+              className="shrink-0 font-mono text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors"
+            >
+              {showDiff ? "Hide diff" : "Show diff"}
+            </button>
+          )}
           <button
             onClick={() => {
-              // Open docs portal
               import("@/lib/auth-fetch").then(({ authFetch }) => {
                 const sessionId = useMeterStore.getState().activeSessionId;
                 authFetch(`/api/portal?sessionId=${encodeURIComponent(sessionId ?? "")}`)
@@ -922,6 +953,18 @@ function DocumentPreviewCard({
             View
           </button>
         </div>
+        {showDiff && diffLines.length > 0 && (
+          <div className="border-t border-emerald-500/10 max-h-60 overflow-y-auto">
+            <pre className="p-3 font-mono text-[10px] leading-relaxed">
+              {diffLines.map((line, i) => (
+                <div key={i} className={line.type === "add" ? "text-emerald-500 bg-emerald-500/5" : "text-red-400 bg-red-500/5"}>
+                  <span className="inline-block w-4 text-center opacity-50">{line.type === "add" ? "+" : "−"}</span>
+                  {line.text}
+                </div>
+              ))}
+            </pre>
+          </div>
+        )}
       </div>
     );
   }
