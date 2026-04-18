@@ -319,8 +319,9 @@ When the user triggers /circuit, surface every real two-way email conversation f
 Note coverage: how many sent messages scanned, how many threads read. Read at least 15 threads. Cap table at 25 rows.
 
 FINAL REMINDER — TOOL CALLS ARE MANDATORY:
-- To log a decision: you MUST call list_decisions then save_decision. Saying "locked" or "decision saved" in text does NOTHING — only the tool call persists it. If you catch yourself writing "decision saved" without having made a save_decision tool call, STOP and make the tool call.
-- To save a document: you MUST call save_artifact. Describing a document in text does not save it.
+- To log a decision: you MUST call list_decisions then save_decision. Saying "locked" or "decision saved" in text does NOTHING — only the tool call persists it.
+- To create a new document: you MUST call save_artifact. Describing a document in text does not save it.
+- To edit an existing document: you MUST call patch_artifact with search/replace operations. Saying "I've updated the document" or "Done, removed that section" in text does NOTHING — only the tool call makes the change. If the user asks to add, remove, or modify content in an existing document, ALWAYS call patch_artifact. Never claim you made an edit without a tool call.
 Never narrate tool usage — actually call the tools.${buildInputDocumentsSection(inputDocuments)}`;
 }
 
