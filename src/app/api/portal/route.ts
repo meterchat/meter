@@ -46,11 +46,19 @@ export async function GET(req: NextRequest) {
     }
 
     // Save the (new or first) slug
-    await supabase
+    const { error: slugErr } = await supabase
       .from("chat_sessions")
       .update({ portal_slug: freshSlug })
       .eq("id", dbSessionId)
       .eq("user_id", userId);
+
+    if (slugErr) {
+      console.error("[portal] Failed to update slug:", slugErr.message);
+      // Fall back to existing slug if update fails
+      if (session.portal_slug) {
+        return NextResponse.json({ slug: session.portal_slug, handle });
+      }
+    }
 
     return NextResponse.json({ slug: freshSlug, handle });
   } catch (err) {
