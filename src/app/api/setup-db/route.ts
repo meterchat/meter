@@ -645,6 +645,18 @@ const STATEMENTS: string[] = [
    exception when duplicate_object then null;
    end $$`,
 
+  // ── Waitlist / request-invite signups (public homepage capture) ──
+  `create table if not exists waitlist_signups (
+    id text primary key,
+    email text not null,
+    source text default 'homepage',
+    created_at timestamptz default now()
+  )`,
+  `create unique index if not exists idx_waitlist_signups_email on waitlist_signups (lower(email))`,
+  `create index if not exists idx_waitlist_signups_created_at on waitlist_signups (created_at desc)`,
+  // Locked down: only server routes (service role) read/write. No anon access.
+  `alter table waitlist_signups enable row level security`,
+
   // ── Remove legacy crypto/blockchain columns ──
   `alter table chat_messages drop column if exists signature`,
   `alter table chat_messages drop column if exists tx_hash`,

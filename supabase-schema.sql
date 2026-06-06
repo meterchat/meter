@@ -430,6 +430,22 @@ create index if not exists idx_artifact_versions_artifact on artifact_versions(a
 create index if not exists idx_artifact_versions_user on artifact_versions(user_id);
 
 -- =============================================
+-- WAITLIST
+-- =============================================
+
+-- Waitlist / request-invite signups captured from the public homepage.
+-- Email-only capture; written server-side via the service role (see /api/waitlist).
+create table if not exists waitlist_signups (
+  id text primary key,
+  email text not null,
+  source text default 'homepage',          -- where the signup came from
+  created_at timestamptz default now()
+);
+
+create unique index if not exists idx_waitlist_signups_email on waitlist_signups (lower(email));
+create index if not exists idx_waitlist_signups_created_at on waitlist_signups (created_at desc);
+
+-- =============================================
 -- ROW LEVEL SECURITY
 -- =============================================
 -- All user-data tables enforce owner-only access via app.user_id context.
@@ -447,3 +463,5 @@ alter table tx_history enable row level security;
 alter table oauth_state enable row level security;
 alter table auth_challenges enable row level security;
 alter table log_entries enable row level security;
+-- waitlist_signups: server-only (service role) access, no anon policy.
+alter table waitlist_signups enable row level security;

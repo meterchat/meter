@@ -652,6 +652,83 @@ function AuthButtons({
   );
 }
 
+// ── Waitlist (request invite) ──────────────────────────────────────────
+
+function WaitlistForm() {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (state === "loading" || state === "done") return;
+    const trimmed = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setState("error");
+      setMessage("Enter a valid email.");
+      return;
+    }
+    setState("loading");
+    setMessage(null);
+    try {
+      const res = await authFetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed, source: "homepage" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Something went wrong");
+      setState("done");
+      setMessage(
+        data.alreadyJoined
+          ? "You're already on the list."
+          : "You're on the list. We'll be in touch."
+      );
+    } catch (err) {
+      setState("error");
+      setMessage(err instanceof Error ? err.message : "Something went wrong");
+    }
+  };
+
+  if (state === "done") {
+    return (
+      <p className="font-mono text-[12px] text-muted-foreground/70">
+        ✓ {message}
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col items-center gap-2 w-full max-w-xs mx-auto">
+      <div className="flex w-full gap-2">
+        <input
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (state === "error") { setState("idle"); setMessage(null); }
+          }}
+          placeholder="you@email.com"
+          aria-label="Email address"
+          className="flex-1 min-w-0 h-11 px-3.5 rounded-xl bg-foreground/[0.04] border border-foreground/[0.08] text-sm text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors focus:border-foreground/25"
+        />
+        <button
+          type="submit"
+          disabled={state === "loading"}
+          className="h-11 px-4 rounded-xl bg-foreground/[0.06] border border-foreground/[0.08] text-foreground text-sm font-medium transition-all hover:bg-foreground/[0.1] hover:border-foreground/[0.14] disabled:opacity-50 whitespace-nowrap"
+        >
+          {state === "loading" ? "..." : "Request invite"}
+        </button>
+      </div>
+      {message && state === "error" && (
+        <p className="font-mono text-[11px] text-red-400 self-start">{message}</p>
+      )}
+    </form>
+  );
+}
+
 // ── Subscription comparison logos ──────────────────────────────────────
 
 function SubscriptionLogos() {
@@ -872,16 +949,16 @@ export function LandingPage() {
           </motion.div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-semibold tracking-tighter leading-[0.95] mb-6">
-            Pay-Per-Thought AI.
+            Think like you code.
           </h1>
 
           <motion.p
-            className="text-lg sm:text-xl text-muted-foreground/70 max-w-lg mx-auto leading-relaxed mb-10"
+            className="text-lg sm:text-xl text-muted-foreground/70 max-w-xl mx-auto leading-relaxed mb-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.8 }}
           >
-            Think freely, getting the top frontier models to debate each other, while keeping your thoughts private, and paying only for what you use.
+            Version your inputs, debate decisions across every frontier model, and compile them into specs your coding agents build from &mdash; pay only for what you use.
           </motion.p>
 
           <motion.div
@@ -1024,10 +1101,23 @@ export function LandingPage() {
                 error={error}
                 status={status}
                 onContinue={handleContinue}
-  
+
                 onCrossDevice={handleCrossDevice}
                 onBack={() => { setStep("passkey"); setError(null); setStatus(null); }}
               />
+            </div>
+
+            {/* Secondary path: request an invite (for those not ready to sign in) */}
+            <div className="mt-10 w-full max-w-xs mx-auto">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="h-px flex-1 bg-foreground/[0.06]" />
+                <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/40 uppercase">or</span>
+                <div className="h-px flex-1 bg-foreground/[0.06]" />
+              </div>
+              <p className="text-sm text-muted-foreground/60 mb-3">
+                Not ready? Request an invite and we&apos;ll save your spot.
+              </p>
+              <WaitlistForm />
             </div>
           </RevealSection>
         </div>
