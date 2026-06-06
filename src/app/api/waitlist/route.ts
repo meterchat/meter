@@ -8,6 +8,36 @@ function generateId() {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Fire a notification email on each new signup via Resend.
+// No-op if RESEND_API_KEY isn't configured, so it never breaks signups.
+async function notifyNewSignup(email: string, source: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+  const to = process.env.WAITLIST_NOTIFY_TO || "s@meter.chat";
+  const from = process.env.WAITLIST_NOTIFY_FROM || "Meter Waitlist <onboarding@resend.dev>";
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        reply_to: email,
+        subject: `New waitlist signup: ${email}`,
+        text: `${email} just requested an invite to Meter.\n\nSource: ${source}\nTime: ${new Date().toISOString()}`,
+      }),
+    });
+    if (!res.ok) {
+      console.error("Waitlist notify failed:", res.status, await res.text().catch(() => ""));
+    }
+  } catch (err) {
+    console.error("Waitlist notify error:", err);
+  }
+}
+
 // POST /api/waitlist — join the waitlist / request an invite (no auth required)
 export async function POST(req: NextRequest) {
   try {
@@ -34,10 +64,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, alreadyJoined: true });
     }
 
+    const src = typeof source === "string" ? source.slice(0, 60) : "homepage";
     const { error } = await supabase.from("waitlist_signups").insert({
       id: generateId(),
       email: normalizedEmail,
-      source: typeof source === "string" ? source.slice(0, 60) : "homepage",
+      source: src,
     });
 
     if (error) {
@@ -47,6 +78,10 @@ export async function POST(req: NextRequest) {
       }
       throw error;
     }
+
+    // New signup — notify (awaited so it completes in serverless, but its
+    // own try/catch ensures a mail failure never fails the signup).
+    await notifyNewSignup(normalizedEmail, src);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
