@@ -978,6 +978,24 @@ export function LandingPage() {
               onBack={() => { setStep("passkey"); setError(null); setStatus(null); }}
             />
           </motion.div>
+
+          {/* Exclusive early access — request an invite, right under the CTA */}
+          <motion.div
+            className="mt-8 w-full max-w-xs mx-auto"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.9, duration: 0.6 }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-foreground/[0.06]" />
+              <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/40 uppercase">By invitation</span>
+              <div className="h-px flex-1 bg-foreground/[0.06]" />
+            </div>
+            <p className="text-sm text-muted-foreground/60 mb-3">
+              Meter onboards new builders in waves. Request an invite.
+            </p>
+            <WaitlistForm />
+          </motion.div>
         </motion.div>
       </motion.section>
 
@@ -1107,15 +1125,15 @@ export function LandingPage() {
               />
             </div>
 
-            {/* Secondary path: request an invite (for those not ready to sign in) */}
+            {/* Secondary path: request an invite (exclusive early access) */}
             <div className="mt-10 w-full max-w-xs mx-auto">
               <div className="flex items-center gap-3 mb-5">
                 <div className="h-px flex-1 bg-foreground/[0.06]" />
-                <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/40 uppercase">or</span>
+                <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/40 uppercase">By invitation</span>
                 <div className="h-px flex-1 bg-foreground/[0.06]" />
               </div>
               <p className="text-sm text-muted-foreground/60 mb-3">
-                Not ready? Request an invite and we&apos;ll save your spot.
+                Meter onboards new builders in waves. Request an invite.
               </p>
               <WaitlistForm />
             </div>
