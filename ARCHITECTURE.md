@@ -16,6 +16,11 @@ Meter is a postpaid, multi-model AI workspace for builders. It sits in the pre-e
 
 ## Tech Stack
 
+### Packages
+- **`packages/cli`:** Meter CLI, the terminal-native execution handoff. It uses multi-model review, isolated worktrees, repo verification, repair, and local decision records.
+- **`packages/sdk`:** Headless SDK surface for Meter API consumers.
+- **`packages/react`:** Embeddable React components for Meter-powered chat and billing experiences.
+
 ### Frontend
 - **Framework:** Next.js 15 (App Router, Turbopack)
 - **Language:** TypeScript (strict mode)

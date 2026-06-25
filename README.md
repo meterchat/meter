@@ -10,13 +10,15 @@ Meter gives you every top model — Claude Opus 4.6, Claude Sonnet 4.6, GPT-5.4,
 
 Meter sits between human judgment and machine execution. It is the operating layer for AI-native thinking — the place where decisions are made, recorded, and handed off to coding agents with full fidelity.
 
-**Three core primitives:**
+**Four core primitives:**
 
 1. **Pay-per-thought routing** — Every frontier model on one postpaid tab. You pay for what you use, never for idle seats. Configurable spend limits protect your budget. Meter routes around rate limits automatically via multi-tier fallback (direct API → OpenRouter → Bedrock).
 
 2. **Structured debate** — When a decision matters, Meter pits models against each other in a 4-phase adversarial framework: Opening → Challenge → Vote → Synthesis. Three models from three independent labs (Anthropic, OpenAI, xAI) attack each other's logic. Every argument is logged. The result is a decision record: timestamped, searchable, citable.
 
 3. **Agent Spec Kit** — When it's time to build, Meter synthesizes decisions and debates into the artifacts your coding agent needs: `ARCHITECTURE.md`, `DECISIONS.md`, `.cursorrules`, `CLAUDE.md`, and more. These commit directly to your GitHub repo so Cursor, Claude Code, and Codex start with perfect context.
+
+4. **Meter CLI** — The terminal-native execution surface in `packages/cli`. It carries the same multi-model review pattern into code tasks: plan, challenge, generate candidate diffs, run repo verification, and apply one tested diff.
 
 ---
 

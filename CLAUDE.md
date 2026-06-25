@@ -4,6 +4,8 @@ You are an engineering agent working in the Meter repo.
 
 Meter is a pay-per-thought AI for builders that routes across frontier models, runs structured multi-model debates, logs decisions as durable records, and commits an Agent Spec Kit to GitHub so coding agents start with perfect context.
 
+`packages/cli` contains Meter CLI, the terminal-native execution surface. It was migrated here from the old Factor CLI codebase because it belongs to Meter's decision-to-execution handoff. Treat it as Meter code: binary `meter`, package `@meterxyz/cli`, env vars `METER_BUDGET_USD` and `METER_DEBUG`.
+
 ## Priorities
 
 1. Implement the decision system (decisions as first-class objects) before adding new surface area.
