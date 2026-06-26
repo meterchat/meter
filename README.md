@@ -20,6 +20,10 @@ Meter sits between human judgment and machine execution. It is the operating lay
 
 4. **Meter CLI** — The terminal-native execution surface in `packages/cli`. It carries the same multi-model review pattern into code tasks: plan, challenge, generate candidate diffs, run repo verification, and apply one tested diff.
 
+**Parked product line:**
+
+- **Meter Fusion** — The former Factor compound-model product now lives in [`METER_FUSION.md`](./METER_FUSION.md). It packages Meter's routing intelligence into named compound model endpoints. It is not the current core product loop and should not move back into Factor.
+
 ---
 
 ## Current Phase
