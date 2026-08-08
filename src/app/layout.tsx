@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
@@ -98,6 +96,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments)};",
+          }}
+        />
+        <script defer src="/_vercel/insights/script.js" />
+        <script defer src="/_vercel/speed-insights/script.js" />
         <link rel="preload" as="image" href="/logo-dark-copy.webp" />
         {[1, 2, 3, 4, 5, 6].map((n) => (
           <link key={n} rel="preload" as="image" href={`/frame-${n}.png`} />
@@ -115,8 +121,6 @@ export default function RootLayout({
             {children}
           </main>
         </Providers>
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   );
