@@ -37,12 +37,13 @@ export async function POST(req: NextRequest) {
       });
 
       const challengeId = crypto.randomBytes(16).toString("hex");
-      await supabase.from("auth_challenges").insert({
+      const { error: challengeErr } = await supabase.from("auth_challenges").insert({
         id: challengeId,
         challenge: options.challenge,
         type: "login",
         expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
       });
+      if (challengeErr) throw challengeErr;
 
       return NextResponse.json({ options, challengeId });
     }
@@ -220,13 +221,14 @@ export async function POST(req: NextRequest) {
       });
 
       const challengeId = crypto.randomBytes(16).toString("hex");
-      await supabase.from("auth_challenges").insert({
+      const { error: registerChallengeErr } = await supabase.from("auth_challenges").insert({
         id: challengeId,
         user_id: userId,
         challenge: options.challenge,
         type: "register",
         expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
       });
+      if (registerChallengeErr) throw registerChallengeErr;
 
       return NextResponse.json({ options, challengeId, userId });
     }
